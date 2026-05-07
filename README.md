@@ -74,6 +74,20 @@ claude mcp add --transport stdio ai-action-tracker -- node /ABSOLUTE/PATH/TO/dis
 claude mcp add --transport stdio ai-action-tracker -- npx -y ai-action-tracker-mcp
 ```
 
+### 리포지토리 내 테스트 (`.mcp.json`)
+
+이 리포지토리에는 프로젝트 단위로 MCP 서버를 자동 등록하는 [`.mcp.json`](./.mcp.json)이 포함돼 있습니다 — 클론 후 다음만 수행하면 이 디렉터리에서 Claude Code 세션을 열 때 `ai-action-tracker` MCP 서버가 자동 연결됩니다.
+
+```bash
+git clone <this-repo>
+cd ai-action-tracker
+npm install
+npm run build       # dist/src/stdio.js 생성 — .mcp.json이 가리키는 산출물
+claude              # 또는 IDE 통합으로 Claude Code 세션 시작
+```
+
+`.mcp.json`의 `args`는 상대경로(`./dist/src/stdio.js`)이므로 머신·OS에 무관하게 작동합니다. 단 **빌드 산출물이 없으면 MCP 서버 spawn에 실패**하므로 `npm run build`는 필수입니다(`tsx` 직접 실행으로 바꾸고 싶다면 `command`를 `npx`, `args`를 `["tsx", "./src/stdio.ts"]`로 수정).
+
 ## 원격 실행 — Streamable HTTP transport
 
 개발 중:
