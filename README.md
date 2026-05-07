@@ -8,12 +8,15 @@ MCP(Model Context Protocol) 서버 hello-world 스캐폴드. **stdio**(로컬)�
 
 ```
 src/
-  server.ts   # McpServer 정의 (transport-agnostic)
-  stdio.ts    # 로컬 진입점 (stdio transport)
-  http.ts     # 원격 진입점 (Streamable HTTP transport)
+  server.ts              # McpServer 정의 (transport-agnostic)
+  stdio.ts               # 로컬 진입점 (stdio transport)
+  http.ts                # 원격 진입점 (Streamable HTTP transport)
+hooks/
+  pre-tool-use.ts        # Claude Code PreToolUse hook (위험 명령 차단)
+  danger-patterns.json   # 차단 정규식 목록
 ```
 
-전송 계층과 MCP 서버 정의를 분리해 동일 서버를 로컬·원격 양쪽으로 노출합니다.
+전송 계층과 MCP 서버 정의를 분리해 동일 서버를 로컬·원격 양쪽으로 노출합니다. `hooks/`는 Claude Code의 도구 호출을 가로채는 보안 게이트로, MCP 서버와 독립적으로 동작합니다.
 
 ## 노출된 능력 (capabilities)
 
@@ -52,7 +55,7 @@ npm run start:stdio
   "mcpServers": {
     "ai-action-tracker": {
       "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/ai-action-tracker/dist/stdio.js"]
+      "args": ["/ABSOLUTE/PATH/TO/ai-action-tracker/dist/src/stdio.js"]
     }
   }
 }
@@ -61,7 +64,7 @@ npm run start:stdio
 ### Claude Code 등록
 
 ```bash
-claude mcp add --transport stdio ai-action-tracker -- node /ABSOLUTE/PATH/TO/dist/stdio.js
+claude mcp add --transport stdio ai-action-tracker -- node /ABSOLUTE/PATH/TO/dist/src/stdio.js
 ```
 
 ### npm 게시 후 npx로 등록 (선택)
@@ -92,6 +95,25 @@ PORT=8080 npm run start:http
 ```bash
 claude mcp add --transport http ai-action-tracker https://your-host.example.com/mcp
 ```
+
+## PreToolUse Hook — 위험 Bash 명령 차단
+
+Claude Code가 위험한 Bash 명령(`rm -rf /`, `dd of=/dev/sd*`, `curl ... | sh` 등)을 실행하려 할 때 차단하는 hook을 제공합니다. 차단 시 채팅 트랜스크립트에 경고와 명령 원문이 표시됩니다.
+
+```bash
+npm run build
+# settings.json에 등록 (자세한 절차는 docs/hook-installation.md):
+# {
+#   "hooks": {
+#     "PreToolUse": [
+#       { "matcher": "Bash", "hooks": [{ "type": "command",
+#         "command": "node /ABS/PATH/dist/hooks/pre-tool-use.js" }] }
+#     ]
+#   }
+# }
+```
+
+설치/커스터마이징 가이드: [`docs/hook-installation.md`](./docs/hook-installation.md).
 
 ## 디버깅 — MCP Inspector
 
