@@ -1,6 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
+/**
+ * Builds a fresh MCP server instance with the project's hello-world capabilities.
+ *
+ * Registers a `hello://world` resource, an `echo` tool, and a `greeting` prompt.
+ * The returned server is transport-agnostic — connect it to a `StdioServerTransport`
+ * for local Claude Desktop / Code use, or to a `StreamableHTTPServerTransport`
+ * for remote `/mcp` deployment.
+ */
 export function createServer(): McpServer {
   const server = new McpServer({
     name: "ai-action-tracker-mcp",
