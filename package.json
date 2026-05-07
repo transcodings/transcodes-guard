@@ -1,0 +1,35 @@
+{
+  "name": "ai-action-tracker-mcp",
+  "version": "0.1.0",
+  "description": "Hello-world MCP server scaffold (stdio + Streamable HTTP).",
+  "type": "module",
+  "main": "dist/stdio.js",
+  "bin": {
+    "ai-action-tracker-mcp": "dist/stdio.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev:stdio": "tsx src/stdio.ts",
+    "dev:http": "tsx src/http.ts",
+    "start:stdio": "node dist/stdio.js",
+    "start:http": "node dist/http.js",
+    "inspect": "npx @modelcontextprotocol/inspector npx tsx src/stdio.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
