@@ -9,16 +9,48 @@
        ↓
 Claude Code가 PreToolUse hook 실행 (이 스크립트)
        ↓
-hooks/danger-patterns.json 의 정규식과 매칭
-       ↓
-   매칭됨? ─yes─→ exit 2 + stderr 경고 → 호출 차단
-       │
-       no
-       ↓
-   exit 0 → 호출 정상 진행
+   ┌── 1차: 정규식 패턴 매칭 (danger-patterns.json) ──┐
+   │     매칭? ─yes─→ exit 2 + reason: pattern X     │
+   │     no                                          │
+   │      ↓                                          │
+   ├── 2차: rm -rf 의미 분석 (git ls-files 검사) ────┤
+   │     target이 tracked? ─yes─→ exit 2 +          │
+   │                              reason: tracked   │
+   │     no                                          │
+   │      ↓                                          │
+   └── exit 0 → 호출 정상 진행 ──────────────────────┘
 ```
 
-차단 시 stderr 메시지는 모델에게 피드백되며, 사용자는 채팅창에서 **차단된 명령 원문**과 **매칭된 패턴**을 확인할 수 있습니다.
+**1차 (정규식 패턴)**: `rm -rf /`, `dd of=/dev/sda`, `curl ... | bash` 같은 *명백히 위험한 형태*를 즉시 매칭. 빠르고 결정적.
+
+**2차 (의미 분석)**: 정규식이 잡지 못하는 상대경로 (`rm -rf src`, `rm -rf hooks/...`)에 대해 cwd 기준으로 절대경로 변환 후 `git ls-files`로 tracked 여부 확인. tracked 파일을 포함한 디렉터리·파일 삭제 시도면 차단.
+
+차단 시 stderr 메시지에는 **차단 사유(Reason)**, **영향받는 파일 샘플(Affected)**, **차단된 명령 원문(Command)**이 구조화돼 표시됩니다.
+
+### 차단 메시지 예시
+
+정규식 매칭 차단:
+
+```
+⛔ ai-action-tracker: BLOCKED dangerous command
+
+Reason: matched pattern `rm-rf-root` — Recursive removal of an absolute path, ~, or $HOME
+
+Command: rm -rf /tmp/foo
+```
+
+git tracking 기반 차단:
+
+```
+⛔ ai-action-tracker: BLOCKED dangerous command
+
+Reason: rm -rf would delete 3 file(s) tracked in git
+
+Affected:
+  - src — 3 tracked file(s): src/http.ts, src/server.ts, src/stdio.ts
+
+Command: rm -rf src
+```
 
 ## 1단계 — 빌드
 
@@ -112,9 +144,10 @@ Claude Code 세션에서 다음을 시도:
 
 ## 알려진 한계
 
-- **정규식 우회**: `r''m -rf /` 같은 quote 분할이나 base64 디코드 후 eval 같은 우회는 단순 정규식으로 잡지 못합니다. 1단계의 한계로 수용합니다.
-- **거짓 양성**: 정상 사용에도 매칭되는 패턴은 `danger-patterns.json`에서 직접 조정.
-- **Hook 시작 지연**: 매 Bash 호출마다 약 50–80ms(Node 시작) 추가됩니다.
+- **Shell 의미 무시**: 토큰화는 단순 공백 분리. quote(`rm -rf "src"`), 변수 확장(`rm -rf $DIR`), 명령 치환(`rm -rf $(ls)`), 체이닝(`rm -rf src && ...`)은 정확히 처리하지 못합니다.
+- **정규식 패턴 우회**: `r''m -rf /` 같은 quote 분할은 잡지 못함. 단순 정규식의 한계.
+- **거짓 양성**: 추적되지 않는 파일이라도 패턴(예: `/tmp/foo` 절대경로)에 매칭되면 차단됩니다 — 1차 패턴은 의도적으로 broad. 필요 시 `danger-patterns.json`에서 조정.
+- **Hook 시작 지연**: 매 Bash 호출마다 Node 시작 ~50–80ms. `rm -rf` 호출 시 추가로 git 서브프로세스(~30–50ms)가 포함됩니다.
 - **추가 인증 미연결**: 현재는 차단만 수행하며, 사용자가 인증을 거쳐 일시 우회하는 흐름은 다음 단계에서 추가됩니다.
 
 ## 다른 모드와의 관계
