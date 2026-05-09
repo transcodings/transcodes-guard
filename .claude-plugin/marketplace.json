@@ -1,0 +1,20 @@
+{
+  "name": "ai-action-tracker-mp",
+  "owner": {
+    "name": "huskyhoochu",
+    "email": "info@cghds.kr",
+    "url": "https://github.com/huskyhoochu"
+  },
+  "description": "AI safety & action-tracking tooling for Claude Code (PreToolUse danger interceptor + audit MCP).",
+  "version": "1.0.0",
+  "plugins": [
+    {
+      "name": "ai-action-tracker",
+      "source": "./plugins/ai-action-tracker",
+      "description": "Risky-bash interceptor (PreToolUse hook) and audit MCP server.",
+      "category": "security",
+      "tags": ["safety", "hook", "mcp", "audit", "bash"],
+      "strict": true
+    }
+  ]
+}
