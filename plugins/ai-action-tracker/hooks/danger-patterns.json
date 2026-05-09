@@ -1,0 +1,44 @@
+{
+  "patterns": [
+    {
+      "id": "rm-rf-root",
+      "regex": "\\brm\\s+(-[rRf]+\\s+)+(/[^\\s]*|~[^\\s]*|\\$HOME[^\\s]*)",
+      "reason": "Recursive removal of an absolute path, ~, or $HOME"
+    },
+    {
+      "id": "rm-rf-broad",
+      "regex": "\\brm\\s+-[rRf]*[rR][rRf]*\\s+\\*",
+      "reason": "Recursive removal with bare glob (rm -rf *)"
+    },
+    {
+      "id": "dd-disk",
+      "regex": "\\bdd\\s+.*of=/dev/(sd|nvme|hd|disk)",
+      "reason": "Direct write to block device"
+    },
+    {
+      "id": "mkfs",
+      "regex": "\\bmkfs(\\.|\\s)",
+      "reason": "Filesystem creation"
+    },
+    {
+      "id": "curl-pipe-shell",
+      "regex": "\\b(curl|wget)\\b[^|]*\\|\\s*(sudo\\s+)?(sh|bash|zsh)\\b",
+      "reason": "Piping remote content to shell"
+    },
+    {
+      "id": "fork-bomb",
+      "regex": ":\\(\\)\\s*\\{\\s*:\\|:&",
+      "reason": "Classic fork bomb"
+    },
+    {
+      "id": "chmod-recursive-root",
+      "regex": "\\bchmod\\s+-R\\s+\\d+\\s+(/[^\\s]*|~[^\\s]*|\\$HOME[^\\s]*)",
+      "reason": "Recursive chmod on an absolute path, ~, or $HOME"
+    },
+    {
+      "id": "git-force-push-protected",
+      "regex": "\\bgit\\s+push\\s+(--force|-f)\\b.*\\b(main|master|prod|production)\\b",
+      "reason": "Force push to protected branch"
+    }
+  ]
+}
