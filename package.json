@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "build:plugin": "npm run build && rm -rf plugins/ai-action-tracker/dist && mkdir -p plugins/ai-action-tracker/dist plugins/ai-action-tracker/dist/hooks plugins/ai-action-tracker/hooks && cp -R dist/. plugins/ai-action-tracker/dist/ && cp hooks/danger-patterns.json plugins/ai-action-tracker/dist/hooks/danger-patterns.json && cp hooks/danger-patterns.json plugins/ai-action-tracker/hooks/danger-patterns.json",
+    "build:plugin": "npm run build && rm -rf plugins/ai-action-tracker/dist && mkdir -p plugins/ai-action-tracker/dist/hooks && cp -R dist/. plugins/ai-action-tracker/dist/ && cp hooks/danger-patterns.json plugins/ai-action-tracker/dist/hooks/danger-patterns.json",
     "dev:stdio": "tsx src/stdio.ts",
     "dev:http": "tsx src/http.ts",
     "dev:hook": "tsx hooks/pre-tool-use.ts",
