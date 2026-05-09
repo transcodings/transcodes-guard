@@ -229,3 +229,10 @@ tags
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,linux,visualstudiocode,vim,node
+
+### Project ###
+# Plugin packaging — dist/ is generally ignored above, but we ship plugin
+# build artifacts inside the marketplace tree so users get a runnable
+# install without `npm install`.
+!plugins/*/dist/
+!plugins/*/dist/**
