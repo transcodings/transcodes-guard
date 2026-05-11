@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "build:plugin": "tsc && cp hooks/danger-patterns.json dist/hooks/danger-patterns.json",
+    "build:plugin": "tsc && cp hooks/danger-patterns.json dist/hooks/danger-patterns.json && chmod 755 dist/src/stdio.js dist/src/http.js dist/hooks/pre-tool-use.js",
     "dev:stdio": "tsx src/stdio.ts",
     "dev:http": "tsx src/http.ts",
     "dev:hook": "tsx hooks/pre-tool-use.ts",
