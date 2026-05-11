@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-verify:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Cache Turborepo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ matrix.node-version }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ matrix.node-version }}-
+
+      - name: Install
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build:plugin
+
+      - name: Verify plugin dist is committed and in sync
+        run: git diff --exit-code -- plugins/ai-action-tracker/dist/
+
+      - name: Hook smoke test — regex block (rm -rf /)
+        run: |
+          set -e
+          OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
+            | node plugins/ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:2" || { echo "::error::Hook did not block rm -rf /"; exit 1; }
+          echo "$OUT" | grep -q "BLOCKED dangerous command" || { echo "::error::Block message missing"; exit 1; }
+
+      - name: Hook smoke test — safe command passes (ls)
+        run: |
+          set -e
+          OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"ls"},"cwd":"'"$PWD"'"}' \
+            | node plugins/ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow safe command"; exit 1; }
