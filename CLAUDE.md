@@ -5,55 +5,68 @@ Model Context Protocol(MCP) 서버 스캐폴드. 단일 `createServer()` 정의�
 ## Essential Commands
 
 ```bash
-npm install
-npm run dev:stdio   # tsx, stdio transport (로컬 클라이언트용)
-npm run dev:http    # tsx, port 3000 /mcp (원격 테스트)
-npm run dev:hook    # tsx, PreToolUse hook (stdin JSON으로 단발 실행)
-npm run build       # tsc → dist/
-npm run inspect     # MCP Inspector UI로 도구·리소스 직접 호출
+npm install            # workspaces hoist (루트에서 한 번만)
+npm run dev:stdio      # tsx, stdio transport (로컬 클라이언트용)
+npm run dev:http       # tsx, port 3000 /mcp (원격 테스트)
+npm run dev:hook       # tsx, PreToolUse hook (stdin JSON으로 단발 실행)
+npm run build          # turbo run build (tsc → plugins/ai-action-tracker/dist/)
+npm run build:plugin   # turbo run build:plugin (danger-patterns.json 동기화 포함)
+npm run inspect        # MCP Inspector UI로 도구·리소스 직접 호출
 ```
 
-No lint, test, or CI scripts yet — `tsc`(빌드 통과)가 사실상 유일한 정합성 체크.
+CI(`.github/workflows/ci.yml`)는 PR마다 `build:plugin` 실행 + `git diff --exit-code plugins/ai-action-tracker/dist/`로 빌드 산출물 동기성을 검증. hook smoke test(`rm -rf /` → exit 2, `ls` → exit 0)도 함께 검증.
+
+## Running locally without installing the plugin
+
+- `npm run dev:stdio` — tsx 핫리로드 stdio (Inspector·외부 MCP 클라이언트가 직접 접속 가능).
+- `npm run inspect` — MCP Inspector UI 자동 기동.
+- 컴파일된 dist에 MCP 클라이언트를 직접 붙이려면:
+  `claude mcp add ai-action-tracker -- node plugins/ai-action-tracker/dist/src/stdio.js`
 
 ## Layout
 
 ```
-src/                       # MCP 서버 소스 — 단일 진실원천
-  server.ts                #   createServer() — 모든 capability의 단일 정의처
-  stdio.ts                 #   로컬 진입점. 셰뱅 + npx 배포 가능.
-  http.ts                  #   원격 진입점. 단일 /mcp, stateless.
-hooks/                     # PreToolUse hook 소스 — 단일 진실원천
-  pre-tool-use.ts          #   위험 Bash 명령 차단 진입점.
-  danger-patterns.json     #   차단 정규식 목록. 런타임 read이므로 재빌드 불필요.
-.claude-plugin/
-  marketplace.json         # Marketplace 카탈로그 (이 리포가 곧 marketplace).
+/                                       # 루트 = marketplace + monorepo orchestrator
+  .claude-plugin/marketplace.json       # Marketplace 카탈로그 (이 리포가 곧 marketplace).
+  package.json                          # private. workspaces + turbo orchestrator. 진짜 metadata 없음.
+  turbo.json                            # task pipeline (build, build:plugin).
+  .github/workflows/ci.yml              # build sync + hook smoke test.
 plugins/
-  ai-action-tracker/       # 배포 단위 plugin 패키지 — 빌드 산출물 + 매니페스트만
-    .claude-plugin/plugin.json
-    .mcp.json              #   MCP 서버 등록 (${CLAUDE_PLUGIN_ROOT})
-    hooks/hooks.json       #   PreToolUse 매니페스트
-    dist/                  #   build:plugin 산출물 (수동 편집 금지)
+  ai-action-tracker/                    # 배포 단위 plugin 패키지 — 단일 진실원천
+    .claude-plugin/plugin.json          #   plugin 매니페스트
+    .mcp.json                           #   MCP 서버 등록 (${CLAUDE_PLUGIN_ROOT})
+    hooks/hooks.json                    #   PreToolUse 매니페스트
+    package.json                        #   진짜 npm metadata (name, main, bin, files, deps)
+    tsconfig.json                       #   tsc rootDir = plugin root
+    src/                                #     MCP 서버 소스
+      server.ts                         #       createServer() — 모든 capability의 단일 정의처
+      stdio.ts                          #       로컬 진입점. 셰뱅 + npx 배포 가능.
+      http.ts                           #       원격 진입점. 단일 /mcp, stateless.
+    hooks/                              #     PreToolUse hook 소스
+      pre-tool-use.ts                   #       위험 Bash 명령 차단 진입점.
+      danger-patterns.json              #       차단 정규식 목록.
+    dist/                               #   build:plugin 산출물 (git 커밋, 수동 편집 금지)
 docs/
-  architecture.md          #   설계 의도. 비자명한 변경 전 필독.
-  adding-capabilities.md   #   새 도구/리소스/프롬프트 추가 절차.
-  hook-installation.md     #   plugin 미사용 시 수동 hook 등록 절차.
-  research/                #   외부 리서치 자료 (plugin 변환 전략 포함).
+  architecture.md                       # 설계 의도. 비자명한 변경 전 필독.
+  adding-capabilities.md                # 새 도구/리소스/프롬프트 추가 절차.
+  hook-installation.md                  # plugin 미사용 시 수동 hook 등록 절차.
+  research/                             # 외부 리서치 자료 (plugin 변환 전략 포함).
 .claude/rules/
-  mcp-server.md            #   src/**/*.ts 작업 시 자동 로딩되는 룰.
+  mcp-server.md                         # plugin source 작업 시 자동 로딩되는 룰.
 ```
 
-**구조 정책 (2026-05-09 — 정리안 3):** 코드는 루트 `src/`, `hooks/`가 단일 진실원천. `plugins/ai-action-tracker/` 트리는 `npm run build:plugin`이 동기화하는 **빌드 산출물 + 매니페스트만** 보유 — 수동 편집 금지. 향후 정리안 2(모노리포 정렬)로 source를 plugin 폴더 안으로 이동할 계획 있음.
+**구조 정책 (정리안 2 — 모노리포 정렬):** 코드는 `plugins/ai-action-tracker/src/`, `plugins/ai-action-tracker/hooks/`가 단일 진실원천. 루트는 marketplace catalog + Turborepo orchestrator 역할만 수행. `plugins/ai-action-tracker/dist/`는 `npm run build:plugin` 산출물(git 커밋) — 수동 편집 금지. dev/plugin 채널 모두 plugin 트리 안의 동일 source를 빌드해 사용하므로 본질적 중복 없음.
 
 ## Must
 
-- Add capabilities **only** by editing `createServer()` in `src/server.ts`. Never duplicate registrations in `stdio.ts` or `http.ts`.
+- Add capabilities **only** by editing `createServer()` in `plugins/ai-action-tracker/src/server.ts`. Never duplicate registrations in `stdio.ts` or `http.ts`.
 - Validate every tool input with `zod`. LLM-supplied arguments are untrusted by default.
 - Log via `console.error` (stderr). `console.log` to stdout corrupts JSON-RPC framing in stdio mode and the client will silently disconnect.
-- Run `npm run build` before claiming work complete. No tests exist; `tsc` is the contract.
+- Run `npm run build:plugin` before claiming work complete. No tests exist; `tsc` + dist sync는 CI가 강제하는 정합성 계약.
 - After capability changes, verify with `npm run inspect` — the Inspector renders new tools immediately.
-- The PreToolUse hook (`hooks/pre-tool-use.ts`) must **fail-open** on internal errors (exit 0). A buggy hook should never brick the user's workflow. This is the opposite of the HTTP auth rule and intentional — see `docs/hook-installation.md`.
+- The PreToolUse hook (`plugins/ai-action-tracker/hooks/pre-tool-use.ts`) must **fail-open** on internal errors (exit 0). A buggy hook should never brick the user's workflow. This is the opposite of the HTTP auth rule and intentional — see `docs/hook-installation.md`.
 - Hook output: stderr only, never stdout. Exit codes: `0` allow, `2` block (fed back to Claude). Exit `1` does NOT block — never use it for policy enforcement.
-- Plugin 패키지 갱신 시 `npm run build:plugin`을 거쳐 `plugins/ai-action-tracker/dist/`를 동기화. plugin 트리 안의 `dist/` 또는 매니페스트 외 파일을 직접 편집하지 말 것 — 다음 빌드에서 덮어쓰여진다.
+- Source 수정 후 반드시 `npm run build:plugin`을 거쳐 `plugins/ai-action-tracker/dist/`를 commit과 함께 동기화. CI(`git diff --exit-code`)가 dist 누락 시 fail. plugin 트리 안의 `dist/`를 직접 편집하지 말 것 — 다음 빌드에서 덮어쓰여진다.
 
 ## Never
 

@@ -1,6 +1,6 @@
 # 능력(capability) 추가 절차
 
-이 문서는 새 도구·리소스·프롬프트를 추가할 때 따라 하는 체크리스트다. 모든 작업은 **`src/server.ts` 안의 `createServer()`** 한 함수에서 끝난다.
+이 문서는 새 도구·리소스·프롬프트를 추가할 때 따라 하는 체크리스트다. 모든 작업은 **`plugins/ai-action-tracker/src/server.ts` 안의 `createServer()`** 한 함수에서 끝난다.
 
 ## 공통 사전 준비
 
@@ -108,9 +108,9 @@ server.registerPrompt(
 
 ## 다음 단계 (capability가 늘어나면)
 
-여러 도구가 쌓이면 `src/server.ts`가 비대해진다. 그 시점에 분리 고려:
+여러 도구가 쌓이면 `plugins/ai-action-tracker/src/server.ts`가 비대해진다. 그 시점에 분리 고려:
 
-- 도구별 파일 분리: `src/tools/recordAction.ts`로 빼고 `server.ts`는 등록만 담당.
-- `src/tools/index.ts`에서 일괄 등록 헬퍼.
+- 도구별 파일 분리: `plugins/ai-action-tracker/src/tools/recordAction.ts`로 빼고 `server.ts`는 등록만 담당.
+- `plugins/ai-action-tracker/src/tools/index.ts`에서 일괄 등록 헬퍼.
 
 지금은 hello-world 단계라 분리 불필요 — 도구가 5개 이상 쌓일 때 다시 검토.
