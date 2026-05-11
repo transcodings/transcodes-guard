@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "outputs": ["dist/**"],
+      "inputs": ["src/**", "hooks/**", "tsconfig.json", "package.json"]
+    },
+    "build:plugin": {
+      "dependsOn": ["build"],
+      "outputs": ["dist/**"],
+      "inputs": ["src/**", "hooks/**", "tsconfig.json", "package.json"]
+    }
+  }
+}

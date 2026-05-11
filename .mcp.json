@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "ai-action-tracker": {
-      "command": "node",
-      "args": ["./dist/src/stdio.js"]
-    }
-  }
-}

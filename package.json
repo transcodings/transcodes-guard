@@ -1,40 +1,24 @@
 {
-  "name": "ai-action-tracker-mcp",
-  "version": "0.1.0",
-  "description": "Hello-world MCP server scaffold (stdio + Streamable HTTP).",
-  "type": "module",
-  "main": "dist/src/stdio.js",
-  "bin": {
-    "ai-action-tracker-mcp": "dist/src/stdio.js",
-    "ai-action-tracker-hook": "dist/hooks/pre-tool-use.js"
-  },
-  "files": [
-    "dist",
-    "hooks/danger-patterns.json",
-    "README.md"
+  "name": "ai-action-tracker-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Monorepo orchestrator for ai-action-tracker plugin + marketplace.",
+  "workspaces": [
+    "plugins/*"
   ],
   "scripts": {
-    "build": "tsc",
-    "build:plugin": "npm run build && rm -rf plugins/ai-action-tracker/dist && mkdir -p plugins/ai-action-tracker/dist/hooks && cp -R dist/. plugins/ai-action-tracker/dist/ && cp hooks/danger-patterns.json plugins/ai-action-tracker/dist/hooks/danger-patterns.json",
-    "dev:stdio": "tsx src/stdio.ts",
-    "dev:http": "tsx src/http.ts",
-    "dev:hook": "tsx hooks/pre-tool-use.ts",
-    "start:stdio": "node dist/src/stdio.js",
-    "start:http": "node dist/src/http.js",
-    "start:hook": "node dist/hooks/pre-tool-use.js",
-    "inspect": "npx @modelcontextprotocol/inspector npx tsx src/stdio.ts",
-    "prepublishOnly": "npm run build"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^3.23.0"
+    "build": "turbo run build",
+    "build:plugin": "turbo run build:plugin",
+    "dev:stdio": "npm run dev:stdio -w plugins/ai-action-tracker",
+    "dev:http": "npm run dev:http -w plugins/ai-action-tracker",
+    "dev:hook": "npm run dev:hook -w plugins/ai-action-tracker",
+    "inspect": "npm run inspect -w plugins/ai-action-tracker"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.5.0"
+    "turbo": "^2.0.0"
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "packageManager": "npm@10.0.0"
 }

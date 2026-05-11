@@ -1,0 +1,40 @@
+{
+  "name": "ai-action-tracker-mcp",
+  "version": "0.1.0",
+  "description": "Risky-bash interceptor (PreToolUse hook) and audit MCP server.",
+  "type": "module",
+  "main": "dist/src/stdio.js",
+  "bin": {
+    "ai-action-tracker-mcp": "dist/src/stdio.js",
+    "ai-action-tracker-hook": "dist/hooks/pre-tool-use.js"
+  },
+  "files": [
+    "dist",
+    "hooks/danger-patterns.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:plugin": "tsc && cp hooks/danger-patterns.json dist/hooks/danger-patterns.json",
+    "dev:stdio": "tsx src/stdio.ts",
+    "dev:http": "tsx src/http.ts",
+    "dev:hook": "tsx hooks/pre-tool-use.ts",
+    "start:stdio": "node dist/src/stdio.js",
+    "start:http": "node dist/src/http.js",
+    "start:hook": "node dist/hooks/pre-tool-use.js",
+    "inspect": "npx @modelcontextprotocol/inspector npx tsx src/stdio.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
