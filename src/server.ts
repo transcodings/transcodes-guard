@@ -65,7 +65,7 @@ export function createServer(): McpServer {
     {
       title: "Simulate command against block patterns",
       description:
-        "Check whether a Bash command would be blocked by the regex layer of the PreToolUse hook. Runs against the union of system and user patterns. Does NOT simulate the second-layer `rm -rf` git-tracked check (which is cwd-dependent) — the hook may still block commands this tool reports as allowed.",
+        "Check whether a specific Bash command would be blocked by the PreToolUse hook's regex layer. Call this whenever the user mentions a concrete command and asks if it is dangerous, safe, blocked, intercepted, allowed, or whether the hook/danger-patterns would catch it — including Korean phrasings like '이 명령 차단될까', '이거 hook에 걸려?', 'rm -rf src 실행해도 돼?', '미리 검사해줘'. Runs against the union of system and user patterns. Does NOT simulate the second-layer `rm -rf` git-tracked check (cwd-dependent), so the hook may still block commands this tool reports as allowed.",
       inputSchema: { command: z.string().min(1) },
     },
     async ({ command }) => {
@@ -88,7 +88,7 @@ export function createServer(): McpServer {
     {
       title: "Add user danger pattern",
       description:
-        "Register a new user-owned block pattern. id must be unique across both system and user patterns. regex must compile. Persisted to ~/.claude/ai-action-tracker/user-patterns.json and effective on the next hook invocation.",
+        "Register a new user-owned block pattern that the PreToolUse hook will enforce. Call when the user asks to add/register/block a new pattern, ban a command, or extend danger-patterns — e.g. '패턴 추가해줘', 'sudo 막아줘', '이런 명령도 차단되게 해줘'. id must be unique across both system and user patterns; regex must compile. Persisted to ~/.claude/ai-action-tracker/user-patterns.json and effective on the next hook invocation.",
       inputSchema: {
         id: z
           .string()
@@ -117,7 +117,7 @@ export function createServer(): McpServer {
     {
       title: "Update user danger pattern",
       description:
-        "Modify regex or reason of an existing user pattern. System patterns cannot be modified — attempts are rejected. Pass only the fields you want to change.",
+        "Modify regex or reason of an existing user pattern. Call when the user asks to edit/change/수정 a pattern by id — e.g. 'no-sudo 패턴 reason 바꿔줘', 'regex 수정해줘'. System patterns cannot be modified; attempts are rejected. Pass only the fields you want to change.",
       inputSchema: {
         id: z.string().min(1),
         regex: z.string().min(1).optional(),
@@ -150,7 +150,7 @@ export function createServer(): McpServer {
     {
       title: "Remove user danger pattern",
       description:
-        "Delete an existing user pattern by id. System patterns cannot be removed — attempts are rejected.",
+        "Delete an existing user pattern by id. Call when the user asks to remove/삭제/제거/취소 a pattern — e.g. 'no-sudo 패턴 삭제해줘', '내가 추가한 거 빼줘'. System patterns cannot be removed; attempts are rejected.",
       inputSchema: { id: z.string().min(1) },
     },
     async ({ id }) => {
