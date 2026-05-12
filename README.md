@@ -64,7 +64,7 @@ Command: rm -rf src
 같은 세션에서:
 > "echo tool로 'hello plugin' 보내봐"
 
-→ Claude가 `echo` MCP tool을 호출하고 `Echo: hello plugin` 응답을 받습니다. `hello://world` 리소스, `greeting` 프롬프트도 동일하게 사용 가능.
+→ Claude가 `echo` MCP tool을 호출하고 `Echo: hello plugin` 응답을 받습니다. `danger-patterns://list` 리소스(현재 차단 패턴 목록), `greeting` 프롬프트도 동일하게 사용 가능.
 
 **5단계 — 비활성화 / 제거**
 
@@ -191,10 +191,10 @@ claude   # 새 세션 시작 — MCP 서버 자동 등록
 | 종류 | 이름 | 설명 |
 |------|------|------|
 | Tool | `echo` | 입력 메시지를 그대로 돌려줌 (placeholder) |
-| Resource | `hello://world` | "Hello, World!" 텍스트 반환 |
+| Resource | `danger-patterns://list` | 현재 차단 패턴 8개를 markdown 표로 반환 (`hooks/danger-patterns.json` 런타임 read) |
 | Prompt | `greeting` | `name`을 받아 인사 템플릿 생성 |
 
-> **참고**: 현재 hello-world 수준입니다. 향후 이 자리에 secrets 검사·MCP 서버 위험 프로파일 같은 보안 advisory tool들이 추가될 예정 — [`docs/prd/`](./docs/prd/) 참고.
+> **참고**: `echo` tool과 `greeting` prompt는 아직 placeholder입니다. `danger-patterns://list` resource는 hook 정책을 그대로 노출하는 첫 "진짜" capability. 향후 secrets 검사·MCP 서버 위험 프로파일 같은 보안 advisory tool들이 추가될 예정 — [`docs/prd/`](./docs/prd/) 참고.
 
 ### 브라우저 UI로 직접 호출 (Inspector)
 
