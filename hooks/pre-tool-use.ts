@@ -20,25 +20,17 @@
  * (exit 0) so a buggy guard cannot brick the user's workflow.
  */
 
-import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
+import {
+  findFirstMatch,
+  loadMergedPatterns,
+} from "../src/danger-patterns.js";
 
 interface PreToolUsePayload {
   tool_name: string;
   tool_input: { command?: string; [k: string]: unknown };
   cwd?: string;
-}
-
-interface DangerPattern {
-  id: string;
-  regex: string;
-  reason: string;
-}
-
-interface DangerConfig {
-  patterns: DangerPattern[];
 }
 
 interface BlockResult {
@@ -53,37 +45,14 @@ async function readStdin(): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-function loadPatterns(): DangerConfig {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    path.join(here, "danger-patterns.json"),
-    path.join(here, "..", "..", "hooks", "danger-patterns.json"),
-  ];
-  for (const p of candidates) {
-    try {
-      return JSON.parse(readFileSync(p, "utf8")) as DangerConfig;
-    } catch {
-      // try next
-    }
-  }
-  throw new Error(
-    `danger-patterns.json not found near ${here} (tried: ${candidates.join(", ")})`,
-  );
-}
-
-function checkPatternMatch(
-  command: string,
-  config: DangerConfig,
-): BlockResult | null {
-  for (const { id, regex, reason } of config.patterns) {
-    if (new RegExp(regex).test(command)) {
-      return {
-        reason: `matched pattern \`${id}\` — ${reason}`,
-        command,
-      };
-    }
-  }
-  return null;
+function checkPatternMatch(command: string): BlockResult | null {
+  const hit = findFirstMatch(command, loadMergedPatterns());
+  if (!hit) return null;
+  const { source, id, reason } = hit.matched;
+  return {
+    reason: `matched ${source} pattern \`${id}\` — ${reason}`,
+    command,
+  };
 }
 
 /**
@@ -236,10 +205,9 @@ async function main(): Promise<void> {
   if (typeof command !== "string") process.exit(0);
 
   const cwd = payload.cwd ?? process.cwd();
-  const config = loadPatterns();
 
   const block =
-    checkPatternMatch(command, config) ?? checkRmGitTracked(command, cwd);
+    checkPatternMatch(command) ?? checkRmGitTracked(command, cwd);
 
   if (block) {
     emitBlock(block);

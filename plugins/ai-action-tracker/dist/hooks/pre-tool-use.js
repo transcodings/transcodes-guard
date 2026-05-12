@@ -19,42 +19,24 @@
  * Failures (malformed input, missing config, hook bugs) fail-open
  * (exit 0) so a buggy guard cannot brick the user's workflow.
  */
-import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { findFirstMatch, loadMergedPatterns, } from "../src/danger-patterns.js";
 async function readStdin() {
     const chunks = [];
     for await (const chunk of process.stdin)
         chunks.push(chunk);
     return Buffer.concat(chunks).toString("utf8");
 }
-function loadPatterns() {
-    const here = path.dirname(fileURLToPath(import.meta.url));
-    const candidates = [
-        path.join(here, "danger-patterns.json"),
-        path.join(here, "..", "..", "hooks", "danger-patterns.json"),
-    ];
-    for (const p of candidates) {
-        try {
-            return JSON.parse(readFileSync(p, "utf8"));
-        }
-        catch {
-            // try next
-        }
-    }
-    throw new Error(`danger-patterns.json not found near ${here} (tried: ${candidates.join(", ")})`);
-}
-function checkPatternMatch(command, config) {
-    for (const { id, regex, reason } of config.patterns) {
-        if (new RegExp(regex).test(command)) {
-            return {
-                reason: `matched pattern \`${id}\` — ${reason}`,
-                command,
-            };
-        }
-    }
-    return null;
+function checkPatternMatch(command) {
+    const hit = findFirstMatch(command, loadMergedPatterns());
+    if (!hit)
+        return null;
+    const { source, id, reason } = hit.matched;
+    return {
+        reason: `matched ${source} pattern \`${id}\` — ${reason}`,
+        command,
+    };
 }
 /**
  * Extract removal targets from a recursive `rm` invocation.
@@ -183,8 +165,7 @@ async function main() {
     if (typeof command !== "string")
         process.exit(0);
     const cwd = payload.cwd ?? process.cwd();
-    const config = loadPatterns();
-    const block = checkPatternMatch(command, config) ?? checkRmGitTracked(command, cwd);
+    const block = checkPatternMatch(command) ?? checkRmGitTracked(command, cwd);
     if (block) {
         emitBlock(block);
         process.exit(2);

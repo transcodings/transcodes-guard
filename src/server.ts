@@ -1,51 +1,37 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import {
+  addUserPattern,
+  findFirstMatch,
+  getUserPatternsPath,
+  loadMergedPatterns,
+  PatternValidationError,
+  removeUserPattern,
+  updateUserPattern,
+  type MergedPattern,
+} from "./danger-patterns.js";
 
-interface DangerPattern {
-  id: string;
-  regex: string;
-  reason: string;
-}
-
-interface DangerConfig {
-  patterns: DangerPattern[];
-}
-
-function loadDangerPatterns(): DangerConfig {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    path.join(here, "..", "hooks", "danger-patterns.json"),
-    path.join(here, "..", "..", "hooks", "danger-patterns.json"),
-  ];
-  for (const p of candidates) {
-    try {
-      return JSON.parse(readFileSync(p, "utf8")) as DangerConfig;
-    } catch {
-      // try next
-    }
-  }
-  throw new Error(
-    `danger-patterns.json not found (tried: ${candidates.join(", ")})`,
-  );
-}
-
-function formatPatternsMarkdown(config: DangerConfig): string {
+function formatPatternsMarkdown(patterns: MergedPattern[]): string {
   const lines: string[] = [
     "# Blocked Bash command patterns",
     "",
-    `${config.patterns.length} pattern(s) intercept Bash invocations before execution.`,
-    "Source: `hooks/danger-patterns.json` (re-read at every hook run).",
+    `${patterns.length} pattern(s) intercept Bash invocations before execution.`,
+    `User patterns live at \`${getUserPatternsPath()}\` and are editable through the \`add_user_pattern\`/\`update_user_pattern\`/\`remove_user_pattern\` tools. System patterns are immutable.`,
     "",
-    "| id | reason | regex |",
-    "| -- | ------ | ----- |",
+    "| source | id | reason | regex |",
+    "| ------ | -- | ------ | ----- |",
   ];
-  for (const { id, reason, regex } of config.patterns) {
-    lines.push(`| \`${id}\` | ${reason} | \`${regex}\` |`);
+  for (const { source, id, reason, regex } of patterns) {
+    lines.push(`| ${source} | \`${id}\` | ${reason} | \`${regex}\` |`);
   }
   return lines.join("\n");
+}
+
+function textResult(text: string, isError = false) {
+  return {
+    isError,
+    content: [{ type: "text" as const, text }],
+  };
 }
 
 export function createServer(): McpServer {
@@ -60,7 +46,7 @@ export function createServer(): McpServer {
     {
       title: "Blocked Bash patterns",
       description:
-        "Regex patterns the PreToolUse hook uses to block dangerous Bash commands. Read from hooks/danger-patterns.json at request time so edits are reflected immediately.",
+        "Regex patterns the PreToolUse hook uses to block dangerous Bash commands. Merges immutable system patterns (hooks/danger-patterns.json) with user patterns (~/.claude/ai-action-tracker/user-patterns.json), read fresh at every request.",
       mimeType: "text/markdown",
     },
     async (uri) => ({
@@ -68,10 +54,116 @@ export function createServer(): McpServer {
         {
           uri: uri.href,
           mimeType: "text/markdown",
-          text: formatPatternsMarkdown(loadDangerPatterns()),
+          text: formatPatternsMarkdown(loadMergedPatterns()),
         },
       ],
     }),
+  );
+
+  server.registerTool(
+    "simulate_command",
+    {
+      title: "Simulate command against block patterns",
+      description:
+        "Check whether a Bash command would be blocked by the regex layer of the PreToolUse hook. Runs against the union of system and user patterns. Does NOT simulate the second-layer `rm -rf` git-tracked check (which is cwd-dependent) — the hook may still block commands this tool reports as allowed.",
+      inputSchema: { command: z.string().min(1) },
+    },
+    async ({ command }) => {
+      const patterns = loadMergedPatterns();
+      const hit = findFirstMatch(command, patterns);
+      if (!hit) {
+        return textResult(
+          `ALLOWED by regex layer (${patterns.length} pattern(s) checked).\nNote: hook may still block via the rm -rf git-tracked semantic check.`,
+        );
+      }
+      const m = hit.matched;
+      return textResult(
+        `BLOCKED by ${m.source} pattern \`${m.id}\`\nreason: ${m.reason}\nregex: ${m.regex}`,
+      );
+    },
+  );
+
+  server.registerTool(
+    "add_user_pattern",
+    {
+      title: "Add user danger pattern",
+      description:
+        "Register a new user-owned block pattern. id must be unique across both system and user patterns. regex must compile. Persisted to ~/.claude/ai-action-tracker/user-patterns.json and effective on the next hook invocation.",
+      inputSchema: {
+        id: z
+          .string()
+          .regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
+        regex: z.string().min(1),
+        reason: z.string().min(1),
+      },
+    },
+    async (input) => {
+      try {
+        const saved = addUserPattern(input);
+        return textResult(
+          `Added user pattern \`${saved.id}\`.\nregex: ${saved.regex}\nreason: ${saved.reason}`,
+        );
+      } catch (e) {
+        if (e instanceof PatternValidationError) {
+          return textResult(`Rejected: ${e.message}`, true);
+        }
+        throw e;
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_user_pattern",
+    {
+      title: "Update user danger pattern",
+      description:
+        "Modify regex or reason of an existing user pattern. System patterns cannot be modified — attempts are rejected. Pass only the fields you want to change.",
+      inputSchema: {
+        id: z.string().min(1),
+        regex: z.string().min(1).optional(),
+        reason: z.string().min(1).optional(),
+      },
+    },
+    async ({ id, regex, reason }) => {
+      if (regex === undefined && reason === undefined) {
+        return textResult(
+          "Rejected: provide at least one of `regex` or `reason` to update.",
+          true,
+        );
+      }
+      try {
+        const saved = updateUserPattern(id, { regex, reason });
+        return textResult(
+          `Updated user pattern \`${saved.id}\`.\nregex: ${saved.regex}\nreason: ${saved.reason}`,
+        );
+      } catch (e) {
+        if (e instanceof PatternValidationError) {
+          return textResult(`Rejected: ${e.message}`, true);
+        }
+        throw e;
+      }
+    },
+  );
+
+  server.registerTool(
+    "remove_user_pattern",
+    {
+      title: "Remove user danger pattern",
+      description:
+        "Delete an existing user pattern by id. System patterns cannot be removed — attempts are rejected.",
+      inputSchema: { id: z.string().min(1) },
+    },
+    async ({ id }) => {
+      try {
+        removeUserPattern(id);
+        return textResult(`Removed user pattern \`${id}\`.`);
+      } catch (e) {
+        if (e instanceof PatternValidationError) {
+          return textResult(`Rejected: ${e.message}`, true);
+        }
+        throw e;
+      }
+    },
   );
 
   server.registerTool(
