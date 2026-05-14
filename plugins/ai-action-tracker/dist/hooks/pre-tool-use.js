@@ -12,21 +12,34 @@
  *      as an absolute or a relative path. This catches the relative-path
  *      gap that pure regex misses (e.g. `rm -rf src`).
  *
- * On danger match: runs the Step-up MFA gate (`src/stepup/gate.ts`) —
- * opens a Transcodes step-up session, prints the browser URL to stderr,
- * polls the backend for up to 60s, and only exits 0 if the backend
- * reports `verified`. Otherwise emits the BLOCKED message and exits 2.
+ * On danger match: agent-driven step-up MFA loop.
+ *   a. If the cross-platform store already holds a verified record (a
+ *      previous step-up that has not been consumed yet), consume it and
+ *      exit 0 — the command runs.
+ *   b. Otherwise call `requestStepup`: create a Transcodes step-up
+ *      session, auto-launch the browser to the WebAuthn URL, and exit 2
+ *      with a stderr block message that names the URL + sid and instructs
+ *      the agent to poll via the `poll_stepup_session` MCP tool and retry
+ *      the same Bash command. The retry hits branch (a) and falls through.
+ *
+ * Why the hook does not poll: every connected agent (any user, any
+ * session) needs visibility into the step-up flow as it happens. PreToolUse
+ * stderr only reaches the agent on hook exit, so a 50 s blocking poll
+ * leaves the agent unable to relay status to the user. Splitting into
+ * "create + handoff" (this hook) and "poll" (MCP tool, agent-driven)
+ * makes the flow observable everywhere.
  *
  * Fail policy is asymmetric:
  *  - Before a danger match (JSON parse, pattern load): **fail-open** —
  *    a buggy guard must not brick the workflow.
- *  - After a danger match (step-up create/poll/network): **fail-safe** —
+ *  - After a danger match (step-up create/network): **fail-safe** —
  *    if we cannot prove the user authorised the command, we block it.
  */
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { findFirstMatch, loadMergedPatterns, } from "../src/danger-patterns.js";
-import { runStepupGate } from "../src/stepup/gate.js";
+import { requestStepup } from "../src/stepup/gate.js";
+import { consumeVerified, readVerified } from "../src/stepup/store.js";
 async function readStdin() {
     const chunks = [];
     for await (const chunk of process.stdin)
@@ -133,7 +146,7 @@ function checkRmGitTracked(command, cwd) {
         command,
     };
 }
-function emitBlock(result, gate) {
+function blockHeader(result) {
     const lines = [
         "",
         "⛔ ai-action-tracker: BLOCKED dangerous command",
@@ -149,33 +162,54 @@ function emitBlock(result, gate) {
     lines.push("");
     lines.push(`Command: ${result.command}`);
     lines.push("");
-    if (!gate) {
-        lines.push("This command was intercepted before execution. Set TRANSCODES_TOKEN " +
-            "to enable the Step-up MFA gate, or run the command outside Claude Code.");
-    }
-    else if (gate.allowed) {
-        // Should not happen — emitBlock is only called when allowed is false.
-        lines.push("Step-up reported allowed; nothing to block.");
-    }
-    else {
-        switch (gate.reason) {
-            case "no-token":
-                lines.push("Step-up MFA gate is not configured (TRANSCODES_TOKEN missing). " +
-                    "Set the token to allow on-demand authentication next time.");
-                break;
-            case "timeout":
-                lines.push("Step-up MFA was requested but not completed in time. " +
-                    "Re-run the command and finish the browser flow to proceed.");
-                break;
-            case "create-failed":
-                lines.push(`Step-up MFA session could not be started${gate.detail ? ` (${gate.detail})` : ""}.`);
-                break;
-            case "error":
-                lines.push(`Step-up MFA gate errored${gate.detail ? ` (${gate.detail})` : ""}.`);
-                break;
-        }
+    return lines;
+}
+function emitNoStepup(result) {
+    const lines = blockHeader(result);
+    lines.push("This command was intercepted before execution. Set TRANSCODES_TOKEN " +
+        "to enable the Step-up MFA gate, or run the command outside Claude Code.");
+    lines.push("");
+    process.stderr.write(lines.join("\n"));
+}
+function emitStepupFailure(result, failure) {
+    const lines = blockHeader(result);
+    switch (failure.reason) {
+        case "no-token":
+            lines.push("Step-up MFA gate is not configured (TRANSCODES_TOKEN missing). " +
+                "Set the token to allow on-demand authentication next time.");
+            break;
+        case "create-failed":
+            lines.push(`Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ""}.`);
+            break;
+        case "error":
+            lines.push(`Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ""}.`);
+            break;
     }
     lines.push("");
+    process.stderr.write(lines.join("\n"));
+}
+function emitStepupPending(result, req) {
+    const launchLine = req.launched
+        ? "A browser tab has been opened automatically:"
+        : "A concurrent hook process already opened a tab — reuse it:";
+    const lines = [
+        "",
+        "🔐 ai-action-tracker: Step-up MFA required to run this command",
+        "",
+        `Reason : ${result.reason}`,
+        `Command: ${result.command}`,
+        "",
+        launchLine,
+        `  ${req.browserUrl}`,
+        "",
+        `Session id: ${req.sid}`,
+        "",
+        "Agent — drive the step-up loop:",
+        `  1. Tell the user to complete the WebAuthn flow in the opened tab (paste the URL above if it did not open).`,
+        `  2. Call the MCP tool \`poll_stepup_session\` with sid="${req.sid}" until status === "verified" (poll every ~1s, give up after ~60s).`,
+        `  3. Retry the same Bash command — the hook will detect the verified state in the local store and allow it.`,
+        "",
+    ];
     process.stderr.write(lines.join("\n"));
 }
 async function main() {
@@ -194,20 +228,31 @@ async function main() {
         process.exit(0);
     const cwd = payload.cwd ?? process.cwd();
     const block = checkPatternMatch(command) ?? checkRmGitTracked(command, cwd);
-    if (block) {
-        // Once a danger match exists, the policy flips to fail-safe: any
-        // failure in the step-up flow results in a block, never a pass-through.
-        const gate = await runStepupGate({
-            reason: block.reason,
-            command: block.command,
-        });
-        if (gate.allowed) {
-            process.exit(0);
-        }
-        emitBlock(block, gate);
+    if (!block)
+        process.exit(0);
+    // Fast path: a previous step-up was verified and the record is still in
+    // the cross-platform store. Consume it (single-shot policy) and allow.
+    if (readVerified()) {
+        consumeVerified();
+        process.exit(0);
+    }
+    // No verified record — request a step-up session and hand off to the
+    // agent. The agent polls via the MCP tool, then retries this same Bash
+    // command which will hit the fast path above.
+    if (!process.env.TRANSCODES_TOKEN?.trim()) {
+        emitNoStepup(block);
         process.exit(2);
     }
-    process.exit(0);
+    const req = await requestStepup({
+        reason: block.reason,
+        command: block.command,
+    });
+    if (!req.ok) {
+        emitStepupFailure(block, req);
+        process.exit(2);
+    }
+    emitStepupPending(block, req);
+    process.exit(2);
 }
 main().catch((err) => {
     process.stderr.write(`ai-action-tracker hook error: ${err}\n`);

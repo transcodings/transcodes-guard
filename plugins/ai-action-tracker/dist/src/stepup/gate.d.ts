@@ -1,19 +1,20 @@
-export type GateInput = {
+export type RequestInput = {
     reason: string;
     command: string;
 };
-export type GateResult = {
-    allowed: true;
+export type RequestResult = {
+    ok: true;
     sid: string;
+    browserUrl: string;
+    launched: boolean;
 } | {
-    allowed: false;
-    reason: "no-token" | "create-failed" | "timeout" | "error";
+    ok: false;
+    reason: "no-token" | "create-failed" | "error";
     detail?: string;
 };
 /**
- * Run the gate. Returns `allowed: true` only when the backend confirms a
- * verified step-up session within the poll window. All other paths (no
- * token, create failure, network error, timeout) fail-safe to `allowed: false`
- * so the hook can fall through to its existing exit-2 block message.
+ * Create a step-up session and launch the browser. Returns sid + URL on
+ * success so the hook can hand them to the agent. Does not poll — the
+ * agent is responsible for calling `poll_stepup_session` and retrying.
  */
-export declare function runStepupGate(input: GateInput): Promise<GateResult>;
+export declare function requestStepup(input: RequestInput): Promise<RequestResult>;

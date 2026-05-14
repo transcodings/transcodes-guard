@@ -1,24 +1,21 @@
 /**
- * Step-up MFA gate for the PreToolUse hook.
+ * Step-up MFA request for the PreToolUse hook.
  *
- * Drives the create → poll loop synchronously from the (short-lived) hook
- * process: opens a step-up session against the Transcodes backend, writes
- * the browser URL to stderr, polls until verified or timeout, and reports
- * success/failure to the caller. On success the verified record is written
- * to the cross-platform store and immediately consumed — per the design,
- * every danger command requires a fresh MFA.
+ * Creates a step-up session against the Transcodes backend, opens the
+ * browser to the WebAuthn URL, and returns sid + URL for the caller to
+ * surface to the agent. Polling is intentionally NOT performed here — the
+ * hook process exits quickly (exit 2) so the agent can drive the wait
+ * loop via the `poll_stepup_session` MCP tool and retry the same Bash
+ * command. The retry hits a verified record in the cross-platform store
+ * and falls through.
  */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { loadStepupConfig } from "./config.js";
-import { createStepupSession, pollStepupSession } from "./session.js";
-import { cacheDir, consumeVerified, writeVerified } from "./store.js";
-const POLL_INTERVAL_MS = 1_000;
-// Stay below Claude Code's default 60s PreToolUse hook timeout so we exit
-// cleanly with our own stderr instead of being killed mid-poll.
-const POLL_TIMEOUT_MS = 50_000;
+import { createStepupSession } from "./session.js";
+import { cacheDir } from "./store.js";
 // Window during which concurrent hook processes for the same command should
 // share a single browser launch. Long enough to absorb same-second races,
 // short enough not to swallow an intentional retry.
@@ -85,21 +82,14 @@ function openBrowser(url) {
         // Best-effort: if the OS has no opener, the URL in stderr is the fallback.
     }
 }
-function emit(text) {
-    process.stderr.write(text);
-}
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
 /**
- * Run the gate. Returns `allowed: true` only when the backend confirms a
- * verified step-up session within the poll window. All other paths (no
- * token, create failure, network error, timeout) fail-safe to `allowed: false`
- * so the hook can fall through to its existing exit-2 block message.
+ * Create a step-up session and launch the browser. Returns sid + URL on
+ * success so the hook can hand them to the agent. Does not poll — the
+ * agent is responsible for calling `poll_stepup_session` and retrying.
  */
-export async function runStepupGate(input) {
+export async function requestStepup(input) {
     if (!process.env.TRANSCODES_TOKEN?.trim()) {
-        return { allowed: false, reason: "no-token" };
+        return { ok: false, reason: "no-token" };
     }
     let config;
     try {
@@ -107,7 +97,7 @@ export async function runStepupGate(input) {
     }
     catch (err) {
         return {
-            allowed: false,
+            ok: false,
             reason: "error",
             detail: err instanceof Error ? err.message : String(err),
         };
@@ -122,56 +112,27 @@ export async function runStepupGate(input) {
     }
     catch (err) {
         return {
-            allowed: false,
+            ok: false,
             reason: "create-failed",
             detail: err instanceof Error ? err.message : String(err),
         };
     }
     if (!created.envelope.ok || !created.sid || !created.browserUrl) {
         return {
-            allowed: false,
+            ok: false,
             reason: "create-failed",
             detail: `backend rejected create_stepup_session (status ${created.envelope.status})`,
         };
     }
-    const { sid, browserUrl } = created;
     const launched = claimBrowserLaunch(input.command);
     if (launched) {
-        openBrowser(browserUrl);
+        openBrowser(created.browserUrl);
     }
-    const launchLine = launched
-        ? "Open in your browser to authenticate (auto-launch attempted):"
-        : "Open in your browser to authenticate (another hook already opened a tab — reuse it):";
-    emit([
-        "",
-        "🔐 ai-action-tracker: Step-up MFA required to run this command.",
-        "",
-        `Reason : ${input.reason}`,
-        `Command: ${input.command}`,
-        "",
-        launchLine,
-        `  ${browserUrl}`,
-        "",
-        `Waiting up to ${POLL_TIMEOUT_MS / 1000}s for verification...`,
-        "",
-    ].join("\n"));
-    const deadline = Date.now() + POLL_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-        await sleep(POLL_INTERVAL_MS);
-        let poll;
-        try {
-            poll = await pollStepupSession(config, sid);
-        }
-        catch {
-            continue;
-        }
-        if (poll.status === "verified") {
-            writeVerified({ sid, verifiedAt: Date.now() });
-            consumeVerified();
-            emit("\n✅ ai-action-tracker: Step-up verified — running command.\n\n");
-            return { allowed: true, sid };
-        }
-    }
-    return { allowed: false, reason: "timeout" };
+    return {
+        ok: true,
+        sid: created.sid,
+        browserUrl: created.browserUrl,
+        launched,
+    };
 }
 //# sourceMappingURL=gate.js.map

@@ -12,15 +12,27 @@
  *      as an absolute or a relative path. This catches the relative-path
  *      gap that pure regex misses (e.g. `rm -rf src`).
  *
- * On danger match: runs the Step-up MFA gate (`src/stepup/gate.ts`) —
- * opens a Transcodes step-up session, prints the browser URL to stderr,
- * polls the backend for up to 60s, and only exits 0 if the backend
- * reports `verified`. Otherwise emits the BLOCKED message and exits 2.
+ * On danger match: agent-driven step-up MFA loop.
+ *   a. If the cross-platform store already holds a verified record (a
+ *      previous step-up that has not been consumed yet), consume it and
+ *      exit 0 — the command runs.
+ *   b. Otherwise call `requestStepup`: create a Transcodes step-up
+ *      session, auto-launch the browser to the WebAuthn URL, and exit 2
+ *      with a stderr block message that names the URL + sid and instructs
+ *      the agent to poll via the `poll_stepup_session` MCP tool and retry
+ *      the same Bash command. The retry hits branch (a) and falls through.
+ *
+ * Why the hook does not poll: every connected agent (any user, any
+ * session) needs visibility into the step-up flow as it happens. PreToolUse
+ * stderr only reaches the agent on hook exit, so a 50 s blocking poll
+ * leaves the agent unable to relay status to the user. Splitting into
+ * "create + handoff" (this hook) and "poll" (MCP tool, agent-driven)
+ * makes the flow observable everywhere.
  *
  * Fail policy is asymmetric:
  *  - Before a danger match (JSON parse, pattern load): **fail-open** —
  *    a buggy guard must not brick the workflow.
- *  - After a danger match (step-up create/poll/network): **fail-safe** —
+ *  - After a danger match (step-up create/network): **fail-safe** —
  *    if we cannot prove the user authorised the command, we block it.
  */
 export {};
