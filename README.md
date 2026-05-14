@@ -343,7 +343,7 @@ docs/
 
 ---
 
-## 로드맵 — PRD 4건
+## 로드맵 — PRD 5건
 
 [`docs/prd/`](./docs/prd/)에 다음 4개 부가 기능 PRD가 작성돼 있습니다 (의존 그래프와 우선순위 포함):
 
@@ -353,6 +353,7 @@ docs/
 | [0002](./docs/prd/0002-secrets-redact.md) | `secrets-redact` — AWS key·JWT·PEM 등 secret 차단 | PreToolUse hook 확장 | P1 / S |
 | [0003](./docs/prd/0003-file-change-delta.md) | `file-change-delta` — 예측 vs 실제 변경 비교 | PostToolUse hook | P1 / S |
 | [0004](./docs/prd/0004-policy-yaml.md) | `policy-yaml` — 정책 YAML 통합 + 시한부 override | PreToolUse hook | P2 / M |
+| [0005](./docs/prd/0005-token-auth-device-flow.md) | `token-auth-device-flow` — Device code + OS keychain 토큰 발급/보관 | infrastructure | P2 / L |
 
 작성 배경(경쟁 환경 분석): [`docs/research/ai-security-mcp-competitive-landscape.md`](./docs/research/ai-security-mcp-competitive-landscape.md)
 
