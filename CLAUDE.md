@@ -64,7 +64,10 @@ docs/
 - Log via `console.error` (stderr). `console.log` to stdout corrupts JSON-RPC framing in stdio mode and the client will silently disconnect.
 - Run `npm run build:plugin` before claiming work complete. No tests exist; `tsc` + dist sync는 CI가 강제하는 정합성 계약.
 - After capability changes, verify with `npm run inspect` — the Inspector renders new tools immediately.
-- The PreToolUse hook (`plugins/ai-action-tracker/hooks/pre-tool-use.ts`) must **fail-open** on internal errors (exit 0). A buggy hook should never brick the user's workflow. This is the opposite of the HTTP auth rule and intentional — see `docs/hook-installation.md`.
+- The PreToolUse hook (`plugins/ai-action-tracker/hooks/pre-tool-use.ts`) uses **asymmetric fail policy**:
+  - *Before* a danger pattern match (stdin parse, pattern file load, etc.) → **fail-open** (exit 0). A buggy hook must not brick the workflow.
+  - *After* a danger match, during the step-up flow (`plugins/ai-action-tracker/src/stepup/gate.ts`) → **fail-safe** (exit 2). If we cannot prove the user authorised the command via MFA, we block.
+- Step-up MFA module (`plugins/ai-action-tracker/src/stepup/`) is the only place that talks to the Transcodes backend. New sensitive features should consume the gate, not re-create it.
 - Hook output: stderr only, never stdout. Exit codes: `0` allow, `2` block (fed back to Claude). Exit `1` does NOT block — never use it for policy enforcement.
 - Source 수정 후 반드시 `npm run build:plugin`을 거쳐 `plugins/ai-action-tracker/dist/`를 commit과 함께 동기화. CI(`git diff --exit-code`)가 dist 누락 시 fail. plugin 트리 안의 `dist/`를 직접 편집하지 말 것 — 다음 빌드에서 덮어쓰여진다.
 
