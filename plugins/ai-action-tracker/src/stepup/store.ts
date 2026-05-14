@@ -12,9 +12,32 @@
  * defence against stale files left behind by abnormal exits.
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import envPaths from "env-paths";
 import { STEPUP_TTL_MS } from "./config.js";
+
+/**
+ * OS-appropriate cache directory. Inlined instead of pulling env-paths
+ * because the plugin distribution ships dist/ without node_modules.
+ *
+ *   linux   $XDG_CACHE_HOME or ~/.cache, suffix "ai-action-tracker"
+ *   macOS   ~/Library/Caches/ai-action-tracker
+ *   win32   %LOCALAPPDATA%\ai-action-tracker\Cache
+ */
+function cacheDir(): string {
+  if (process.platform === "win32") {
+    const base =
+      process.env.LOCALAPPDATA?.trim() ||
+      path.join(os.homedir(), "AppData", "Local");
+    return path.join(base, "ai-action-tracker", "Cache");
+  }
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Caches", "ai-action-tracker");
+  }
+  const xdg = process.env.XDG_CACHE_HOME?.trim();
+  const base = xdg && xdg.length > 0 ? xdg : path.join(os.homedir(), ".cache");
+  return path.join(base, "ai-action-tracker");
+}
 
 export type VerifiedStepup = {
   sid: string;
@@ -24,8 +47,7 @@ export type VerifiedStepup = {
 const FILE_NAME = "stepup-verified.json";
 
 function storePath(): string {
-  const paths = envPaths("ai-action-tracker", { suffix: "" });
-  return path.join(paths.cache, FILE_NAME);
+  return path.join(cacheDir(), FILE_NAME);
 }
 
 export function readVerified(): VerifiedStepup | null {

@@ -1,6 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { addUserPattern, findFirstMatch, getUserPatternsPath, loadMergedPatterns, PatternValidationError, removeUserPattern, updateUserPattern, } from "./danger-patterns.js";
+import { loadStepupConfig } from "./stepup/config.js";
+import { createStepupSession, pollStepupSession, } from "./stepup/session.js";
+import { writeVerified } from "./stepup/store.js";
 function formatPatternsMarkdown(patterns) {
     const lines = [
         "# Blocked Bash command patterns",
@@ -113,6 +116,84 @@ export function createServer() {
             }
             throw e;
         }
+    });
+    server.registerTool("create_stepup_session", {
+        title: "Create Step-up MFA Session",
+        description: "Open a Transcodes step-up MFA session. Returns sid and the browser URL " +
+            "the user must visit to complete WebAuthn. The same flow is used by the " +
+            "PreToolUse hook when a danger command is detected.",
+        inputSchema: {
+            comment: z
+                .string()
+                .min(1)
+                .describe("One short sentence shown on the step-up screen explaining the reason."),
+            action: z
+                .string()
+                .optional()
+                .describe("Action identifier for the audit log."),
+            resource: z
+                .string()
+                .optional()
+                .describe("Protected resource identifier for the audit log."),
+            member_id: z
+                .string()
+                .optional()
+                .describe("Member public id to authenticate. Defaults to the mid claim in TRANSCODES_TOKEN."),
+        },
+    }, async ({ comment, action, resource, member_id }) => {
+        const config = loadStepupConfig();
+        const result = await createStepupSession(config, {
+            comment,
+            action,
+            resource,
+            member_id,
+        });
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        ok: result.envelope.ok,
+                        status: result.envelope.status,
+                        sid: result.sid,
+                        browser_url: result.browserUrl,
+                        expires_at: result.expiresAt,
+                        raw: result.envelope.data,
+                    }, null, 2),
+                },
+            ],
+        };
+    });
+    server.registerTool("poll_stepup_session", {
+        title: "Poll Step-up MFA Session",
+        description: "Single GET against the step-up backend. Returns status 'pending' or " +
+            "'verified'. On verified the result is cached cross-platform so a " +
+            "subsequent danger command in the hook can pass without re-prompting.",
+        inputSchema: {
+            sid: z
+                .string()
+                .min(1)
+                .describe("Session id returned from create_stepup_session."),
+        },
+    }, async ({ sid }) => {
+        const config = loadStepupConfig();
+        const result = await pollStepupSession(config, sid);
+        if (result.status === "verified") {
+            writeVerified({ sid, verifiedAt: Date.now() });
+        }
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        ok: result.envelope.ok,
+                        status: result.envelope.status,
+                        step_status: result.status,
+                        raw: result.envelope.data,
+                    }, null, 2),
+                },
+            ],
+        };
     });
     server.registerTool("echo", {
         title: "Echo",

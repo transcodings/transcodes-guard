@@ -12,11 +12,15 @@
  *      as an absolute or a relative path. This catches the relative-path
  *      gap that pure regex misses (e.g. `rm -rf src`).
  *
- * On block: writes a structured warning to stderr explaining the reason
- * and exits with code 2. Claude Code feeds stderr back to the LLM and
- * surfaces it in the chat transcript.
+ * On danger match: runs the Step-up MFA gate (`src/stepup/gate.ts`) —
+ * opens a Transcodes step-up session, prints the browser URL to stderr,
+ * polls the backend for up to 60s, and only exits 0 if the backend
+ * reports `verified`. Otherwise emits the BLOCKED message and exits 2.
  *
- * Failures (malformed input, missing config, hook bugs) fail-open
- * (exit 0) so a buggy guard cannot brick the user's workflow.
+ * Fail policy is asymmetric:
+ *  - Before a danger match (JSON parse, pattern load): **fail-open** —
+ *    a buggy guard must not brick the workflow.
+ *  - After a danger match (step-up create/poll/network): **fail-safe** —
+ *    if we cannot prove the user authorised the command, we block it.
  */
 export {};
