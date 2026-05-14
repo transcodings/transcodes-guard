@@ -239,3 +239,6 @@ tags
 # install without `npm install`.
 !plugins/*/dist/
 !plugins/*/dist/**
+
+# Turborepo / Nx local cache (not part of the source)
+.turbo/
