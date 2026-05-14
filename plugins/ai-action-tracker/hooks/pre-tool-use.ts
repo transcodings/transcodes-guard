@@ -12,12 +12,16 @@
  *      as an absolute or a relative path. This catches the relative-path
  *      gap that pure regex misses (e.g. `rm -rf src`).
  *
- * On block: writes a structured warning to stderr explaining the reason
- * and exits with code 2. Claude Code feeds stderr back to the LLM and
- * surfaces it in the chat transcript.
+ * On danger match: runs the Step-up MFA gate (`src/stepup/gate.ts`) —
+ * opens a Transcodes step-up session, prints the browser URL to stderr,
+ * polls the backend for up to 60s, and only exits 0 if the backend
+ * reports `verified`. Otherwise emits the BLOCKED message and exits 2.
  *
- * Failures (malformed input, missing config, hook bugs) fail-open
- * (exit 0) so a buggy guard cannot brick the user's workflow.
+ * Fail policy is asymmetric:
+ *  - Before a danger match (JSON parse, pattern load): **fail-open** —
+ *    a buggy guard must not brick the workflow.
+ *  - After a danger match (step-up create/poll/network): **fail-safe** —
+ *    if we cannot prove the user authorised the command, we block it.
  */
 
 import { execFileSync } from "node:child_process";
@@ -26,6 +30,7 @@ import {
   findFirstMatch,
   loadMergedPatterns,
 } from "../src/danger-patterns.js";
+import { runStepupGate, type GateResult } from "../src/stepup/gate.js";
 
 interface PreToolUsePayload {
   tool_name: string;
@@ -167,7 +172,7 @@ function checkRmGitTracked(
   };
 }
 
-function emitBlock(result: BlockResult): void {
+function emitBlock(result: BlockResult, gate?: GateResult): void {
   const lines: string[] = [
     "",
     "⛔ ai-action-tracker: BLOCKED dangerous command",
@@ -182,11 +187,40 @@ function emitBlock(result: BlockResult): void {
   lines.push("");
   lines.push(`Command: ${result.command}`);
   lines.push("");
-  lines.push(
-    "This command was intercepted before execution. Run it outside " +
-      "Claude Code if intentional, or wait for the additional " +
-      "authentication step (not yet wired up).",
-  );
+  if (!gate) {
+    lines.push(
+      "This command was intercepted before execution. Set TRANSCODES_TOKEN " +
+        "to enable the Step-up MFA gate, or run the command outside Claude Code.",
+    );
+  } else if (gate.allowed) {
+    // Should not happen — emitBlock is only called when allowed is false.
+    lines.push("Step-up reported allowed; nothing to block.");
+  } else {
+    switch (gate.reason) {
+      case "no-token":
+        lines.push(
+          "Step-up MFA gate is not configured (TRANSCODES_TOKEN missing). " +
+            "Set the token to allow on-demand authentication next time.",
+        );
+        break;
+      case "timeout":
+        lines.push(
+          "Step-up MFA was requested but not completed in time. " +
+            "Re-run the command and finish the browser flow to proceed.",
+        );
+        break;
+      case "create-failed":
+        lines.push(
+          `Step-up MFA session could not be started${gate.detail ? ` (${gate.detail})` : ""}.`,
+        );
+        break;
+      case "error":
+        lines.push(
+          `Step-up MFA gate errored${gate.detail ? ` (${gate.detail})` : ""}.`,
+        );
+        break;
+    }
+  }
   lines.push("");
   process.stderr.write(lines.join("\n"));
 }
@@ -210,7 +244,16 @@ async function main(): Promise<void> {
     checkPatternMatch(command) ?? checkRmGitTracked(command, cwd);
 
   if (block) {
-    emitBlock(block);
+    // Once a danger match exists, the policy flips to fail-safe: any
+    // failure in the step-up flow results in a block, never a pass-through.
+    const gate = await runStepupGate({
+      reason: block.reason,
+      command: block.command,
+    });
+    if (gate.allowed) {
+      process.exit(0);
+    }
+    emitBlock(block, gate);
     process.exit(2);
   }
   process.exit(0);
