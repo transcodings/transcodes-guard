@@ -82,7 +82,9 @@ export async function createStepupSession(
     envelope,
     sid: payload ? readString(payload, "sid") : undefined,
     browserUrl: payload
-      ? readString(payload, "browser_url") ?? readString(payload, "browserUrl")
+      ? readString(payload, "url") ??
+        readString(payload, "browser_url") ??
+        readString(payload, "browserUrl")
       : undefined,
     expiresAt: payload
       ? readString(payload, "expiresAt") ?? readString(payload, "expires_at")
