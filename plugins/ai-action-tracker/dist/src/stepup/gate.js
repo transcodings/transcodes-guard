@@ -8,11 +8,83 @@
  * to the cross-platform store and immediately consumed — per the design,
  * every danger command requires a fresh MFA.
  */
+import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { loadStepupConfig } from "./config.js";
 import { createStepupSession, pollStepupSession } from "./session.js";
-import { consumeVerified, writeVerified } from "./store.js";
+import { cacheDir, consumeVerified, writeVerified } from "./store.js";
 const POLL_INTERVAL_MS = 1_000;
-const POLL_TIMEOUT_MS = 60_000;
+// Stay below Claude Code's default 60s PreToolUse hook timeout so we exit
+// cleanly with our own stderr instead of being killed mid-poll.
+const POLL_TIMEOUT_MS = 50_000;
+// Window during which concurrent hook processes for the same command should
+// share a single browser launch. Long enough to absorb same-second races,
+// short enough not to swallow an intentional retry.
+const BROWSER_LOCK_TTL_MS = 15_000;
+const BROWSER_LOCK_FILE = "stepup-browser-lock.json";
+function commandFingerprint(command) {
+    return createHash("sha256").update(command).digest("hex").slice(0, 16);
+}
+/**
+ * Atomically claim the right to spawn a browser for this command.
+ *
+ * Returns true if this process is the first to act on `command` within the
+ * TTL window — caller should spawn the browser. Returns false if another
+ * hook process has already opened a browser for the same command recently;
+ * caller should print the URL but skip the spawn.
+ *
+ * Best-effort: any I/O error falls open (returns true) so the gate never
+ * loses MFA visibility because of a broken lock file.
+ */
+function claimBrowserLaunch(command) {
+    const lockFile = path.join(cacheDir(), BROWSER_LOCK_FILE);
+    const fingerprint = commandFingerprint(command);
+    try {
+        const raw = readFileSync(lockFile, "utf8");
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            const obj = parsed;
+            const sameCommand = obj.fingerprint === fingerprint;
+            const openedAt = typeof obj.openedAt === "number" ? obj.openedAt : 0;
+            if (sameCommand && Date.now() - openedAt < BROWSER_LOCK_TTL_MS) {
+                return false;
+            }
+        }
+    }
+    catch {
+        // No lock or unreadable lock — proceed to claim.
+    }
+    try {
+        mkdirSync(path.dirname(lockFile), { recursive: true });
+        writeFileSync(lockFile, JSON.stringify({ fingerprint, openedAt: Date.now() }), { mode: 0o600 });
+    }
+    catch {
+        // If we cannot persist the lock, fall open: better to open a duplicate
+        // browser than to silently skip MFA prompting.
+    }
+    return true;
+}
+function openBrowser(url) {
+    const opener = process.platform === "darwin"
+        ? "open"
+        : process.platform === "win32"
+            ? "cmd"
+            : "xdg-open";
+    const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+    try {
+        const child = spawn(opener, args, {
+            stdio: "ignore",
+            detached: true,
+        });
+        child.on("error", () => { });
+        child.unref();
+    }
+    catch {
+        // Best-effort: if the OS has no opener, the URL in stderr is the fallback.
+    }
+}
 function emit(text) {
     process.stderr.write(text);
 }
@@ -63,6 +135,13 @@ export async function runStepupGate(input) {
         };
     }
     const { sid, browserUrl } = created;
+    const launched = claimBrowserLaunch(input.command);
+    if (launched) {
+        openBrowser(browserUrl);
+    }
+    const launchLine = launched
+        ? "Open in your browser to authenticate (auto-launch attempted):"
+        : "Open in your browser to authenticate (another hook already opened a tab — reuse it):";
     emit([
         "",
         "🔐 ai-action-tracker: Step-up MFA required to run this command.",
@@ -70,7 +149,7 @@ export async function runStepupGate(input) {
         `Reason : ${input.reason}`,
         `Command: ${input.command}`,
         "",
-        `Open in your browser to authenticate:`,
+        launchLine,
         `  ${browserUrl}`,
         "",
         `Waiting up to ${POLL_TIMEOUT_MS / 1000}s for verification...`,

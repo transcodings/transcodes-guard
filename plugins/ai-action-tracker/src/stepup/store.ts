@@ -24,7 +24,7 @@ import { STEPUP_TTL_MS } from "./config.js";
  *   macOS   ~/Library/Caches/ai-action-tracker
  *   win32   %LOCALAPPDATA%\ai-action-tracker\Cache
  */
-function cacheDir(): string {
+export function cacheDir(): string {
   if (process.platform === "win32") {
     const base =
       process.env.LOCALAPPDATA?.trim() ||
