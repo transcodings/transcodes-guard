@@ -10,18 +10,18 @@ declare const PendingStateSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     reason: string;
     sid: string;
+    status: "pending" | "verified";
+    createdAt: number;
     command: string;
     browserUrl: string;
-    createdAt: number;
-    status: "pending" | "verified";
     expiresAt?: string | undefined;
 }, {
     reason: string;
     sid: string;
+    status: "pending" | "verified";
+    createdAt: number;
     command: string;
     browserUrl: string;
-    createdAt: number;
-    status: "pending" | "verified";
     expiresAt?: string | undefined;
 }>;
 export type PendingState = z.infer<typeof PendingStateSchema>;

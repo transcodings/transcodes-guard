@@ -1,7 +1,10 @@
+import { spawn as childSpawn } from "node:child_process";
+import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { addUserPattern, findFirstMatch, getUserPatternsPath, loadMergedPatterns, PatternValidationError, removeUserPattern, updateUserPattern, } from "./danger-patterns.js";
 import { loadStepupConfig } from "./stepup/config.js";
+import { inspectStepupState } from "./stepup/inspector.js";
 import { markVerified } from "./stepup/pending.js";
 import { createStepupSession, pollStepupSession, pollStepupSessionWait, } from "./stepup/session.js";
 import { writeVerified } from "./stepup/store.js";
@@ -51,11 +54,33 @@ export function createServer() {
     }, async ({ command }) => {
         const patterns = loadMergedPatterns();
         const hit = findFirstMatch(command, patterns);
+        // The two layers must be reported separately. The regex layer always
+        // runs inside the simulator (and inside the hook process if it
+        // spawns), but Claude Code's actual PreToolUse trigger empirically
+        // only fires for *system* patterns — user patterns may be matched
+        // here yet never reach the hook in production. Surfacing the
+        // distinction prevents agents from inferring "matched in simulator
+        // ⇒ will block in hook".
         if (!hit) {
-            return textResult(`ALLOWED by regex layer (${patterns.length} pattern(s) checked).\nNote: hook may still block via the rm -rf git-tracked semantic check.`);
+            return textResult(JSON.stringify({
+                matched: false,
+                will_trigger_hook: false,
+                patterns_checked: patterns.length,
+                note: "Hook may still block via the rm -rf git-tracked semantic check; simulator does not cover that layer.",
+            }, null, 2));
         }
         const m = hit.matched;
-        return textResult(`BLOCKED by ${m.source} pattern \`${m.id}\`\nreason: ${m.reason}\nregex: ${m.regex}`);
+        return textResult(JSON.stringify({
+            matched: true,
+            matched_by: m.source,
+            pattern_id: m.id,
+            reason: m.reason,
+            regex: m.regex,
+            will_trigger_hook: m.source === "system",
+            note: m.source === "user"
+                ? "User patterns are matched by the simulator but do NOT reliably trigger Claude Code's actual PreToolUse hook. Use only system patterns for live verification."
+                : "System pattern: Claude Code will route a matching Bash command through the PreToolUse hook.",
+        }, null, 2));
     });
     server.registerTool("add_user_pattern", {
         title: "Add user danger pattern",
@@ -250,6 +275,116 @@ export function createServer() {
                         attempts: result.attempts,
                         elapsed_ms: result.elapsedMs,
                         raw: result.envelope.data,
+                    }, null, 2),
+                },
+            ],
+        };
+    });
+    server.registerTool("inspect_stepup_state", {
+        title: "Inspect step-up state on disk",
+        description: "Single source of truth for what the step-up state files look " +
+            "like RIGHT NOW. Returns structured JSON for verified / pending / " +
+            "browser-lock records with explicit `age_ms`, `expired`, and " +
+            "`ttl_ms` fields so the agent never has to compute expiry from " +
+            "raw timestamps or trust a wrapped `ls` output. Strict read-only: " +
+            "this tool never consumes or rewrites any record. Call this " +
+            "BEFORE and AFTER any step-up flow to verify state transitions " +
+            "deterministically.",
+        inputSchema: {},
+    }, async () => {
+        const snapshot = inspectStepupState();
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(snapshot, null, 2),
+                },
+            ],
+        };
+    });
+    server.registerTool("simulate_hook_invocation", {
+        title: "Invoke PreToolUse hook in a controlled subprocess",
+        description: "Spawns the actual PreToolUse hook binary with a Bash payload as " +
+            "stdin, captures stdout/stderr/exit, and diffs the step-up state " +
+            "files before/after — all in one structured response. Use this " +
+            "when you need to verify hook behaviour (fast-path consumption, " +
+            "deny emission, new step-up start) without inferring from `exit " +
+            "127` or `ls` output. WARNING: this is NOT a dry run — the hook " +
+            "may consume the verified record or create a new step-up session " +
+            "and open a browser tab if a danger pattern is hit. Use it the " +
+            "way you would a real hook invocation, not as a side-effect-free " +
+            "probe.",
+        inputSchema: {
+            command: z
+                .string()
+                .min(1)
+                .describe("Bash command string the hook should evaluate."),
+            cwd: z
+                .string()
+                .optional()
+                .describe("Optional working directory passed to the hook payload. Defaults to process.cwd()."),
+        },
+    }, async ({ command, cwd }) => {
+        const before = inspectStepupState();
+        const hookPath = path.resolve(
+        // CLAUDE_PLUGIN_ROOT is set by Claude Code when the plugin is
+        // running; fall back to a relative resolve when invoked directly.
+        process.env.CLAUDE_PLUGIN_ROOT ?? path.join(import.meta.dirname ?? "", "..", ".."), "dist/hooks/pre-tool-use.js");
+        const payload = JSON.stringify({
+            tool_name: "Bash",
+            tool_input: { command },
+            cwd: cwd ?? process.cwd(),
+        });
+        const { stdout, stderr, exitCode } = await new Promise((resolve) => {
+            const child = childSpawn("node", [hookPath], {
+                stdio: ["pipe", "pipe", "pipe"],
+            });
+            let stdout = "";
+            let stderr = "";
+            child.stdout.on("data", (b) => (stdout += b.toString("utf8")));
+            child.stderr.on("data", (b) => (stderr += b.toString("utf8")));
+            child.on("close", (code) => resolve({ stdout, stderr, exitCode: code ?? -1 }));
+            child.on("error", () => resolve({ stdout, stderr, exitCode: -1 }));
+            child.stdin.end(payload);
+        });
+        const after = inspectStepupState();
+        let parsedStdout = null;
+        try {
+            parsedStdout = stdout.trim() ? JSON.parse(stdout) : null;
+        }
+        catch {
+            // Hook exited without JSON — leave parsedStdout as null and let
+            // the agent inspect raw stdout below.
+        }
+        const denyEmitted = parsedStdout !== null &&
+            typeof parsedStdout === "object" &&
+            parsedStdout.hookSpecificOutput !==
+                undefined &&
+            parsedStdout.hookSpecificOutput.permissionDecision === "deny";
+        const verifiedConsumed = before.verified.exists && !after.verified.exists;
+        const pendingCleared = before.pending.exists && !after.pending.exists;
+        const newPendingStarted = !before.pending.exists ||
+            (before.pending.exists &&
+                after.pending.exists &&
+                before.pending.sid !== after.pending.sid)
+            ? after.pending.exists
+            : false;
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        fast_path_taken: verifiedConsumed && !denyEmitted,
+                        deny_emitted: denyEmitted,
+                        new_step_up_started: newPendingStarted && denyEmitted,
+                        verified_consumed: verifiedConsumed,
+                        pending_cleared: pendingCleared,
+                        exit_code: exitCode,
+                        stdout_json: parsedStdout,
+                        stdout_raw: parsedStdout === null ? stdout : undefined,
+                        stderr: stderr || undefined,
+                        state_before: before,
+                        state_after: after,
                     }, null, 2),
                 },
             ],
