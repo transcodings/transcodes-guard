@@ -80,7 +80,15 @@ export function readVerified(): VerifiedStepup | null {
     consumeVerified();
     return null;
   }
-  if (Date.now() - verifiedAt > STEPUP_TTL_MS) {
+  const ageMs = Date.now() - verifiedAt;
+  if (ageMs > STEPUP_TTL_MS) {
+    // Signal the silent consume so agents/users notice that a previously
+    // verified session lapsed mid-flow. Without this line the deny
+    // appears identical to a never-verified deny and root-cause analysis
+    // requires reading timestamps off disk.
+    process.stderr.write(
+      `ai-action-tracker: verified record EXPIRED (sid=${sid}, age=${ageMs}ms, ttl=${STEPUP_TTL_MS}ms) — starting a new step-up.\n`,
+    );
     consumeVerified();
     return null;
   }
