@@ -132,6 +132,7 @@ export async function requestStepup(input) {
         ok: true,
         sid: created.sid,
         browserUrl: created.browserUrl,
+        expiresAt: created.expiresAt,
         launched,
     };
 }

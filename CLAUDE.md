@@ -14,7 +14,7 @@ npm run build:plugin   # turbo run build:plugin (danger-patterns.json 동기화 
 npm run inspect        # MCP Inspector UI로 도구·리소스 직접 호출
 ```
 
-CI(`.github/workflows/ci.yml`)는 PR마다 `build:plugin` 실행 + `git diff --exit-code plugins/ai-action-tracker/dist/`로 빌드 산출물 동기성을 검증. hook smoke test(`rm -rf /` → exit 2, `ls` → exit 0)도 함께 검증.
+CI(`.github/workflows/ci.yml`)는 PR마다 `build:plugin` 실행 + `git diff --exit-code plugins/ai-action-tracker/dist/`로 빌드 산출물 동기성을 검증. hook smoke test도 함께 검증 (`rm -rf /` → stdout JSON에 `permissionDecision: "deny"`, `ls` → exit 0 + 빈 출력).
 
 ## Running locally without installing the plugin
 
@@ -42,8 +42,12 @@ plugins/
       server.ts                         #       createServer() — 모든 capability의 단일 정의처
       stdio.ts                          #       로컬 진입점. 셰뱅 + npx 배포 가능.
       http.ts                           #       원격 진입점. 단일 /mcp, stateless.
-    hooks/                              #     PreToolUse hook 소스
-      pre-tool-use.ts                   #       위험 Bash 명령 차단 진입점.
+    hooks/                              #     hook orchestra 소스 (4종)
+      hooks.json                        #       PreToolUse/SessionStart/UserPromptSubmit/Stop 매니페스트.
+      pre-tool-use.ts                   #       위험 Bash 명령 차단 + step-up 핸드오프.
+      session-start.ts                  #       프로토콜 사전 주입 + 이월 pending 알림.
+      user-prompt-submit.ts             #       사용자 "완료" 신호 감지 → polling 재개 컨텍스트.
+      stop.ts                           #       응답 종료 시 dangling step-up 리마인더.
       danger-patterns.json              #       차단 정규식 목록.
     dist/                               #   build:plugin 산출물 (git 커밋, 수동 편집 금지)
 docs/
@@ -65,10 +69,11 @@ docs/
 - Run `npm run build:plugin` before claiming work complete. No tests exist; `tsc` + dist sync는 CI가 강제하는 정합성 계약.
 - After capability changes, verify with `npm run inspect` — the Inspector renders new tools immediately.
 - The PreToolUse hook (`plugins/ai-action-tracker/hooks/pre-tool-use.ts`) uses **asymmetric fail policy**:
-  - *Before* a danger pattern match (stdin parse, pattern file load, etc.) → **fail-open** (exit 0). A buggy hook must not brick the workflow.
-  - *After* a danger match, during the step-up flow (`plugins/ai-action-tracker/src/stepup/gate.ts`) → **fail-safe** (exit 2). If we cannot prove the user authorised the command via MFA, we block.
-- Step-up MFA module (`plugins/ai-action-tracker/src/stepup/`) is the only place that talks to the Transcodes backend. New sensitive features should consume the gate, not re-create it.
-- Hook output: stderr only, never stdout. Exit codes: `0` allow, `2` block (fed back to Claude). Exit `1` does NOT block — never use it for policy enforcement.
+  - *Before* a danger pattern match (stdin parse, pattern file load, etc.) → **fail-open** (exit 0, no JSON). A buggy hook must not brick the workflow.
+  - *After* a danger match → **fail-safe** (exit 0 + stdout JSON `permissionDecision: "deny"`). If we cannot prove the user authorised the command via MFA, we deny. The `systemMessage` field carries the protocol instructions to the model; stderr keeps a 1-line human-readable summary.
+- Hook orchestra: PreToolUse(Bash) denies the call; SessionStart injects the protocol primer; UserPromptSubmit detects user "auth done" messages; Stop catches dangling pending state. The four hooks coordinate through a single shared file `~/.cache/.../stepup-pending.json` — see [`docs/architecture.md`](./docs/architecture.md) §5. Never add a new hook for step-up; consume the orchestra instead.
+- Step-up MFA module (`plugins/ai-action-tracker/src/stepup/`) is the only place that talks to the Transcodes backend. New sensitive features should consume the gate, not re-create it. The shared-state helpers live in `src/stepup/pending.ts`; the single-shot verified record in `src/stepup/store.ts`.
+- Hook output channels: **PreToolUse uses stdout JSON** (v2 `permissionDecision` / `systemMessage`); the other three hooks use stdout JSON with `hookSpecificOutput.additionalContext`. stderr is for human-readable 1-line summaries only. Exit code `0` everywhere — even on deny, because the deny lives in the JSON. Never use `exit 2` in the new code paths.
 - Source 수정 후 반드시 `npm run build:plugin`을 거쳐 `plugins/ai-action-tracker/dist/`를 commit과 함께 동기화. CI(`git diff --exit-code`)가 dist 누락 시 fail. plugin 트리 안의 `dist/`를 직접 편집하지 말 것 — 다음 빌드에서 덮어쓰여진다.
 
 ## Never

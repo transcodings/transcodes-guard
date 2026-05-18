@@ -96,7 +96,13 @@ export type RequestInput = {
 };
 
 export type RequestResult =
-  | { ok: true; sid: string; browserUrl: string; launched: boolean }
+  | {
+      ok: true;
+      sid: string;
+      browserUrl: string;
+      expiresAt?: string;
+      launched: boolean;
+    }
   | {
       ok: false;
       reason: "no-token" | "create-failed" | "error";
@@ -158,6 +164,7 @@ export async function requestStepup(
     ok: true,
     sid: created.sid,
     browserUrl: created.browserUrl,
+    expiresAt: created.expiresAt,
     launched,
   };
 }

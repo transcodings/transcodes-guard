@@ -17,23 +17,32 @@
  *      previous step-up that has not been consumed yet), consume it and
  *      exit 0 — the command runs.
  *   b. Otherwise call `requestStepup`: create a Transcodes step-up
- *      session, auto-launch the browser to the WebAuthn URL, and exit 2
- *      with a stderr block message that names the URL + sid and instructs
- *      the agent to poll via the `poll_stepup_session` MCP tool and retry
- *      the same Bash command. The retry hits branch (a) and falls through.
+ *      session, auto-launch the browser to the WebAuthn URL, write the
+ *      pending state file for the secondary hooks, and emit a v2 hook
+ *      response that denies the call with `permissionDecision: "deny"`
+ *      plus a `systemMessage` that names the URL + sid and instructs
+ *      the agent to poll via the `poll_stepup_session` MCP tool and
+ *      retry the same Bash command. The retry hits branch (a) and
+ *      falls through.
+ *
+ * Output channel choice: v2 stdout JSON with `permissionDecision`
+ * supersedes the exit 2 + stderr text variant. The structured form
+ * gets injected into model context as a first-class signal instead of
+ * being parsed out of an "error" stream. exit code stays 0 in both
+ * allow and deny paths.
  *
  * Why the hook does not poll: every connected agent (any user, any
- * session) needs visibility into the step-up flow as it happens. PreToolUse
- * stderr only reaches the agent on hook exit, so a 50 s blocking poll
- * leaves the agent unable to relay status to the user. Splitting into
- * "create + handoff" (this hook) and "poll" (MCP tool, agent-driven)
- * makes the flow observable everywhere.
+ * session) needs visibility into the step-up flow as it happens. A 50 s
+ * blocking poll inside the hook leaves the agent unable to relay
+ * status to the user. Splitting into "create + handoff" (this hook)
+ * and "poll" (MCP tool, agent-driven) makes the flow observable
+ * everywhere.
  *
  * Fail policy is asymmetric:
  *  - Before a danger match (JSON parse, pattern load): **fail-open** —
  *    a buggy guard must not brick the workflow.
  *  - After a danger match (step-up create/network): **fail-safe** —
- *    if we cannot prove the user authorised the command, we block it.
+ *    if we cannot prove the user authorised the command, we deny.
  */
 
 import { execFileSync } from "node:child_process";
@@ -43,6 +52,7 @@ import {
   loadMergedPatterns,
 } from "../src/danger-patterns.js";
 import { requestStepup, type RequestResult } from "../src/stepup/gate.js";
+import { clearPending, writePending } from "../src/stepup/pending.js";
 import { consumeVerified, readVerified } from "../src/stepup/store.js";
 
 interface PreToolUsePayload {
@@ -185,59 +195,77 @@ function checkRmGitTracked(
   };
 }
 
-function blockHeader(result: BlockResult): string[] {
-  const lines = [
+type DenyOutput = {
+  hookSpecificOutput: {
+    hookEventName: "PreToolUse";
+    permissionDecision: "deny";
+    permissionDecisionReason: string;
+  };
+  systemMessage: string;
+};
+
+function emitDeny(output: DenyOutput, stderrSummary: string): void {
+  process.stdout.write(JSON.stringify(output));
+  process.stderr.write(`${stderrSummary}\n`);
+}
+
+function blockedSummary(result: BlockResult): string {
+  return [
+    "⛔ BLOCKED — Bash was NOT executed.",
     "",
-    "⛔ ai-action-tracker: BLOCKED dangerous command",
-    "",
-    `Reason: ${result.reason}`,
-  ];
-  if (result.details && result.details.length > 0) {
-    lines.push("");
-    lines.push("Affected:");
-    for (const d of result.details) lines.push(`  - ${d}`);
-  }
-  lines.push("");
-  lines.push(`Command: ${result.command}`);
-  lines.push("");
-  return lines;
+    `Reason : ${result.reason}`,
+    ...(result.details && result.details.length > 0
+      ? ["", "Affected:", ...result.details.map((d) => `  - ${d}`)]
+      : []),
+    `Command: ${result.command}`,
+  ].join("\n");
 }
 
 function emitNoStepup(result: BlockResult): void {
-  const lines = blockHeader(result);
-  lines.push(
-    "This command was intercepted before execution. Set TRANSCODES_TOKEN " +
-      "to enable the Step-up MFA gate, or run the command outside Claude Code.",
+  const reason =
+    `Bash blocked by ai-action-tracker: ${result.reason}. ` +
+    "Step-up MFA gate is not configured (TRANSCODES_TOKEN missing). " +
+    "Tell the user to set TRANSCODES_TOKEN to enable on-demand authentication, " +
+    "or run the command outside Claude Code.";
+  emitDeny(
+    {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: reason,
+      },
+      systemMessage:
+        `${blockedSummary(result)}\n\n` +
+        "Step-up MFA gate is not configured (TRANSCODES_TOKEN missing). " +
+        "Ask the user to set the token, then retry.",
+    },
+    `ai-action-tracker: BLOCKED (no token) — ${result.command}`,
   );
-  lines.push("");
-  process.stderr.write(lines.join("\n"));
 }
 
 function emitStepupFailure(
   result: BlockResult,
   failure: Extract<RequestResult, { ok: false }>,
 ): void {
-  const lines = blockHeader(result);
-  switch (failure.reason) {
-    case "no-token":
-      lines.push(
-        "Step-up MFA gate is not configured (TRANSCODES_TOKEN missing). " +
-          "Set the token to allow on-demand authentication next time.",
-      );
-      break;
-    case "create-failed":
-      lines.push(
-        `Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ""}.`,
-      );
-      break;
-    case "error":
-      lines.push(
-        `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ""}.`,
-      );
-      break;
-  }
-  lines.push("");
-  process.stderr.write(lines.join("\n"));
+  const failureDetail =
+    failure.reason === "no-token"
+      ? "TRANSCODES_TOKEN is missing — step-up MFA gate is unavailable."
+      : failure.reason === "create-failed"
+        ? `Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ""}.`
+        : `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ""}.`;
+  emitDeny(
+    {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason:
+          `Bash blocked by ai-action-tracker: ${result.reason}. ${failureDetail} ` +
+          "Report the failure to the user; do not retry until step-up is available.",
+      },
+      systemMessage: `${blockedSummary(result)}\n\n${failureDetail}`,
+    },
+    `ai-action-tracker: BLOCKED (stepup-failure) — ${result.command}`,
+  );
 }
 
 function emitStepupPending(
@@ -247,9 +275,8 @@ function emitStepupPending(
   const launchLine = req.launched
     ? "A browser tab has been opened automatically:"
     : "A concurrent hook process already opened a tab — reuse it:";
-  const lines = [
-    "",
-    "🔐 ai-action-tracker: Step-up MFA required to run this command",
+  const systemMessage = [
+    "🔐 BLOCKED — Step-up MFA required. This Bash command was NOT executed.",
     "",
     `Reason : ${result.reason}`,
     `Command: ${result.command}`,
@@ -260,12 +287,27 @@ function emitStepupPending(
     `Session id: ${req.sid}`,
     "",
     "Agent — drive the step-up loop:",
-    `  1. Tell the user to complete the WebAuthn flow in the opened tab (paste the URL above if it did not open).`,
-    `  2. Call the MCP tool \`poll_stepup_session\` with sid="${req.sid}" until status === "verified" (poll every ~1s, give up after ~60s).`,
-    `  3. Retry the same Bash command — the hook will detect the verified state in the local store and allow it.`,
-    "",
-  ];
-  process.stderr.write(lines.join("\n"));
+    "  1. Tell the user to complete the WebAuthn flow in the opened tab " +
+      "(paste the URL above if it did not open).",
+    `  2. Call the MCP tool \`poll_stepup_session\` with sid="${req.sid}" ` +
+      'until step_status === "verified" (poll every ~1s, give up after ~60s).',
+    "  3. Retry the SAME Bash command — the hook detects the verified state " +
+      "and allows it.",
+  ].join("\n");
+  emitDeny(
+    {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason:
+          `Step-up MFA pending. sid=${req.sid}. Open ${req.browserUrl}, ` +
+          "complete WebAuthn, call poll_stepup_session until verified, " +
+          "then retry the same Bash command.",
+      },
+      systemMessage,
+    },
+    `ai-action-tracker: STEPUP-PENDING sid=${req.sid} — ${result.command}`,
+  );
 }
 
 async function main(): Promise<void> {
@@ -289,9 +331,11 @@ async function main(): Promise<void> {
   if (!block) process.exit(0);
 
   // Fast path: a previous step-up was verified and the record is still in
-  // the cross-platform store. Consume it (single-shot policy) and allow.
+  // the cross-platform store. Consume both records (single-shot policy)
+  // and allow.
   if (readVerified()) {
     consumeVerified();
+    clearPending();
     process.exit(0);
   }
 
@@ -300,7 +344,7 @@ async function main(): Promise<void> {
   // command which will hit the fast path above.
   if (!process.env.TRANSCODES_TOKEN?.trim()) {
     emitNoStepup(block);
-    process.exit(2);
+    process.exit(0);
   }
 
   const req = await requestStepup({
@@ -309,10 +353,19 @@ async function main(): Promise<void> {
   });
   if (!req.ok) {
     emitStepupFailure(block, req);
-    process.exit(2);
+    process.exit(0);
   }
+  writePending({
+    sid: req.sid,
+    command: block.command,
+    reason: block.reason,
+    browserUrl: req.browserUrl,
+    createdAt: Date.now(),
+    expiresAt: req.expiresAt,
+    status: "pending",
+  });
   emitStepupPending(block, req);
-  process.exit(2);
+  process.exit(0);
 }
 
 main().catch((err) => {

@@ -17,22 +17,31 @@
  *      previous step-up that has not been consumed yet), consume it and
  *      exit 0 — the command runs.
  *   b. Otherwise call `requestStepup`: create a Transcodes step-up
- *      session, auto-launch the browser to the WebAuthn URL, and exit 2
- *      with a stderr block message that names the URL + sid and instructs
- *      the agent to poll via the `poll_stepup_session` MCP tool and retry
- *      the same Bash command. The retry hits branch (a) and falls through.
+ *      session, auto-launch the browser to the WebAuthn URL, write the
+ *      pending state file for the secondary hooks, and emit a v2 hook
+ *      response that denies the call with `permissionDecision: "deny"`
+ *      plus a `systemMessage` that names the URL + sid and instructs
+ *      the agent to poll via the `poll_stepup_session` MCP tool and
+ *      retry the same Bash command. The retry hits branch (a) and
+ *      falls through.
+ *
+ * Output channel choice: v2 stdout JSON with `permissionDecision`
+ * supersedes the exit 2 + stderr text variant. The structured form
+ * gets injected into model context as a first-class signal instead of
+ * being parsed out of an "error" stream. exit code stays 0 in both
+ * allow and deny paths.
  *
  * Why the hook does not poll: every connected agent (any user, any
- * session) needs visibility into the step-up flow as it happens. PreToolUse
- * stderr only reaches the agent on hook exit, so a 50 s blocking poll
- * leaves the agent unable to relay status to the user. Splitting into
- * "create + handoff" (this hook) and "poll" (MCP tool, agent-driven)
- * makes the flow observable everywhere.
+ * session) needs visibility into the step-up flow as it happens. A 50 s
+ * blocking poll inside the hook leaves the agent unable to relay
+ * status to the user. Splitting into "create + handoff" (this hook)
+ * and "poll" (MCP tool, agent-driven) makes the flow observable
+ * everywhere.
  *
  * Fail policy is asymmetric:
  *  - Before a danger match (JSON parse, pattern load): **fail-open** —
  *    a buggy guard must not brick the workflow.
  *  - After a danger match (step-up create/network): **fail-safe** —
- *    if we cannot prove the user authorised the command, we block it.
+ *    if we cannot prove the user authorised the command, we deny.
  */
 export {};
