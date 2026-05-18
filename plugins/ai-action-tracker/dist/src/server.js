@@ -3,7 +3,7 @@ import { z } from "zod";
 import { addUserPattern, findFirstMatch, getUserPatternsPath, loadMergedPatterns, PatternValidationError, removeUserPattern, updateUserPattern, } from "./danger-patterns.js";
 import { loadStepupConfig } from "./stepup/config.js";
 import { markVerified } from "./stepup/pending.js";
-import { createStepupSession, pollStepupSession, } from "./stepup/session.js";
+import { createStepupSession, pollStepupSession, pollStepupSessionWait, } from "./stepup/session.js";
 import { writeVerified } from "./stepup/store.js";
 function formatPatternsMarkdown(patterns) {
     const lines = [
@@ -169,7 +169,10 @@ export function createServer() {
         title: "Poll Step-up MFA Session",
         description: "Single GET against the step-up backend. Returns status 'pending' or " +
             "'verified'. On verified the result is cached cross-platform so a " +
-            "subsequent danger command in the hook can pass without re-prompting.",
+            "subsequent danger command in the hook can pass without re-prompting. " +
+            "Prefer `poll_stepup_session_wait` for the deny-recovery loop — it " +
+            "blocks until verified in one call instead of requiring 60 manual " +
+            "iterations.",
         inputSchema: {
             sid: z
                 .string()
@@ -191,6 +194,61 @@ export function createServer() {
                         ok: result.envelope.ok,
                         status: result.envelope.status,
                         step_status: result.status,
+                        raw: result.envelope.data,
+                    }, null, 2),
+                },
+            ],
+        };
+    });
+    server.registerTool("poll_stepup_session_wait", {
+        title: "Wait for Step-up MFA Session",
+        description: "Block until the step-up session reaches `verified` or the wait window " +
+            "elapses (default 60s, polling every 1s). Use this — NOT the single-shot " +
+            "`poll_stepup_session` — as the next action after a PreToolUse deny " +
+            "carrying a step-up sid. One call replaces the 60-iteration polling " +
+            "loop. On `outcome: \"verified\"` retry the original Bash command; on " +
+            "`outcome: \"timeout\"` ask the user to complete WebAuthn and call this " +
+            "tool again. Do NOT ask the user to confirm completion before calling " +
+            "this tool — it waits on the user's behalf.",
+        inputSchema: {
+            sid: z
+                .string()
+                .min(1)
+                .describe("Session id returned from create_stepup_session."),
+            max_wait_ms: z
+                .number()
+                .int()
+                .positive()
+                .max(300_000)
+                .optional()
+                .describe("Maximum time to wait in ms. Defaults to 60_000."),
+            interval_ms: z
+                .number()
+                .int()
+                .positive()
+                .max(10_000)
+                .optional()
+                .describe("Polling interval in ms. Defaults to 1_000."),
+        },
+    }, async ({ sid, max_wait_ms, interval_ms }) => {
+        const config = loadStepupConfig();
+        const result = await pollStepupSessionWait(config, sid, {
+            maxWaitMs: max_wait_ms,
+            intervalMs: interval_ms,
+        });
+        if (result.outcome === "verified") {
+            writeVerified({ sid, verifiedAt: Date.now() });
+            markVerified(sid);
+        }
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        ok: result.envelope.ok,
+                        outcome: result.outcome,
+                        attempts: result.attempts,
+                        elapsed_ms: result.elapsedMs,
                         raw: result.envelope.data,
                     }, null, 2),
                 },
