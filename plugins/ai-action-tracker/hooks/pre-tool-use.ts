@@ -286,13 +286,14 @@ function emitStepupPending(
     "",
     `Session id: ${req.sid}`,
     "",
-    "Agent — drive the step-up loop:",
-    "  1. Tell the user to complete the WebAuthn flow in the opened tab " +
+    "Agent — drive the step-up loop (do this WITHOUT asking the user for confirmation):",
+    "  1. Tell the user (one short line) to complete WebAuthn in the opened tab " +
       "(paste the URL above if it did not open).",
-    `  2. Call the MCP tool \`poll_stepup_session\` with sid="${req.sid}" ` +
-      'until step_status === "verified" (poll every ~1s, give up after ~60s).',
-    "  3. Retry the SAME Bash command — the hook detects the verified state " +
-      "and allows it.",
+    `  2. Immediately call the MCP tool \`poll_stepup_session_wait\` with sid="${req.sid}". ` +
+      "It blocks until verified or 60s timeout — one call replaces the polling loop.",
+    '  3. On `outcome: "verified"` retry the SAME Bash command — the hook detects the ' +
+      'verified state and allows it. On `outcome: "timeout"` ask the user to retry ' +
+      "WebAuthn, then call the wait tool again.",
   ].join("\n");
   emitDeny(
     {
@@ -301,8 +302,8 @@ function emitStepupPending(
         permissionDecision: "deny",
         permissionDecisionReason:
           `Step-up MFA pending. sid=${req.sid}. Open ${req.browserUrl}, ` +
-          "complete WebAuthn, call poll_stepup_session until verified, " +
-          "then retry the same Bash command.",
+          "complete WebAuthn, then call MCP tool `poll_stepup_session_wait` " +
+          `with sid="${req.sid}" and retry the same Bash command.`,
       },
       systemMessage,
     },
