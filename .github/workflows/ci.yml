@@ -46,8 +46,8 @@ jobs:
           OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
             | node plugins/ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:2" || { echo "::error::Hook did not block rm -rf /"; exit 1; }
-          echo "$OUT" | grep -q "BLOCKED dangerous command" || { echo "::error::Block message missing"; exit 1; }
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for danger command"; exit 1; }
+          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Deny JSON missing"; exit 1; }
 
       - name: Hook smoke test — safe command passes (ls)
         run: |
