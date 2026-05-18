@@ -278,16 +278,23 @@ async function main() {
         emitStepupFailure(block, req);
         process.exit(0);
     }
-    writePending({
-        sid: req.sid,
-        command: block.command,
-        reason: block.reason,
-        browserUrl: req.browserUrl,
-        createdAt: Date.now(),
-        expiresAt: req.expiresAt,
-        status: "pending",
-    });
+    // Emit the deny JSON first so a downstream throw cannot suppress it —
+    // CLAUDE.md mandates fail-safe (stdout deny) after a danger match.
     emitStepupPending(block, req);
+    try {
+        writePending({
+            sid: req.sid,
+            command: block.command,
+            reason: block.reason,
+            browserUrl: req.browserUrl,
+            createdAt: Date.now(),
+            expiresAt: req.expiresAt,
+            status: "pending",
+        });
+    }
+    catch (err) {
+        process.stderr.write(`ai-action-tracker: pending file write failed (deny still emitted): ${err}\n`);
+    }
     process.exit(0);
 }
 main().catch((err) => {
