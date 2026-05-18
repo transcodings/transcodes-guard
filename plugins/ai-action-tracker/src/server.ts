@@ -11,6 +11,7 @@ import {
   type MergedPattern,
 } from "./danger-patterns.js";
 import { loadStepupConfig } from "./stepup/config.js";
+import { markVerified } from "./stepup/pending.js";
 import {
   createStepupSession,
   pollStepupSession,
@@ -253,6 +254,7 @@ export function createServer(): McpServer {
       const result = await pollStepupSession(config, sid);
       if (result.status === "verified") {
         writeVerified({ sid, verifiedAt: Date.now() });
+        markVerified(sid);
       }
       return {
         content: [

@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { addUserPattern, findFirstMatch, getUserPatternsPath, loadMergedPatterns, PatternValidationError, removeUserPattern, updateUserPattern, } from "./danger-patterns.js";
 import { loadStepupConfig } from "./stepup/config.js";
+import { markVerified } from "./stepup/pending.js";
 import { createStepupSession, pollStepupSession, } from "./stepup/session.js";
 import { writeVerified } from "./stepup/store.js";
 function formatPatternsMarkdown(patterns) {
@@ -180,6 +181,7 @@ export function createServer() {
         const result = await pollStepupSession(config, sid);
         if (result.status === "verified") {
             writeVerified({ sid, verifiedAt: Date.now() });
+            markVerified(sid);
         }
         return {
             content: [

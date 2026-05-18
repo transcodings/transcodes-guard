@@ -6,6 +6,7 @@ export type RequestResult = {
     ok: true;
     sid: string;
     browserUrl: string;
+    expiresAt?: string;
     launched: boolean;
 } | {
     ok: false;
