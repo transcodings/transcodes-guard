@@ -1,15 +1,15 @@
 ---
 paths:
-  - "src/**/*.ts"
+  - "plugins/ai-action-tracker/src/**/*.ts"
 ---
 
 # MCP Server Source Rules
 
-Active when editing `src/**/*.ts`. Pair with the project-wide `CLAUDE.md`.
+Active when editing `plugins/ai-action-tracker/src/**/*.ts`. Pair with the project-wide `CLAUDE.md`.
 
 ## Capability Authoring
 
-All capabilities live in `createServer()` in `src/server.ts`. Use the modern `register*` APIs — the positional-argument forms (`server.tool(name, desc, schema, cb)`) are deprecated in SDK v1 and will be removed.
+All capabilities live in `createServer()` in `plugins/ai-action-tracker/src/server.ts`. Use the modern `register*` APIs — the positional-argument forms (`server.tool(name, desc, schema, cb)`) are deprecated in SDK v1 and will be removed.
 
 ```ts
 // Tool — model-invoked side effect
@@ -59,7 +59,7 @@ The stdio transport uses stdin/stdout for JSON-RPC. Anything written to stdout t
 
 ## Transport Files Are Thin
 
-`stdio.ts` and `http.ts` should only:
+`plugins/ai-action-tracker/src/stdio.ts` and `plugins/ai-action-tracker/src/http.ts` should only:
 
 1. Import `createServer()`.
 2. Construct a transport instance.
@@ -68,7 +68,7 @@ The stdio transport uses stdin/stdout for JSON-RPC. Anything written to stdout t
 
 If a feature requires editing both transport files, the feature probably belongs in `server.ts` instead.
 
-## HTTP Transport Specifics (`src/http.ts`)
+## HTTP Transport Specifics (`plugins/ai-action-tracker/src/http.ts`)
 
 - Endpoint is `/mcp` only. POST and GET both routed to the same transport handler.
 - Stateless mode (`sessionIdGenerator: undefined`) is the default. Opt into stateful sessions only when a feature genuinely requires multi-step state.
@@ -77,15 +77,15 @@ If a feature requires editing both transport files, the feature probably belongs
 
 ## SDK Version Migrations
 
-When `package.json` updates `@modelcontextprotocol/sdk`:
+When `plugins/ai-action-tracker/package.json` updates `@modelcontextprotocol/sdk`:
 
-1. Run `npm run build` and read every TypeScript warning, including deprecation notices.
+1. Run `npm run build:plugin` and read every TypeScript warning, including deprecation notices.
 2. Run `npm run inspect` and exercise each registered capability — SDK changes sometimes alter wire formats silently.
-3. Bump this project's `version` in both `package.json` and the `McpServer({ version })` call in `src/server.ts`.
+3. Bump the plugin's `version` in both `plugins/ai-action-tracker/package.json` and the `McpServer({ version })` call in `plugins/ai-action-tracker/src/server.ts`.
 
 ## Self-verification Before "Done"
 
-- `npm run build` passes (no errors, no new deprecation warnings introduced).
+- `npm run build:plugin` passes (no errors, no new deprecation warnings introduced) **and** `plugins/ai-action-tracker/dist/` is committed in the same change. CI (`git diff --exit-code -- plugins/ai-action-tracker/dist/`) fails if source and dist drift apart.
 - New or changed capabilities visible and callable in `npm run inspect`.
 - No `console.log` introduced anywhere reachable from the stdio entry point.
 - Tool `description` strings answer "what does this do" and "when should the model call it" in one or two sentences.

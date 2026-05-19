@@ -27,7 +27,7 @@ function buildContext(prompt, pending) {
         return null;
     const statusNote = pending.status === "verified"
         ? "already verified — just retry the original command."
-        : "still pending — call poll_stepup_session now to confirm.";
+        : "still pending — call poll_stepup_session_wait now to block until verified.";
     return [
         "ai-action-tracker: user appears to report step-up MFA completion.",
         "",
@@ -36,8 +36,8 @@ function buildContext(prompt, pending) {
         `Original command    : ${pending.command}`,
         "",
         "Next action:",
-        `  - Call MCP tool \`poll_stepup_session\` with sid="${pending.sid}".`,
-        '  - If step_status === "verified", retry the exact original Bash command above.',
+        `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${pending.sid}".`,
+        '  - On `outcome: "verified"` retry the exact original Bash command above.',
     ].join("\n");
 }
 async function main() {

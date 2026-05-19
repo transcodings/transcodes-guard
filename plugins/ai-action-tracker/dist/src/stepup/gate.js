@@ -4,10 +4,11 @@
  * Creates a step-up session against the Transcodes backend, opens the
  * browser to the WebAuthn URL, and returns sid + URL for the caller to
  * surface to the agent. Polling is intentionally NOT performed here — the
- * hook process exits quickly (exit 2) so the agent can drive the wait
- * loop via the `poll_stepup_session` MCP tool and retry the same Bash
- * command. The retry hits a verified record in the cross-platform store
- * and falls through.
+ * hook process emits a v2 deny JSON and exits 0 so the agent can drive
+ * the wait via the `poll_stepup_session_wait` MCP tool (one blocking call
+ * instead of a 60-iteration manual loop) and retry the same Bash command.
+ * The retry hits a verified record in the cross-platform store and the
+ * fast path emits an explicit allow JSON.
  */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";

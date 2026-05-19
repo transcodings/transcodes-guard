@@ -35,8 +35,8 @@ function reminderFor(
     `Browser URL     : ${pending.browserUrl}`,
     "",
     "Next action:",
-    `  - Call MCP tool \`poll_stepup_session\` with sid="${pending.sid}".`,
-    '  - When step_status === "verified", retry the exact original Bash command.',
+    `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${pending.sid}".`,
+    '  - On `outcome: "verified"` retry the exact original Bash command.',
   ].join("\n");
 }
 
