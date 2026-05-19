@@ -54,19 +54,15 @@ async function main(): Promise<void> {
   const pending = readPending();
   if (!pending || isExpired(pending)) process.exit(0);
 
-  // Stop hook spec: `decision: "block"` keeps the conversation alive so
-  // the model receives a follow-up turn carrying `additionalContext`.
-  // Without it, Claude Code rejects the JSON ("Invalid input") because
-  // hookSpecificOutput alone is not a valid Stop response shape.
+  // Stop hook spec: emit `decision: "block"` + `reason` only. The
+  // harness surfaces `reason` to the next turn directly; Stop is not
+  // in the allowed `hookSpecificOutput.hookEventName` enum, so adding
+  // that block makes the validator reject the JSON ("Invalid input").
   const reminder = reminderFor(pending);
   process.stdout.write(
     JSON.stringify({
       decision: "block",
       reason: reminder,
-      hookSpecificOutput: {
-        hookEventName: "Stop",
-        additionalContext: reminder,
-      },
     }),
   );
   process.exit(0);
