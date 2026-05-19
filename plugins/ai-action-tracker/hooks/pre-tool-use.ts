@@ -15,7 +15,9 @@
  * On danger match: agent-driven step-up MFA loop.
  *   a. If the cross-platform store already holds a verified record (a
  *      previous step-up that has not been consumed yet), consume it and
- *      exit 0 — the command runs.
+ *      emit an explicit allow JSON. The explicit allow is required to
+ *      override upstream default deny (settings.json patterns, built-in
+ *      Anthropic safety patterns); exit 0 alone would let those win.
  *   b. Otherwise call `requestStepup`: create a Transcodes step-up
  *      session, auto-launch the browser to the WebAuthn URL, write the
  *      pending state file for the secondary hooks, and emit a v2 hook
@@ -204,9 +206,37 @@ type DenyOutput = {
   systemMessage: string;
 };
 
+type AllowOutput = {
+  hookSpecificOutput: {
+    hookEventName: "PreToolUse";
+    permissionDecision: "allow";
+    permissionDecisionReason: string;
+  };
+};
+
 function emitDeny(output: DenyOutput, stderrSummary: string): void {
   process.stdout.write(JSON.stringify(output));
   process.stderr.write(`${stderrSummary}\n`);
+}
+
+// Explicit allow overrides upstream default deny rules (settings.json
+// `permissions.deny`, built-in Anthropic safety patterns). Without this
+// JSON, the hook would only signal "no objection" via exit 0 — which is
+// insufficient to override a configured deny.
+function emitAllow(result: BlockResult): void {
+  const output: AllowOutput = {
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "allow",
+      permissionDecisionReason:
+        `ai-action-tracker: step-up MFA verified — overriding default permission policy. ` +
+        `Original danger match: ${result.reason}. Command: ${result.command}`,
+    },
+  };
+  process.stdout.write(JSON.stringify(output));
+  process.stderr.write(
+    `ai-action-tracker: ALLOWED (stepup-verified) — ${result.command}\n`,
+  );
 }
 
 function blockedSummary(result: BlockResult): string {
@@ -333,10 +363,12 @@ async function main(): Promise<void> {
 
   // Fast path: a previous step-up was verified and the record is still in
   // the cross-platform store. Consume both records (single-shot policy)
-  // and allow.
+  // and emit an explicit allow JSON so the decision overrides any
+  // upstream default deny (settings.json patterns, built-in safety).
   if (readVerified()) {
     consumeVerified();
     clearPending();
+    emitAllow(block);
     process.exit(0);
   }
 

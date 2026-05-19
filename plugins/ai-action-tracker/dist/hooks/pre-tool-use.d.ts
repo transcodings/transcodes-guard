@@ -15,7 +15,9 @@
  * On danger match: agent-driven step-up MFA loop.
  *   a. If the cross-platform store already holds a verified record (a
  *      previous step-up that has not been consumed yet), consume it and
- *      exit 0 — the command runs.
+ *      emit an explicit allow JSON. The explicit allow is required to
+ *      override upstream default deny (settings.json patterns, built-in
+ *      Anthropic safety patterns); exit 0 alone would let those win.
  *   b. Otherwise call `requestStepup`: create a Transcodes step-up
  *      session, auto-launch the browser to the WebAuthn URL, write the
  *      pending state file for the secondary hooks, and emit a v2 hook
