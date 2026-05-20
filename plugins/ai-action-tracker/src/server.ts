@@ -58,12 +58,12 @@ function formatToolRulesMarkdown(rules: MergedToolRule[]): string {
     `${rules.length} rule(s) gate MCP tool invocations via the PreToolUse hook.`,
     `User rules live at \`${getUserToolRulesPath()}\` and are editable through the \`add_tool_rule\`/\`update_tool_rule\`/\`remove_tool_rule\` tools. System rules are immutable.`,
     "",
-    "| source | id | toolName | reason | action | resource |",
-    "| ------ | -- | -------- | ------ | ------ | -------- |",
+    "| source | id | toolName | reason | action | resource | consume_in_hook |",
+    "| ------ | -- | -------- | ------ | ------ | -------- | --------------- |",
   ];
   for (const r of rules) {
     lines.push(
-      `| ${r.source} | \`${r.id}\` | \`${r.toolName}\` | ${r.reason} | ${r.stepupAction} | ${r.stepupResource} |`,
+      `| ${r.source} | \`${r.id}\` | \`${r.toolName}\` | ${r.reason} | ${r.stepupAction} | ${r.stepupResource} | ${r.consume_in_hook ?? false} |`,
     );
   }
   return lines.join("\n");
@@ -652,13 +652,19 @@ export function createServer(): McpServer {
         reason: z.string().min(1),
         stepupAction: z.string().min(1),
         stepupResource: z.string().min(1),
+        consume_in_hook: z
+          .boolean()
+          .optional()
+          .describe(
+            "When true (default for user rules), the PreToolUse hook consumes the verified record itself (Bash-like fast-path). Set false ONLY if the tool handler threads the sid via `withStepupVerifiedSid` to a backend that requires the X-Step-Up-Session-Id header.",
+          ),
       },
     },
     async (input) => {
       try {
         const saved = addUserToolRule(input);
         return textResult(
-          `Added user tool-rule \`${saved.id}\`.\ntoolName: ${saved.toolName}\nreason: ${saved.reason}\naction: ${saved.stepupAction}\nresource: ${saved.stepupResource}`,
+          `Added user tool-rule \`${saved.id}\`.\ntoolName: ${saved.toolName}\nreason: ${saved.reason}\naction: ${saved.stepupAction}\nresource: ${saved.stepupResource}\nconsume_in_hook: ${saved.consume_in_hook ?? true}`,
         );
       } catch (e) {
         if (e instanceof ToolRuleValidationError) {
@@ -681,17 +687,24 @@ export function createServer(): McpServer {
         reason: z.string().min(1).optional(),
         stepupAction: z.string().min(1).optional(),
         stepupResource: z.string().min(1).optional(),
+        consume_in_hook: z
+          .boolean()
+          .optional()
+          .describe(
+            "Override the hook-side consume behavior. true = hook consumes immediately (no wrapper needed); false = handler consumes via withStepupVerifiedSid.",
+          ),
       },
     },
-    async ({ id, toolName, reason, stepupAction, stepupResource }) => {
+    async ({ id, toolName, reason, stepupAction, stepupResource, consume_in_hook }) => {
       if (
         toolName === undefined &&
         reason === undefined &&
         stepupAction === undefined &&
-        stepupResource === undefined
+        stepupResource === undefined &&
+        consume_in_hook === undefined
       ) {
         return textResult(
-          "Rejected: provide at least one of `toolName`, `reason`, `stepupAction`, or `stepupResource` to update.",
+          "Rejected: provide at least one of `toolName`, `reason`, `stepupAction`, `stepupResource`, or `consume_in_hook` to update.",
           true,
         );
       }
@@ -701,9 +714,10 @@ export function createServer(): McpServer {
           reason,
           stepupAction,
           stepupResource,
+          consume_in_hook,
         });
         return textResult(
-          `Updated user tool-rule \`${saved.id}\`.\ntoolName: ${saved.toolName}\nreason: ${saved.reason}\naction: ${saved.stepupAction}\nresource: ${saved.stepupResource}`,
+          `Updated user tool-rule \`${saved.id}\`.\ntoolName: ${saved.toolName}\nreason: ${saved.reason}\naction: ${saved.stepupAction}\nresource: ${saved.stepupResource}\nconsume_in_hook: ${saved.consume_in_hook ?? true}`,
         );
       } catch (e) {
         if (e instanceof ToolRuleValidationError) {

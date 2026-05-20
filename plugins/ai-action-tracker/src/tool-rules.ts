@@ -27,6 +27,11 @@ export interface ToolRule {
   stepupAction: string;
   /** Backend audit-log resource identifier (e.g. "ai-action-tracker:mcp:members"). */
   stepupResource: string;
+  /** When true, the PreToolUse hook consumes the verified record itself on the
+   * fast-path (Bash-like). When false, consume is deferred to the tool handler
+   * via `withStepupVerifiedSid` (handler needs the sid for the backend header).
+   * Defaults per source in `loadMergedToolRules`: system=false, user=true. */
+  consume_in_hook?: boolean;
 }
 
 export interface ToolRuleConfig {
@@ -96,10 +101,12 @@ export function userToolRulesFileExists(): boolean {
 export function loadMergedToolRules(): MergedToolRule[] {
   const system = loadSystemToolRules().rules.map((r) => ({
     ...r,
+    consume_in_hook: r.consume_in_hook ?? false,
     source: "system" as const,
   }));
   const user = loadUserToolRules().rules.map((r) => ({
     ...r,
+    consume_in_hook: r.consume_in_hook ?? true,
     source: "user" as const,
   }));
   return [...system, ...user];
@@ -127,10 +134,11 @@ export interface ToolRuleInput {
   reason: string;
   stepupAction: string;
   stepupResource: string;
+  consume_in_hook?: boolean;
 }
 
 export function validateNewToolRule(input: ToolRuleInput): ToolRule {
-  const { id, toolName, reason, stepupAction, stepupResource } = input;
+  const { id, toolName, reason, stepupAction, stepupResource, consume_in_hook } = input;
 
   if (!ID_REGEX.test(id)) {
     throw new ToolRuleValidationError(
@@ -171,6 +179,7 @@ export function validateNewToolRule(input: ToolRuleInput): ToolRule {
     reason: trimmedReason,
     stepupAction: trimmedAction,
     stepupResource: trimmedResource,
+    ...(consume_in_hook === undefined ? {} : { consume_in_hook }),
   };
 }
 
@@ -194,6 +203,7 @@ export function updateUserToolRule(
     reason?: string;
     stepupAction?: string;
     stepupResource?: string;
+    consume_in_hook?: boolean;
   },
 ): ToolRule {
   const systemIds = new Set(loadSystemToolRules().rules.map((r) => r.id));
@@ -215,6 +225,7 @@ export function updateUserToolRule(
     reason: changes.reason ?? existing.reason,
     stepupAction: changes.stepupAction ?? existing.stepupAction,
     stepupResource: changes.stepupResource ?? existing.stepupResource,
+    consume_in_hook: changes.consume_in_hook ?? existing.consume_in_hook,
   };
   const validated = validateNewToolRule(merged);
 

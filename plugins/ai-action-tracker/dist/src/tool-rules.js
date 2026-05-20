@@ -50,10 +50,12 @@ export function userToolRulesFileExists() {
 export function loadMergedToolRules() {
     const system = loadSystemToolRules().rules.map((r) => ({
         ...r,
+        consume_in_hook: r.consume_in_hook ?? false,
         source: "system",
     }));
     const user = loadUserToolRules().rules.map((r) => ({
         ...r,
+        consume_in_hook: r.consume_in_hook ?? true,
         source: "user",
     }));
     return [...system, ...user];
@@ -68,7 +70,7 @@ export function findFirstToolRule(toolName, rules) {
 export class ToolRuleValidationError extends Error {
 }
 export function validateNewToolRule(input) {
-    const { id, toolName, reason, stepupAction, stepupResource } = input;
+    const { id, toolName, reason, stepupAction, stepupResource, consume_in_hook } = input;
     if (!ID_REGEX.test(id)) {
         throw new ToolRuleValidationError(`id must match /^[a-z0-9][a-z0-9-]*$/ (got: "${id}")`);
     }
@@ -98,6 +100,7 @@ export function validateNewToolRule(input) {
         reason: trimmedReason,
         stepupAction: trimmedAction,
         stepupResource: trimmedResource,
+        ...(consume_in_hook === undefined ? {} : { consume_in_hook }),
     };
 }
 export function addUserToolRule(input) {
@@ -126,6 +129,7 @@ export function updateUserToolRule(id, changes) {
         reason: changes.reason ?? existing.reason,
         stepupAction: changes.stepupAction ?? existing.stepupAction,
         stepupResource: changes.stepupResource ?? existing.stepupResource,
+        consume_in_hook: changes.consume_in_hook ?? existing.consume_in_hook,
     };
     const validated = validateNewToolRule(merged);
     const idx = current.rules.findIndex((r) => r.id === id);

@@ -8,6 +8,11 @@ export interface ToolRule {
     stepupAction: string;
     /** Backend audit-log resource identifier (e.g. "ai-action-tracker:mcp:members"). */
     stepupResource: string;
+    /** When true, the PreToolUse hook consumes the verified record itself on the
+     * fast-path (Bash-like). When false, consume is deferred to the tool handler
+     * via `withStepupVerifiedSid` (handler needs the sid for the backend header).
+     * Defaults per source in `loadMergedToolRules`: system=false, user=true. */
+    consume_in_hook?: boolean;
 }
 export interface ToolRuleConfig {
     rules: ToolRule[];
@@ -34,6 +39,7 @@ export interface ToolRuleInput {
     reason: string;
     stepupAction: string;
     stepupResource: string;
+    consume_in_hook?: boolean;
 }
 export declare function validateNewToolRule(input: ToolRuleInput): ToolRule;
 export declare function addUserToolRule(input: ToolRuleInput): ToolRule;
@@ -42,5 +48,6 @@ export declare function updateUserToolRule(id: string, changes: {
     reason?: string;
     stepupAction?: string;
     stepupResource?: string;
+    consume_in_hook?: boolean;
 }): ToolRule;
 export declare function removeUserToolRule(id: string): void;
