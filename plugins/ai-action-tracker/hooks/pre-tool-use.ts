@@ -355,6 +355,19 @@ type Classified =
       rule: MergedToolRule;
     };
 
+/** Serialize MCP tool_input for `block.command` — feeds `systemMessage`,
+ * `writePending`, and Stop/SessionStart reminder text. Capped at 200 chars so
+ * a large payload doesn't blow up the pending file or reminder display. */
+function stringifyToolInput(input: unknown): string {
+  try {
+    const s = JSON.stringify(input);
+    if (s === undefined) return "[unserializable]";
+    return s.length > 200 ? s.slice(0, 197) + "..." : s;
+  } catch {
+    return "[unserializable]";
+  }
+}
+
 function classifyToolCall(payload: PreToolUsePayload): Classified | null {
   if (payload.tool_name === "Bash") {
     const command = payload.tool_input?.command;
@@ -403,7 +416,7 @@ async function main(): Promise<void> {
         checkRmGitTracked(classified.command, classified.cwd))
       : {
           reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` — ${classified.rule.reason}`,
-          command: classified.toolName,
+          command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
         };
 
   if (!block) process.exit(0);
@@ -411,12 +424,18 @@ async function main(): Promise<void> {
   // Fast path: a previous step-up was verified and the record is still in
   // the cross-platform store. Emit an explicit allow JSON so the decision
   // overrides any upstream default deny (settings.json patterns, built-in
-  // safety). Bash has no follow-up handler — consume both records here.
-  // MCP defers consume to the tool handler (via `withStepupVerifiedSid`),
-  // which needs the sid for the `X-Step-Up-Session-Id` request header.
+  // safety). Consume-here vs defer-to-handler diverges by rule:
+  //   - Bash: always consume here (no follow-up handler).
+  //   - MCP system rules (consume_in_hook=false): defer to the handler via
+  //     `withStepupVerifiedSid` — the handler needs the sid for the
+  //     `X-Step-Up-Session-Id` request header.
+  //   - MCP user rules (consume_in_hook=true by default): consume here so a
+  //     handler without the wrapper still satisfies the single-shot policy.
   if (readVerified()) {
     emitAllow(block);
-    if (classified.kind === "bash") {
+    const consumeHere =
+      classified.kind === "bash" || classified.rule.consume_in_hook === true;
+    if (consumeHere) {
       consumeVerified();
       clearPending();
     }
