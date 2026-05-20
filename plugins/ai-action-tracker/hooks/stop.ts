@@ -10,21 +10,15 @@
  * Never blocks (no `decision: "block"`). Any error path is a no-op.
  */
 
-import { isExpired, readPending } from "../src/stepup/pending.js";
+import { clearPending, isExpired, readPending } from "../src/stepup/pending.js";
+import { consumeVerified, readVerified } from "../src/stepup/store.js";
 
 function reminderFor(
   pending: NonNullable<ReturnType<typeof readPending>>,
 ): string {
-  if (pending.status === "verified") {
-    return [
-      "ai-action-tracker: a step-up MFA session is VERIFIED but the original",
-      "Bash command has not been retried yet. Retry it now to release the",
-      "single-shot verified record before it expires.",
-      "",
-      `Session sid     : ${pending.sid}`,
-      `Original command: ${pending.command}`,
-    ].join("\n");
-  }
+  // Only the "pending" status path is reachable here — the "verified"
+  // status is reaped by the orphan-cleanup branches in `main()` before
+  // we ever construct a reminder.
   return [
     "ai-action-tracker: a step-up MFA session is still PENDING. The Bash",
     "command it gated was NOT executed. Resume the loop or report to the",
@@ -52,6 +46,32 @@ async function main(): Promise<void> {
   }
 
   const pending = readPending();
+  const verified = readVerified();
+
+  // Orphan cleanup — the MCP fast-path leaves `verified.json` for the
+  // tool handler to consume via `withStepupVerifiedSid`. If the handler
+  // never reaches that wrapper (early throw, zod reject, transport drop)
+  // OR the user authenticated but never called a protected tool, the
+  // record persists. Stop firing means the turn is over, so any record
+  // still around is by definition no longer in flight — reap it
+  // silently. Avoids a false "dangling pending" reminder.
+  //
+  // Orphan A: verified record exists but pending is gone or not in the
+  // "pending" state (e.g. status flipped to "verified" but the handler
+  // failed before consuming).
+  if (verified && (!pending || pending.status !== "pending")) {
+    consumeVerified();
+    if (pending) clearPending();
+    process.exit(0);
+  }
+  // Orphan B: pending says "verified" but the verified file is gone —
+  // handler consumed but clearPending was missed somewhere. No reminder
+  // needed; the work is done.
+  if (pending && !verified && pending.status === "verified") {
+    clearPending();
+    process.exit(0);
+  }
+
   if (!pending || isExpired(pending)) process.exit(0);
 
   // Stop hook spec: emit `decision: "block"` + `reason` only. The
