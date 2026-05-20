@@ -42,13 +42,22 @@ plugins/
       server.ts                         #       createServer() — 모든 capability의 단일 정의처
       stdio.ts                          #       로컬 진입점. 셰뱅 + npx 배포 가능.
       http.ts                           #       원격 진입점. 단일 /mcp, stateless.
+      danger-patterns.ts                #       Bash danger pattern 로더 + 사용자 룰 CRUD.
+      tool-rules.ts                     #       MCP 도구 step-up 룰 로더 + 사용자 룰 CRUD (danger-patterns.ts와 평행).
+      tools/                            #     transcodes 백엔드 도구 (포팅된 step-up 보호 toolset)
+        transcodes-client.ts            #       endpoint map + req() 래퍼 (stepup/client.ts에 X-Step-Up-Session-Id 헤더 위임).
+        stepup-helper.ts                #       withStepupVerifiedSid — verified record를 sid로 변환 + finally consume.
+        members.ts                      #       member 관련 7개 도구 + registerMemberTools(server).
+        rbac.ts                         #       RBAC 관련 7개 도구 + registerRbacTools(server).
+        passcode.ts                     #       passcode_create 도구 + registerPasscodeTools(server).
     hooks/                              #     hook orchestra 소스 (4종)
-      hooks.json                        #       PreToolUse/SessionStart/UserPromptSubmit/Stop 매니페스트.
-      pre-tool-use.ts                   #       위험 Bash 명령 차단 + step-up 핸드오프.
+      hooks.json                        #       PreToolUse(Bash + matched MCP)/SessionStart/UserPromptSubmit/Stop 매니페스트.
+      pre-tool-use.ts                   #       Bash danger + tool-rule MCP 도구 차단 + step-up 핸드오프.
       session-start.ts                  #       프로토콜 사전 주입 + 이월 pending 알림.
       user-prompt-submit.ts             #       사용자 "완료" 신호 감지 → polling 재개 컨텍스트.
       stop.ts                           #       응답 종료 시 dangling step-up 리마인더.
-      danger-patterns.json              #       차단 정규식 목록.
+      danger-patterns.json              #       차단 Bash 정규식 목록 (시스템).
+      tool-rules.json                   #       step-up이 필요한 MCP 도구 룰 목록 (시스템).
     dist/                               #   build:plugin 산출물 (git 커밋, 수동 편집 금지)
 docs/
   architecture.md                       # 설계 의도. 비자명한 변경 전 필독.
@@ -63,7 +72,7 @@ docs/
 
 ## Must
 
-- Add capabilities **only** by editing `createServer()` in `plugins/ai-action-tracker/src/server.ts`. Never duplicate registrations in `stdio.ts` or `http.ts`.
+- Add capabilities **only** by editing `createServer()` in `plugins/ai-action-tracker/src/server.ts`. Never duplicate registrations in `stdio.ts` or `http.ts`. Larger tool families live in `src/tools/<category>.ts` and expose `register<Category>Tools(server)`; `createServer()` calls those — the single-source-of-truth invariant is *which file calls register*, not *which file holds the body*.
 - Validate every tool input with `zod`. LLM-supplied arguments are untrusted by default.
 - Log via `console.error` (stderr). `console.log` to stdout corrupts JSON-RPC framing in stdio mode and the client will silently disconnect.
 - Run `npm run build:plugin` before claiming work complete. No tests exist; `tsc` + dist sync는 CI가 강제하는 정합성 계약.
@@ -71,7 +80,11 @@ docs/
 - The PreToolUse hook (`plugins/ai-action-tracker/hooks/pre-tool-use.ts`) uses **asymmetric fail policy**:
   - *Before* a danger pattern match (stdin parse, pattern file load, etc.) → **fail-open** (exit 0, no JSON). A buggy hook must not brick the workflow.
   - *After* a danger match → **fail-safe** (exit 0 + stdout JSON `permissionDecision: "deny"`). If we cannot prove the user authorised the command via MFA, we deny. The `systemMessage` field carries the protocol instructions to the model; stderr keeps a 1-line human-readable summary.
-- Hook orchestra: PreToolUse(Bash) denies the call; SessionStart injects the protocol primer; UserPromptSubmit detects user "auth done" messages; Stop catches dangling pending state. The four hooks coordinate through a single shared file `~/.cache/.../stepup-pending.json` — see [`docs/architecture.md`](./docs/architecture.md) §5. Never add a new hook for step-up; consume the orchestra instead.
+- Hook orchestra: PreToolUse(Bash + matched MCP) denies the call; SessionStart injects the protocol primer; UserPromptSubmit detects user "auth done" messages; Stop catches dangling pending state. The four hooks coordinate through a single shared file `~/.cache/.../stepup-pending.json` — see [`docs/architecture.md`](./docs/architecture.md) §5. Never add a new hook for step-up; consume the orchestra instead.
+- Two trigger sources for step-up, both routed through the same PreToolUse hook:
+  - **Bash**: matched by `danger-patterns.json` regex + `rm -rf` git semantic check.
+  - **MCP tool calls**: matched by `tool-rules.json` (exact `toolName` match). hook matcher: `Bash|mcp__plugin_ai-action-tracker_ai-action-tracker__.*`. New protected MCP tool → add a row in `hooks/tool-rules.json` (system) or via `add_tool_rule` MCP tool (user).
+- fast-path verified consume diverges by kind: **Bash** is consumed in the hook (no follow-up handler); **MCP** defers consume to the tool handler via `withStepupVerifiedSid` (helper needs the sid to set `X-Step-Up-Session-Id` on the backend call before discarding the record).
 - Step-up MFA module (`plugins/ai-action-tracker/src/stepup/`) is the only place that talks to the Transcodes backend. New sensitive features should consume the gate, not re-create it. Layered as `jwt.ts` → `config.ts` → `client.ts` → `session.ts` (pure, MCP-agnostic) → `gate.ts` (hook-facing) / `inspector.ts` (read-only snapshot). Shared-state helpers live in `pending.ts`; the single-shot verified record in `store.ts`.
 - Diagnostic MCP tools for hook/step-up debugging: `inspect_stepup_state` (read-only structured snapshot of `verified` / `pending` / `browser_lock` files, with server-computed `age_ms` / `expired` / `ttl_ms`); `simulate_hook_invocation` (spawns the actual PreToolUse hook binary in a subprocess and diffs state before/after — **not** a dry run, may consume verified record or open a browser tab). Prefer these over wrapping `cat`/`ls` for state inspection.
 - Hook output channels (each hook uses what the Claude Code validator accepts for *that* hook type):

@@ -56,3 +56,38 @@ jobs:
             | node plugins/ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow safe command"; exit 1; }
+
+      - name: Hook smoke test — protected MCP tool denied (retire_member)
+        run: |
+          set -e
+          OUT=$(echo '{"tool_name":"mcp__plugin_ai-action-tracker_ai-action-tracker__retire_member","tool_input":{"body":{"member_id":"x"}}}' \
+            | node plugins/ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for protected MCP tool"; exit 1; }
+          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Deny JSON missing for protected MCP tool"; exit 1; }
+
+      - name: Hook smoke test — unprotected MCP tool passes (get_member)
+        run: |
+          set -e
+          OUT=$(echo '{"tool_name":"mcp__plugin_ai-action-tracker_ai-action-tracker__get_member","tool_input":{"member_id":"x"}}' \
+            | node plugins/ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow unprotected MCP tool"; exit 1; }
+          if echo "$OUT" | grep -q '"permissionDecision"'; then
+            echo "::error::Unexpected permissionDecision output for unprotected MCP tool"; exit 1
+          fi
+
+      - name: Hook smoke test — verified record yields explicit allow for MCP
+        run: |
+          set -e
+          mkdir -p "$HOME/.cache/ai-action-tracker"
+          NOW=$(node -e 'console.log(Date.now())')
+          echo "{\"sid\":\"ci-test-sid\",\"verifiedAt\":$NOW}" > "$HOME/.cache/ai-action-tracker/stepup-verified.json"
+          OUT=$(echo '{"tool_name":"mcp__plugin_ai-action-tracker_ai-action-tracker__retire_member","tool_input":{"body":{"member_id":"x"}}}' \
+            | node plugins/ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 with verified record"; exit 1; }
+          echo "$OUT" | grep -q '"permissionDecision":"allow"' || { echo "::error::Explicit allow JSON missing despite verified record"; exit 1; }
+          test -f "$HOME/.cache/ai-action-tracker/stepup-verified.json" || { echo "::error::MCP fast-path consumed verified record (should defer to handler)"; exit 1; }
+          rm -f "$HOME/.cache/ai-action-tracker/stepup-verified.json"
+          rm -f "$HOME/.cache/ai-action-tracker/stepup-pending.json"
