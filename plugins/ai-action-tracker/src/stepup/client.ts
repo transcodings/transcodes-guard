@@ -10,10 +10,29 @@ import type { StepupConfig } from "./config.js";
 const REQUEST_TIMEOUT_MS = 30_000;
 
 export type RequestInput = {
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /** Path after `/v1`, e.g. `/auth/temp-session/step-up/session`. */
   path: string;
+  /**
+   * Query parameters. `undefined`/`null`/`""` values are dropped — parity with
+   * transcodes-mcp-server/src/client.ts so DELETE …?key=… style endpoints
+   * behave identically.
+   */
+  query?: Record<string, string | number | boolean | undefined | null>;
   body?: unknown;
+  /**
+   * Step-up MFA session id. When set, sent as `X-Step-Up-Session-Id` header
+   * so the backend can verify the verified record before executing a
+   * sensitive operation. Used by tool handlers that consumed a verified
+   * record via `withStepupVerifiedSid`.
+   */
+  stepUpSid?: string;
+  /**
+   * Send no request body at all (e.g. `DELETE …/resources/:key` with query
+   * params only). Without this flag, body=undefined still sends `{}` so
+   * Nest's `@Body()` validation passes — matches transcodes parity.
+   */
+  omitBody?: boolean;
 };
 
 export type Envelope = {
@@ -33,14 +52,27 @@ export async function request(
   input: RequestInput,
 ): Promise<Envelope> {
   const path = input.path.startsWith("/") ? input.path : `/${input.path}`;
-  const url = `${config.apiBaseV1}${path}`;
+  const params = new URLSearchParams();
+  if (input.query) {
+    for (const [k, v] of Object.entries(input.query)) {
+      if (v !== undefined && v !== null && v !== "") {
+        params.append(k, String(v));
+      }
+    }
+  }
+  const qs = params.toString();
+  const url = `${config.apiBaseV1}${path}${qs ? `?${qs}` : ""}`;
 
   const headers: Record<string, string> = {
     "x-transcodes-token": config.token,
     Accept: "application/json",
   };
+  if (input.stepUpSid) {
+    headers["X-Step-Up-Session-Id"] = input.stepUpSid;
+  }
   let body: string | undefined;
-  if (input.method !== "GET") {
+  const sendsBody = input.method !== "GET" && !input.omitBody;
+  if (sendsBody) {
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(input.body ?? {});
   }

@@ -1,6 +1,16 @@
 export type RequestInput = {
+    /** One-line human-readable summary surfaced in the deny JSON. */
     reason: string;
-    command: string;
+    /** Backend audit-log action identifier (e.g. "bash_exec", "retire_member"). */
+    action: string;
+    /** Backend audit-log resource identifier
+     * (e.g. "ai-action-tracker:pre-tool-use", "ai-action-tracker:mcp:members"). */
+    resource: string;
+    /** Stable key for browser-launch deduplication. Bash → command; MCP →
+     * `${toolName}:${JSON.stringify(tool_input)}`. */
+    fingerprintKey: string;
+    /** Override for the step-up UI comment. Defaults to `Confirm ${reason}`. */
+    comment?: string;
 };
 export type RequestResult = {
     ok: true;

@@ -7,10 +7,29 @@
  */
 import type { StepupConfig } from "./config.js";
 export type RequestInput = {
-    method: "GET" | "POST";
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     /** Path after `/v1`, e.g. `/auth/temp-session/step-up/session`. */
     path: string;
+    /**
+     * Query parameters. `undefined`/`null`/`""` values are dropped — parity with
+     * transcodes-mcp-server/src/client.ts so DELETE …?key=… style endpoints
+     * behave identically.
+     */
+    query?: Record<string, string | number | boolean | undefined | null>;
     body?: unknown;
+    /**
+     * Step-up MFA session id. When set, sent as `X-Step-Up-Session-Id` header
+     * so the backend can verify the verified record before executing a
+     * sensitive operation. Used by tool handlers that consumed a verified
+     * record via `withStepupVerifiedSid`.
+     */
+    stepUpSid?: string;
+    /**
+     * Send no request body at all (e.g. `DELETE …/resources/:key` with query
+     * params only). Without this flag, body=undefined still sends `{}` so
+     * Nest's `@Body()` validation passes — matches transcodes parity.
+     */
+    omitBody?: boolean;
 };
 export type Envelope = {
     ok: boolean;

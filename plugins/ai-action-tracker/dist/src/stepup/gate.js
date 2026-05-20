@@ -22,23 +22,23 @@ import { cacheDir } from "./store.js";
 // short enough not to swallow an intentional retry.
 const BROWSER_LOCK_TTL_MS = 15_000;
 const BROWSER_LOCK_FILE = "stepup-browser-lock.json";
-function commandFingerprint(command) {
-    return createHash("sha256").update(command).digest("hex").slice(0, 16);
+function fingerprintOf(key) {
+    return createHash("sha256").update(key).digest("hex").slice(0, 16);
 }
 /**
- * Atomically claim the right to spawn a browser for this command.
+ * Atomically claim the right to spawn a browser for this request.
  *
- * Returns true if this process is the first to act on `command` within the
- * TTL window — caller should spawn the browser. Returns false if another
- * hook process has already opened a browser for the same command recently;
- * caller should print the URL but skip the spawn.
+ * Returns true if this process is the first to act on `fingerprintKey`
+ * within the TTL window — caller should spawn the browser. Returns false
+ * if another hook process has already opened a browser for the same key
+ * recently; caller should print the URL but skip the spawn.
  *
  * Best-effort: any I/O error falls open (returns true) so the gate never
  * loses MFA visibility because of a broken lock file.
  */
-function claimBrowserLaunch(command) {
+function claimBrowserLaunch(fingerprintKey) {
     const lockFile = path.join(cacheDir(), BROWSER_LOCK_FILE);
-    const fingerprint = commandFingerprint(command);
+    const fingerprint = fingerprintOf(fingerprintKey);
     try {
         const raw = readFileSync(lockFile, "utf8");
         const parsed = JSON.parse(raw);
@@ -106,9 +106,9 @@ export async function requestStepup(input) {
     let created;
     try {
         created = await createStepupSession(config, {
-            comment: `Confirm danger command: ${input.reason}`,
-            action: "bash_exec",
-            resource: "ai-action-tracker:pre-tool-use",
+            comment: input.comment ?? `Confirm ${input.reason}`,
+            action: input.action,
+            resource: input.resource,
         });
     }
     catch (err) {
@@ -125,7 +125,7 @@ export async function requestStepup(input) {
             detail: `backend rejected create_stepup_session (status ${created.envelope.status})`,
         };
     }
-    const launched = claimBrowserLaunch(input.command);
+    const launched = claimBrowserLaunch(input.fingerprintKey);
     if (launched) {
         openBrowser(created.browserUrl);
     }

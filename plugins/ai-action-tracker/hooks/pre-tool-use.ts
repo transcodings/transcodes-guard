@@ -56,6 +56,11 @@ import {
 import { requestStepup, type RequestResult } from "../src/stepup/gate.js";
 import { clearPending, writePending } from "../src/stepup/pending.js";
 import { consumeVerified, readVerified } from "../src/stepup/store.js";
+import {
+  findFirstToolRule,
+  loadMergedToolRules,
+  type MergedToolRule,
+} from "../src/tool-rules.js";
 
 interface PreToolUsePayload {
   tool_name: string;
@@ -341,6 +346,39 @@ function emitStepupPending(
   );
 }
 
+type Classified =
+  | { kind: "bash"; command: string; cwd: string }
+  | {
+      kind: "mcp";
+      toolName: string;
+      toolInput: unknown;
+      rule: MergedToolRule;
+    };
+
+function classifyToolCall(payload: PreToolUsePayload): Classified | null {
+  if (payload.tool_name === "Bash") {
+    const command = payload.tool_input?.command;
+    if (typeof command !== "string") return null;
+    return {
+      kind: "bash",
+      command,
+      cwd: payload.cwd ?? process.cwd(),
+    };
+  }
+  // Non-Bash: try tool-rule match. Loaded inside the fail-open region —
+  // any I/O error in tool-rules.json bubbles to the caller which catches
+  // and exits 0 (fail-open).
+  const rules = loadMergedToolRules();
+  const match = findFirstToolRule(payload.tool_name, rules);
+  if (!match) return null;
+  return {
+    kind: "mcp",
+    toolName: payload.tool_name,
+    toolInput: payload.tool_input,
+    rule: match.matched,
+  };
+}
+
 async function main(): Promise<void> {
   const raw = await readStdin();
   let payload: PreToolUsePayload;
@@ -350,40 +388,67 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  if (payload.tool_name !== "Bash") process.exit(0);
-  const command = payload.tool_input?.command;
-  if (typeof command !== "string") process.exit(0);
+  let classified: Classified | null;
+  try {
+    classified = classifyToolCall(payload);
+  } catch {
+    // tool-rule file load failed — fail-open
+    process.exit(0);
+  }
+  if (!classified) process.exit(0);
 
-  const cwd = payload.cwd ?? process.cwd();
-
-  const block =
-    checkPatternMatch(command) ?? checkRmGitTracked(command, cwd);
+  const block: BlockResult | null =
+    classified.kind === "bash"
+      ? (checkPatternMatch(classified.command) ??
+        checkRmGitTracked(classified.command, classified.cwd))
+      : {
+          reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` — ${classified.rule.reason}`,
+          command: classified.toolName,
+        };
 
   if (!block) process.exit(0);
 
   // Fast path: a previous step-up was verified and the record is still in
-  // the cross-platform store. Consume both records (single-shot policy)
-  // and emit an explicit allow JSON so the decision overrides any
-  // upstream default deny (settings.json patterns, built-in safety).
+  // the cross-platform store. Emit an explicit allow JSON so the decision
+  // overrides any upstream default deny (settings.json patterns, built-in
+  // safety). Bash has no follow-up handler — consume both records here.
+  // MCP defers consume to the tool handler (via `withStepupVerifiedSid`),
+  // which needs the sid for the `X-Step-Up-Session-Id` request header.
   if (readVerified()) {
-    consumeVerified();
-    clearPending();
     emitAllow(block);
+    if (classified.kind === "bash") {
+      consumeVerified();
+      clearPending();
+    }
     process.exit(0);
   }
 
   // No verified record — request a step-up session and hand off to the
-  // agent. The agent polls via the MCP tool, then retries this same Bash
-  // command which will hit the fast path above.
+  // agent. The agent polls via the MCP tool, then retries this same call
+  // which will hit the fast path above.
   if (!process.env.TRANSCODES_TOKEN?.trim()) {
     emitNoStepup(block);
     process.exit(0);
   }
 
-  const req = await requestStepup({
-    reason: block.reason,
-    command: block.command,
-  });
+  const gateInput =
+    classified.kind === "bash"
+      ? {
+          reason: block.reason,
+          action: "bash_exec",
+          resource: "ai-action-tracker:pre-tool-use",
+          fingerprintKey: classified.command,
+          comment: `Confirm danger command: ${block.reason}`,
+        }
+      : {
+          reason: block.reason,
+          action: classified.rule.stepupAction,
+          resource: classified.rule.stepupResource,
+          fingerprintKey: `${classified.toolName}:${JSON.stringify(classified.toolInput)}`,
+          comment: `Confirm ${classified.rule.id}: ${classified.rule.reason}`,
+        };
+
+  const req = await requestStepup(gateInput);
   if (!req.ok) {
     emitStepupFailure(block, req);
     process.exit(0);

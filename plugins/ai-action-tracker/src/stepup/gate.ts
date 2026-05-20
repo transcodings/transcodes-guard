@@ -24,24 +24,24 @@ import { cacheDir } from "./store.js";
 const BROWSER_LOCK_TTL_MS = 15_000;
 const BROWSER_LOCK_FILE = "stepup-browser-lock.json";
 
-function commandFingerprint(command: string): string {
-  return createHash("sha256").update(command).digest("hex").slice(0, 16);
+function fingerprintOf(key: string): string {
+  return createHash("sha256").update(key).digest("hex").slice(0, 16);
 }
 
 /**
- * Atomically claim the right to spawn a browser for this command.
+ * Atomically claim the right to spawn a browser for this request.
  *
- * Returns true if this process is the first to act on `command` within the
- * TTL window — caller should spawn the browser. Returns false if another
- * hook process has already opened a browser for the same command recently;
- * caller should print the URL but skip the spawn.
+ * Returns true if this process is the first to act on `fingerprintKey`
+ * within the TTL window — caller should spawn the browser. Returns false
+ * if another hook process has already opened a browser for the same key
+ * recently; caller should print the URL but skip the spawn.
  *
  * Best-effort: any I/O error falls open (returns true) so the gate never
  * loses MFA visibility because of a broken lock file.
  */
-function claimBrowserLaunch(command: string): boolean {
+function claimBrowserLaunch(fingerprintKey: string): boolean {
   const lockFile = path.join(cacheDir(), BROWSER_LOCK_FILE);
-  const fingerprint = commandFingerprint(command);
+  const fingerprint = fingerprintOf(fingerprintKey);
   try {
     const raw = readFileSync(lockFile, "utf8");
     const parsed = JSON.parse(raw) as unknown;
@@ -92,8 +92,18 @@ function openBrowser(url: string): void {
 }
 
 export type RequestInput = {
+  /** One-line human-readable summary surfaced in the deny JSON. */
   reason: string;
-  command: string;
+  /** Backend audit-log action identifier (e.g. "bash_exec", "retire_member"). */
+  action: string;
+  /** Backend audit-log resource identifier
+   * (e.g. "ai-action-tracker:pre-tool-use", "ai-action-tracker:mcp:members"). */
+  resource: string;
+  /** Stable key for browser-launch deduplication. Bash → command; MCP →
+   * `${toolName}:${JSON.stringify(tool_input)}`. */
+  fingerprintKey: string;
+  /** Override for the step-up UI comment. Defaults to `Confirm ${reason}`. */
+  comment?: string;
 };
 
 export type RequestResult =
@@ -136,9 +146,9 @@ export async function requestStepup(
   let created;
   try {
     created = await createStepupSession(config, {
-      comment: `Confirm danger command: ${input.reason}`,
-      action: "bash_exec",
-      resource: "ai-action-tracker:pre-tool-use",
+      comment: input.comment ?? `Confirm ${input.reason}`,
+      action: input.action,
+      resource: input.resource,
     });
   } catch (err) {
     return {
@@ -156,7 +166,7 @@ export async function requestStepup(
     };
   }
 
-  const launched = claimBrowserLaunch(input.command);
+  const launched = claimBrowserLaunch(input.fingerprintKey);
   if (launched) {
     openBrowser(created.browserUrl);
   }

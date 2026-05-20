@@ -7,13 +7,26 @@ const REQUEST_TIMEOUT_MS = 30_000;
  */
 export async function request(config, input) {
     const path = input.path.startsWith("/") ? input.path : `/${input.path}`;
-    const url = `${config.apiBaseV1}${path}`;
+    const params = new URLSearchParams();
+    if (input.query) {
+        for (const [k, v] of Object.entries(input.query)) {
+            if (v !== undefined && v !== null && v !== "") {
+                params.append(k, String(v));
+            }
+        }
+    }
+    const qs = params.toString();
+    const url = `${config.apiBaseV1}${path}${qs ? `?${qs}` : ""}`;
     const headers = {
         "x-transcodes-token": config.token,
         Accept: "application/json",
     };
+    if (input.stepUpSid) {
+        headers["X-Step-Up-Session-Id"] = input.stepUpSid;
+    }
     let body;
-    if (input.method !== "GET") {
+    const sendsBody = input.method !== "GET" && !input.omitBody;
+    if (sendsBody) {
         headers["Content-Type"] = "application/json";
         body = JSON.stringify(input.body ?? {});
     }
