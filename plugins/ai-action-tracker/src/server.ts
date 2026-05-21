@@ -21,6 +21,19 @@ import {
   pollStepupSessionWait,
 } from "./stepup/session.js";
 import { writeVerified } from "./stepup/store.js";
+import {
+  addUserToolRule,
+  findFirstToolRule,
+  getUserToolRulesPath,
+  loadMergedToolRules,
+  removeUserToolRule,
+  ToolRuleValidationError,
+  updateUserToolRule,
+  type MergedToolRule,
+} from "./tool-rules.js";
+import { registerMemberTools } from "./tools/members.js";
+import { registerPasscodeTools } from "./tools/passcode.js";
+import { registerRbacTools } from "./tools/rbac.js";
 
 function formatPatternsMarkdown(patterns: MergedPattern[]): string {
   const lines: string[] = [
@@ -34,6 +47,24 @@ function formatPatternsMarkdown(patterns: MergedPattern[]): string {
   ];
   for (const { source, id, reason, regex } of patterns) {
     lines.push(`| ${source} | \`${id}\` | ${reason} | \`${regex}\` |`);
+  }
+  return lines.join("\n");
+}
+
+function formatToolRulesMarkdown(rules: MergedToolRule[]): string {
+  const lines: string[] = [
+    "# Step-up-protected MCP tool rules",
+    "",
+    `${rules.length} rule(s) gate MCP tool invocations via the PreToolUse hook.`,
+    `User rules live at \`${getUserToolRulesPath()}\` and are editable through the \`add_tool_rule\`/\`update_tool_rule\`/\`remove_tool_rule\` tools. System rules are immutable.`,
+    "",
+    "| source | id | toolName | reason | action | resource | consume_in_hook |",
+    "| ------ | -- | -------- | ------ | ------ | -------- | --------------- |",
+  ];
+  for (const r of rules) {
+    lines.push(
+      `| ${r.source} | \`${r.id}\` | \`${r.toolName}\` | ${r.reason} | ${r.stepupAction} | ${r.stepupResource} | ${r.consume_in_hook ?? false} |`,
+    );
   }
   return lines.join("\n");
 }
@@ -426,16 +457,48 @@ export function createServer(): McpServer {
         command: z
           .string()
           .min(1)
-          .describe("Bash command string the hook should evaluate."),
+          .optional()
+          .describe(
+            "Bash command string. Builds tool_input={command} when tool_name is Bash and tool_input is not provided. Ignored if tool_input is set.",
+          ),
         cwd: z
           .string()
           .optional()
           .describe(
             "Optional working directory passed to the hook payload. Defaults to process.cwd().",
           ),
+        tool_name: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Tool name to put in the PreToolUse payload. Defaults to 'Bash'. For MCP tool simulation use the wire name, e.g. 'mcp__plugin_ai-action-tracker_ai-action-tracker__retire_member'.",
+          ),
+        tool_input: z
+          .unknown()
+          .optional()
+          .describe(
+            "Raw tool_input object. Overrides the {command}-based default. Use for MCP tool simulation.",
+          ),
       },
     },
-    async ({ command, cwd }) => {
+    async ({ command, cwd, tool_name, tool_input }) => {
+      const effectiveToolName = tool_name ?? "Bash";
+      const effectiveToolInput =
+        tool_input !== undefined
+          ? tool_input
+          : command !== undefined
+            ? { command }
+            : {};
+      if (
+        effectiveToolName === "Bash" &&
+        !(effectiveToolInput as { command?: unknown })?.command
+      ) {
+        return textResult(
+          "Rejected: Bash payload requires `command` (or `tool_input.command`).",
+          true,
+        );
+      }
       const before = inspectStepupState();
       const hookPath = path.resolve(
         // CLAUDE_PLUGIN_ROOT is set by Claude Code when the plugin is
@@ -444,8 +507,8 @@ export function createServer(): McpServer {
         "dist/hooks/pre-tool-use.js",
       );
       const payload = JSON.stringify({
-        tool_name: "Bash",
-        tool_input: { command },
+        tool_name: effectiveToolName,
+        tool_input: effectiveToolInput,
         cwd: cwd ?? process.cwd(),
       });
       const { stdout, stderr, exitCode } = await new Promise<{
@@ -549,6 +612,186 @@ export function createServer(): McpServer {
         },
       ],
     }),
+  );
+
+  registerMemberTools(server);
+  registerRbacTools(server);
+  registerPasscodeTools(server);
+
+  server.registerResource(
+    "tool-rules",
+    "tool-rules://list",
+    {
+      title: "Step-up-protected MCP tool rules",
+      description:
+        "Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with user rules (~/.claude/ai-action-tracker/user-tool-rules.json), read fresh at every request.",
+      mimeType: "text/markdown",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "text/markdown",
+          text: formatToolRulesMarkdown(loadMergedToolRules()),
+        },
+      ],
+    }),
+  );
+
+  server.registerTool(
+    "add_tool_rule",
+    {
+      title: "Add user MCP tool-rule",
+      description:
+        "Register a new user-owned tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. id must be unique across system and user rules; persisted to ~/.claude/ai-action-tracker/user-tool-rules.json.",
+      inputSchema: {
+        id: z
+          .string()
+          .regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
+        toolName: z.string().min(1),
+        reason: z.string().min(1),
+        stepupAction: z.string().min(1),
+        stepupResource: z.string().min(1),
+        consume_in_hook: z
+          .boolean()
+          .optional()
+          .describe(
+            "When true (default for user rules), the PreToolUse hook consumes the verified record itself (Bash-like fast-path). Set false ONLY if the tool handler threads the sid via `withStepupVerifiedSid` to a backend that requires the X-Step-Up-Session-Id header.",
+          ),
+      },
+    },
+    async (input) => {
+      try {
+        const saved = addUserToolRule(input);
+        return textResult(
+          `Added user tool-rule \`${saved.id}\`.\ntoolName: ${saved.toolName}\nreason: ${saved.reason}\naction: ${saved.stepupAction}\nresource: ${saved.stepupResource}\nconsume_in_hook: ${saved.consume_in_hook ?? true}`,
+        );
+      } catch (e) {
+        if (e instanceof ToolRuleValidationError) {
+          return textResult(`Rejected: ${e.message}`, true);
+        }
+        throw e;
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_tool_rule",
+    {
+      title: "Update user MCP tool-rule",
+      description:
+        "Modify fields of an existing user tool-rule. System rules cannot be modified.",
+      inputSchema: {
+        id: z.string().min(1),
+        toolName: z.string().min(1).optional(),
+        reason: z.string().min(1).optional(),
+        stepupAction: z.string().min(1).optional(),
+        stepupResource: z.string().min(1).optional(),
+        consume_in_hook: z
+          .boolean()
+          .optional()
+          .describe(
+            "Override the hook-side consume behavior. true = hook consumes immediately (no wrapper needed); false = handler consumes via withStepupVerifiedSid.",
+          ),
+      },
+    },
+    async ({ id, toolName, reason, stepupAction, stepupResource, consume_in_hook }) => {
+      if (
+        toolName === undefined &&
+        reason === undefined &&
+        stepupAction === undefined &&
+        stepupResource === undefined &&
+        consume_in_hook === undefined
+      ) {
+        return textResult(
+          "Rejected: provide at least one of `toolName`, `reason`, `stepupAction`, `stepupResource`, or `consume_in_hook` to update.",
+          true,
+        );
+      }
+      try {
+        const saved = updateUserToolRule(id, {
+          toolName,
+          reason,
+          stepupAction,
+          stepupResource,
+          consume_in_hook,
+        });
+        return textResult(
+          `Updated user tool-rule \`${saved.id}\`.\ntoolName: ${saved.toolName}\nreason: ${saved.reason}\naction: ${saved.stepupAction}\nresource: ${saved.stepupResource}\nconsume_in_hook: ${saved.consume_in_hook ?? true}`,
+        );
+      } catch (e) {
+        if (e instanceof ToolRuleValidationError) {
+          return textResult(`Rejected: ${e.message}`, true);
+        }
+        throw e;
+      }
+    },
+  );
+
+  server.registerTool(
+    "remove_tool_rule",
+    {
+      title: "Remove user MCP tool-rule",
+      description:
+        "Delete an existing user tool-rule by id. System rules cannot be removed.",
+      inputSchema: { id: z.string().min(1) },
+    },
+    async ({ id }) => {
+      try {
+        removeUserToolRule(id);
+        return textResult(`Removed user tool-rule \`${id}\`.`);
+      } catch (e) {
+        if (e instanceof ToolRuleValidationError) {
+          return textResult(`Rejected: ${e.message}`, true);
+        }
+        throw e;
+      }
+    },
+  );
+
+  server.registerTool(
+    "simulate_tool_call",
+    {
+      title: "Simulate a tool-rule lookup",
+      description:
+        "Given a tool_name (and optional tool_input), report whether any system or user tool-rule matches. Read-only — does not invoke the hook or call the backend. Use to verify a rule's coverage before relying on it.",
+      inputSchema: {
+        tool_name: z.string().min(1),
+        tool_input: z.unknown().optional(),
+      },
+    },
+    async ({ tool_name }) => {
+      const rules = loadMergedToolRules();
+      const match = findFirstToolRule(tool_name, rules);
+      if (!match) {
+        return textResult(
+          JSON.stringify(
+            { tool_name, matched: false, rule_count: rules.length },
+            null,
+            2,
+          ),
+        );
+      }
+      const r = match.matched;
+      return textResult(
+        JSON.stringify(
+          {
+            tool_name,
+            matched: true,
+            rule: {
+              id: r.id,
+              source: r.source,
+              toolName: r.toolName,
+              reason: r.reason,
+              stepupAction: r.stepupAction,
+              stepupResource: r.stepupResource,
+            },
+          },
+          null,
+          2,
+        ),
+      );
+    },
   );
 
   return server;
