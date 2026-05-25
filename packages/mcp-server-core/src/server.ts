@@ -498,12 +498,22 @@ export function createServer(): McpServer {
         );
       }
       const before = inspectStepupState();
-      const hookPath = path.resolve(
-        // CLAUDE_PLUGIN_ROOT is set by Claude Code when the plugin is
-        // running; fall back to a relative resolve when invoked directly.
-        process.env.CLAUDE_PLUGIN_ROOT ?? path.join(import.meta.dirname ?? "", "..", ".."),
-        "dist/hooks/pre-tool-use.js",
-      );
+      // Host-supplied plugin install root. Claude Code sets
+      // CLAUDE_PLUGIN_ROOT; Codex CLI sets PLUGIN_ROOT (+ honors
+      // CLAUDE_PLUGIN_ROOT as alias). Fail loudly when neither is
+      // present — silently resolving relative to the package's dist
+      // would point at the wrong directory now that the server lives
+      // in a workspace package rather than the plugin tree.
+      const pluginRoot =
+        process.env.CLAUDE_PLUGIN_ROOT?.trim() ||
+        process.env.PLUGIN_ROOT?.trim();
+      if (!pluginRoot) {
+        return textResult(
+          "Rejected: CLAUDE_PLUGIN_ROOT (or PLUGIN_ROOT for Codex) must be set so the hook binary can be located.",
+          true,
+        );
+      }
+      const hookPath = path.resolve(pluginRoot, "dist/hooks/pre-tool-use.js");
       const payload = JSON.stringify({
         tool_name: effectiveToolName,
         tool_input: effectiveToolInput,
