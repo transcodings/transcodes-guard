@@ -51,8 +51,11 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import {
   findFirstMatch,
+  findFirstToolRule,
   loadMergedPatterns,
-} from "../src/danger-patterns.js";
+  loadMergedToolRules,
+  type MergedToolRule,
+} from "@ai-action-tracker/danger-patterns";
 import {
   clearPending,
   consumeVerified,
@@ -61,11 +64,6 @@ import {
   type RequestResult,
   writePending,
 } from "@ai-action-tracker/stepup-core";
-import {
-  findFirstToolRule,
-  loadMergedToolRules,
-  type MergedToolRule,
-} from "../src/tool-rules.js";
 
 interface PreToolUsePayload {
   tool_name: string;

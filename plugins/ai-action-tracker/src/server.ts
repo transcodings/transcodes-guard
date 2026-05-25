@@ -4,14 +4,22 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
   addUserPattern,
+  addUserToolRule,
   findFirstMatch,
+  findFirstToolRule,
   getUserPatternsPath,
+  getUserToolRulesPath,
   loadMergedPatterns,
+  loadMergedToolRules,
   PatternValidationError,
   removeUserPattern,
+  removeUserToolRule,
+  ToolRuleValidationError,
   updateUserPattern,
+  updateUserToolRule,
   type MergedPattern,
-} from "./danger-patterns.js";
+  type MergedToolRule,
+} from "@ai-action-tracker/danger-patterns";
 import {
   createStepupSession,
   inspectStepupState,
@@ -21,16 +29,6 @@ import {
   pollStepupSessionWait,
   writeVerified,
 } from "@ai-action-tracker/stepup-core";
-import {
-  addUserToolRule,
-  findFirstToolRule,
-  getUserToolRulesPath,
-  loadMergedToolRules,
-  removeUserToolRule,
-  ToolRuleValidationError,
-  updateUserToolRule,
-  type MergedToolRule,
-} from "./tool-rules.js";
 import { registerMemberTools } from "./tools/members.js";
 import { registerPasscodeTools } from "./tools/passcode.js";
 import { registerRbacTools } from "./tools/rbac.js";

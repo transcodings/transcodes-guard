@@ -58,21 +58,17 @@ export function getUserToolRulesPath(): string {
 }
 
 export function loadSystemToolRules(): ToolRuleConfig {
+  // Package-local resolution: data/ is a sibling of dist/, so from the
+  // built file under dist/ we walk up one level and into data/.
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    path.join(here, "..", "hooks", "tool-rules.json"),
-    path.join(here, "..", "..", "hooks", "tool-rules.json"),
-  ];
-  for (const p of candidates) {
-    try {
-      return JSON.parse(readFileSync(p, "utf8")) as ToolRuleConfig;
-    } catch {
-      // try next
-    }
+  const dataPath = path.join(here, "..", "data", "tool-rules.json");
+  try {
+    return JSON.parse(readFileSync(dataPath, "utf8")) as ToolRuleConfig;
+  } catch (err) {
+    throw new Error(
+      `tool-rules.json not found at ${dataPath}: ${(err as Error).message}`,
+    );
   }
-  throw new Error(
-    `tool-rules.json not found (tried: ${candidates.join(", ")})`,
-  );
 }
 
 export function loadUserToolRules(): ToolRuleConfig {

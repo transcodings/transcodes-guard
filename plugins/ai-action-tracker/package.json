@@ -10,13 +10,11 @@
   },
   "files": [
     "dist",
-    "hooks/danger-patterns.json",
-    "hooks/tool-rules.json",
     "README.md"
   ],
   "scripts": {
     "build": "tsc",
-    "build:plugin": "tsc && cp hooks/danger-patterns.json dist/hooks/danger-patterns.json && cp hooks/tool-rules.json dist/hooks/tool-rules.json && chmod 755 dist/src/stdio.js dist/src/http.js dist/hooks/pre-tool-use.js dist/hooks/session-start.js dist/hooks/user-prompt-submit.js dist/hooks/stop.js",
+    "build:plugin": "tsc && chmod 755 dist/src/stdio.js dist/src/http.js dist/hooks/pre-tool-use.js dist/hooks/session-start.js dist/hooks/user-prompt-submit.js dist/hooks/stop.js",
     "dev:stdio": "tsx src/stdio.ts",
     "dev:http": "tsx src/http.ts",
     "dev:hook": "tsx hooks/pre-tool-use.ts",
@@ -27,6 +25,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@ai-action-tracker/danger-patterns": "*",
     "@ai-action-tracker/stepup-core": "*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23.0"

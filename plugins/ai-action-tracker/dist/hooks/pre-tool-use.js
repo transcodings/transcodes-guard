@@ -48,9 +48,8 @@
  */
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { findFirstMatch, loadMergedPatterns, } from "../src/danger-patterns.js";
+import { findFirstMatch, findFirstToolRule, loadMergedPatterns, loadMergedToolRules, } from "@ai-action-tracker/danger-patterns";
 import { clearPending, consumeVerified, readVerified, requestStepup, writePending, } from "@ai-action-tracker/stepup-core";
-import { findFirstToolRule, loadMergedToolRules, } from "../src/tool-rules.js";
 async function readStdin() {
     const chunks = [];
     for await (const chunk of process.stdin)
