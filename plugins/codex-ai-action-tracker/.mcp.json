@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ai-action-tracker": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/src/stdio.js"]
+    }
+  }
+}
