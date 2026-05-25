@@ -1,26 +1,17 @@
 #!/usr/bin/env node
 /**
- * Claude Code SessionStart hook — protocol primer for the step-up loop.
+ * Claude Code SessionStart hook — protocol primer + carry-over notice.
  *
- * Injects an `additionalContext` block describing how the agent should
- * react when PreToolUse denies a Bash with "Step-up MFA pending". Without
- * this primer the agent must re-derive the protocol from each deny
- * message; with it, the agent has a stable reference frame for the
- * entire session.
- *
- * If a pending step-up record carries over from a previous session
- * (Claude was restarted mid-flow), include sid + browserUrl so the agent
- * can resume polling instead of starting over.
- *
- * Fail policy: this hook is purely additive context. Any error path
- * writes nothing and exits 0 — the session must never be blocked or
- * derailed by a primer.
+ * Injects an `additionalContext` block describing how the agent should react
+ * to PreToolUse step-up denies, plus a pointer to any session-spanning
+ * pending sid that survived a restart. Pure additive context — never blocks.
  */
+import { claudeCodeAdapter } from "@ai-action-tracker/hook-adapters";
 import { isExpired, readPending } from "@ai-action-tracker/stepup-core";
 const PROTOCOL_PRIMER = [
     "ai-action-tracker step-up MFA protocol:",
     "",
-    "When a PreToolUse hook denies a Bash with `permissionDecision: \"deny\"`",
+    'When a PreToolUse hook denies a Bash with `permissionDecision: "deny"`',
     "and the reason mentions Step-up MFA, the command was BLOCKED and",
     "did NOT execute. Drive the loop deterministically — DO NOT wait for",
     "user confirmation between steps:",
@@ -32,9 +23,9 @@ const PROTOCOL_PRIMER = [
     "     provided sid. It blocks until verified or 60s timeout — a single",
     "     call replaces the manual polling loop. (The legacy single-shot",
     "     `poll_stepup_session` is only for diagnostics.)",
-    "  3. On `outcome: \"verified\"` retry the SAME Bash command — the hook",
-    "     detects the verified state locally and allows it. On `outcome:",
-    "     \"timeout\"` ask the user to retry WebAuthn, then call the wait",
+    '  3. On `outcome: "verified"` retry the SAME Bash command — the hook',
+    '     detects the verified state locally and allows it. On `outcome:',
+    '     "timeout"` ask the user to retry WebAuthn, then call the wait',
     "     tool again.",
     "",
     "Never assume the blocked command ran. Never invent an alternative",
@@ -61,13 +52,10 @@ function carryoverBlock() {
 }
 function main() {
     const carry = carryoverBlock();
-    const additionalContext = carry ? `${PROTOCOL_PRIMER}\n${carry}` : PROTOCOL_PRIMER;
-    process.stdout.write(JSON.stringify({
-        hookSpecificOutput: {
-            hookEventName: "SessionStart",
-            additionalContext,
-        },
-    }));
+    const additionalContext = carry
+        ? `${PROTOCOL_PRIMER}\n${carry}`
+        : PROTOCOL_PRIMER;
+    process.stdout.write(claudeCodeAdapter.emitSessionStartContext(additionalContext));
     process.exit(0);
 }
 try {

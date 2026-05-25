@@ -18,3 +18,5 @@ export { request, type Envelope, type RequestInput as HttpRequestInput, } from "
 export { loadStepupConfig, type StepupConfig, DEFAULT_BACKEND_URL, STEPUP_TTL_MS, } from "./config.js";
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, type MemberTokenClaims, type ParsedMemberToken, } from "./jwt.js";
 export { inspectStepupState, type VerifiedInspection, type PendingInspection, type BrowserLockInspection, type StepupStateInspection, } from "./inspector.js";
+export { evaluatePreToolUse, type BlockResult, type GateDecision, type ToolCallInput, } from "./evaluate.js";
+export { formatBlockedSummary, formatAllowReason, formatNoTokenReason, formatNoTokenSystemMessage, formatStepupFailureDetail, formatStepupFailureReason, formatStepupFailureSystemMessage, formatStepupPendingReason, formatStepupPendingSystemMessage, formatStderrTag, } from "./messages.js";

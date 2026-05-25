@@ -71,3 +71,23 @@ export {
   type BrowserLockInspection,
   type StepupStateInspection,
 } from "./inspector.js";
+
+export {
+  evaluatePreToolUse,
+  type BlockResult,
+  type GateDecision,
+  type ToolCallInput,
+} from "./evaluate.js";
+
+export {
+  formatBlockedSummary,
+  formatAllowReason,
+  formatNoTokenReason,
+  formatNoTokenSystemMessage,
+  formatStepupFailureDetail,
+  formatStepupFailureReason,
+  formatStepupFailureSystemMessage,
+  formatStepupPendingReason,
+  formatStepupPendingSystemMessage,
+  formatStderrTag,
+} from "./messages.js";

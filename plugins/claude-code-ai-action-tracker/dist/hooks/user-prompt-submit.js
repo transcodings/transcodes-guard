@@ -1,27 +1,17 @@
 #!/usr/bin/env node
 /**
- * Claude Code UserPromptSubmit hook — bridges user → agent for the
- * step-up MFA loop.
+ * Claude Code UserPromptSubmit hook — bridge user → agent for step-up.
  *
- * When the user types something like "인증 완료", "done", or "auth
- * passed" while a pending step-up session is in flight, the agent
- * cannot otherwise know which sid that ack refers to. This hook reads
- * the shared pending state and injects an `additionalContext` block
- * that names the sid, the original Bash command, and the next action
- * (call `poll_stepup_session`).
- *
- * The hook never blocks the prompt. Any error path is a no-op.
+ * When the user types something like "완료", "done", or "auth passed" while
+ * a pending step-up session is in flight, this hook injects a context block
+ * naming the sid + next action so the agent knows which session to poll.
  */
-import { isExpired, readPending } from "@ai-action-tracker/stepup-core";
-// Loose matcher — false positives only matter when a pending record
-// exists, in which case the worst case is one unnecessary poll call.
+import { readFileSync } from "node:fs";
+import { claudeCodeAdapter } from "@ai-action-tracker/hook-adapters";
+import { isExpired, readPending, } from "@ai-action-tracker/stepup-core";
+// Loose matcher — false positives only matter when a pending record exists,
+// in which case the worst case is one unnecessary poll call.
 const COMPLETION_PATTERN = /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
-async function readStdin() {
-    const chunks = [];
-    for await (const chunk of process.stdin)
-        chunks.push(chunk);
-    return Buffer.concat(chunks).toString("utf8");
-}
 function buildContext(prompt, pending) {
     if (!COMPLETION_PATTERN.test(prompt))
         return null;
@@ -40,33 +30,31 @@ function buildContext(prompt, pending) {
         '  - On `outcome: "verified"` retry the exact original Bash command above.',
     ].join("\n");
 }
-async function main() {
-    let payload;
+function main() {
+    const raw = readFileSync(0, "utf8");
+    let parsed;
     try {
-        payload = JSON.parse(await readStdin());
+        parsed = claudeCodeAdapter.parseUserPromptSubmitStdin(raw);
     }
     catch {
         process.exit(0);
     }
-    const prompt = typeof payload.prompt === "string" ? payload.prompt : "";
-    if (!prompt)
+    if (!parsed.prompt)
         process.exit(0);
     const pending = readPending();
     if (!pending || isExpired(pending))
         process.exit(0);
-    const additionalContext = buildContext(prompt, pending);
+    const additionalContext = buildContext(parsed.prompt, pending);
     if (!additionalContext)
         process.exit(0);
-    process.stdout.write(JSON.stringify({
-        hookSpecificOutput: {
-            hookEventName: "UserPromptSubmit",
-            additionalContext,
-        },
-    }));
+    process.stdout.write(claudeCodeAdapter.emitUserPromptSubmitContext(additionalContext));
     process.exit(0);
 }
-main().catch((err) => {
+try {
+    main();
+}
+catch (err) {
     process.stderr.write(`ai-action-tracker user-prompt-submit hook error: ${err}\n`);
     process.exit(0);
-});
+}
 //# sourceMappingURL=user-prompt-submit.js.map
