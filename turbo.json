@@ -2,13 +2,26 @@
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
     "build": {
+      "dependsOn": ["^build"],
       "outputs": ["dist/**"],
-      "inputs": ["src/**", "hooks/**", "tsconfig.json", "package.json"]
+      "inputs": [
+        "src/**",
+        "hooks/**",
+        "data/**",
+        "tsconfig.json",
+        "package.json"
+      ]
     },
     "build:plugin": {
-      "dependsOn": ["build"],
+      "dependsOn": ["^build", "build"],
       "outputs": ["dist/**"],
-      "inputs": ["src/**", "hooks/**", "tsconfig.json", "package.json"]
+      "inputs": [
+        "src/**",
+        "hooks/**",
+        "data/**",
+        "tsconfig.json",
+        "package.json"
+      ]
     }
   }
 }
