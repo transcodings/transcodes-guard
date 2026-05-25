@@ -12,15 +12,15 @@ import {
   updateUserPattern,
   type MergedPattern,
 } from "./danger-patterns.js";
-import { loadStepupConfig } from "./stepup/config.js";
-import { inspectStepupState } from "./stepup/inspector.js";
-import { markVerified } from "./stepup/pending.js";
 import {
   createStepupSession,
+  inspectStepupState,
+  loadStepupConfig,
+  markVerified,
   pollStepupSession,
   pollStepupSessionWait,
-} from "./stepup/session.js";
-import { writeVerified } from "./stepup/store.js";
+  writeVerified,
+} from "@ai-action-tracker/stepup-core";
 import {
   addUserToolRule,
   findFirstToolRule,

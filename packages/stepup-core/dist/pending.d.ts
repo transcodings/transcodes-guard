@@ -8,20 +8,20 @@ declare const PendingStateSchema: z.ZodObject<{
     expiresAt: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["pending", "verified"]>;
 }, "strip", z.ZodTypeAny, {
-    reason: string;
+    status: "verified" | "pending";
     sid: string;
-    status: "pending" | "verified";
-    createdAt: number;
-    command: string;
     browserUrl: string;
+    reason: string;
+    command: string;
+    createdAt: number;
     expiresAt?: string | undefined;
 }, {
-    reason: string;
+    status: "verified" | "pending";
     sid: string;
-    status: "pending" | "verified";
-    createdAt: number;
-    command: string;
     browserUrl: string;
+    reason: string;
+    command: string;
+    createdAt: number;
     expiresAt?: string | undefined;
 }>;
 export type PendingState = z.infer<typeof PendingStateSchema>;

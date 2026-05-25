@@ -9,8 +9,7 @@
  *
  * Never blocks (no `decision: "block"`). Any error path is a no-op.
  */
-import { clearPending, isExpired, readPending } from "../src/stepup/pending.js";
-import { consumeVerified, readVerified } from "../src/stepup/store.js";
+import { clearPending, consumeVerified, isExpired, readPending, readVerified, } from "@ai-action-tracker/stepup-core";
 function reminderFor(pending) {
     // Only the "pending" status path is reachable here — the "verified"
     // status is reaped by the orphan-cleanup branches in `main()` before

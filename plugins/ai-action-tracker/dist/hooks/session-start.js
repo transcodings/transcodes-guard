@@ -16,7 +16,7 @@
  * writes nothing and exits 0 — the session must never be blocked or
  * derailed by a primer.
  */
-import { isExpired, readPending } from "../src/stepup/pending.js";
+import { isExpired, readPending } from "@ai-action-tracker/stepup-core";
 const PROTOCOL_PRIMER = [
     "ai-action-tracker step-up MFA protocol:",
     "",

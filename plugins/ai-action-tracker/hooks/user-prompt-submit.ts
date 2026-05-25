@@ -13,7 +13,7 @@
  * The hook never blocks the prompt. Any error path is a no-op.
  */
 
-import { isExpired, readPending } from "../src/stepup/pending.js";
+import { isExpired, readPending } from "@ai-action-tracker/stepup-core";
 
 interface UserPromptSubmitPayload {
   prompt?: string;

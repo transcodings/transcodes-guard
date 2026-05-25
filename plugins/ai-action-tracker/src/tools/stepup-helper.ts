@@ -11,8 +11,11 @@
  * Consume runs in `finally` so a backend failure cannot leave the record
  * reusable.
  */
-import { clearPending } from "../stepup/pending.js";
-import { consumeVerified, readVerified } from "../stepup/store.js";
+import {
+  clearPending,
+  consumeVerified,
+  readVerified,
+} from "@ai-action-tracker/stepup-core";
 
 export async function withStepupVerifiedSid<T>(
   toolName: string,

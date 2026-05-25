@@ -9,8 +9,11 @@
  * through `withStepupVerifiedSid` so `request()` can attach the
  * `X-Step-Up-Session-Id` header.
  */
-import { request, type RequestInput } from "../stepup/client.js";
-import type { StepupConfig } from "../stepup/config.js";
+import {
+  request,
+  type HttpRequestInput as RequestInput,
+  type StepupConfig,
+} from "@ai-action-tracker/stepup-core";
 
 /** Tool name → API path under `/v1`. Scoped to this plugin's ported toolset. */
 const ENDPOINT_MAP: Readonly<Record<string, string>> = {

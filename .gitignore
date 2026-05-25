@@ -240,5 +240,12 @@ tags
 !plugins/*/dist/
 !plugins/*/dist/**
 
+# Workspace packages — dist/ is consumed by the plugins at install time
+# (workspace symlink + tsc reads the `.d.ts` here). Must be committed so
+# bisecting and CI (npm ci + npm run build:plugin) work without rebuilding
+# every workspace by hand.
+!packages/*/dist/
+!packages/*/dist/**
+
 # Turborepo / Nx local cache (not part of the source)
 .turbo/

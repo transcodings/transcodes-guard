@@ -7,7 +7,7 @@
  */
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { loadStepupConfig } from "../stepup/config.js";
+import { loadStepupConfig } from "@ai-action-tracker/stepup-core";
 import { req } from "./transcodes-client.js";
 import { withStepupVerifiedSid } from "./stepup-helper.js";
 

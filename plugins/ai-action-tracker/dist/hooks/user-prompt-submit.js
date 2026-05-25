@@ -12,7 +12,7 @@
  *
  * The hook never blocks the prompt. Any error path is a no-op.
  */
-import { isExpired, readPending } from "../src/stepup/pending.js";
+import { isExpired, readPending } from "@ai-action-tracker/stepup-core";
 // Loose matcher — false positives only matter when a pending record
 // exists, in which case the worst case is one unnecessary poll call.
 const COMPLETION_PATTERN = /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;

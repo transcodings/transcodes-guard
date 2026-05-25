@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "description": "Monorepo orchestrator for ai-action-tracker plugin + marketplace.",
   "workspaces": [
+    "packages/*",
     "plugins/*"
   ],
   "scripts": {
