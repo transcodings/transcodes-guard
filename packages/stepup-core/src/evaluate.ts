@@ -191,7 +191,11 @@ type Classified =
     };
 
 function classifyToolCall(input: ToolCallInput): Classified | null {
-  if (input.toolName === "Bash") {
+  // Host-specific shell tool names map to the same internal `bash` kind.
+  // Claude Code / Codex use "Bash"; Antigravity 2.0 uses "run_command".
+  // The antigravity adapter rewrites `args.CommandLine` → `args.command`
+  // before the classifier sees it, so the body below is host-neutral.
+  if (input.toolName === "Bash" || input.toolName === "run_command") {
     const cmd = (input.toolInput as { command?: unknown } | undefined)?.command;
     if (typeof cmd !== "string") return null;
     return { kind: "bash", command: cmd, cwd: input.cwd };

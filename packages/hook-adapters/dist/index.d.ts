@@ -5,6 +5,7 @@
  * exposes the same `HookAdapter` interface, so plugins can swap hosts
  * without touching their gate logic.
  */
-export { type HookAdapter, type PreToolUseInput, type UserPromptSubmitInput, type PreToolUseDecision, } from "./types.js";
+export { type HookAdapter, type PreToolUseInput, type UserPromptSubmitInput, type PreToolUseDecision, type PreInvocationInput, type InjectStep, } from "./types.js";
 export { claudeCodeAdapter } from "./claude-code.js";
 export { codexAdapter } from "./codex.js";
+export { antigravityAdapter, detectUserDoneFromTranscript, ANTIGRAVITY_COMPLETION_PATTERN, } from "./antigravity.js";
