@@ -46,6 +46,9 @@ jobs:
       - name: Verify codex plugin dist is committed and in sync
         run: git diff --exit-code -- plugins/codex-ai-action-tracker/dist/
 
+      - name: Verify antigravity plugin dist is committed and in sync
+        run: git diff --exit-code -- plugins/antigravity-ai-action-tracker/dist/
+
       # ─────────────────────────────────────────────────────────
       # Claude Code plugin smoke tests (7 scenarios — preserved verbatim
       # from pre-monorepo CI, only the dist path changed).
@@ -203,4 +206,75 @@ jobs:
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex Stop hook did not exit 0"; exit 1; }
           if echo "$OUT" | grep -q '"decision":"block"'; then
             echo "::error::Codex Stop hook unexpectedly emitted a block reminder on clean state"; exit 1
+          fi
+
+      # ─────────────────────────────────────────────────────────
+      # Antigravity 2.0 plugin smoke tests (5 scenarios — wire format is
+      # different from Claude Code/Codex (top-level `decision` instead of
+      # `hookSpecificOutput.permissionDecision`, nested `toolCall.name`/
+      # `toolCall.args` stdin), so we cover the verb mismatch + the
+      # PreInvocation hybrid that subsumes SessionStart + UserPromptSubmit.
+      # See docs/research/antigravity-e2e-findings.md for the 4 unknowns
+      # pending manual binary validation before public release.)
+      # ─────────────────────────────────────────────────────────
+
+      - name: antigravity · PreToolUse regex deny (rm -rf /)
+        run: |
+          set -e
+          OUT=$(echo '{"toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /","Cwd":"'"$PWD"'"}},"stepIdx":0,"conversationId":"ag-ci","workspacePaths":["'"$PWD"'"]}' \
+            | node plugins/antigravity-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity hook did not exit 0 for danger command"; exit 1; }
+          echo "$OUT" | grep -q '"decision":"deny"' || { echo "::error::Antigravity deny JSON missing (expected top-level decision, not hookSpecificOutput)"; exit 1; }
+          if echo "$OUT" | grep -q '"hookSpecificOutput"'; then
+            echo "::error::Antigravity hook wrongly emitted hookSpecificOutput wrapper (Claude Code wire format leaked)"; exit 1
+          fi
+
+      - name: antigravity · PreToolUse verified-record → explicit allow
+        run: |
+          set -e
+          mkdir -p "$HOME/.cache/ai-action-tracker"
+          NOW=$(node -e 'console.log(Date.now())')
+          echo "{\"sid\":\"ag-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.cache/ai-action-tracker/stepup-verified.json"
+          OUT=$(echo '{"toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /tmp/x","Cwd":"'"$PWD"'"}},"stepIdx":0,"conversationId":"ag-ci","workspacePaths":["'"$PWD"'"]}' \
+            | node plugins/antigravity-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity hook did not exit 0 with verified record"; exit 1; }
+          echo "$OUT" | grep -q '"decision":"allow"' || { echo "::error::Antigravity explicit allow JSON missing despite verified record"; exit 1; }
+          if [ -f "$HOME/.cache/ai-action-tracker/stepup-verified.json" ]; then
+            echo "::error::Antigravity run_command fast-path did NOT consume verified record"; exit 1
+          fi
+          rm -f "$HOME/.cache/ai-action-tracker/stepup-pending.json"
+
+      - name: antigravity · Stop hook clean state
+        run: |
+          set -e
+          rm -f "$HOME/.cache/ai-action-tracker/stepup-verified.json"
+          rm -f "$HOME/.cache/ai-action-tracker/stepup-pending.json"
+          OUT=$(printf '' | node plugins/antigravity-ai-action-tracker/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity Stop hook did not exit 0"; exit 1; }
+          if echo "$OUT" | grep -q '"decision":"continue"'; then
+            echo "::error::Antigravity Stop hook unexpectedly emitted a continue reminder on clean state"; exit 1
+          fi
+
+      - name: antigravity · PreInvocation invocationNum=1 injects primer
+        run: |
+          set -e
+          OUT=$(echo '{"invocationNum":1,"initialNumSteps":0,"conversationId":"ag-ci","transcriptPath":"/tmp/ag-ci-nonexistent.jsonl","workspacePaths":["'"$PWD"'"]}' \
+            | node plugins/antigravity-ai-action-tracker/dist/hooks/pre-invocation.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0"; exit 1; }
+          echo "$OUT" | grep -q '"injectSteps"' || { echo "::error::Antigravity PreInvocation missed primer injectSteps on invocationNum=1"; exit 1; }
+          echo "$OUT" | grep -q 'step-up MFA protocol primer' || { echo "::error::Antigravity PreInvocation primer content missing"; exit 1; }
+
+      - name: antigravity · PreInvocation invocationNum=5 no primer
+        run: |
+          set -e
+          OUT=$(echo '{"invocationNum":5,"initialNumSteps":10,"conversationId":"ag-ci"}' \
+            | node plugins/antigravity-ai-action-tracker/dist/hooks/pre-invocation.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0 (n=5)"; exit 1; }
+          if echo "$OUT" | grep -q '"injectSteps"'; then
+            echo "::error::Antigravity PreInvocation should NOT inject primer on invocationNum=5"; exit 1
           fi
