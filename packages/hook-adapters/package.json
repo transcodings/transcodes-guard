@@ -1,0 +1,28 @@
+{
+  "name": "@ai-action-tracker/hook-adapters",
+  "version": "0.1.0",
+  "description": "Host-specific stdin/stdout JSON contract adapters for ai-action-tracker plugins (Claude Code, Codex CLI, ...).",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
