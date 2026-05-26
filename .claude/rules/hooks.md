@@ -115,7 +115,7 @@ The gate logic (`evaluatePreToolUse` + formatters) does not change.
 
 ## Self-verification Before "Done"
 
-- `npm run build:plugin` passes and all three dist locations (`packages/*/dist/`, `plugins/claude-code-ai-action-tracker/dist/`, `plugins/codex-ai-action-tracker/dist/`) are committed in the same change. CI (`git diff --exit-code`) fails on any drift.
+- `npm run build:plugin` passes and all four dist locations (`packages/*/dist/`, `plugins/claude-code-ai-action-tracker/dist/`, `plugins/codex-ai-action-tracker/dist/`, `plugins/antigravity-ai-action-tracker/dist/`) are committed in the same change. CI (`git diff --exit-code`) fails on any drift.
 - CI hook smoke tests still pass: claude-code 7 scenarios + codex 3 scenarios. At minimum verify locally:
   - `rm -rf /` produces stdout JSON with `"permissionDecision":"deny"` (both plugins).
   - `ls` produces empty stdout and exit 0 (both plugins).

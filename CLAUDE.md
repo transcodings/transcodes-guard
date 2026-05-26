@@ -30,12 +30,12 @@ CI(`.github/workflows/ci.yml`)는 PR마다 `build:plugin` 실행 후 ① `packag
   .claude-plugin/marketplace.json                # Marketplace 카탈로그 (이 리포가 곧 marketplace).
   package.json                                   # private. workspaces ["packages/*", "plugins/*"] + turbo orchestrator.
   turbo.json                                     # task pipeline (build / build:plugin, ^build 의존성).
-  .github/workflows/ci.yml                       # multi-plugin dist sync + 10종 hook smoke test.
+  .github/workflows/ci.yml                       # multi-plugin dist sync + 15종 hook smoke test.
 
 packages/                                        # 호스트 무관 라이브러리 (워크스페이스 패키지)
   stepup-core/                                   #   step-up MFA 게이트 + 평가 로직의 단일 진실원천
     src/{gate,session,client,store,pending,jwt,config,inspector}.ts  # 기존 stepup 모듈
-    src/evaluate.ts                              #   evaluatePreToolUse() — 두 plugin이 호출
+    src/evaluate.ts                              #   evaluatePreToolUse() — 세 plugin이 호출
     src/messages.ts                              #   formatBlockedSummary 등 사용자 표시 문자열
     src/index.ts                                 #   public surface re-export
     dist/                                        #   git 커밋, npm publish 대상
@@ -99,10 +99,10 @@ docs/
 - Log via `console.error` (stderr). `console.log` to stdout corrupts JSON-RPC framing in stdio mode and the client will silently disconnect.
 - Run `npm run build:plugin` before claiming work complete. `tsc` + multi-plugin dist sync는 CI가 강제하는 정합성 계약.
 - After capability changes, verify with `npm run inspect` — the Inspector renders new tools immediately.
-- PreToolUse hook의 **asymmetric fail policy**는 `packages/stepup-core/src/evaluate.ts`의 `evaluatePreToolUse`에 내장되어 두 plugin이 공유:
+- PreToolUse hook의 **asymmetric fail policy**는 `packages/stepup-core/src/evaluate.ts`의 `evaluatePreToolUse`에 내장되어 세 plugin이 공유:
   - *Before* danger match (stdin parse, classify, pattern load) → **fail-open** (decision `kind:"pass"` 반환). hook은 exit 0, no JSON.
   - *After* danger match → **fail-safe** (`deny-*` decision 반환). hook은 stdout JSON에 `permissionDecision: "deny"` emit. `systemMessage` 필드는 프로토콜 instruction; stderr는 1줄 요약.
-- Hook orchestra (양 plugin 공통, 4종): PreToolUse(Bash + matched MCP) 차단, SessionStart 프로토콜 primer, UserPromptSubmit user "auth done" 감지, Stop dangling pending 리마인더. 네 hook은 단일 shared file `~/.cache/.../stepup-pending.json`을 통해 조정 — see [`docs/architecture.md`](./docs/architecture.md) §5. step-up 용 다섯 번째 hook 추가 금지; 기존 orchestra를 재사용.
+- Hook orchestra (host event 집합에 따라 다름 — Claude Code/Codex는 4종, Antigravity는 3종): PreToolUse(Bash/run_command + matched MCP) 차단, SessionStart 프로토콜 primer (Antigravity는 PreInvocation에 통합), UserPromptSubmit user "auth done" 감지 (Antigravity는 PreInvocation의 transcript tail에 통합), Stop dangling pending 리마인더. 모든 hook은 단일 shared file `~/.cache/.../stepup-pending.json`을 통해 조정 — see [`docs/architecture.md`](./docs/architecture.md) §5. step-up 용 추가 hook 도입 금지; 기존 orchestra를 재사용.
 - 두 trigger source 모두 동일 PreToolUse hook에서 라우팅:
   - **Bash**: `packages/danger-patterns/data/danger-patterns.json` regex + `rm -rf` git semantic check.
   - **MCP tool call**: `packages/danger-patterns/data/tool-rules.json`의 exact `toolName` match. plugin matcher: `Bash|mcp__plugin_ai-action-tracker_ai-action-tracker__.*`. 신규 protected MCP tool → `packages/danger-patterns/data/tool-rules.json` 추가 (system) 또는 `add_tool_rule` MCP tool (user).
@@ -123,7 +123,7 @@ docs/
 - Source 수정 후 반드시 `npm run build:plugin`을 거쳐 ① `packages/*/dist/`, ② `plugins/claude-code-ai-action-tracker/dist/`, ③ `plugins/codex-ai-action-tracker/dist/`, ④ `plugins/antigravity-ai-action-tracker/dist/` **네 곳**을 commit과 함께 동기화. CI가 모두 검증. dist/를 직접 편집하지 말 것 — 다음 빌드에서 덮어쓰여진다.
 - 신규 host plugin (Cursor, Antigravity 등) 추가 시:
   1. `packages/hook-adapters/src/<host>.ts`에 새 adapter 구현 (HookAdapter 인터페이스).
-  2. `plugins/<host>-ai-action-tracker/`에 매니페스트 + thin hook entry 4종 (기존 plugin 패턴 그대로).
+  2. `plugins/<host>-ai-action-tracker/`에 매니페스트 + thin hook entry — host event 집합에 맞춰 적정 수 (Claude Code/Codex는 4종, Antigravity는 3종 등).
   3. CI smoke test 3-7종 추가.
   본질적으로 새 stepup-core / mcp-server-core / danger-patterns 코드 추가 없이 plugin만 추가하는 작업.
 

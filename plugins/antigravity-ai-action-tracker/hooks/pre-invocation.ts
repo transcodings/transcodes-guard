@@ -7,11 +7,14 @@
  * complete event list per antigravity.google/docs/hooks). PreInvocation
  * fires before every model call, and this entry uses it for both roles:
  *
- *  - **SessionStart-equivalent** (`invocationNum === 1`): inject a static
- *    step-up MFA primer + any carry-over pending state from a previous
- *    turn. The static primer rendered here duplicates what `rules/STEPUP.md`
- *    contains so the agent has the protocol in context immediately, even
- *    if Antigravity hasn't yet processed the rules file.
+ *  - **SessionStart-equivalent** (`invocationNum <= 1` — first model call,
+ *    with a defensive fallback when the field is missing/non-numeric so a
+ *    malformed payload still receives the primer; the primer is purely
+ *    informational, so over-firing is harmless): inject a static step-up
+ *    MFA primer + any carry-over pending state from a previous turn. The
+ *    static primer rendered here duplicates what `rules/STEPUP.md` contains
+ *    so the agent has the protocol in context immediately, even if
+ *    Antigravity hasn't yet processed the rules file.
  *
  *  - **UserPromptSubmit-equivalent** (every invocation): tail the host's
  *    `transcript.jsonl` for the most recent user message. If it matches
