@@ -121,10 +121,13 @@ function stringifyToolInput(input) {
 }
 function classifyToolCall(input) {
     // Host-specific shell tool names map to the same internal `bash` kind.
-    // Claude Code / Codex use "Bash"; Antigravity 2.0 uses "run_command".
-    // The antigravity adapter rewrites `args.CommandLine` → `args.command`
+    // Claude Code / Codex use "Bash"; Antigravity 2.0 uses "run_command";
+    // Cursor uses "Shell" (per cursor.com/docs/agent/hooks matchers). The
+    // antigravity adapter rewrites `args.CommandLine` → `args.command`
     // before the classifier sees it, so the body below is host-neutral.
-    if (input.toolName === "Bash" || input.toolName === "run_command") {
+    if (input.toolName === "Bash" ||
+        input.toolName === "run_command" ||
+        input.toolName === "Shell") {
         const cmd = input.toolInput?.command;
         if (typeof cmd !== "string")
             return null;
