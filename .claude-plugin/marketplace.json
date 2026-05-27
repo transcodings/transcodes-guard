@@ -1,5 +1,5 @@
 {
-  "name": "ai-action-tracker-mp",
+  "name": "ai-action-tracker",
   "owner": {
     "name": "bigstrider"
   },
@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "ai-action-tracker",
-      "source": "./plugins/ai-action-tracker",
+      "source": "./plugins/claude-code-ai-action-tracker",
       "description": "Risky-bash interceptor (PreToolUse hook) and audit MCP server.",
       "category": "security",
       "tags": ["safety", "hook", "mcp", "audit", "bash"],
