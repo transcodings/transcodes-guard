@@ -64,7 +64,7 @@ tags: [auth, secrets, device-flow, keychain, plugin, dx]
 ### S1. 첫 설치 후 자동 로그인 (행복 경로)
 
 ```
-사용자: /plugin install ai-action-tracker@ai-action-tracker-mp
+사용자: /plugin install ai-action-tracker@ai-action-tracker
 Claude Code: ✅ installed.
 
 사용자: rm -rf /etc 같은 거 한번 막아봐
