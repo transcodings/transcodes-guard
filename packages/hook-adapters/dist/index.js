@@ -7,5 +7,6 @@
  */
 export { claudeCodeAdapter } from "./claude-code.js";
 export { codexAdapter } from "./codex.js";
+export { cursorAdapter } from "./cursor.js";
 export { antigravityAdapter, detectUserDoneFromTranscript, ANTIGRAVITY_COMPLETION_PATTERN, } from "./antigravity.js";
 //# sourceMappingURL=index.js.map

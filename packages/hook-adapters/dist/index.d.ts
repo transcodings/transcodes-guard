@@ -8,4 +8,5 @@
 export { type HookAdapter, type PreToolUseInput, type UserPromptSubmitInput, type PreToolUseDecision, type PreInvocationInput, type InjectStep, } from "./types.js";
 export { claudeCodeAdapter } from "./claude-code.js";
 export { codexAdapter } from "./codex.js";
+export { cursorAdapter } from "./cursor.js";
 export { antigravityAdapter, detectUserDoneFromTranscript, ANTIGRAVITY_COMPLETION_PATTERN, } from "./antigravity.js";

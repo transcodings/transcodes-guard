@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ai-action-tracker": {
+      "command": "node",
+      "args": ["__AI_ACTION_TRACKER_ROOT__/dist/src/stdio.js"]
+    }
+  }
+}
