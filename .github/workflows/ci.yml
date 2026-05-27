@@ -49,6 +49,9 @@ jobs:
       - name: Verify antigravity plugin dist is committed and in sync
         run: git diff --exit-code -- plugins/antigravity-ai-action-tracker/dist/
 
+      - name: Verify cursor plugin dist is committed and in sync
+        run: git diff --exit-code -- plugins/cursor-ai-action-tracker/dist/
+
       # ─────────────────────────────────────────────────────────
       # Claude Code plugin smoke tests (7 scenarios — preserved verbatim
       # from pre-monorepo CI, only the dist path changed).
@@ -278,3 +281,98 @@ jobs:
           if echo "$OUT" | grep -q '"injectSteps"'; then
             echo "::error::Antigravity PreInvocation should NOT inject primer on invocationNum=5"; exit 1
           fi
+
+      # ─────────────────────────────────────────────────────────
+      # Cursor IDE plugin smoke tests (6 scenarios — wire format is FLAT
+      # `{permission, user_message, agent_message}` (no hookSpecificOutput
+      # wrapper) and Stop uses `followup_message` instead of `decision:
+      # "block"`. beforeSubmitPrompt has no additional_context channel so
+      # the test verifies the side-effect path (consume verified + clear
+      # pending) and the always-`{ continue: true }` output.)
+      # ─────────────────────────────────────────────────────────
+
+      - name: cursor · beforeShellExecution regex deny (rm -rf /)
+        run: |
+          set -e
+          OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
+            | node plugins/cursor-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not exit 0 for danger command"; exit 1; }
+          echo "$OUT" | grep -q '"permission":"deny"' || { echo "::error::Cursor flat deny JSON missing"; exit 1; }
+          if echo "$OUT" | grep -q '"hookSpecificOutput"'; then
+            echo "::error::Cursor hook wrongly emitted hookSpecificOutput wrapper (Claude Code wire format leaked)"; exit 1
+          fi
+
+      - name: cursor · beforeShellExecution safe command passes (ls)
+        run: |
+          set -e
+          OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"ls"},"cwd":"'"$PWD"'"}' \
+            | node plugins/cursor-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not allow safe command"; exit 1; }
+
+      - name: cursor · beforeShellExecution verified-record → explicit allow
+        run: |
+          set -e
+          mkdir -p "$HOME/.cache/ai-action-tracker"
+          NOW=$(node -e 'console.log(Date.now())')
+          echo "{\"sid\":\"cursor-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.cache/ai-action-tracker/stepup-verified.json"
+          OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"rm -rf /tmp/x"},"cwd":"'"$PWD"'"}' \
+            | node plugins/cursor-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not exit 0 with verified record"; exit 1; }
+          echo "$OUT" | grep -q '"permission":"allow"' || { echo "::error::Cursor explicit allow JSON missing despite verified record"; exit 1; }
+          if [ -f "$HOME/.cache/ai-action-tracker/stepup-verified.json" ]; then
+            echo "::error::Cursor Shell fast-path did NOT consume verified record"; exit 1
+          fi
+          rm -f "$HOME/.cache/ai-action-tracker/stepup-pending.json"
+
+      - name: cursor · sessionStart with pending → additional_context
+        run: |
+          set -e
+          mkdir -p "$HOME/.cache/ai-action-tracker"
+          NOW=$(node -e 'console.log(Date.now())')
+          EXP=$(node -e 'console.log(new Date(Date.now() + 300000).toISOString())')
+          cat > "$HOME/.cache/ai-action-tracker/stepup-pending.json" <<JSON
+          {"sid":"cursor-ss-test","command":"rm -rf /","reason":"ci test","browserUrl":"http://x","createdAt":$NOW,"expiresAt":"$EXP","status":"pending"}
+          JSON
+          OUT=$(printf '' | node plugins/cursor-ai-action-tracker/dist/hooks/session-start.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor sessionStart hook did not exit 0"; exit 1; }
+          echo "$OUT" | grep -q '"additional_context"' || { echo "::error::Cursor sessionStart missing flat additional_context"; exit 1; }
+          if echo "$OUT" | grep -q '"hookSpecificOutput"'; then
+            echo "::error::Cursor sessionStart wrongly emitted hookSpecificOutput wrapper"; exit 1
+          fi
+          rm -f "$HOME/.cache/ai-action-tracker/stepup-pending.json"
+
+      - name: cursor · Stop hook clean state
+        run: |
+          set -e
+          rm -f "$HOME/.cache/ai-action-tracker/stepup-verified.json"
+          rm -f "$HOME/.cache/ai-action-tracker/stepup-pending.json"
+          OUT=$(printf '' | node plugins/cursor-ai-action-tracker/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor Stop hook did not exit 0"; exit 1; }
+          if echo "$OUT" | grep -q '"followup_message"'; then
+            echo "::error::Cursor Stop hook unexpectedly emitted followup_message on clean state"; exit 1
+          fi
+
+      - name: cursor · beforeSubmitPrompt 'done' consumes verified
+        run: |
+          set -e
+          mkdir -p "$HOME/.cache/ai-action-tracker"
+          NOW=$(node -e 'console.log(Date.now())')
+          EXP=$(node -e 'console.log(new Date(Date.now() + 300000).toISOString())')
+          echo "{\"sid\":\"cursor-bsp-sid\",\"verifiedAt\":$NOW}" > "$HOME/.cache/ai-action-tracker/stepup-verified.json"
+          cat > "$HOME/.cache/ai-action-tracker/stepup-pending.json" <<JSON
+          {"sid":"cursor-bsp-sid","command":"rm","reason":"r","browserUrl":"http://x","createdAt":$NOW,"expiresAt":"$EXP","status":"verified"}
+          JSON
+          OUT=$(echo '{"prompt":"인증 완료"}' \
+            | node plugins/cursor-ai-action-tracker/dist/hooks/before-submit-prompt.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor beforeSubmitPrompt did not exit 0"; exit 1; }
+          echo "$OUT" | grep -q '"continue":true' || { echo "::error::Cursor beforeSubmitPrompt missed continue:true"; exit 1; }
+          if [ -f "$HOME/.cache/ai-action-tracker/stepup-verified.json" ]; then
+            echo "::error::Cursor beforeSubmitPrompt 'done' did NOT consume verified record"; exit 1
+          fi
+          rm -f "$HOME/.cache/ai-action-tracker/stepup-pending.json"
