@@ -24,6 +24,39 @@ export interface UserPromptSubmitInput {
     prompt: string;
     hookEventName?: string;
 }
+/**
+ * Parsed PreInvocation stdin — Antigravity-only.
+ *
+ * Antigravity has no SessionStart / UserPromptSubmit hook events; their
+ * roles are folded into PreInvocation which fires before every model call.
+ * `invocationNum === 1` is the per-turn analogue of SessionStart, and the
+ * `transcriptPath` (JSONL of prior messages) lets the hook tail the most
+ * recent user message to recover the UserPromptSubmit detection role.
+ */
+export interface PreInvocationInput {
+    invocationNum: number;
+    initialNumSteps: number;
+    conversationId?: string;
+    transcriptPath?: string;
+    workspacePaths?: string[];
+    artifactDirectoryPath?: string;
+}
+/**
+ * Antigravity PreInvocation / PostInvocation `injectSteps` element shape.
+ * The host materializes whichever variant is present into the conversation
+ * trajectory before (PreInvocation) or after (PostInvocation) the model
+ * call. We only currently use `ephemeralMessage`.
+ */
+export type InjectStep = {
+    ephemeralMessage: string;
+} | {
+    userMessage: string;
+} | {
+    toolCall: {
+        name: string;
+        args: unknown;
+    };
+};
 /** Universal PreToolUse decision the gate produces. */
 export type PreToolUseDecision = {
     kind: "allow";
@@ -64,4 +97,15 @@ export interface HookAdapter {
      * Codex). The adapter encapsulates that difference.
      */
     emitStop(reason: string): string;
+    /**
+     * Antigravity-only. Parse PreInvocation stdin JSON. Other hosts have no
+     * PreInvocation hook event — they implement this only if/when they do.
+     */
+    parsePreInvocationStdin?(raw: string): PreInvocationInput;
+    /**
+     * Antigravity-only. Render a PreInvocation (or PostInvocation) inject-steps
+     * payload. Returns `"{}"` when the array is empty so the hook can be a
+     * no-op without violating the host's "stdout must be valid JSON" rule.
+     */
+    emitPreInvocation?(injectSteps: InjectStep[]): string;
 }
