@@ -1,0 +1,41 @@
+{
+  "name": "ai-action-tracker-cursor",
+  "version": "0.1.0",
+  "description": "Risky-shell interceptor + audit MCP server — Cursor IDE plugin.",
+  "type": "module",
+  "main": "dist/src/stdio.js",
+  "bin": {
+    "ai-action-tracker-mcp": "dist/src/stdio.js",
+    "ai-action-tracker-hook": "dist/hooks/pre-tool-use.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    ".cursor",
+    "mcp.json",
+    "install.sh"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:plugin": "tsc && chmod 755 dist/src/stdio.js dist/hooks/pre-tool-use.js dist/hooks/session-start.js dist/hooks/before-submit-prompt.js dist/hooks/stop.js",
+    "dev:stdio": "tsx src/stdio.ts",
+    "dev:hook": "tsx hooks/pre-tool-use.ts",
+    "start:stdio": "node dist/src/stdio.js",
+    "start:hook": "node dist/hooks/pre-tool-use.js"
+  },
+  "dependencies": {
+    "@ai-action-tracker/hook-adapters": "*",
+    "@ai-action-tracker/mcp-server-core": "*",
+    "@ai-action-tracker/stepup-core": "*",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
