@@ -13,7 +13,7 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { dataDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+import { cacheDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
 import { STEPUP_TTL_MS } from "./config.js";
 const VERIFIED_FILE = "stepup-verified.json";
 const PENDING_FILE = "stepup-pending.json";
@@ -39,7 +39,7 @@ function previewCommand(command) {
     return `${command.slice(0, COMMAND_PREVIEW_LIMIT)}…`;
 }
 function inspectVerified(now) {
-    const file = path.join(dataDir(), VERIFIED_FILE);
+    const file = path.join(cacheDir(), VERIFIED_FILE);
     const data = readJsonFile(file);
     if (!data)
         return { exists: false };
@@ -58,7 +58,7 @@ function inspectVerified(now) {
     };
 }
 function inspectPending(now) {
-    const file = path.join(dataDir(), PENDING_FILE);
+    const file = path.join(cacheDir(), PENDING_FILE);
     const data = readJsonFile(file);
     if (!data)
         return { exists: false };
@@ -91,7 +91,7 @@ function inspectPending(now) {
     };
 }
 function inspectBrowserLock(now) {
-    const file = path.join(dataDir(), BROWSER_LOCK_FILE);
+    const file = path.join(cacheDir(), BROWSER_LOCK_FILE);
     const data = readJsonFile(file);
     if (!data)
         return { exists: false };
@@ -114,7 +114,7 @@ export function inspectStepupState(now = Date.now()) {
     migrateLegacyFile(PENDING_FILE, "cache");
     migrateLegacyFile(BROWSER_LOCK_FILE, "cache");
     return {
-        cache_dir: dataDir(),
+        cache_dir: cacheDir(),
         now_ms: now,
         verified: inspectVerified(now),
         pending: inspectPending(now),

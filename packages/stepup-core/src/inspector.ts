@@ -13,7 +13,7 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { dataDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+import { cacheDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
 import { STEPUP_TTL_MS } from "./config.js";
 
 const VERIFIED_FILE = "stepup-verified.json";
@@ -85,7 +85,7 @@ function previewCommand(command: string): string {
 }
 
 function inspectVerified(now: number): VerifiedInspection {
-  const file = path.join(dataDir(), VERIFIED_FILE);
+  const file = path.join(cacheDir(), VERIFIED_FILE);
   const data = readJsonFile(file);
   if (!data) return { exists: false };
   const sid = typeof data.sid === "string" ? data.sid : null;
@@ -104,7 +104,7 @@ function inspectVerified(now: number): VerifiedInspection {
 }
 
 function inspectPending(now: number): PendingInspection {
-  const file = path.join(dataDir(), PENDING_FILE);
+  const file = path.join(cacheDir(), PENDING_FILE);
   const data = readJsonFile(file);
   if (!data) return { exists: false };
   const sid = typeof data.sid === "string" ? data.sid : null;
@@ -140,7 +140,7 @@ function inspectPending(now: number): PendingInspection {
 }
 
 function inspectBrowserLock(now: number): BrowserLockInspection {
-  const file = path.join(dataDir(), BROWSER_LOCK_FILE);
+  const file = path.join(cacheDir(), BROWSER_LOCK_FILE);
   const data = readJsonFile(file);
   if (!data) return { exists: false };
   const fingerprint =
@@ -165,7 +165,7 @@ export function inspectStepupState(
   migrateLegacyFile(PENDING_FILE, "cache");
   migrateLegacyFile(BROWSER_LOCK_FILE, "cache");
   return {
-    cache_dir: dataDir(),
+    cache_dir: cacheDir(),
     now_ms: now,
     verified: inspectVerified(now),
     pending: inspectPending(now),

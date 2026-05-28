@@ -15,18 +15,23 @@
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { cacheDir as pluginCacheDir, dataDir, migrateLegacyFile, } from "@ai-action-tracker/plugin-paths";
+import { cacheDir as pluginCacheDir, migrateLegacyFile, } from "@ai-action-tracker/plugin-paths";
 import { STEPUP_TTL_MS } from "./config.js";
 /**
- * OS-appropriate cache directory, re-exported for backwards compatibility.
- * New code in this package should call dataDir() directly.
+ * Cache directory re-exported for backwards compatibility.
+ *
+ * Returns $CLAUDE_PLUGIN_DATA when running under Claude Code with that
+ * env set, else the OS-appropriate legacy cache dir. Stepup state files
+ * intentionally use the cache flavour (not dataDir) so the non-claude-code
+ * hosts (Codex/Antigravity/Cursor) keep their pre-existing
+ * ~/.cache/ai-action-tracker/ path. Only Claude Code with env set diverges.
  */
 export function cacheDir() {
     return pluginCacheDir();
 }
 const FILE_NAME = "stepup-verified.json";
 function storePath() {
-    return path.join(dataDir(), FILE_NAME);
+    return path.join(cacheDir(), FILE_NAME);
 }
 export function readVerified() {
     migrateLegacyFile(FILE_NAME, "cache");
