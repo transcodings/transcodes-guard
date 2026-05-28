@@ -5,7 +5,14 @@
  * hooks already emit (PreToolUse `hookSpecificOutput.permissionDecision`,
  * Stop top-level `decision: "block"`). See `.claude/rules/hooks.md` for the
  * per-event payload contract Claude Code's validator enforces.
+ *
+ * Side effect on import: sets AI_ACTION_TRACKER_HOST so that plugin-paths'
+ * dataDir() routes to $CLAUDE_PLUGIN_DATA when running under Claude Code.
+ * Adapter modules are the canonical place to claim host identity because
+ * every hook entrypoint imports its host's adapter before touching state.
  */
+process.env.AI_ACTION_TRACKER_HOST = "claude-code";
+
 import type {
   HookAdapter,
   PreToolUseDecision,

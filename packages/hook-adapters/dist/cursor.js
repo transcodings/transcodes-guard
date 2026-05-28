@@ -1,3 +1,4 @@
+process.env.AI_ACTION_TRACKER_HOST = "cursor";
 /**
  * Cursor IDE hook adapter.
  *

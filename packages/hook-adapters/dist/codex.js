@@ -1,3 +1,4 @@
+process.env.AI_ACTION_TRACKER_HOST = "codex";
 /**
  * OpenAI Codex CLI hook adapter.
  *

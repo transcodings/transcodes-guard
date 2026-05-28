@@ -1,3 +1,4 @@
+process.env.AI_ACTION_TRACKER_HOST = "antigravity";
 /**
  * Google Antigravity 2.0 hook adapter.
  *

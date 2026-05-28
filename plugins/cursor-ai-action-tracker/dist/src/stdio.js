@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+process.env.AI_ACTION_TRACKER_HOST = "cursor";
 /**
  * MCP stdio entrypoint for the Cursor IDE plugin.
  *
