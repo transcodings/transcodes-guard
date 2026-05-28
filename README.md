@@ -234,7 +234,12 @@ ai-action-tracker: BLOCKED (no token) — dd if=/dev/zero of=/dev/sda
 
 **1) System 패턴** — 플러그인이 배포하는 immutable 차단 룰. `plugins/ai-action-tracker/hooks/danger-patterns.json`을 편집하면 런타임 read이라 즉시 반영. plugin dist에도 동기화하려면 `npm run build:plugin`. 팀이 합의한 핵심 룰 위치.
 
-**2) User 패턴** — 개인 머신의 추가 룰. 위치: `~/.claude/ai-action-tracker/user-patterns.json`. **MCP tool로 관리**(직접 편집 가능하지만 권장은 도구):
+**2) User 패턴** — 개인 머신의 추가 룰. 저장 위치는 host별로 다르다 (자세히는 [데이터 저장 위치](#-데이터-저장-위치) 섹션):
+
+- **Claude Code**: `~/.claude/plugins/data/{plugin-id}/user-patterns.json` (Anthropic 공식 plugin-data 디렉토리)
+- **Codex / Antigravity / Cursor**: `~/.claude/ai-action-tracker/user-patterns.json` (legacy host-agnostic 경로)
+
+포맷은 **JSONC** — `//` 주석과 trailing comma를 허용하므로 룰을 한 줄 주석 처리해 임시 비활성화 가능 (MCP tool로 재작성 시 주석은 보존되지 않음). **MCP tool로 관리**(직접 편집 가능하지만 권장은 도구):
 
 ```
 add_user_pattern    { id, regex, reason }   # 신규 등록
@@ -266,6 +271,28 @@ JSON 스키마는 둘 다 동일:
 
 ---
 
+## 🗂️ 데이터 저장 위치
+
+영속 상태 파일은 **host별로 다르게** 저장됩니다.
+
+| 파일 | 종류 | Claude Code | Codex / Antigravity / Cursor |
+|---|---|---|---|
+| `user-patterns.json` | 사용자 룰 (JSONC) | `$CLAUDE_PLUGIN_DATA/` | `~/.claude/ai-action-tracker/` |
+| `user-tool-rules.json` | 사용자 MCP 룰 (JSONC) | `$CLAUDE_PLUGIN_DATA/` | `~/.claude/ai-action-tracker/` |
+| `stepup-verified.json` | Step-up verified 단발 record | `$CLAUDE_PLUGIN_DATA/` | `~/.cache/ai-action-tracker/` |
+| `stepup-pending.json` | 진행 중 step-up 세션 | `$CLAUDE_PLUGIN_DATA/` | `~/.cache/ai-action-tracker/` |
+| `stepup-browser-lock.json` | 동시 브라우저 launch 락 | `$CLAUDE_PLUGIN_DATA/` | `~/.cache/ai-action-tracker/` |
+
+`CLAUDE_PLUGIN_DATA`는 Claude Code가 plugin마다 자동 주입하는 환경변수로 보통 `~/.claude/plugins/data/<plugin-id>/`를 가리키며 plugin 업데이트 후에도 보존됩니다 ([공식 문서](https://code.claude.com/docs/en/plugins-reference)). 이 환경변수가 설정되지 않은 경우(예: tsx dev 모드, Inspector) Claude Code도 legacy 경로로 폴백합니다.
+
+**자동 마이그레이션**: 기존 사용자가 legacy 경로에 파일을 갖고 있는 상태에서 Claude Code plugin을 업데이트하면, 첫 hook/MCP 호출 시 자동으로 새 경로(`$CLAUDE_PLUGIN_DATA`)로 복사되고 원본은 `*.bak`로 rename됩니다 (idempotent — 재실행 안전).
+
+**Host 격리 이유**: Claude Code의 `CLAUDE_PLUGIN_DATA`는 *해당 plugin 전용 디렉토리*이므로 다른 plugin과 충돌이 없고 업데이트 시 데이터 손실이 없는 정석 위치입니다. 나머지 3개 host는 공식 동등 변수를 제공하지 않아 기존 host-agnostic 경로를 유지합니다.
+
+자세한 배경과 리서치는 [`docs/research/mcp-state-persistence-patterns.md`](./docs/research/mcp-state-persistence-patterns.md) 참고.
+
+---
+
 ## 트랙 B. MCP 서버 즉시 체험
 
 Plugin을 설치하지 않고 dev 모드로 MCP 서버를 띄우려면 다음 두 명령으로 충분합니다.
@@ -290,7 +317,7 @@ claude mcp add ai-action-tracker -- node plugins/ai-action-tracker/dist/src/stdi
 
 | 종류 | 이름 | 설명 |
 |------|------|------|
-| Resource | `danger-patterns://list` | 현재 system 패턴(`hooks/danger-patterns.json`) + user 패턴(`~/.claude/ai-action-tracker/user-patterns.json`)을 merge해 markdown 표로 반환. 런타임 read이라 편집 즉시 반영. |
+| Resource | `danger-patterns://list` | 현재 system 패턴(`hooks/danger-patterns.json`) + user 패턴(host별 `user-patterns.json` — [데이터 저장 위치](#-데이터-저장-위치))을 merge해 markdown 표로 반환. 런타임 read이라 편집 즉시 반영. |
 | Tool | `simulate_command` | 특정 Bash 명령이 regex 레이어에 걸리는지 dry-run. user 패턴은 시뮬레이터에선 매칭되지만 실제 hook 트리거는 system 패턴만 보장 — `will_trigger_hook` 필드로 구분. |
 | Tool | `add_user_pattern` | 신규 user 패턴 등록 (`id` 충돌·system ID reserved·regex compile 검증). 즉시 hook에 반영. |
 | Tool | `update_user_pattern` | 기존 user 패턴 regex/reason 변경. system 패턴은 수정 불가. |

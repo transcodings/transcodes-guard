@@ -14,6 +14,12 @@ jobs:
     strategy:
       matrix:
         node-version: [20.x, 22.x]
+    env:
+      # Claude Code 표준 plugin-data 디렉토리를 CI에서 모방한다.
+      # 이 env가 set돼 있어도 AI_ACTION_TRACKER_HOST=claude-code인
+      # 경우(즉 Claude Code plugin 바이너리가 실행될 때)에만 영향을 미친다.
+      # codex/antigravity/cursor 바이너리는 자기 host를 선언하므로 영향 없음.
+      CLAUDE_PLUGIN_DATA: ${{ runner.temp }}/cc-plugin-data
     steps:
       - uses: actions/checkout@v4
 
@@ -100,24 +106,23 @@ jobs:
       - name: claude-code · verified record → explicit allow for MCP (system rule defers consume)
         run: |
           set -e
-          mkdir -p "$HOME/.cache/ai-action-tracker"
+          mkdir -p "$CLAUDE_PLUGIN_DATA"
           NOW=$(node -e 'console.log(Date.now())')
-          echo "{\"sid\":\"ci-test-sid\",\"verifiedAt\":$NOW}" > "$HOME/.cache/ai-action-tracker/stepup-verified.json"
+          echo "{\"sid\":\"ci-test-sid\",\"verifiedAt\":$NOW}" > "$CLAUDE_PLUGIN_DATA/stepup-verified.json"
           OUT=$(echo '{"tool_name":"mcp__plugin_ai-action-tracker_ai-action-tracker__retire_member","tool_input":{"body":{"member_id":"x"}}}' \
             | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 with verified record"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"allow"' || { echo "::error::Explicit allow JSON missing despite verified record"; exit 1; }
-          test -f "$HOME/.cache/ai-action-tracker/stepup-verified.json" || { echo "::error::MCP system rule fast-path consumed verified record (should defer to handler)"; exit 1; }
-          rm -f "$HOME/.cache/ai-action-tracker/stepup-verified.json"
-          rm -f "$HOME/.cache/ai-action-tracker/stepup-pending.json"
+          test -f "$CLAUDE_PLUGIN_DATA/stepup-verified.json" || { echo "::error::MCP system rule fast-path consumed verified record (should defer to handler)"; exit 1; }
+          rm -f "$CLAUDE_PLUGIN_DATA/stepup-verified.json"
+          rm -f "$CLAUDE_PLUGIN_DATA/stepup-pending.json"
 
       - name: claude-code · user rule fast-path consumes verified in hook (consume_in_hook default true)
         run: |
           set -e
-          mkdir -p "$HOME/.cache/ai-action-tracker"
-          mkdir -p "$HOME/.claude/ai-action-tracker"
-          cat > "$HOME/.claude/ai-action-tracker/user-tool-rules.json" <<'JSON'
+          mkdir -p "$CLAUDE_PLUGIN_DATA"
+          cat > "$CLAUDE_PLUGIN_DATA/user-tool-rules.json" <<'JSON'
           {
             "rules": [
               {
@@ -131,27 +136,27 @@ jobs:
           }
           JSON
           NOW=$(node -e 'console.log(Date.now())')
-          echo "{\"sid\":\"ci-user-sid\",\"verifiedAt\":$NOW}" > "$HOME/.cache/ai-action-tracker/stepup-verified.json"
+          echo "{\"sid\":\"ci-user-sid\",\"verifiedAt\":$NOW}" > "$CLAUDE_PLUGIN_DATA/stepup-verified.json"
           OUT=$(echo '{"tool_name":"mcp__ci_user_test_tool","tool_input":{"arg":"v"}}' \
             | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for user rule fast-path"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"allow"' || { echo "::error::Explicit allow JSON missing for user rule"; exit 1; }
-          if [ -f "$HOME/.cache/ai-action-tracker/stepup-verified.json" ]; then
+          if [ -f "$CLAUDE_PLUGIN_DATA/stepup-verified.json" ]; then
             echo "::error::User rule fast-path did NOT consume verified record (consume_in_hook=true expected)"; exit 1
           fi
-          rm -f "$HOME/.claude/ai-action-tracker/user-tool-rules.json"
-          rm -f "$HOME/.cache/ai-action-tracker/stepup-verified.json"
-          rm -f "$HOME/.cache/ai-action-tracker/stepup-pending.json"
+          rm -f "$CLAUDE_PLUGIN_DATA/user-tool-rules.json"
+          rm -f "$CLAUDE_PLUGIN_DATA/stepup-verified.json"
+          rm -f "$CLAUDE_PLUGIN_DATA/stepup-pending.json"
 
       - name: claude-code · Stop hook reaps orphan verified+pending(verified) silently
         run: |
           set -e
-          mkdir -p "$HOME/.cache/ai-action-tracker"
+          mkdir -p "$CLAUDE_PLUGIN_DATA"
           NOW=$(node -e 'console.log(Date.now())')
           EXP=$(node -e 'console.log(new Date(Date.now() + 300000).toISOString())')
-          echo "{\"sid\":\"orphan-sid\",\"verifiedAt\":$NOW}" > "$HOME/.cache/ai-action-tracker/stepup-verified.json"
-          cat > "$HOME/.cache/ai-action-tracker/stepup-pending.json" <<JSON
+          echo "{\"sid\":\"orphan-sid\",\"verifiedAt\":$NOW}" > "$CLAUDE_PLUGIN_DATA/stepup-verified.json"
+          cat > "$CLAUDE_PLUGIN_DATA/stepup-pending.json" <<JSON
           {"sid":"orphan-sid","command":"ci-orphan-test","reason":"orphan test","browserUrl":"http://localhost/x","createdAt":$NOW,"expiresAt":"$EXP","status":"verified"}
           JSON
           OUT=$(printf '' | node plugins/claude-code-ai-action-tracker/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
@@ -160,10 +165,10 @@ jobs:
           if echo "$OUT" | grep -q '"decision":"block"'; then
             echo "::error::Stop hook emitted false reminder for orphan verified+pending"; exit 1
           fi
-          if [ -f "$HOME/.cache/ai-action-tracker/stepup-verified.json" ]; then
+          if [ -f "$CLAUDE_PLUGIN_DATA/stepup-verified.json" ]; then
             echo "::error::Stop hook did not reap orphan verified.json"; exit 1
           fi
-          if [ -f "$HOME/.cache/ai-action-tracker/stepup-pending.json" ]; then
+          if [ -f "$CLAUDE_PLUGIN_DATA/stepup-pending.json" ]; then
             echo "::error::Stop hook did not reap orphan pending.json"; exit 1
           fi
 
