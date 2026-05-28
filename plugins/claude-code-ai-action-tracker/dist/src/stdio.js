@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-process.env.AI_ACTION_TRACKER_HOST = "claude-code";
+import "../host.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "@ai-action-tracker/mcp-server-core";
 async function main() {

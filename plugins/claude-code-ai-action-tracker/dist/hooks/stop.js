@@ -10,6 +10,7 @@
  * `{ decision: "block", reason }` reminder. Stop is excluded from the
  * `hookSpecificOutput` enum — wrapping it makes the validator reject.
  */
+import "../host.js";
 import { claudeCodeAdapter } from "@ai-action-tracker/hook-adapters";
 import { clearPending, consumeVerified, isExpired, readPending, readVerified, } from "@ai-action-tracker/stepup-core";
 function reminderFor(pending) {

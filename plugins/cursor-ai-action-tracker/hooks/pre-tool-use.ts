@@ -14,6 +14,7 @@
  * cursorAdapter. The classifier in stepup-core accepts `Shell` (Cursor) in
  * addition to `Bash` / `run_command`.
  */
+import "../host.js";
 import { readFileSync } from "node:fs";
 import { cursorAdapter } from "@ai-action-tracker/hook-adapters";
 import {

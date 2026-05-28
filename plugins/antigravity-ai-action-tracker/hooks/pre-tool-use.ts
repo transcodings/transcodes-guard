@@ -13,6 +13,7 @@
  * tools (`write_to_file`, `replace_file_content`, …) and MCP tool calls are
  * intentionally not gated — see the plugin README for the scope rationale.
  */
+import "../host.js";
 import { readFileSync } from "node:fs";
 import { antigravityAdapter } from "@ai-action-tracker/hook-adapters";
 import {

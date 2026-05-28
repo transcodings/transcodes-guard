@@ -6,12 +6,11 @@
  * Stop top-level `decision: "block"`). See `.claude/rules/hooks.md` for the
  * per-event payload contract Claude Code's validator enforces.
  *
- * Side effect on import: sets AI_ACTION_TRACKER_HOST so that plugin-paths'
- * dataDir() routes to $CLAUDE_PLUGIN_DATA when running under Claude Code.
- * Adapter modules are the canonical place to claim host identity because
- * every hook entrypoint imports its host's adapter before touching state.
+ * Host identification (AI_ACTION_TRACKER_HOST env var) is claimed by each
+ * plugin's `host.ts` side-effect file, NOT here — the hook-adapters barrel
+ * re-exports all four adapters, so setting env in the adapter would cause
+ * whichever loads last to overwrite the previous claim.
  */
-process.env.AI_ACTION_TRACKER_HOST = "claude-code";
 
 import type {
   HookAdapter,

@@ -1,4 +1,4 @@
-process.env.AI_ACTION_TRACKER_HOST = "claude-code";
+import "../host.js";
 import http from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "@ai-action-tracker/mcp-server-core";
