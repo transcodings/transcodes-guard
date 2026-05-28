@@ -14,8 +14,8 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { dataDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
 import { STEPUP_TTL_MS } from "./config.js";
-import { cacheDir } from "./store.js";
 const FILE_NAME = "stepup-pending.json";
 const PendingStateSchema = z.object({
     sid: z.string().min(1),
@@ -27,9 +27,10 @@ const PendingStateSchema = z.object({
     status: z.enum(["pending", "verified"]),
 });
 function pendingPath() {
-    return path.join(cacheDir(), FILE_NAME);
+    return path.join(dataDir(), FILE_NAME);
 }
 export function readPending() {
+    migrateLegacyFile(FILE_NAME, "cache");
     try {
         const raw = readFileSync(pendingPath(), "utf8");
         const parsed = PendingStateSchema.safeParse(JSON.parse(raw));
