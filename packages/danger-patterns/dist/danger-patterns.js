@@ -1,11 +1,12 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, } from "node:fs";
 import { fileURLToPath } from "node:url";
-import os from "node:os";
 import path from "node:path";
-const USER_PATTERNS_PATH = path.join(os.homedir(), ".claude", "ai-action-tracker", "user-patterns.json");
+import { parse as parseJsonc } from "jsonc-parser";
+import { dataDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+const USER_PATTERNS_FILE = "user-patterns.json";
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 export function getUserPatternsPath() {
-    return USER_PATTERNS_PATH;
+    return path.join(dataDir(), USER_PATTERNS_FILE);
 }
 export function loadSystemPatterns() {
     // Package-local resolution: data/ is a sibling of dist/, so from the
@@ -20,19 +21,30 @@ export function loadSystemPatterns() {
     }
 }
 export function loadUserPatterns() {
+    migrateLegacyFile(USER_PATTERNS_FILE, "data");
     try {
-        return JSON.parse(readFileSync(USER_PATTERNS_PATH, "utf8"));
+        const raw = readFileSync(getUserPatternsPath(), "utf8");
+        // JSONC parse: tolerates // and /* */ comments + trailing commas, so a
+        // user may temporarily disable a pattern by commenting out its line.
+        // Comments are NOT preserved on MCP-tool write (full rewrite via
+        // JSON.stringify) — only meaningful for hand-edited files.
+        const parsed = parseJsonc(raw);
+        if (parsed && Array.isArray(parsed.patterns)) {
+            return parsed;
+        }
+        return { patterns: [] };
     }
     catch {
         return { patterns: [] };
     }
 }
 export function saveUserPatterns(config) {
-    mkdirSync(path.dirname(USER_PATTERNS_PATH), { recursive: true });
-    writeFileSync(USER_PATTERNS_PATH, JSON.stringify(config, null, 2) + "\n", "utf8");
+    const file = getUserPatternsPath();
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify(config, null, 2) + "\n", "utf8");
 }
 export function userPatternsFileExists() {
-    return existsSync(USER_PATTERNS_PATH);
+    return existsSync(getUserPatternsPath());
 }
 export function loadMergedPatterns() {
     const system = loadSystemPatterns().patterns.map((p) => ({
