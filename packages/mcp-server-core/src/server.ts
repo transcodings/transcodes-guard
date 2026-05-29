@@ -29,8 +29,15 @@ import {
   pollStepupSessionWait,
   writeVerified,
 } from "@ai-action-tracker/stepup-core";
+import { registerAuditTools } from "./tools/audit.js";
+import { registerAuthDeviceTools } from "./tools/auth-devices.js";
+import { registerJwkTools } from "./tools/jwk.js";
 import { registerMemberTools } from "./tools/members.js";
+import { registerMembershipTools } from "./tools/membership.js";
+import { registerMetaTools } from "./tools/meta.js";
+import { registerOrganizationTools } from "./tools/organization.js";
 import { registerPasscodeTools } from "./tools/passcode.js";
+import { registerProjectTools } from "./tools/project.js";
 import { registerRbacTools } from "./tools/rbac.js";
 
 function formatPatternsMarkdown(patterns: MergedPattern[]): string {
@@ -625,6 +632,13 @@ export function createServer(): McpServer {
   registerMemberTools(server);
   registerRbacTools(server);
   registerPasscodeTools(server);
+  registerProjectTools(server);
+  registerAuditTools(server);
+  registerAuthDeviceTools(server);
+  registerMembershipTools(server);
+  registerMetaTools(server);
+  registerOrganizationTools(server);
+  registerJwkTools(server);
 
   server.registerResource(
     "tool-rules",
