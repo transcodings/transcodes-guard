@@ -58,6 +58,17 @@ export {
 } from "./config.js";
 
 export {
+  resolveToken,
+  readTokenFromFile,
+  writeTokenToFile,
+  clearTokenFile,
+  transcodesConfigDir,
+  transcodesConfigFile,
+  type TokenSource,
+  type ResolvedToken,
+} from "./token-store.js";
+
+export {
   parseMemberAccessToken,
   REQUIRED_AUDIENCE,
   type MemberTokenClaims,
@@ -81,6 +92,7 @@ export {
 
 export {
   formatBlockedSummary,
+  formatNoTokenSessionNotice,
   formatAllowReason,
   formatNoTokenReason,
   formatNoTokenSystemMessage,

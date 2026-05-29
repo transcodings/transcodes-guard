@@ -8,7 +8,7 @@
  */
 import "../host.js";
 import { claudeCodeAdapter } from "@ai-action-tracker/hook-adapters";
-import { isExpired, readPending } from "@ai-action-tracker/stepup-core";
+import { formatNoTokenSessionNotice, isExpired, readPending, resolveToken, } from "@ai-action-tracker/stepup-core";
 const PROTOCOL_PRIMER = [
     "ai-action-tracker step-up MFA protocol:",
     "",
@@ -53,9 +53,10 @@ function carryoverBlock() {
 }
 function main() {
     const carry = carryoverBlock();
-    const additionalContext = carry
-        ? `${PROTOCOL_PRIMER}\n${carry}`
-        : PROTOCOL_PRIMER;
+    const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
+    const additionalContext = [PROTOCOL_PRIMER, carry, tokenNotice]
+        .filter((s) => Boolean(s))
+        .join("\n");
     process.stdout.write(claudeCodeAdapter.emitSessionStartContext(additionalContext));
     process.exit(0);
 }

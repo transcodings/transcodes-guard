@@ -28,7 +28,7 @@
 import "../host.js";
 import { readFileSync } from "node:fs";
 import { antigravityAdapter, detectUserDoneFromTranscript, } from "@ai-action-tracker/hook-adapters";
-import { isExpired, readPending, } from "@ai-action-tracker/stepup-core";
+import { formatNoTokenSessionNotice, isExpired, readPending, resolveToken, } from "@ai-action-tracker/stepup-core";
 function primerMessage(pending) {
     const base = [
         "ai-action-tracker step-up MFA protocol primer:",
@@ -94,6 +94,9 @@ function main() {
     // SessionStart-equivalent: primer + carry-over on first invocation only.
     if (input.invocationNum <= 1) {
         injectSteps.push({ ephemeralMessage: primerMessage(pending) });
+        if (!resolveToken().token) {
+            injectSteps.push({ ephemeralMessage: formatNoTokenSessionNotice() });
+        }
     }
     // UserPromptSubmit-equivalent: surface pending sid when the user's last
     // message reports completion. Skipped when no pending session is in

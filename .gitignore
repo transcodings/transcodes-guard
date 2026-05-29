@@ -247,5 +247,10 @@ tags
 !packages/*/dist/
 !packages/*/dist/**
 
+# The CLI is published to npm independently (bundled via tsup at publish
+# time). Its dist is a build artifact not consumed by the marketplace tree,
+# so keep it OUT of git — re-ignore after the broad packages/* un-ignore.
+packages/cli/dist/
+
 # Turborepo / Nx local cache (not part of the source)
 .turbo/

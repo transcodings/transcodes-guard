@@ -9,7 +9,7 @@
  */
 import "../host.js";
 import { cursorAdapter } from "@ai-action-tracker/hook-adapters";
-import { isExpired, readPending } from "@ai-action-tracker/stepup-core";
+import { formatNoTokenSessionNotice, isExpired, readPending, resolveToken, } from "@ai-action-tracker/stepup-core";
 function carryoverBlock() {
     const pending = readPending();
     if (!pending)
@@ -29,10 +29,11 @@ function carryoverBlock() {
     ].join("\n");
 }
 function main() {
-    const carry = carryoverBlock();
-    if (!carry)
+    const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
+    const parts = [carryoverBlock(), tokenNotice].filter((s) => Boolean(s));
+    if (parts.length === 0)
         process.exit(0);
-    process.stdout.write(cursorAdapter.emitSessionStartContext(carry));
+    process.stdout.write(cursorAdapter.emitSessionStartContext(parts.join("\n")));
     process.exit(0);
 }
 try {

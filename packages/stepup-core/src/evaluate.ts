@@ -24,6 +24,7 @@ import {
 import { requestStepup, type RequestResult } from "./gate.js";
 import type { PendingState } from "./pending.js";
 import { readVerified } from "./store.js";
+import { resolveToken } from "./token-store.js";
 
 export interface ToolCallInput {
   toolName: string;
@@ -258,7 +259,7 @@ export async function evaluatePreToolUse(
     return { kind: "allow", block, consumeHere };
   }
 
-  if (!process.env.TRANSCODES_TOKEN?.trim()) {
+  if (!resolveToken().token) {
     return { kind: "deny-no-token", block };
   }
 
