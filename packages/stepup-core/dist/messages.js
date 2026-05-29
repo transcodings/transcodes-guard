@@ -14,11 +14,17 @@ export function formatNoTokenSessionNotice() {
         "ai-action-tracker: no Transcodes token is configured.",
         "Danger commands will be BLOCKED and step-up MFA cannot start until a token is set.",
         "",
-        "Tell the user to run this ONCE in their terminal (NOT in this chat — the",
-        "token must not be pasted here):",
-        "  npx @bigstrider/transcodes-cli login <token>",
+        "How to fix (guide the user — the token must NOT be pasted into this chat,",
+        "it would leak into the transcript):",
+        "  1. Get the token from the Transcodes console → member detail page:",
+        "       https://app.transcodes.io",
+        "  2. In a terminal, run this ONCE:",
+        "       npx @bigstrider/transcodes-cli login <token>",
+        "     (saves it to ~/.transcodes/config.json so every agent session can find it)",
         "",
-        "Alternatively they can set the TRANSCODES_TOKEN environment variable.",
+        "Alternatively, set the TRANSCODES_TOKEN environment variable before launching",
+        "the host (note: GUI-launched apps often do NOT inherit your shell env, so the",
+        "CLI login above is the more reliable option).",
     ].join("\n");
 }
 export function formatBlockedSummary(block) {
@@ -39,19 +45,22 @@ export function formatAllowReason(decision) {
 export function formatNoTokenReason(block) {
     return (`Bash blocked by ai-action-tracker: ${block.reason}. ` +
         "Step-up MFA gate is not configured (no Transcodes token found). " +
-        "Tell the user to run `transcodes login <token>` (or set the " +
+        "Tell the user to get a token from the Transcodes console (member detail page, " +
+        "https://app.transcodes.io) and run `transcodes login <token>` (or set the " +
         "TRANSCODES_TOKEN environment variable) to enable on-demand authentication, " +
         "or run the command outside the agent.");
 }
 export function formatNoTokenSystemMessage(block) {
     return (`${formatBlockedSummary(block)}\n\n` +
-        "Step-up MFA gate is not configured (no Transcodes token found). " +
-        "Ask the user to run `transcodes login <token>` (or set TRANSCODES_TOKEN), then retry.");
+        "Step-up MFA gate is not configured (no Transcodes token found).\n" +
+        "Get a token from the Transcodes console → member detail page (https://app.transcodes.io),\n" +
+        "then ask the user to run `transcodes login <token>` in a terminal (or set TRANSCODES_TOKEN),\n" +
+        "and retry. Do not have the user paste the token into this chat.");
 }
 export function formatStepupFailureDetail(decision) {
     const { failure } = decision;
     return failure.reason === "no-token"
-        ? "No Transcodes token found — step-up MFA gate is unavailable. Run `transcodes login <token>`."
+        ? "No Transcodes token found — step-up MFA gate is unavailable. Get a token from the Transcodes console (https://app.transcodes.io member detail page), then run `transcodes login <token>`."
         : failure.reason === "create-failed"
             ? `Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ""}.`
             : `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ""}.`;

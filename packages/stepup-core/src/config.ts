@@ -20,6 +20,7 @@ export type StepupConfig = {
   apiBaseV1: string;
   /** Member MCP JWT, sent as `x-transcodes-token`. */
   token: string;
+  organizationId: string;
   projectId: string;
   memberId: string;
 };
@@ -45,8 +46,10 @@ export function loadStepupConfig(): StepupConfig {
   const { token: tokenRaw } = resolveToken();
   if (!tokenRaw) {
     throw new Error(
-      "No Transcodes token found. Run `transcodes login <token>` " +
-        "or set the TRANSCODES_TOKEN environment variable.",
+      "No Transcodes token found. Get a token from the Transcodes console " +
+        "(member detail page, https://app.transcodes.io), then run " +
+        "`transcodes login <token>` in a terminal — or set the " +
+        "TRANSCODES_TOKEN environment variable.",
     );
   }
 
@@ -61,6 +64,7 @@ export function loadStepupConfig(): StepupConfig {
     backendUrl,
     apiBaseV1: `${backendUrl}/v1`,
     token: parsed.raw,
+    organizationId: parsed.claims.organizationId,
     projectId: parsed.claims.projectId,
     memberId: parsed.claims.memberId,
   };

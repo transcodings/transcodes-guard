@@ -4,8 +4,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { addUserPattern, addUserToolRule, findFirstMatch, findFirstToolRule, getUserPatternsPath, getUserToolRulesPath, loadMergedPatterns, loadMergedToolRules, PatternValidationError, removeUserPattern, removeUserToolRule, ToolRuleValidationError, updateUserPattern, updateUserToolRule, } from "@ai-action-tracker/danger-patterns";
 import { createStepupSession, inspectStepupState, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, writeVerified, } from "@ai-action-tracker/stepup-core";
+import { registerAuditTools } from "./tools/audit.js";
+import { registerAuthDeviceTools } from "./tools/auth-devices.js";
+import { registerJwkTools } from "./tools/jwk.js";
 import { registerMemberTools } from "./tools/members.js";
+import { registerMembershipTools } from "./tools/membership.js";
+import { registerMetaTools } from "./tools/meta.js";
+import { registerOrganizationTools } from "./tools/organization.js";
 import { registerPasscodeTools } from "./tools/passcode.js";
+import { registerProjectTools } from "./tools/project.js";
 import { registerRbacTools } from "./tools/rbac.js";
 function formatPatternsMarkdown(patterns) {
     const lines = [
@@ -454,6 +461,13 @@ export function createServer() {
     registerMemberTools(server);
     registerRbacTools(server);
     registerPasscodeTools(server);
+    registerProjectTools(server);
+    registerAuditTools(server);
+    registerAuthDeviceTools(server);
+    registerMembershipTools(server);
+    registerMetaTools(server);
+    registerOrganizationTools(server);
+    registerJwkTools(server);
     server.registerResource("tool-rules", "tool-rules://list", {
         title: "Step-up-protected MCP tool rules",
         description: `Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with user rules (${getUserToolRulesPath()}, JSONC), read fresh at every request.`,

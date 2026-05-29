@@ -7,6 +7,7 @@ export type StepupConfig = {
     apiBaseV1: string;
     /** Member MCP JWT, sent as `x-transcodes-token`. */
     token: string;
+    organizationId: string;
     projectId: string;
     memberId: string;
 };

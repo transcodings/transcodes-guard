@@ -6,6 +6,7 @@ const textResult = (text, isError = false) => ({
     isError,
     content: [{ type: "text", text }],
 });
+const PROJECT_ID_GUIDANCE = "project_id in the body must be the TRANSCODES_TOKEN project id (pid claim); it is not configurable per tool call.";
 const PermissionLevel = z.union([z.literal(0), z.literal(1), z.literal(2)]);
 const ResourcePermissions = z.object({
     create: PermissionLevel.optional(),
@@ -121,6 +122,78 @@ export function registerRbacTools(server) {
             omitBody: true,
             stepUpSid: sid,
         }, "retire_resource", `/${encodeURIComponent(resource_key)}`));
+        return textResult(text);
+    });
+    server.registerTool("create_role", {
+        title: "Create role",
+        description: "Create a new role (CreateRoleDto). Use before set_role_permissions to fill per-resource access. " +
+            PROJECT_ID_GUIDANCE,
+        inputSchema: {
+            body: z.object({
+                name: z.string(),
+                description: z.string().optional(),
+            }),
+        },
+    }, async ({ body }) => {
+        const config = loadStepupConfig();
+        const text = await req(config, {
+            method: "POST",
+            body: { ...body, project_id: config.projectId },
+        }, "create_role");
+        return textResult(text);
+    });
+    server.registerTool("update_role", {
+        title: "Update role",
+        description: "Update role metadata (UpdateRoleDto). " + PROJECT_ID_GUIDANCE,
+        inputSchema: {
+            role_id: z.string(),
+            body: z.object({
+                description: z.string().optional(),
+            }),
+        },
+    }, async ({ role_id, body }) => {
+        const config = loadStepupConfig();
+        const text = await req(config, {
+            method: "PUT",
+            body: { ...body, project_id: config.projectId },
+        }, "update_role", `/${encodeURIComponent(role_id)}`);
+        return textResult(text);
+    });
+    server.registerTool("create_resource", {
+        title: "Create resource",
+        description: "Add a new resource key (CreateResourceDto). New resources default to deny (0) for all roles. " +
+            PROJECT_ID_GUIDANCE,
+        inputSchema: {
+            body: z.object({
+                key: z.string(),
+                name: z.string(),
+                description: z.string().optional(),
+            }),
+        },
+    }, async ({ body }) => {
+        const config = loadStepupConfig();
+        const text = await req(config, {
+            method: "POST",
+            body: { ...body, project_id: config.projectId },
+        }, "create_resource");
+        return textResult(text);
+    });
+    server.registerTool("update_resource", {
+        title: "Update resource",
+        description: "Update resource label/description (UpdateResourceDto). Key stays the same. " +
+            PROJECT_ID_GUIDANCE,
+        inputSchema: {
+            resource_key: z.string(),
+            body: z.object({
+                description: z.string().optional(),
+            }),
+        },
+    }, async ({ resource_key, body }) => {
+        const config = loadStepupConfig();
+        const text = await req(config, {
+            method: "PATCH",
+            body: { ...body, project_id: config.projectId },
+        }, "update_resource", `/${encodeURIComponent(resource_key)}`);
         return textResult(text);
     });
 }

@@ -18,6 +18,18 @@ export type ReqInput = Omit<RequestInput, "path">;
  * error). Mirrors transcodes-mcp-server's `req()` output contract.
  */
 export declare function req(config: StepupConfig, input: ReqInput, toolName: string, pathSuffix?: string): Promise<string>;
+/**
+ * Result for console-only tools that intentionally do NOT call the backend.
+ * They exist purely for discoverability + routing: the agent learns the
+ * capability exists and that it must be performed in the Transcodes console.
+ * Ported from transcodes-mcp-server/src/tools/tool-utils.ts `blocked`.
+ */
+export declare function blockedResult(message: string): {
+    content: {
+        type: "text";
+        text: string;
+    }[];
+};
 /** Arg-parse helpers — kept thin since zod already validates each schema. */
 export declare const parse: {
     record(v: unknown): Record<string, unknown>;

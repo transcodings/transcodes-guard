@@ -38,11 +38,13 @@ export async function createStepupSession(config, args) {
         method: "POST",
         path: STEPUP_PATH,
         body: {
+            organization_id: config.organizationId,
             project_id: config.projectId,
             member_id: args.member_id ?? config.memberId,
             action: args.action,
             resource: args.resource,
             comment,
+            mode: args.mode,
         },
     });
     const payload = readStepupPayload(envelope);
