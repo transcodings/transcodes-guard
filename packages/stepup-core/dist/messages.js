@@ -1,3 +1,26 @@
+/**
+ * Session-start notice text shown when no Transcodes token is configured.
+ *
+ * Pure formatter — it does NOT decide whether to show itself. The caller is
+ * responsible for the token lookup (`resolveToken().token`) and only renders
+ * this when no token is found. Keeping the env/file I/O out of this module
+ * preserves it as host-agnostic *text* (see file header); all four hosts
+ * share this one wording. Nudges first-time users toward `transcodes login`
+ * BEFORE they hit a blocked command. The token must be set in a terminal,
+ * never pasted into the agent chat (that would leak it into the transcript).
+ */
+export function formatNoTokenSessionNotice() {
+    return [
+        "ai-action-tracker: no Transcodes token is configured.",
+        "Danger commands will be BLOCKED and step-up MFA cannot start until a token is set.",
+        "",
+        "Tell the user to run this ONCE in their terminal (NOT in this chat — the",
+        "token must not be pasted here):",
+        "  npx @bigstrider/transcodes-cli login <token>",
+        "",
+        "Alternatively they can set the TRANSCODES_TOKEN environment variable.",
+    ].join("\n");
+}
 export function formatBlockedSummary(block) {
     return [
         "⛔ BLOCKED — Bash was NOT executed.",
@@ -15,19 +38,20 @@ export function formatAllowReason(decision) {
 }
 export function formatNoTokenReason(block) {
     return (`Bash blocked by ai-action-tracker: ${block.reason}. ` +
-        "Step-up MFA gate is not configured (TRANSCODES_TOKEN missing). " +
-        "Tell the user to set TRANSCODES_TOKEN to enable on-demand authentication, " +
-        "or run the command outside Claude Code.");
+        "Step-up MFA gate is not configured (no Transcodes token found). " +
+        "Tell the user to run `transcodes login <token>` (or set the " +
+        "TRANSCODES_TOKEN environment variable) to enable on-demand authentication, " +
+        "or run the command outside the agent.");
 }
 export function formatNoTokenSystemMessage(block) {
     return (`${formatBlockedSummary(block)}\n\n` +
-        "Step-up MFA gate is not configured (TRANSCODES_TOKEN missing). " +
-        "Ask the user to set the token, then retry.");
+        "Step-up MFA gate is not configured (no Transcodes token found). " +
+        "Ask the user to run `transcodes login <token>` (or set TRANSCODES_TOKEN), then retry.");
 }
 export function formatStepupFailureDetail(decision) {
     const { failure } = decision;
     return failure.reason === "no-token"
-        ? "TRANSCODES_TOKEN is missing — step-up MFA gate is unavailable."
+        ? "No Transcodes token found — step-up MFA gate is unavailable. Run `transcodes login <token>`."
         : failure.reason === "create-failed"
             ? `Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ""}.`
             : `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ""}.`;

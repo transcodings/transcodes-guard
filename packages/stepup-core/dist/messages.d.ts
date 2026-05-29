@@ -7,6 +7,18 @@
  * instructions don't depend on which CLI ran the hook.
  */
 import type { BlockResult, GateDecision } from "./evaluate.js";
+/**
+ * Session-start notice text shown when no Transcodes token is configured.
+ *
+ * Pure formatter — it does NOT decide whether to show itself. The caller is
+ * responsible for the token lookup (`resolveToken().token`) and only renders
+ * this when no token is found. Keeping the env/file I/O out of this module
+ * preserves it as host-agnostic *text* (see file header); all four hosts
+ * share this one wording. Nudges first-time users toward `transcodes login`
+ * BEFORE they hit a blocked command. The token must be set in a terminal,
+ * never pasted into the agent chat (that would leak it into the transcript).
+ */
+export declare function formatNoTokenSessionNotice(): string;
 export declare function formatBlockedSummary(block: BlockResult): string;
 export declare function formatAllowReason(decision: Extract<GateDecision, {
     kind: "allow";

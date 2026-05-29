@@ -17,6 +17,7 @@ import path from "node:path";
 import { loadStepupConfig } from "./config.js";
 import { createStepupSession } from "./session.js";
 import { cacheDir } from "./store.js";
+import { resolveToken } from "./token-store.js";
 
 // Window during which concurrent hook processes for the same command should
 // share a single browser launch. Long enough to absorb same-second races,
@@ -128,7 +129,7 @@ export type RequestResult =
 export async function requestStepup(
   input: RequestInput,
 ): Promise<RequestResult> {
-  if (!process.env.TRANSCODES_TOKEN?.trim()) {
+  if (!resolveToken().token) {
     return { ok: false, reason: "no-token" };
   }
 

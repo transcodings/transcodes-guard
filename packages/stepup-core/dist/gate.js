@@ -17,6 +17,7 @@ import path from "node:path";
 import { loadStepupConfig } from "./config.js";
 import { createStepupSession } from "./session.js";
 import { cacheDir } from "./store.js";
+import { resolveToken } from "./token-store.js";
 // Window during which concurrent hook processes for the same command should
 // share a single browser launch. Long enough to absorb same-second races,
 // short enough not to swallow an intentional retry.
@@ -89,7 +90,7 @@ function openBrowser(url) {
  * agent is responsible for calling `poll_stepup_session` and retrying.
  */
 export async function requestStepup(input) {
-    if (!process.env.TRANSCODES_TOKEN?.trim()) {
+    if (!resolveToken().token) {
         return { ok: false, reason: "no-token" };
     }
     let config;

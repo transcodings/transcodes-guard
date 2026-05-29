@@ -17,6 +17,7 @@ import path from "node:path";
 import { findFirstMatch, findFirstToolRule, loadMergedPatterns, loadMergedToolRules, } from "@ai-action-tracker/danger-patterns";
 import { requestStepup } from "./gate.js";
 import { readVerified } from "./store.js";
+import { resolveToken } from "./token-store.js";
 function checkPatternMatch(command) {
     const hit = findFirstMatch(command, loadMergedPatterns());
     if (!hit)
@@ -181,7 +182,7 @@ export async function evaluatePreToolUse(input) {
         const consumeHere = classified.kind === "bash" || classified.rule.consume_in_hook === true;
         return { kind: "allow", block, consumeHere };
     }
-    if (!process.env.TRANSCODES_TOKEN?.trim()) {
+    if (!resolveToken().token) {
         return { kind: "deny-no-token", block };
     }
     const gateInput = classified.kind === "bash"
