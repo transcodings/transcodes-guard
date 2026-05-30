@@ -100,10 +100,24 @@ Command: rm -rf src
 
 **5단계 — 비활성화 / 제거**
 
-```
-/plugin disable ai-action-tracker      # 일시 비활성화
-/plugin uninstall ai-action-tracker@ai-action-tracker   # 완전 제거
-```
+두 가지 끄는 방법이 있습니다:
+
+- **런타임 kill-switch (권장, 모든 호스트 공통)** — hook과 step-up 게이트를 세션 재로드 없이 즉시 끕니다. Claude Code뿐 아니라 Codex/Antigravity/Cursor에서도 동일하게 동작합니다.
+
+  ```
+  transcodes disable     # 게이트 OFF — Bash + MCP tool 차단 해제 (다음 hook부터 적용)
+  transcodes enable      # 게이트 ON — 다시 step-up MFA 요구
+  transcodes status      # 현재 게이트 상태 + 토큰 확인
+  ```
+
+  에이전트 대화 중에는 MCP tool로도 토글할 수 있습니다 — `set_tracker_enabled(enabled: false)` / `get_tracker_status`. (게이트가 꺼져 있어도 이 두 tool은 살아 있어 다시 켤 수 있습니다.) 상태는 `~/.transcodes/config.json`의 `enabled` 플래그에 저장되며, 플래그가 없거나 파일이 손상되면 **활성(켜짐)** 으로 간주합니다.
+
+- **Claude Code 네이티브 (완전 언로드)** — plugin의 hook+MCP를 통째로 내립니다. Claude Code 전용입니다.
+
+  ```
+  /plugin disable ai-action-tracker                       # 일시 비활성화 (/reload-plugins로 적용)
+  /plugin uninstall ai-action-tracker@ai-action-tracker   # 완전 제거
+  ```
 
 ### 팀 단위 자동 설치
 

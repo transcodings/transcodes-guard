@@ -59,8 +59,8 @@ jobs:
         run: git diff --exit-code -- plugins/cursor-ai-action-tracker/dist/
 
       # ─────────────────────────────────────────────────────────
-      # Claude Code plugin smoke tests (7 scenarios — preserved verbatim
-      # from pre-monorepo CI, only the dist path changed).
+      # Claude Code plugin smoke tests (8 scenarios — 7 preserved verbatim
+      # from pre-monorepo CI, plus the gate-disabled kill-switch check).
       # All inputs are static JSON literals; no GitHub event injection
       # surface exists in this job.
       # ─────────────────────────────────────────────────────────
@@ -81,6 +81,25 @@ jobs:
             | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow safe command"; exit 1; }
+
+      - name: claude-code · gate disabled → danger command passes (kill-switch)
+        run: |
+          set -e
+          mkdir -p "$HOME/.transcodes"
+          # Save any pre-existing config, then disable the gate.
+          [ -f "$HOME/.transcodes/config.json" ] && mv "$HOME/.transcodes/config.json" "$HOME/.transcodes/config.json.cibak" || true
+          echo '{"enabled":false}' > "$HOME/.transcodes/config.json"
+          OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
+            | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          # Restore before asserting so a failed assertion cannot leak the
+          # disabled flag into later steps.
+          rm -f "$HOME/.transcodes/config.json"
+          [ -f "$HOME/.transcodes/config.json.cibak" ] && mv "$HOME/.transcodes/config.json.cibak" "$HOME/.transcodes/config.json" || true
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Disabled gate did not exit 0 for danger command"; exit 1; }
+          if echo "$OUT" | grep -q '"permissionDecision"'; then
+            echo "::error::Disabled gate still emitted a permissionDecision (kill-switch not honored before token/danger checks)"; exit 1
+          fi
 
       - name: claude-code · protected MCP tool denied (retire_member) + arg context
         run: |

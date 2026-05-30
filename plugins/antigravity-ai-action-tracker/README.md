@@ -57,6 +57,18 @@ If the variable is missing, the hook still **denies** danger commands but cannot
 
 The PreToolUse hook gates **only `run_command`** (shell execution). File-edit tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) and MCP tool calls are **not** gated in 1차 출시. To extend coverage, add the new tool name to the matcher regex in `hooks.json` and, where applicable, register new tool rules in `packages/danger-patterns/`.
 
+## Enabling / disabling
+
+Antigravity has no single command that unloads hooks and the MCP server together, so use the runtime kill-switch — it works the same across every host:
+
+```
+transcodes disable     # gate OFF — run_command passes without step-up
+transcodes enable      # gate ON
+transcodes status      # show gate state + token
+```
+
+Inside an agent turn you can also call the `set_tracker_enabled` / `get_tracker_status` MCP tools (both stay available while disabled). The flag lives in `~/.transcodes/config.json`; a missing flag means enabled.
+
 ## Environment
 
 | Variable | Required | Purpose |

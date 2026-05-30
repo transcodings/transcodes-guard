@@ -57,6 +57,18 @@ If the variable is missing, the hook still **denies** danger commands but cannot
 | `UserPromptSubmit` hook | Detects user "auth done" prompts (`"완료"`, `"done"`, …) and surfaces the pending `sid` so the agent can poll. |
 | `Stop` hook | Catches dangling step-up loops; silently reaps orphan verified/pending records. |
 
+## Enabling / disabling
+
+Codex has no single command that unloads hooks and the MCP server together, so use the runtime kill-switch — it works the same across every host:
+
+```
+transcodes disable     # gate OFF — Bash + MCP tool calls pass without step-up
+transcodes enable      # gate ON
+transcodes status      # show gate state + token
+```
+
+Inside an agent turn you can also call the `set_tracker_enabled` / `get_tracker_status` MCP tools (both stay available while disabled). The flag lives in `~/.transcodes/config.json`; a missing flag means enabled.
+
 ## Environment
 
 | Variable | Required | Purpose |

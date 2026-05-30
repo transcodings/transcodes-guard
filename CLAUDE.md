@@ -14,7 +14,7 @@ npm run dev:hook             # tsx, Claude Code plugin의 PreToolUse hook (stdin
 npm run inspect              # MCP Inspector UI 자동 기동 (Claude Code plugin의 stdio 서버에 접속)
 ```
 
-CI(`.github/workflows/ci.yml`)는 PR마다 `build:plugin` 실행 후 ① `packages/*/dist/`, ② `plugins/claude-code-ai-action-tracker/dist/`, ③ `plugins/codex-ai-action-tracker/dist/`, ④ `plugins/antigravity-ai-action-tracker/dist/`, ⑤ `plugins/cursor-ai-action-tracker/dist/` **다섯 곳**에 대해 `git diff --exit-code`로 빌드 산출물 동기성을 검증한다. hook smoke test **21종**(claude-code 7 + codex 3 + antigravity 5 + cursor 6)도 함께 통과해야 한다.
+CI(`.github/workflows/ci.yml`)는 PR마다 `build:plugin` 실행 후 ① `packages/*/dist/`, ② `plugins/claude-code-ai-action-tracker/dist/`, ③ `plugins/codex-ai-action-tracker/dist/`, ④ `plugins/antigravity-ai-action-tracker/dist/`, ⑤ `plugins/cursor-ai-action-tracker/dist/` **다섯 곳**에 대해 `git diff --exit-code`로 빌드 산출물 동기성을 검증한다. hook smoke test **22종**(claude-code 8 + codex 3 + antigravity 5 + cursor 6)도 함께 통과해야 한다.
 
 ## Running locally without installing the plugin
 
@@ -114,6 +114,7 @@ docs/
 - Log via `console.error` (stderr). `console.log` to stdout corrupts JSON-RPC framing in stdio mode and the client will silently disconnect.
 - Run `npm run build:plugin` before claiming work complete. `tsc` + multi-plugin dist sync는 CI가 강제하는 정합성 계약.
 - After capability changes, verify with `npm run inspect` — the Inspector renders new tools immediately.
+- **Runtime kill-switch** (전역 enable/disable): `~/.transcodes/config.json`의 `enabled` 플래그 (token-store.ts가 관리, dataDir 아님 — CLI 프로세스와 4개 호스트 hook이 닿는 유일한 고정 경로). `evaluatePreToolUse` 최상단 `isTrackerEnabled()` 체크가 비활성 시 `{kind:"pass"}` 반환 → Bash + 보호 MCP-tool 차단을 한 지점에서 동시 무력화. SessionStart primer(4개 host entry)도 별도 가드. **부재·손상 = 활성(true)** 기본(보안 게이트가 조용히 꺼지지 않도록). 표면: CLI `transcodes enable|disable|status`, MCP tool `set_tracker_enabled`/`get_tracker_status`(비활성 중에도 동작해 재활성화 가능). Claude Code 사용자는 네이티브 `/plugin disable`로 hook+MCP 완전 언로드도 가능.
 - PreToolUse hook의 **asymmetric fail policy**는 `packages/stepup-core/src/evaluate.ts`의 `evaluatePreToolUse`에 내장되어 네 plugin이 공유:
   - *Before* danger match (stdin parse, classify, pattern load) → **fail-open** (decision `kind:"pass"` 반환). hook은 exit 0, no JSON.
   - *After* danger match → **fail-safe** (`deny-*` decision 반환). hook은 stdout JSON에 `permissionDecision: "deny"` emit. `systemMessage` 필드는 프로토콜 instruction; stderr는 1줄 요약.
