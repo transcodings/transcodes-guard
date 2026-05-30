@@ -19,7 +19,7 @@ jobs:
       # 이 env가 set돼 있어도 AI_ACTION_TRACKER_HOST=claude-code인
       # 경우(즉 Claude Code plugin 바이너리가 실행될 때)에만 영향을 미친다.
       # codex/antigravity/cursor 바이너리는 자기 host를 선언하므로 영향 없음.
-      CLAUDE_PLUGIN_DATA: ${{ runner.temp }}/cc-plugin-data
+      CLAUDE_PLUGIN_DATA: ${{ github.workspace }}/cc-plugin-data
     steps:
       - uses: actions/checkout@v4
 
