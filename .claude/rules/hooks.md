@@ -89,9 +89,9 @@ Do not introduce a fifth hook for step-up. Extend one of the four or consume the
 
 ## Cross-plugin state coordination
 
-The cache directory (`~/.cache/ai-action-tracker/` on Linux) is shared across all plugins. A user who runs Claude Code and Codex side-by-side will see their `verified` / `pending` records bleed across — by design, since both plugins talk to the same Transcodes backend.
+Cache and data directories are resolved by `@ai-action-tracker/plugin-paths`. Claude Code receives a per-plugin `$CLAUDE_PLUGIN_DATA` directory (`~/.claude/plugins/data/<plugin-id>/`) and isolates state there; Codex, Antigravity, and Cursor share the legacy `~/.cache/ai-action-tracker/` because they expose no equivalent env var. A user who runs Claude Code and Codex side-by-side will therefore NOT see verified/pending records bleed across — Claude Code is now isolated. The other three still bleed across each other by design (same Transcodes backend).
 
-Known limit: when two plugins fire concurrent hooks with system-rule MCP tools, both can read the same verified record and pass it to two different backend calls with the same `X-Step-Up-Session-Id`. Authoritative backstop is the backend's sid-replay rejection. No client-side fix planned.
+Known limit: when two non-claude-code hosts fire concurrent hooks with system-rule MCP tools, both can read the same verified record and pass it to two different backend calls with the same `X-Step-Up-Session-Id`. Authoritative backstop is the backend's sid-replay rejection. No client-side fix planned.
 
 ## Recommended MCP tool to surface in deny/reminder text
 
@@ -99,7 +99,7 @@ Always recommend `poll_stepup_session_wait` (server-side long-polling, one call 
 
 ## Two-layer Bash check (lives in `evaluate.ts`)
 
-1. Regex layer (`packages/danger-patterns/data/danger-patterns.json` system + `~/.claude/ai-action-tracker/user-patterns.json` user) — fast, decidable on the command string alone.
+1. Regex layer (`packages/danger-patterns/data/danger-patterns.json` system + per-host user file resolved by `dataDir()` — see `@ai-action-tracker/plugin-paths`) — fast, decidable on the command string alone.
 2. `rm -rf` semantic layer — resolves each target relative to the session `cwd`, runs `git ls-files`, and blocks if any target contains tracked files. Catches relative paths like `rm -rf src` that the regex misses.
 
 When adding a new check, decide which layer fits. Add to the regex layer for shape-recognisable danger (edit `packages/danger-patterns/data/danger-patterns.json`); add a new semantic check inside `evaluate.ts` only if the danger depends on filesystem state.

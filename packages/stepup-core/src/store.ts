@@ -1,42 +1,37 @@
 /**
- * Cross-platform verified-stepup state file.
- *
- * Uses env-paths to pick OS-appropriate cache directories:
- *   linux   ~/.cache/ai-action-tracker/
- *   macOS   ~/Library/Caches/ai-action-tracker/
- *   win32   %LOCALAPPDATA%\ai-action-tracker\Cache\
+ * Cross-process verified-stepup state file.
  *
  * Single-shot policy: every danger command requires a fresh MFA. The hook
  * writes a record on verify, the consumer (the hook itself, immediately
  * after) deletes it. TTL (`STEPUP_TTL_MS`) is enforced on read as a
  * defence against stale files left behind by abnormal exits.
+ *
+ * Storage location is host-aware (see @ai-action-tracker/plugin-paths):
+ *   claude-code + CLAUDE_PLUGIN_DATA set → $CLAUDE_PLUGIN_DATA/
+ *   any other host or env unset          → ~/.cache/ai-action-tracker/
+ *
+ * A one-shot migration moves the legacy file the first time readVerified()
+ * runs after the upgrade.
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import {
+  cacheDir as pluginCacheDir,
+  migrateLegacyFile,
+} from "@ai-action-tracker/plugin-paths";
 import { STEPUP_TTL_MS } from "./config.js";
 
 /**
- * OS-appropriate cache directory. Inlined instead of pulling env-paths
- * because the plugin distribution ships dist/ without node_modules.
+ * Cache directory re-exported for backwards compatibility.
  *
- *   linux   $XDG_CACHE_HOME or ~/.cache, suffix "ai-action-tracker"
- *   macOS   ~/Library/Caches/ai-action-tracker
- *   win32   %LOCALAPPDATA%\ai-action-tracker\Cache
+ * Returns $CLAUDE_PLUGIN_DATA when running under Claude Code with that
+ * env set, else the OS-appropriate legacy cache dir. Stepup state files
+ * intentionally use the cache flavour (not dataDir) so the non-claude-code
+ * hosts (Codex/Antigravity/Cursor) keep their pre-existing
+ * ~/.cache/ai-action-tracker/ path. Only Claude Code with env set diverges.
  */
 export function cacheDir(): string {
-  if (process.platform === "win32") {
-    const base =
-      process.env.LOCALAPPDATA?.trim() ||
-      path.join(os.homedir(), "AppData", "Local");
-    return path.join(base, "ai-action-tracker", "Cache");
-  }
-  if (process.platform === "darwin") {
-    return path.join(os.homedir(), "Library", "Caches", "ai-action-tracker");
-  }
-  const xdg = process.env.XDG_CACHE_HOME?.trim();
-  const base = xdg && xdg.length > 0 ? xdg : path.join(os.homedir(), ".cache");
-  return path.join(base, "ai-action-tracker");
+  return pluginCacheDir();
 }
 
 export type VerifiedStepup = {
@@ -51,6 +46,7 @@ function storePath(): string {
 }
 
 export function readVerified(): VerifiedStepup | null {
+  migrateLegacyFile(FILE_NAME, "cache");
   const file = storePath();
   let raw: string;
   try {

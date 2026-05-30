@@ -13,8 +13,8 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { cacheDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
 import { STEPUP_TTL_MS } from "./config.js";
-import { cacheDir } from "./store.js";
 const VERIFIED_FILE = "stepup-verified.json";
 const PENDING_FILE = "stepup-pending.json";
 const BROWSER_LOCK_FILE = "stepup-browser-lock.json";
@@ -110,6 +110,9 @@ function inspectBrowserLock(now) {
     };
 }
 export function inspectStepupState(now = Date.now()) {
+    migrateLegacyFile(VERIFIED_FILE, "cache");
+    migrateLegacyFile(PENDING_FILE, "cache");
+    migrateLegacyFile(BROWSER_LOCK_FILE, "cache");
     return {
         cache_dir: cacheDir(),
         now_ms: now,

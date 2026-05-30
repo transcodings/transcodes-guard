@@ -1,10 +1,11 @@
 /**
- * OS-appropriate cache directory. Inlined instead of pulling env-paths
- * because the plugin distribution ships dist/ without node_modules.
+ * Cache directory re-exported for backwards compatibility.
  *
- *   linux   $XDG_CACHE_HOME or ~/.cache, suffix "ai-action-tracker"
- *   macOS   ~/Library/Caches/ai-action-tracker
- *   win32   %LOCALAPPDATA%\ai-action-tracker\Cache
+ * Returns $CLAUDE_PLUGIN_DATA when running under Claude Code with that
+ * env set, else the OS-appropriate legacy cache dir. Stepup state files
+ * intentionally use the cache flavour (not dataDir) so the non-claude-code
+ * hosts (Codex/Antigravity/Cursor) keep their pre-existing
+ * ~/.cache/ai-action-tracker/ path. Only Claude Code with env set diverges.
  */
 export declare function cacheDir(): string;
 export type VerifiedStepup = {

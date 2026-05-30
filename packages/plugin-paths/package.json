@@ -1,0 +1,28 @@
+{
+  "name": "@ai-action-tracker/plugin-paths",
+  "version": "0.1.0",
+  "description": "Host-aware persistent data + cache directory resolution for ai-action-tracker plugins. Single source of truth for CLAUDE_PLUGIN_DATA vs legacy ~/.claude/ai-action-tracker path selection across 4 hosts (Claude Code / Codex / Antigravity / Cursor).",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

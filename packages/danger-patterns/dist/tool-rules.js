@@ -9,12 +9,13 @@
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, } from "node:fs";
 import { fileURLToPath } from "node:url";
-import os from "node:os";
 import path from "node:path";
-const USER_TOOL_RULES_PATH = path.join(os.homedir(), ".claude", "ai-action-tracker", "user-tool-rules.json");
+import { parse as parseJsonc } from "jsonc-parser";
+import { dataDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+const USER_TOOL_RULES_FILE = "user-tool-rules.json";
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 export function getUserToolRulesPath() {
-    return USER_TOOL_RULES_PATH;
+    return path.join(dataDir(), USER_TOOL_RULES_FILE);
 }
 export function loadSystemToolRules() {
     // Package-local resolution: data/ is a sibling of dist/, so from the
@@ -29,19 +30,27 @@ export function loadSystemToolRules() {
     }
 }
 export function loadUserToolRules() {
+    migrateLegacyFile(USER_TOOL_RULES_FILE, "data");
     try {
-        return JSON.parse(readFileSync(USER_TOOL_RULES_PATH, "utf8"));
+        const raw = readFileSync(getUserToolRulesPath(), "utf8");
+        // JSONC parse: see loadUserPatterns for rationale.
+        const parsed = parseJsonc(raw);
+        if (parsed && Array.isArray(parsed.rules)) {
+            return parsed;
+        }
+        return { rules: [] };
     }
     catch {
         return { rules: [] };
     }
 }
 export function saveUserToolRules(config) {
-    mkdirSync(path.dirname(USER_TOOL_RULES_PATH), { recursive: true });
-    writeFileSync(USER_TOOL_RULES_PATH, JSON.stringify(config, null, 2) + "\n", "utf8");
+    const file = getUserToolRulesPath();
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify(config, null, 2) + "\n", "utf8");
 }
 export function userToolRulesFileExists() {
-    return existsSync(USER_TOOL_RULES_PATH);
+    return existsSync(getUserToolRulesPath());
 }
 export function loadMergedToolRules() {
     const system = loadSystemToolRules().rules.map((r) => ({

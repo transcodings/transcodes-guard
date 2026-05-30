@@ -9,6 +9,7 @@
  * behavioural, and provides the seam for future host divergence (Cursor
  * camelCase, Antigravity wrap differences) without further code changes.
  */
+import "../host.js";
 import { readFileSync } from "node:fs";
 import { codexAdapter } from "@ai-action-tracker/hook-adapters";
 import {

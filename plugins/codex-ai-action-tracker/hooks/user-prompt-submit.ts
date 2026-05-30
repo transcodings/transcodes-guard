@@ -6,6 +6,7 @@
  * next-action context block. Identical body to the Claude Code hook except
  * for the adapter import.
  */
+import "../host.js";
 import { readFileSync } from "node:fs";
 import { codexAdapter } from "@ai-action-tracker/hook-adapters";
 import {

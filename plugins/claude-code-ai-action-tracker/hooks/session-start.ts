@@ -6,6 +6,7 @@
  * to PreToolUse step-up denies, plus a pointer to any session-spanning
  * pending sid that survived a restart. Pure additive context — never blocks.
  */
+import "../host.js";
 import { claudeCodeAdapter } from "@ai-action-tracker/hook-adapters";
 import { isExpired, readPending } from "@ai-action-tracker/stepup-core";
 

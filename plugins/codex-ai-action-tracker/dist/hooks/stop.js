@@ -6,6 +6,7 @@
  * adapter import. Codex accepts the same top-level `{ decision: "block",
  * reason }` payload as Claude Code for Stop hooks.
  */
+import "../host.js";
 import { codexAdapter } from "@ai-action-tracker/hook-adapters";
 import { clearPending, consumeVerified, isExpired, readPending, readVerified, } from "@ai-action-tracker/stepup-core";
 function reminderFor(pending) {

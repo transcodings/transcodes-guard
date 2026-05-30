@@ -7,6 +7,7 @@
  * `hookSpecificOutput.additionalContext` but flat. Mirror the codex hook
  * body verbatim; only the adapter import differs.
  */
+import "../host.js";
 import { cursorAdapter } from "@ai-action-tracker/hook-adapters";
 import { isExpired, readPending } from "@ai-action-tracker/stepup-core";
 
