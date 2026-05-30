@@ -7,6 +7,7 @@
  * are baked into the session module; verified state lives in store.ts).
  */
 import { parseMemberAccessToken } from "./jwt.js";
+import { resolveToken } from "./token-store.js";
 
 /** Backend default — matches transcodes-mcp-server constants. Override with TRANSCODES_BACKEND_URL. */
 export const DEFAULT_BACKEND_URL = "https://api.transcodesapis.com";
@@ -19,14 +20,17 @@ export type StepupConfig = {
   apiBaseV1: string;
   /** Member MCP JWT, sent as `x-transcodes-token`. */
   token: string;
+  organizationId: string;
   projectId: string;
   memberId: string;
 };
 
 /**
- * Build StepupConfig from process.env. Throws when TRANSCODES_TOKEN is
- * missing or invalid. Callers in fail-safe contexts (the hook) should
- * catch and treat the throw as "step-up unavailable → block".
+ * Build StepupConfig from the environment + token store. The token is
+ * resolved with the precedence env → ~/.transcodes/config.json → none
+ * (see token-store.ts). Throws when no token is found or it is invalid.
+ * Callers in fail-safe contexts (the hook) should catch and treat the
+ * throw as "step-up unavailable → block".
  */
 export function loadStepupConfig(): StepupConfig {
   const rawUrl =
@@ -39,9 +43,14 @@ export function loadStepupConfig(): StepupConfig {
     throw new Error(`TRANSCODES_BACKEND_URL is not a valid URL: ${backendUrl}`);
   }
 
-  const tokenRaw = process.env.TRANSCODES_TOKEN?.trim() ?? "";
+  const { token: tokenRaw } = resolveToken();
   if (!tokenRaw) {
-    throw new Error("TRANSCODES_TOKEN is required (member MCP JWT)");
+    throw new Error(
+      "No Transcodes token found. Get a token from the Transcodes console " +
+        "(member detail page, https://app.transcodes.io), then run " +
+        "`transcodes login <token>` in a terminal — or set the " +
+        "TRANSCODES_TOKEN environment variable.",
+    );
   }
 
   const parsed = parseMemberAccessToken(tokenRaw);
@@ -55,6 +64,7 @@ export function loadStepupConfig(): StepupConfig {
     backendUrl,
     apiBaseV1: `${backendUrl}/v1`,
     token: parsed.raw,
+    organizationId: parsed.claims.organizationId,
     projectId: parsed.claims.projectId,
     memberId: parsed.claims.memberId,
   };

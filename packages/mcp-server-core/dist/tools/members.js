@@ -132,5 +132,47 @@ export function registerMemberTools(server) {
         }, "unsuspend_member"));
         return textResult(text);
     });
+    server.registerTool("create_member", {
+        title: "Create member",
+        description: "Create a member (CreateMemberDto). member_id/name may be auto-generated. Use for onboarding or manual provisioning. " +
+            "Auth: TRANSCODES_TOKEN sent as x-transcodes-token (not in body).",
+        inputSchema: {
+            body: z.object({
+                email: z.string(),
+                name: z.string().optional(),
+                role: z.string().optional(),
+                metadata: z.record(z.string(), z.unknown()).optional(),
+            }),
+        },
+    }, async ({ body }) => {
+        const config = loadStepupConfig();
+        const text = await req(config, {
+            method: "POST",
+            body: { ...body, project_id: config.projectId },
+        }, "create_member");
+        return textResult(text);
+    });
+    server.registerTool("update_member", {
+        title: "Update member",
+        description: "Update member fields (UpdateMemberDto, flat shape). " +
+            "Auth: TRANSCODES_TOKEN sent as x-transcodes-token (not in body). " +
+            "member_id is required — supply the target member explicitly (it may differ from the caller).",
+        inputSchema: {
+            body: z.object({
+                member_id: z.string(),
+                name: z.string().optional(),
+                email: z.string().optional(),
+                role: z.string().optional(),
+                metadata: z.record(z.string(), z.unknown()).optional(),
+            }),
+        },
+    }, async ({ body }) => {
+        const config = loadStepupConfig();
+        const text = await req(config, {
+            method: "PUT",
+            body: { ...body, project_id: config.projectId },
+        }, "update_member");
+        return textResult(text);
+    });
 }
 //# sourceMappingURL=members.js.map

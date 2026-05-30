@@ -15,6 +15,13 @@ export type CreateStepupArgs = {
   action?: string;
   resource?: string;
   member_id?: string;
+  /**
+   * Step-up mode. Set to `"console"` to mint a session that gates browser
+   * access to the Transcodes console (console-protection flow). Omit for the
+   * default command/tool verification flow. Sent verbatim to the backend;
+   * `undefined` is dropped from the JSON body.
+   */
+  mode?: string;
 };
 
 export type CreatedStepupSession = {
@@ -69,11 +76,13 @@ export async function createStepupSession(
     method: "POST",
     path: STEPUP_PATH,
     body: {
+      organization_id: config.organizationId,
       project_id: config.projectId,
       member_id: args.member_id ?? config.memberId,
       action: args.action,
       resource: args.resource,
       comment,
+      mode: args.mode,
     },
   });
 

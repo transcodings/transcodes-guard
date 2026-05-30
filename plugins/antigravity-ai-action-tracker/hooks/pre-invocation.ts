@@ -33,8 +33,10 @@ import {
   type InjectStep,
 } from "@ai-action-tracker/hook-adapters";
 import {
+  formatNoTokenSessionNotice,
   isExpired,
   readPending,
+  resolveToken,
   type PendingState,
 } from "@ai-action-tracker/stepup-core";
 
@@ -119,6 +121,9 @@ function main(): void {
   // SessionStart-equivalent: primer + carry-over on first invocation only.
   if (input.invocationNum <= 1) {
     injectSteps.push({ ephemeralMessage: primerMessage(pending) });
+    if (!resolveToken().token) {
+      injectSteps.push({ ephemeralMessage: formatNoTokenSessionNotice() });
+    }
   }
 
   // UserPromptSubmit-equivalent: surface pending sid when the user's last

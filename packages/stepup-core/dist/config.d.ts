@@ -7,12 +7,15 @@ export type StepupConfig = {
     apiBaseV1: string;
     /** Member MCP JWT, sent as `x-transcodes-token`. */
     token: string;
+    organizationId: string;
     projectId: string;
     memberId: string;
 };
 /**
- * Build StepupConfig from process.env. Throws when TRANSCODES_TOKEN is
- * missing or invalid. Callers in fail-safe contexts (the hook) should
- * catch and treat the throw as "step-up unavailable → block".
+ * Build StepupConfig from the environment + token store. The token is
+ * resolved with the precedence env → ~/.transcodes/config.json → none
+ * (see token-store.ts). Throws when no token is found or it is invalid.
+ * Callers in fail-safe contexts (the hook) should catch and treat the
+ * throw as "step-up unavailable → block".
  */
 export declare function loadStepupConfig(): StepupConfig;
