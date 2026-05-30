@@ -71,7 +71,7 @@ transcodes enable      # gate ON
 transcodes status      # show gate state + token
 ```
 
-Inside an agent turn you can also call the `set_tracker_enabled` / `get_tracker_status` MCP tools (both stay available while disabled). The flag lives in `~/.transcodes/config.json`; a missing flag means enabled.
+Disabling is intentionally a human, out-of-band action — an agent must not be able to switch off its own guardrails. So the MCP tool `set_tracker_enabled` can only **re-enable** the gate (it refuses `enabled=false`), and an agent that tries to run `transcodes disable` via the shell is itself step-up-gated by the `tracker-self-disable` pattern. `get_tracker_status` is read-only. The flag lives in `~/.transcodes/config.json`; a missing flag means enabled.
 
 ## Wire-format quirks vs Claude Code
 

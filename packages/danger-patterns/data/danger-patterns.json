@@ -39,6 +39,11 @@
       "id": "git-force-push-protected",
       "regex": "\\bgit\\s+push\\s+(--force|-f)\\b.*\\b(main|master|prod|production)\\b",
       "reason": "Force push to protected branch"
+    },
+    {
+      "id": "tracker-self-disable",
+      "regex": "\\btranscodes\\b[^\\n]*\\bdisable\\b",
+      "reason": "Disabling the ai-action-tracker step-up gate — requires human step-up approval (an agent must not silently switch off its own guardrails)"
     }
   ]
 }

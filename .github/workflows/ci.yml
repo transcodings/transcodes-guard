@@ -59,8 +59,9 @@ jobs:
         run: git diff --exit-code -- plugins/cursor-ai-action-tracker/dist/
 
       # ─────────────────────────────────────────────────────────
-      # Claude Code plugin smoke tests (8 scenarios — 7 preserved verbatim
-      # from pre-monorepo CI, plus the gate-disabled kill-switch check).
+      # Claude Code plugin smoke tests (9 scenarios — 7 preserved verbatim
+      # from pre-monorepo CI, plus the gate-disabled kill-switch check and
+      # the agent-self-disable block).
       # All inputs are static JSON literals; no GitHub event injection
       # surface exists in this job.
       # ─────────────────────────────────────────────────────────
@@ -100,6 +101,18 @@ jobs:
           if echo "$OUT" | grep -q '"permissionDecision"'; then
             echo "::error::Disabled gate still emitted a permissionDecision (kill-switch not honored before token/danger checks)"; exit 1
           fi
+
+      - name: claude-code · agent self-disable is gated (transcodes disable)
+        run: |
+          set -e
+          # Gate enabled (no config file), no token → the self-disable pattern
+          # must match and deny, proving an agent cannot shell out to turn the
+          # gate off without step-up.
+          OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"transcodes disable"},"cwd":"'"$PWD"'"}' \
+            | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for transcodes disable"; exit 1; }
+          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Agent self-disable was not gated (deny JSON missing)"; exit 1; }
 
       - name: claude-code · protected MCP tool denied (retire_member) + arg context
         run: |

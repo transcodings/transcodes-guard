@@ -353,31 +353,36 @@ export function createServer() {
         }, null, 2));
     });
     server.registerTool("set_tracker_enabled", {
-        title: "Enable or disable the ai-action-tracker gate",
-        description: "Toggle the runtime kill-switch for the entire ai-action-tracker " +
-            "step-up gate across all hosts. When disabled, the PreToolUse hook " +
-            "stops blocking Bash and MCP tool calls and the SessionStart primer " +
-            "is suppressed — but this tool and `get_tracker_status` stay " +
-            "available so it can be re-enabled. Call when the user asks to turn " +
-            "the tracker/hook/protection on or off — e.g. '트래커 꺼줘', " +
-            "'잠깐 비활성화해줘', 'disable the gate', 'turn protection back on'. " +
-            `Persists to ${transcodesConfigFile()}; effective on the next hook ` +
-            "invocation (no restart needed).",
+        title: "Re-enable the ai-action-tracker gate",
+        description: "Re-ENABLE the ai-action-tracker step-up gate across all hosts. " +
+            "This tool can only turn protection ON — it deliberately REFUSES " +
+            "`enabled=false`. Disabling the gate is a privilege reduction that " +
+            "must be a human, out-of-band action (the agent could otherwise " +
+            "disable its own guardrails via prompt injection), so disabling is " +
+            "only possible by running `transcodes disable` in a terminal. Call " +
+            "this when the user asks to turn the tracker/hook/protection back " +
+            "ON — e.g. '트래커 다시 켜줘', 'enable the gate', 'turn protection " +
+            `back on'. Persists to ${transcodesConfigFile()}; effective on the ` +
+            "next hook invocation (no restart needed).",
         inputSchema: {
             enabled: z
                 .boolean()
-                .describe("true to enable the gate, false to disable it."),
+                .describe("Must be true. This tool only re-enables the gate; pass true to turn protection on. false is refused — disable via `transcodes disable` in a terminal."),
         },
     }, async ({ enabled }) => {
+        if (!enabled) {
+            return textResult("Refused: the gate cannot be disabled through an MCP tool — that " +
+                "would let an agent switch off its own step-up protection. To " +
+                "disable, the human operator must run `transcodes disable` in a " +
+                "terminal (out-of-band from this agent).", true);
+        }
         try {
-            setTrackerEnabled(enabled);
+            setTrackerEnabled(true);
         }
         catch (e) {
-            return textResult(`Failed to update gate state: ${e instanceof Error ? e.message : String(e)}`, true);
+            return textResult(`Failed to enable gate: ${e instanceof Error ? e.message : String(e)}`, true);
         }
-        return textResult(enabled
-            ? "ai-action-tracker gate ENABLED. Danger commands and protected MCP tools will require step-up MFA again."
-            : "ai-action-tracker gate DISABLED. Bash and MCP tool calls flow through without step-up until re-enabled with `set_tracker_enabled enabled=true`.");
+        return textResult("ai-action-tracker gate ENABLED. Danger commands and protected MCP tools will require step-up MFA again.");
     });
     server.registerTool("simulate_hook_invocation", {
         title: "Invoke PreToolUse hook in a controlled subprocess",
