@@ -12,17 +12,21 @@
  *   transcodes                 Open the local web UI dashboard (default, no args).
  *   transcodes set <token> -l <label> Validate and save the token (0600); label required.
  *   transcodes reset           Delete all saved tokens.
- *   transcodes status          Show the active token source + expiry.
+ *   transcodes enable          Turn the step-up gate on.
+ *   transcodes disable         Turn the step-up gate off (across all hosts).
+ *   transcodes status          Show the active token source + expiry + gate state.
  *   transcodes tokens          List all saved tokens (active marked with *).
  *   transcodes help            Usage.
  */
 import { runDashboard } from "./dashboard.js";
 import {
   clearTokenFile,
+  isTrackerEnabled,
   parseMemberAccessToken,
   readTokenFromFile,
   readTokenRecords,
   resolveToken,
+  setTrackerEnabled,
   transcodesConfigFile,
   writeTokenToFile,
 } from "@ai-action-tracker/stepup-core";
@@ -33,13 +37,18 @@ Usage:
   transcodes                      Open the dashboard at http://127.0.0.1:3847/ (add --port N or --no-open)
   transcodes set <token> -l <label>  Save your Transcodes member token (label required) to ${transcodesConfigFile()}
   transcodes reset                Remove all saved tokens
-  transcodes status               Show where the active token comes from
+  transcodes enable               Turn the ai-action-tracker step-up gate ON
+  transcodes disable              Turn the gate OFF (stops blocking Bash + MCP across all hosts)
+  transcodes status               Show the active token source, expiry, and gate state
   transcodes tokens               List all saved tokens (active one marked with *)
   transcodes help                 Show this message
 
 The token is read by the ai-action-tracker plugins/hooks with precedence:
   1. TRANSCODES_TOKEN environment variable (overrides everything)
   2. ${transcodesConfigFile()}
+
+enable/disable flips the \`enabled\` flag in the same file; it takes effect on
+the next hook invocation (no restart needed) and applies to every host.
 `;
 
 function fail(message: string): never {
@@ -110,7 +119,25 @@ function cmdReset(): void {
   process.stdout.write(`Removed all saved tokens (${transcodesConfigFile()})\n`);
 }
 
+function cmdSetEnabled(enabled: boolean): void {
+  try {
+    setTrackerEnabled(enabled);
+  } catch (err) {
+    fail(
+      `could not update gate state: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  process.stdout.write(
+    enabled
+      ? "ai-action-tracker gate ENABLED — danger commands require step-up MFA again.\n"
+      : "ai-action-tracker gate DISABLED — Bash + MCP tool calls pass without step-up until `transcodes enable`.\n",
+  );
+}
+
 function cmdStatus(): void {
+  process.stdout.write(
+    `Gate: ${isTrackerEnabled() ? "enabled" : "DISABLED"}\n`,
+  );
   const { token, source } = resolveToken();
   if (source === "none" || !token) {
     process.stdout.write(
@@ -181,6 +208,12 @@ function main(): void {
       break;
     case "reset":
       cmdReset();
+      break;
+    case "enable":
+      cmdSetEnabled(true);
+      break;
+    case "disable":
+      cmdSetEnabled(false);
       break;
     case "status":
       cmdStatus();

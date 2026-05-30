@@ -28,7 +28,7 @@
 import "../host.js";
 import { readFileSync } from "node:fs";
 import { antigravityAdapter, detectUserDoneFromTranscript, } from "@ai-action-tracker/hook-adapters";
-import { formatNoTokenSessionNotice, isExpired, readPending, resolveToken, } from "@ai-action-tracker/stepup-core";
+import { formatNoTokenSessionNotice, isExpired, isTrackerEnabled, readPending, resolveToken, } from "@ai-action-tracker/stepup-core";
 function primerMessage(pending) {
     const base = [
         "ai-action-tracker step-up MFA protocol primer:",
@@ -75,6 +75,10 @@ function userDoneNotice(pending, matchedContent) {
     ].join("\n");
 }
 function main() {
+    // Gate disabled (transcodes disable / set_tracker_enabled): inject nothing —
+    // no primer, no carry-over, no user-done detection. exit 0 with no payload.
+    if (!isTrackerEnabled())
+        process.exit(0);
     if (!antigravityAdapter.parsePreInvocationStdin ||
         !antigravityAdapter.emitPreInvocation) {
         // antigravityAdapter is missing optional PreInvocation methods —

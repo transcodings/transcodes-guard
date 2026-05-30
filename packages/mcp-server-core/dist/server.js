@@ -3,7 +3,7 @@ import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { addUserPattern, addUserToolRule, findFirstMatch, findFirstToolRule, getUserPatternsPath, getUserToolRulesPath, loadMergedPatterns, loadMergedToolRules, PatternValidationError, removeUserPattern, removeUserToolRule, ToolRuleValidationError, updateUserPattern, updateUserToolRule, } from "@ai-action-tracker/danger-patterns";
-import { createStepupSession, inspectStepupState, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, writeVerified, } from "@ai-action-tracker/stepup-core";
+import { createStepupSession, inspectStepupState, isTrackerEnabled, loadStepupConfig, markVerified, parseMemberAccessToken, pollStepupSession, pollStepupSessionWait, resolveToken, setTrackerEnabled, transcodesConfigFile, writeVerified, } from "@ai-action-tracker/stepup-core";
 import { registerAuditTools } from "./tools/audit.js";
 import { registerAuthDeviceTools } from "./tools/auth-devices.js";
 import { registerJwkTools } from "./tools/jwk.js";
@@ -322,6 +322,62 @@ export function createServer() {
                 },
             ],
         };
+    });
+    server.registerTool("get_tracker_status", {
+        title: "Get ai-action-tracker gate status",
+        description: "Report whether the ai-action-tracker step-up gate is currently " +
+            "enabled, plus the active token source and its expiry. Read-only. " +
+            "Call when the user asks if the tracker/hook/protection is on or off " +
+            "— e.g. '트래커 켜져 있어?', 'hook 활성화 상태야?', 'is the gate enabled?'. " +
+            "The enabled flag lives in the same file as the token " +
+            `(${transcodesConfigFile()}); a missing flag means enabled.`,
+        inputSchema: {},
+    }, async () => {
+        const enabled = isTrackerEnabled();
+        const { token, source } = resolveToken();
+        let tokenSummary = null;
+        if (token) {
+            try {
+                const parsed = parseMemberAccessToken(token);
+                tokenSummary = `member=${parsed.claims.memberId} project=${parsed.claims.projectId} expires=${new Date(parsed.claims.exp * 1000).toISOString()}`;
+            }
+            catch {
+                tokenSummary = "present but undecodable";
+            }
+        }
+        return textResult(JSON.stringify({
+            enabled,
+            config_file: transcodesConfigFile(),
+            token_source: source,
+            token: tokenSummary,
+        }, null, 2));
+    });
+    server.registerTool("set_tracker_enabled", {
+        title: "Enable or disable the ai-action-tracker gate",
+        description: "Toggle the runtime kill-switch for the entire ai-action-tracker " +
+            "step-up gate across all hosts. When disabled, the PreToolUse hook " +
+            "stops blocking Bash and MCP tool calls and the SessionStart primer " +
+            "is suppressed — but this tool and `get_tracker_status` stay " +
+            "available so it can be re-enabled. Call when the user asks to turn " +
+            "the tracker/hook/protection on or off — e.g. '트래커 꺼줘', " +
+            "'잠깐 비활성화해줘', 'disable the gate', 'turn protection back on'. " +
+            `Persists to ${transcodesConfigFile()}; effective on the next hook ` +
+            "invocation (no restart needed).",
+        inputSchema: {
+            enabled: z
+                .boolean()
+                .describe("true to enable the gate, false to disable it."),
+        },
+    }, async ({ enabled }) => {
+        try {
+            setTrackerEnabled(enabled);
+        }
+        catch (e) {
+            return textResult(`Failed to update gate state: ${e instanceof Error ? e.message : String(e)}`, true);
+        }
+        return textResult(enabled
+            ? "ai-action-tracker gate ENABLED. Danger commands and protected MCP tools will require step-up MFA again."
+            : "ai-action-tracker gate DISABLED. Bash and MCP tool calls flow through without step-up until re-enabled with `set_tracker_enabled enabled=true`.");
     });
     server.registerTool("simulate_hook_invocation", {
         title: "Invoke PreToolUse hook in a controlled subprocess",

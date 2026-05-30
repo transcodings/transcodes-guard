@@ -10,7 +10,7 @@
  */
 import "../host.js";
 import { codexAdapter } from "@ai-action-tracker/hook-adapters";
-import { formatNoTokenSessionNotice, isExpired, readPending, resolveToken, } from "@ai-action-tracker/stepup-core";
+import { formatNoTokenSessionNotice, isExpired, isTrackerEnabled, readPending, resolveToken, } from "@ai-action-tracker/stepup-core";
 function carryoverBlock() {
     const pending = readPending();
     if (!pending)
@@ -30,6 +30,9 @@ function carryoverBlock() {
     ].join("\n");
 }
 function main() {
+    // Gate disabled: stay silent (no carry-over, no token nag).
+    if (!isTrackerEnabled())
+        process.exit(0);
     const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
     const parts = [carryoverBlock(), tokenNotice].filter((s) => Boolean(s));
     if (parts.length === 0)
