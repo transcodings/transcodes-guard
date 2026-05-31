@@ -819,6 +819,17 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
       const url = req.url ?? '/';
       const method = req.method ?? 'GET';
 
+      // DNS-rebinding guard: a malicious page on another origin can point its
+      // DNS at 127.0.0.1 and have the victim's browser POST to this server,
+      // but the Host header still carries the attacker's domain. Only accept
+      // requests addressed to the loopback names we bind to.
+      const hostName = (req.headers.host ?? '').split(':')[0];
+      if (hostName !== '127.0.0.1' && hostName !== 'localhost') {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('forbidden host');
+        return;
+      }
+
       try {
         if (method === 'GET' && (url === '/' || url === '/index.html')) {
           res.writeHead(200, {
