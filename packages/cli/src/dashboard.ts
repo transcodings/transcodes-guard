@@ -19,6 +19,8 @@ import {
   removeTokenFromFile,
   setActiveToken,
   setTokenLabel,
+  isTrackerEnabled,
+  setTrackerEnabled,
   transcodesConfigFile,
   writeTokenToFile,
 } from '@ai-action-tracker/stepup-core';
@@ -259,7 +261,7 @@ function dashboardHtml(): string {
       gap: 12px;
       margin-top: 18px;
     }
-    button {
+    .actions button {
       flex: 1;
       padding: 13px 18px;
       font-size: 15px;
@@ -269,8 +271,8 @@ function dashboardHtml(): string {
       cursor: pointer;
       transition: background 0.15s, opacity 0.15s, transform 0.05s;
     }
-    button:active:not(:disabled) { transform: translateY(1px); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .actions button:active:not(:disabled) { transform: translateY(1px); }
+    .actions button:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: var(--accent); color: #fff; }
     .btn-primary:hover:not(:disabled) { background: #4a43d4; }
     .btn-secondary {
@@ -407,6 +409,60 @@ function dashboardHtml(): string {
       color: var(--muted);
       line-height: 1.5;
     }
+    .settings-list { display: flex; flex-direction: column; gap: 10px; }
+    .setting-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 16px;
+      background: #fbfbfc;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+    .setting-info { flex: 1; min-width: 0; }
+    .setting-label {
+      display: block;
+      font-size: 14.5px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .setting-desc {
+      margin: 8px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 26px;
+      flex: none;
+      flex-shrink: 0;
+      margin-top: 2px;
+      border: none;
+      border-radius: 999px;
+      background: #d8d8de;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.2s;
+    }
+    .toggle::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(16, 16, 26, 0.18);
+      transition: transform 0.2s;
+    }
+    .toggle.on { background: var(--accent); }
+    .toggle.on::after { transform: translateX(18px); }
+    .toggle:disabled { opacity: 0.5; cursor: not-allowed; }
     .toast {
       margin-top: 14px;
       padding: 12px 16px;
@@ -445,6 +501,7 @@ function dashboardHtml(): string {
     </div>
     <div class="tabs">
       <button type="button" class="tab active" data-tab="tokens">Tokens</button>
+      <button type="button" class="tab" data-tab="settings">Settings</button>
       <button type="button" class="tab" data-tab="cli">CLI Commands</button>
     </div>
 
@@ -474,6 +531,21 @@ function dashboardHtml(): string {
         <div class="cmd"><code>transcodes help</code><span class="cmd-desc">Show the full command list and how to use each one</span></div>
       </div>
     </div>
+
+    <div class="panel" id="panel-settings">
+      <p class="section-title">Settings</p>
+      <p class="section-sub">Manage your local MCP Agent settings</p>
+      <div class="settings-list">
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-label">Step-up Authentication</span>
+            <p class="setting-desc">When off, all features except Transcodes essentials are skipped</p>
+          </div>
+          <button type="button" class="toggle" id="stepup-toggle" aria-label="Step-up Authentication"></button>
+        </div>
+      </div>
+      <div id="settings-toast" class="toast"></div>
+    </div>
   </div>
   <script>
     const tokenEl = document.getElementById("token");
@@ -490,6 +562,7 @@ function dashboardHtml(): string {
           t.classList.toggle("active", t === tab));
         document.querySelectorAll(".panel").forEach((p) =>
           p.classList.toggle("active", p.id === "panel-" + name));
+        if (name === "settings") loadSettings();
       });
     });
 
@@ -673,7 +746,51 @@ function dashboardHtml(): string {
       tokenEl.focus();
     });
 
+    const stepupToggleEl = document.getElementById("stepup-toggle");
+    const settingsToastEl = document.getElementById("settings-toast");
+
+    function showSettingsToast(msg, kind) {
+      settingsToastEl.textContent = msg;
+      settingsToastEl.className = "toast show " + (kind || "success");
+      setTimeout(() => settingsToastEl.classList.remove("show"), 4000);
+    }
+
+    function renderStepupToggle(enabled) {
+      stepupToggleEl.classList.toggle("on", enabled);
+      stepupToggleEl.setAttribute("aria-checked", enabled ? "true" : "false");
+    }
+
+    async function loadSettings() {
+      const res = await fetch("/api/settings");
+      const s = await res.json();
+      renderStepupToggle(s.enabled !== false);
+    }
+
+    stepupToggleEl.addEventListener("click", async () => {
+      const next = !stepupToggleEl.classList.contains("on");
+      stepupToggleEl.disabled = true;
+      try {
+        const res = await fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: next }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Save failed");
+        renderStepupToggle(next);
+        showSettingsToast(
+          next ? "Step-up Authentication enabled" : "Step-up Authentication disabled",
+          "success"
+        );
+      } catch (e) {
+        showSettingsToast(e.message || "Save failed", "error");
+      } finally {
+        stepupToggleEl.disabled = false;
+      }
+    });
+
     refresh();
+    loadSettings();
   </script>
 </body>
 </html>`;
@@ -789,6 +906,31 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
           }
           removeTokenFromFile(token);
           sendJson(res, 200, { ok: true, ...buildStatus() });
+          return;
+        }
+
+        if (method === 'GET' && url === '/api/settings') {
+          sendJson(res, 200, {
+            enabled: isTrackerEnabled(),
+          });
+          return;
+        }
+
+        if (method === 'POST' && url === '/api/settings') {
+          const body = (await readJsonBody(req)) as {
+            enabled?: unknown;
+          };
+          if (typeof body.enabled !== 'boolean') {
+            sendJson(res, 400, {
+              error: 'enabled must be a boolean',
+            });
+            return;
+          }
+          setTrackerEnabled(body.enabled);
+          sendJson(res, 200, {
+            ok: true,
+            enabled: isTrackerEnabled(),
+          });
           return;
         }
 
