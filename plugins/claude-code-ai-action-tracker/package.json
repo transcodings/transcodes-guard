@@ -1,7 +1,7 @@
 {
-  "name": "ai-action-tracker-mcp",
+  "name": "@bigstrider/transcodes-guard-claude-code",
   "version": "0.1.0",
-  "description": "Risky-bash interceptor (PreToolUse hook) and audit MCP server.",
+  "description": "Risky-bash interceptor (PreToolUse hook) and step-up MFA audit MCP server — Claude Code plugin.",
   "type": "module",
   "main": "dist/src/stdio.js",
   "bin": {
@@ -13,8 +13,9 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
-    "build:plugin": "tsc && chmod 755 dist/src/stdio.js dist/src/http.js dist/hooks/pre-tool-use.js dist/hooks/session-start.js dist/hooks/user-prompt-submit.js dist/hooks/stop.js",
+    "build": "tsup",
+    "build:plugin": "tsc --noEmit && tsup && chmod 755 dist/src/stdio.js dist/src/http.js dist/hooks/pre-tool-use.js dist/hooks/session-start.js dist/hooks/user-prompt-submit.js dist/hooks/stop.js",
+    "typecheck": "tsc --noEmit",
     "dev:stdio": "tsx src/stdio.ts",
     "dev:http": "tsx src/http.ts",
     "dev:hook": "tsx hooks/pre-tool-use.ts",
@@ -22,19 +23,31 @@
     "start:http": "node dist/src/http.js",
     "start:hook": "node dist/hooks/pre-tool-use.js",
     "inspect": "npx @modelcontextprotocol/inspector npx tsx src/stdio.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build:plugin"
   },
   "dependencies": {
-    "@ai-action-tracker/hook-adapters": "*",
-    "@ai-action-tracker/mcp-server-core": "*",
-    "@ai-action-tracker/stepup-core": "*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23.0"
   },
+  "peerDependencies": {
+    "@bigstrider/transcodes-cli": ">=0.3.0 <0.4.0"
+  },
+  "peerDependenciesMeta": {
+    "@bigstrider/transcodes-cli": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@ai-action-tracker/hook-adapters": "*",
+    "@ai-action-tracker/mcp-server-core": "*",
+    "@ai-action-tracker/stepup-core": "*",
     "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "engines": {
     "node": ">=20"
