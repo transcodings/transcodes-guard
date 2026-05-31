@@ -1,5 +1,5 @@
 // host.ts
-process.env.AI_ACTION_TRACKER_HOST = "codex";
+process.env.AI_ACTION_TRACKER_HOST = "antigravity";
 
 // ../../packages/stepup-core/dist/token-store.js
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
@@ -1325,11 +1325,6 @@ var danger_patterns_default = {
       id: "tracker-self-disable",
       regex: "\\btranscodes\\b[^\\n]*\\bdisable\\b",
       reason: "Disabling the ai-action-tracker step-up gate \u2014 requires human step-up approval (an agent must not silently switch off its own guardrails)"
-    },
-    {
-      id: "tracker-dashboard-launch",
-      regex: "(?<![/.\\w])transcodes\\b(?!\\s+(?:set|reset|status|tokens|enable|disable|help|--help|-h)\\b)",
-      reason: "Launching the transcodes dashboard exposes /api/settings, which can turn the step-up gate off \u2014 spawning it is gated like a self-disable. Human-run dashboards are unaffected; token-management subcommands pass through. The leading lookbehind excludes path/dotfile occurrences (e.g. a repo dir named 'transcodes' or ~/.transcodes) so only the invoked command matches."
     }
   ]
 };
