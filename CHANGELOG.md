@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.2.0...transcodes-guard-v0.2.1) (2026-05-31)
+
+
+### Bug Fixes
+
+* **release:** auto-merge 스텝 fromJSON 템플릿 에러 수정 ([55ebfe8](https://github.com/transcodings/ai-action-tracker-mcp/commit/55ebfe8cd94bbd5a705f92d6c0a7e268165f7a1a))
+* **release:** auto-merge 스텝의 fromJSON 템플릿 에러 수정 ([70e77de](https://github.com/transcodings/ai-action-tracker-mcp/commit/70e77de0877410b918be2e5d260ae53c28ca104d))
+
 ## [0.2.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.1.0...transcodes-guard-v0.2.0) (2026-05-31)
 
 

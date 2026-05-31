@@ -1,7 +1,7 @@
 {
   "name": "transcodes-guard-monorepo",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Monorepo orchestrator for transcodes-guard plugins + marketplace. Root is the release-please train coordinator (never published).",
   "workspaces": [
     "packages/*",
