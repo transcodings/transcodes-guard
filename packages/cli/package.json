@@ -1,6 +1,6 @@
 {
   "name": "@bigstrider/transcodes-cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Transcodes CLI — manage the ai-action-tracker member token (login/logout/status).",
   "type": "module",
   "bin": {
