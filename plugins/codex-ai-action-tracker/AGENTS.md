@@ -1,4 +1,4 @@
-# ai-action-tracker — Codex CLI agent guidance
+# transcodes-guard — Codex CLI agent guidance
 
 Codex reads this file at the start of every turn (per [`AGENTS.md` spec](https://developers.openai.com/codex/guides/agents-md)). It contains the static step-up MFA protocol primer the agent needs whenever a PreToolUse hook denies a Bash or MCP call.
 

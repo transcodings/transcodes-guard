@@ -2,59 +2,59 @@
   "rules": [
     {
       "id": "tc-retire-member",
-      "toolName": "mcp__plugin_ai-action-tracker_ai-action-tracker__retire_member",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__retire_member",
       "reason": "Permanent member deletion",
       "stepupAction": "retire_member",
-      "stepupResource": "ai-action-tracker:mcp:members"
+      "stepupResource": "transcodes-guard:mcp:members"
     },
     {
       "id": "tc-suspend-member",
-      "toolName": "mcp__plugin_ai-action-tracker_ai-action-tracker__suspend_member",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__suspend_member",
       "reason": "Member login suspension",
       "stepupAction": "suspend_member",
-      "stepupResource": "ai-action-tracker:mcp:members"
+      "stepupResource": "transcodes-guard:mcp:members"
     },
     {
       "id": "tc-unsuspend-member",
-      "toolName": "mcp__plugin_ai-action-tracker_ai-action-tracker__unsuspend_member",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__unsuspend_member",
       "reason": "Member suspension removal",
       "stepupAction": "unsuspend_member",
-      "stepupResource": "ai-action-tracker:mcp:members"
+      "stepupResource": "transcodes-guard:mcp:members"
     },
     {
       "id": "tc-retire-role",
-      "toolName": "mcp__plugin_ai-action-tracker_ai-action-tracker__retire_role",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__retire_role",
       "reason": "Permanent role deletion",
       "stepupAction": "retire_role",
-      "stepupResource": "ai-action-tracker:mcp:rbac"
+      "stepupResource": "transcodes-guard:mcp:rbac"
     },
     {
       "id": "tc-set-role-permissions",
-      "toolName": "mcp__plugin_ai-action-tracker_ai-action-tracker__set_role_permissions",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__set_role_permissions",
       "reason": "Role permissions matrix reset",
       "stepupAction": "set_role_permissions",
-      "stepupResource": "ai-action-tracker:mcp:rbac"
+      "stepupResource": "transcodes-guard:mcp:rbac"
     },
     {
       "id": "tc-update-member-role",
-      "toolName": "mcp__plugin_ai-action-tracker_ai-action-tracker__update_member_role",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__update_member_role",
       "reason": "Member role reassignment",
       "stepupAction": "update_member_role",
-      "stepupResource": "ai-action-tracker:mcp:rbac"
+      "stepupResource": "transcodes-guard:mcp:rbac"
     },
     {
       "id": "tc-retire-resource",
-      "toolName": "mcp__plugin_ai-action-tracker_ai-action-tracker__retire_resource",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__retire_resource",
       "reason": "Permanent RBAC resource deletion",
       "stepupAction": "retire_resource",
-      "stepupResource": "ai-action-tracker:mcp:rbac"
+      "stepupResource": "transcodes-guard:mcp:rbac"
     },
     {
       "id": "tc-passcode-create",
-      "toolName": "mcp__plugin_ai-action-tracker_ai-action-tracker__passcode_create",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__passcode_create",
       "reason": "Recovery passcode generation",
       "stepupAction": "passcode_create",
-      "stepupResource": "ai-action-tracker:mcp:passcode"
+      "stepupResource": "transcodes-guard:mcp:passcode"
     }
   ]
 }

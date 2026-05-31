@@ -1,7 +1,7 @@
 {
-  "name": "@ai-action-tracker/stepup-core",
+  "name": "@transcodes-guard/stepup-core",
   "version": "0.1.0",
-  "description": "Step-up MFA gate core — host-agnostic logic shared by ai-action-tracker plugins.",
+  "description": "Step-up MFA gate core — host-agnostic logic shared by transcodes-guard plugins.",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -20,8 +20,8 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@ai-action-tracker/danger-patterns": "*",
-    "@ai-action-tracker/plugin-paths": "*",
+    "@transcodes-guard/danger-patterns": "*",
+    "@transcodes-guard/plugin-paths": "*",
     "zod": "^3.23.0"
   },
   "devDependencies": {

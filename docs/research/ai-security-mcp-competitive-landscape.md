@@ -138,7 +138,7 @@ reason cross-source 분석이 식별한 미충족 영역:
 
 ### 논쟁점 / 의견 분화
 - **차단 vs 권고**: Cloudflare/Datadog는 게이트웨이 단계에서 강하게 차단하지만, Valence·Arcade 일부는 "retrieve, summarize, guide — no policy modification" 즉 enforcement 회피 철학. 우리 hook은 명백히 차단형 → 권고형 advisory tool을 함께 두면 양쪽 철학을 수용 가능.
-- **Bash 단계 vs 모델 단계**: Datadog AI Guard·Cloudflare WAF는 모델 입출력 레벨에서 검사. 우리 hook은 도구 호출 직전 명령 레벨. 두 레이어는 서로 보완(중복 아님) — Perplexity reason도 명시적으로 "Datadog handles model-level threats; ai-action-tracker handles bash/file-level specificity"로 분리.
+- **Bash 단계 vs 모델 단계**: Datadog AI Guard·Cloudflare WAF는 모델 입출력 레벨에서 검사. 우리 hook은 도구 호출 직전 명령 레벨. 두 레이어는 서로 보완(중복 아님) — Perplexity reason도 명시적으로 "Datadog handles model-level threats; transcodes-guard handles bash/file-level specificity"로 분리.
 - **버전 핀 vs 동적 신뢰**: AgentAudit·Snyk는 버전 핀 강조, 반면 MCP Manager registry는 "관리자 승인 + 시그니처" 모델. 우리는 상대적으로 단순한 `approved-versions.json`이 출발점으로 적합.
 
 ### 정량 데이터

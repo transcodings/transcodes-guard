@@ -14,7 +14,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { cacheDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+import { cacheDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
 import { loadStepupConfig } from "./config.js";
 import { createStepupSession } from "./session.js";
 import { resolveToken } from "./token-store.js";
@@ -99,7 +99,7 @@ export type RequestInput = {
   /** Backend audit-log action identifier (e.g. "bash_exec", "retire_member"). */
   action: string;
   /** Backend audit-log resource identifier
-   * (e.g. "ai-action-tracker:pre-tool-use", "ai-action-tracker:mcp:members"). */
+   * (e.g. "transcodes-guard:pre-tool-use", "transcodes-guard:mcp:members"). */
   resource: string;
   /** Stable key for browser-launch deduplication. Bash → command; MCP →
    * `${toolName}:${JSON.stringify(tool_input)}`. */

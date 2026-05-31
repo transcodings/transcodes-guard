@@ -1,5 +1,5 @@
 {
-  "name": "ai-action-tracker",
+  "name": "transcodes-guard",
   "version": "0.2.0",
   "description": "Risky-bash interceptor (PreToolUse hook) and audit MCP server for OpenAI Codex CLI.",
   "author": {

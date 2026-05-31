@@ -2,8 +2,8 @@ import { spawn as childSpawn } from "node:child_process";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { addUserPattern, addUserToolRule, findFirstMatch, findFirstToolRule, getUserPatternsPath, getUserToolRulesPath, loadMergedPatterns, loadMergedToolRules, PatternValidationError, removeUserPattern, removeUserToolRule, ToolRuleValidationError, updateUserPattern, updateUserToolRule, } from "@ai-action-tracker/danger-patterns";
-import { createStepupSession, inspectStepupState, isTrackerEnabled, loadStepupConfig, markVerified, parseMemberAccessToken, pollStepupSession, pollStepupSessionWait, resolveToken, setTrackerEnabled, transcodesConfigFile, writeVerified, } from "@ai-action-tracker/stepup-core";
+import { addUserPattern, addUserToolRule, findFirstMatch, findFirstToolRule, getUserPatternsPath, getUserToolRulesPath, loadMergedPatterns, loadMergedToolRules, PatternValidationError, removeUserPattern, removeUserToolRule, ToolRuleValidationError, updateUserPattern, updateUserToolRule, } from "@transcodes-guard/danger-patterns";
+import { createStepupSession, inspectStepupState, isTrackerEnabled, loadStepupConfig, markVerified, parseMemberAccessToken, pollStepupSession, pollStepupSessionWait, resolveToken, setTrackerEnabled, transcodesConfigFile, writeVerified, } from "@transcodes-guard/stepup-core";
 import { registerAuditTools } from "./tools/audit.js";
 import { registerAuthDeviceTools } from "./tools/auth-devices.js";
 import { registerJwkTools } from "./tools/jwk.js";
@@ -52,7 +52,7 @@ function textResult(text, isError = false) {
 }
 export function createServer() {
     const server = new McpServer({
-        name: "ai-action-tracker-mcp",
+        name: "transcodes-guard-mcp",
         version: "0.1.0",
     });
     server.registerResource("danger-patterns", "danger-patterns://list", {
@@ -324,8 +324,8 @@ export function createServer() {
         };
     });
     server.registerTool("get_tracker_status", {
-        title: "Get ai-action-tracker gate status",
-        description: "Report whether the ai-action-tracker step-up gate is currently " +
+        title: "Get transcodes-guard gate status",
+        description: "Report whether the transcodes-guard step-up gate is currently " +
             "enabled, plus the active token source and its expiry. Read-only. " +
             "Call when the user asks if the tracker/hook/protection is on or off " +
             "— e.g. '트래커 켜져 있어?', 'hook 활성화 상태야?', 'is the gate enabled?'. " +
@@ -353,8 +353,8 @@ export function createServer() {
         }, null, 2));
     });
     server.registerTool("set_tracker_enabled", {
-        title: "Re-enable the ai-action-tracker gate",
-        description: "Re-ENABLE the ai-action-tracker step-up gate across all hosts. " +
+        title: "Re-enable the transcodes-guard gate",
+        description: "Re-ENABLE the transcodes-guard step-up gate across all hosts. " +
             "This tool can only turn protection ON — it deliberately REFUSES " +
             "`enabled=false`. Disabling the gate is a privilege reduction that " +
             "must be a human, out-of-band action (the agent could otherwise " +
@@ -382,7 +382,7 @@ export function createServer() {
         catch (e) {
             return textResult(`Failed to enable gate: ${e instanceof Error ? e.message : String(e)}`, true);
         }
-        return textResult("ai-action-tracker gate ENABLED. Danger commands and protected MCP tools will require step-up MFA again.");
+        return textResult("transcodes-guard gate ENABLED. Danger commands and protected MCP tools will require step-up MFA again.");
     });
     server.registerTool("simulate_hook_invocation", {
         title: "Invoke PreToolUse hook in a controlled subprocess",
@@ -410,7 +410,7 @@ export function createServer() {
                 .string()
                 .min(1)
                 .optional()
-                .describe("Tool name to put in the PreToolUse payload. Defaults to 'Bash'. For MCP tool simulation use the wire name, e.g. 'mcp__plugin_ai-action-tracker_ai-action-tracker__retire_member'."),
+                .describe("Tool name to put in the PreToolUse payload. Defaults to 'Bash'. For MCP tool simulation use the wire name, e.g. 'mcp__plugin_transcodes-guard_transcodes-guard__retire_member'."),
             tool_input: z
                 .unknown()
                 .optional()

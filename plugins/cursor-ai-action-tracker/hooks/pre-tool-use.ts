@@ -16,7 +16,7 @@
  */
 import "../host.js";
 import { readFileSync } from "node:fs";
-import { cursorAdapter } from "@ai-action-tracker/hook-adapters";
+import { cursorAdapter } from "@transcodes-guard/hook-adapters";
 import {
   clearPending,
   consumeVerified,
@@ -30,7 +30,7 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   writePending,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, "utf8");
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
         writePending(decision.pending);
       } catch (err) {
         process.stderr.write(
-          `ai-action-tracker: pending file write failed (deny still emitted): ${err}\n`,
+          `transcodes-guard: pending file write failed (deny still emitted): ${err}\n`,
         );
       }
       process.stderr.write(`${formatStderrTag(decision)}\n`);
@@ -105,6 +105,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  process.stderr.write(`ai-action-tracker hook error: ${err}\n`);
+  process.stderr.write(`transcodes-guard hook error: ${err}\n`);
   process.exit(0);
 });

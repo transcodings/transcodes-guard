@@ -7,7 +7,7 @@
  * tool argument, so tenancy cannot be bypassed.
  */
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { loadStepupConfig } from "@ai-action-tracker/stepup-core";
+import { loadStepupConfig } from "@transcodes-guard/stepup-core";
 import { blockedResult, req } from "./transcodes-client.js";
 
 const textResult = (text: string, isError = false) => ({

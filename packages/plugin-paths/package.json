@@ -1,7 +1,7 @@
 {
-  "name": "@ai-action-tracker/plugin-paths",
+  "name": "@transcodes-guard/plugin-paths",
   "version": "0.1.0",
-  "description": "Host-aware persistent data + cache directory resolution for ai-action-tracker plugins. Single source of truth for CLAUDE_PLUGIN_DATA vs legacy ~/.claude/ai-action-tracker path selection across 4 hosts (Claude Code / Codex / Antigravity / Cursor).",
+  "description": "Host-aware persistent data + cache directory resolution for transcodes-guard plugins. Single source of truth for CLAUDE_PLUGIN_DATA vs legacy ~/.claude/ai-action-tracker path selection across 4 hosts (Claude Code / Codex / Antigravity / Cursor).",
   "private": true,
   "type": "module",
   "main": "dist/index.js",

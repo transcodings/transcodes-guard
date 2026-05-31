@@ -43,7 +43,7 @@
     {
       "id": "tracker-self-disable",
       "regex": "\\btranscodes\\b[^\\n]*\\bdisable\\b",
-      "reason": "Disabling the ai-action-tracker step-up gate — requires human step-up approval (an agent must not silently switch off its own guardrails)"
+      "reason": "Disabling the transcodes-guard step-up gate — requires human step-up approval (an agent must not silently switch off its own guardrails)"
     }
   ]
 }

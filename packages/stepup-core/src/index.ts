@@ -1,5 +1,5 @@
 /**
- * Public surface of @ai-action-tracker/stepup-core.
+ * Public surface of @transcodes-guard/stepup-core.
  *
  * Host-agnostic step-up MFA primitives consumed by every plugin (Claude
  * Code, Codex CLI, ...). Adding a new host means writing a thin hook

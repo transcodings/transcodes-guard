@@ -62,7 +62,7 @@ The stdio transport uses stdin/stdout for JSON-RPC. Anything written to stdout t
 
 Each plugin owns its own `src/stdio.ts` (and the Claude Code plugin additionally owns `src/http.ts`). They should only:
 
-1. Import `createServer` from `@ai-action-tracker/mcp-server-core`.
+1. Import `createServer` from `@transcodes-guard/mcp-server-core`.
 2. Construct a transport instance.
 3. Call `server.connect(transport)`.
 4. Handle process lifecycle (errors, signals).
@@ -104,7 +104,7 @@ if (!pluginRoot) {
 
 ## Self-verification Before "Done"
 
-- `npm run build:plugin` passes (no errors, no new deprecation warnings introduced) **and** all four dist locations are committed in the same change: `packages/*/dist/`, `plugins/claude-code-ai-action-tracker/dist/`, `plugins/codex-ai-action-tracker/dist/`, `plugins/antigravity-ai-action-tracker/dist/`. CI (`git diff --exit-code`) fails on any drift.
+- `npm run build:plugin` passes (no errors, no new deprecation warnings introduced) **and** all five dist locations are committed in the same change: `packages/*/dist/`, `plugins/claude-code-ai-action-tracker/dist/`, `plugins/codex-ai-action-tracker/dist/`, `plugins/antigravity-ai-action-tracker/dist/`, `plugins/cursor-ai-action-tracker/dist/`. CI (`git diff --exit-code`) fails on any drift.
 - New or changed capabilities visible and callable in `npm run inspect`.
 - No `console.log` introduced anywhere reachable from the stdio entry point.
 - Tool `description` strings answer "what does this do" and "when should the model call it" in one or two sentences.

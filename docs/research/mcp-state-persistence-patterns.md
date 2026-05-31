@@ -15,7 +15,7 @@
 | **로컬 JSON/Markdown 파일** | ~25% — 경량 도구·인간가독성 우선 | Anthropic 공식 Memory(JSONL), Basic Memory(Markdown), 본 리포의 `user-patterns.json` |
 | **자사 클라우드 동기화** | ~20% — 멀티디바이스·팀협업 한정 | mem0(cloud, MCP repo는 archived), Zep/Graphiti Cloud, Basic Memory(유료 sync 옵션) |
 
-**핵심 결론:** "로컬 우선(local-first)이 디폴트, 클라우드는 선택적 add-on"이 2026년 현재 MCP 생태계의 컨센서스다. ai-action-tracker가 채택한 `~/.claude/ai-action-tracker/user-patterns.json` 방식은 **JSON 파일 기반(25%)** 카테고리에 정확히 들어가며, 이는 메인스트림과 일치한다.
+**핵심 결론:** "로컬 우선(local-first)이 디폴트, 클라우드는 선택적 add-on"이 2026년 현재 MCP 생태계의 컨센서스다. transcodes-guard가 채택한 `~/.claude/ai-action-tracker/user-patterns.json` 방식은 **JSON 파일 기반(25%)** 카테고리에 정확히 들어가며, 이는 메인스트림과 일치한다.
 
 ---
 
@@ -29,7 +29,7 @@
 |---|---|---|
 | **Anthropic 공식 Memory MCP** | 사용자 지정 디렉토리 | JSONL (line-delimited JSON) |
 | **Basic Memory** (2.8K stars) | 로컬 디렉토리 | **Markdown 파일** — "human-readable local memory"가 셀링포인트 |
-| **ai-action-tracker** (본 리포) | `~/.claude/ai-action-tracker/user-patterns.json` | JSON |
+| **transcodes-guard** (본 리포) | `~/.claude/ai-action-tracker/user-patterns.json` | JSON |
 | **Claude Code skills/agents** | 플러그인 디렉토리 | Markdown (`SKILL.md`) + YAML frontmatter |
 
 **장점:** zero dependency, git diff 친화적, 사용자가 손으로 수정 가능, 디버깅 쉬움.
@@ -82,7 +82,7 @@ ${CLAUDE_PLUGIN_DATA}
 
 플러그인은 이 경로 안에 자유 포맷으로 저장 가능 — JSON, SQLite, Markdown 모두 허용. 즉 **저장 *경로*는 표준화, *포맷*은 개발자 재량**이라는 분업이 공식적인 입장이다.
 
-> ai-action-tracker는 `CLAUDE_PLUGIN_DATA` 대신 `os.homedir() + .claude/ai-action-tracker/`를 직접 결정했는데, 이는 **multi-host(Cursor/Codex/Antigravity와 공유)** 의도가 있기 때문에 의식적인 분기다. `CLAUDE_PLUGIN_DATA`를 따랐다면 Claude Code 안에서만 동작했을 것.
+> transcodes-guard는 `CLAUDE_PLUGIN_DATA` 대신 `os.homedir() + .claude/ai-action-tracker/`를 직접 결정했는데, 이는 **multi-host(Cursor/Codex/Antigravity와 공유)** 의도가 있기 때문에 의식적인 분기다. `CLAUDE_PLUGIN_DATA`를 따랐다면 Claude Code 안에서만 동작했을 것.
 
 ---
 
@@ -90,16 +90,16 @@ ${CLAUDE_PLUGIN_DATA}
 
 | 조건 | 추천 전략 |
 |---|---|
-| 데이터 < 1000개, 사용자가 손으로 편집 | **JSON/Markdown** (ai-action-tracker 케이스 ✓) |
+| 데이터 < 1000개, 사용자가 손으로 편집 | **JSON/Markdown** (transcodes-guard 케이스 ✓) |
 | 의미 검색·embedding 필요 | **Chroma / libSQL with vector** |
 | 풀텍스트 검색만 필요 | **SQLite FTS5** (Engram 패턴) |
 | 멀티 디바이스 동기화 필수 | **libSQL embedded replicas** (로컬+클라우드 하이브리드) |
 | 팀 공유·SaaS 제품화 | **자사 클라우드** (Zep/mem0 모델) |
-| 룰셋·정책 (예: danger-patterns) | **JSON + system/user 2-tier** ← ai-action-tracker 패턴은 이 카테고리의 모범 사례 |
+| 룰셋·정책 (예: danger-patterns) | **JSON + system/user 2-tier** ← transcodes-guard 패턴은 이 카테고리의 모범 사례 |
 
 ---
 
-## 4. ai-action-tracker의 현재 패턴 평가
+## 4. transcodes-guard의 현재 패턴 평가
 
 리서치 결과에 비추어 보면, 현재 구조는 **메인스트림과 정합적**이고 **2가지 강점**이 있다:
 

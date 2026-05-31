@@ -8,12 +8,12 @@
  */
 import "../host.js";
 import { readFileSync } from "node:fs";
-import { codexAdapter } from "@ai-action-tracker/hook-adapters";
+import { codexAdapter } from "@transcodes-guard/hook-adapters";
 import {
   isExpired,
   readPending,
   type PendingState,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 
 const COMPLETION_PATTERN =
   /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
@@ -25,7 +25,7 @@ function buildContext(prompt: string, pending: PendingState): string | null {
       ? "already verified — just retry the original command."
       : "still pending — call poll_stepup_session_wait now to block until verified.";
   return [
-    "ai-action-tracker: user appears to report step-up MFA completion.",
+    "transcodes-guard: user appears to report step-up MFA completion.",
     "",
     `Pending session sid : ${pending.sid}`,
     `Status              : ${pending.status} (${statusNote})`,
@@ -65,7 +65,7 @@ try {
   main();
 } catch (err) {
   process.stderr.write(
-    `ai-action-tracker user-prompt-submit hook error: ${err}\n`,
+    `transcodes-guard user-prompt-submit hook error: ${err}\n`,
   );
   process.exit(0);
 }

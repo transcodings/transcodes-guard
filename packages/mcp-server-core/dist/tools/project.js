@@ -1,4 +1,4 @@
-import { loadStepupConfig } from "@ai-action-tracker/stepup-core";
+import { loadStepupConfig } from "@transcodes-guard/stepup-core";
 import { blockedResult, req } from "./transcodes-client.js";
 const textResult = (text, isError = false) => ({
     isError,

@@ -14,7 +14,7 @@
  */
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { findFirstMatch, findFirstToolRule, loadMergedPatterns, loadMergedToolRules, } from "@ai-action-tracker/danger-patterns";
+import { findFirstMatch, findFirstToolRule, loadMergedPatterns, loadMergedToolRules, } from "@transcodes-guard/danger-patterns";
 import { requestStepup } from "./gate.js";
 import { readVerified } from "./store.js";
 import { isTrackerEnabled, resolveToken, } from "./token-store.js";
@@ -192,7 +192,7 @@ export async function evaluatePreToolUse(input) {
         ? {
             reason: block.reason,
             action: "bash_exec",
-            resource: "ai-action-tracker:pre-tool-use",
+            resource: "transcodes-guard:pre-tool-use",
             fingerprintKey: classified.command,
             comment: `Confirm danger command: ${block.reason}`,
         }

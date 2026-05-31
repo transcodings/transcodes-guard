@@ -1,7 +1,7 @@
 {
-  "name": "@ai-action-tracker/danger-patterns",
+  "name": "@transcodes-guard/danger-patterns",
   "version": "0.1.0",
-  "description": "Bash danger-pattern + MCP tool-rule registry — shared system rules + user CRUD for ai-action-tracker plugins.",
+  "description": "Bash danger-pattern + MCP tool-rule registry — shared system rules + user CRUD for transcodes-guard plugins.",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -19,7 +19,7 @@
     "build": "tsc && mkdir -p dist/data && cp src/data/*.json dist/data/"
   },
   "dependencies": {
-    "@ai-action-tracker/plugin-paths": "*",
+    "@transcodes-guard/plugin-paths": "*",
     "jsonc-parser": "^3.3.1"
   },
   "devDependencies": {

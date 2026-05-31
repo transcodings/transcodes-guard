@@ -8,7 +8,7 @@
  * the rendering; the rest of the body mirrors the codex stop entry.
  */
 import "../host.js";
-import { cursorAdapter } from "@ai-action-tracker/hook-adapters";
+import { cursorAdapter } from "@transcodes-guard/hook-adapters";
 import {
   clearPending,
   consumeVerified,
@@ -16,11 +16,11 @@ import {
   readPending,
   readVerified,
   type PendingState,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 
 function reminderFor(pending: PendingState): string {
   return [
-    "ai-action-tracker: a step-up MFA session is still PENDING. The Shell",
+    "transcodes-guard: a step-up MFA session is still PENDING. The Shell",
     "command it gated was NOT executed. Resume the loop or report to the",
     "user that authentication is still required.",
     "",
@@ -63,6 +63,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  process.stderr.write(`ai-action-tracker stop hook error: ${err}\n`);
+  process.stderr.write(`transcodes-guard stop hook error: ${err}\n`);
   process.exit(0);
 });

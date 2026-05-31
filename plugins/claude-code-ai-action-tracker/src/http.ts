@@ -1,7 +1,7 @@
 import "../host.js";
 import http from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { createServer } from "@ai-action-tracker/mcp-server-core";
+import { createServer } from "@transcodes-guard/mcp-server-core";
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -23,6 +23,6 @@ const httpServer = http.createServer(async (req, res) => {
 
 httpServer.listen(PORT, () => {
   console.error(
-    `ai-action-tracker-mcp: Streamable HTTP at http://localhost:${PORT}/mcp`,
+    `transcodes-guard-mcp: Streamable HTTP at http://localhost:${PORT}/mcp`,
   );
 });

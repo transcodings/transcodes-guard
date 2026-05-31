@@ -9,13 +9,13 @@ import {
   isTrackerEnabled,
   readPending,
   resolveToken
-} from "../chunk-BS7DXSV5.js";
+} from "../chunk-ZZZI4476.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";
 function primerMessage(pending) {
   const base = [
-    "ai-action-tracker step-up MFA protocol primer:",
+    "transcodes-guard step-up MFA protocol primer:",
     "",
     "When a PreToolUse hook denies a shell or MCP tool call with reason",
     "mentioning Step-up MFA, the command was BLOCKED and did NOT execute.",
@@ -50,7 +50,7 @@ function userDoneNotice(pending, matchedContent) {
   const trimmed = matchedContent.length > 80 ? matchedContent.slice(0, 77) + "..." : matchedContent;
   const statusNote = pending.status === "verified" ? "already verified \u2014 just retry the original command." : "still pending \u2014 call poll_stepup_session_wait now to block until verified.";
   return [
-    `ai-action-tracker: user message matched completion pattern ("${trimmed}").`,
+    `transcodes-guard: user message matched completion pattern ("${trimmed}").`,
     "",
     `Pending session sid : ${pending.sid}`,
     `Status              : ${pending.status} (${statusNote})`,
@@ -96,7 +96,7 @@ try {
   main();
 } catch (err) {
   process.stderr.write(
-    `ai-action-tracker pre-invocation hook error: ${err}
+    `transcodes-guard pre-invocation hook error: ${err}
 `
   );
   process.exit(0);

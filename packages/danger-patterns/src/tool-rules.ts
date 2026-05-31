@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { parse as parseJsonc } from "jsonc-parser";
-import { dataDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+import { dataDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
 // System rules embedded at build time — see the matching note in
 // danger-patterns.ts (bundlers inline this; a runtime path read breaks once the
 // plugin is bundled by tsup).
@@ -29,7 +29,7 @@ export interface ToolRule {
   reason: string;
   /** Backend audit-log action identifier (e.g. "retire_member"). */
   stepupAction: string;
-  /** Backend audit-log resource identifier (e.g. "ai-action-tracker:mcp:members"). */
+  /** Backend audit-log resource identifier (e.g. "transcodes-guard:mcp:members"). */
   stepupResource: string;
   /** When true, the PreToolUse hook consumes the verified record itself on the
    * fast-path (Bash-like). When false, consume is deferred to the tool handler

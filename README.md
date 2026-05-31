@@ -1,554 +1,122 @@
-# ai-action-tracker-mcp
+# transcodes-guard
 
-Claude Code가 실행하려는 위험한 Bash 명령을 *실행 직전에* 가로채 Transcodes **Step-up MFA** 인증을 요구하는 PreToolUse hook + MCP 서버. WebAuthn 인증을 완료한 명령만 통과합니다.
+AI 코딩 에이전트(Claude Code / Codex / Antigravity / Cursor)가 실행하려는 **위험한 셸 명령을 실행 직전에 가로채** Transcodes **Step-up MFA**(WebAuthn) 인증을 요구하는 PreToolUse hook + MCP 서버입니다. 인증을 통과한 명령만 실행됩니다.
 
-> 이 프로젝트가 답하는 질문: **"Claude Code가 `rm -rf` 같은 위험 명령을 실행하기 전에 어떻게 멈추지?"**
+> 답하는 질문: **"에이전트가 `rm -rf` 같은 위험 명령을 실행하기 전에 어떻게 멈추지?"**
 
-> 📦 **Claude Code Plugin으로 배포 중** — `/plugin install` 두 줄로 설치 끝. 아래 [빠른 시작](#-빠른-시작--plugin-설치--5분-튜토리얼) 참고.
-
-세 가지 활용 트랙이 있고 각각 독립적으로 도입 가능합니다.
+GitHub 리포는 `transcodings/ai-action-tracker-mcp`, 배포 제품명·플러그인은 `transcodes-guard`입니다. 4개 호스트가 **하나의 git 리포**에서 빌드된 같은 코어를 각자 네이티브 방식으로 설치합니다.
 
 ---
 
-## 🛠️ 로컬 설치 (원격 배포 전 임시)
+## 동작 방식 (한눈에)
 
-> ⚠️ 이 plugin은 **아직 원격 marketplace에 배포되지 않았습니다.** 클론한 리포지토리의 로컬 경로를 Claude Code에 직접 매핑해서 사용합니다. 원격 배포가 시작되면 아래 [Plugin 설치](#-빠른-시작--plugin-설치--5분-튜토리얼)의 GitHub 방식으로 전환됩니다.
+1. 에이전트가 Bash 명령(또는 보호된 MCP 도구)을 호출하려 함.
+2. PreToolUse hook이 위험 패턴(정규식 + `rm -rf` git-추적 의미 분석) 또는 보호 도구를 감지 → **차단**하고 WebAuthn 인증 URL을 띄움.
+3. 사용자가 브라우저에서 WebAuthn 완료 → 에이전트가 MCP 도구 `poll_stepup_session_wait`(서버측 long-polling)로 검증 확인.
+4. 검증된 상태에서 **같은 명령을 재시도**하면 hook이 통과시킴(단발 — 다음 위험 명령은 다시 인증).
 
-### 1) 클론 + 빌드
-
-```bash
-git clone <repo-url>
-cd ai-action-tracker
-npm install              # workspaces hoist (packages/* + plugins/*)
-npm run build:plugin     # turbo: packages/*/dist + plugins/*/dist 산출
-```
-
-### 2) Claude Code에 등록 (셸에서, 두 줄)
-
-```bash
-claude plugin marketplace add "$(pwd)"
-claude plugin install ai-action-tracker@ai-action-tracker
-```
-
-`$(pwd)`가 현재 클론 디렉터리의 절대경로로 치환되므로 머신·계정과 무관하게 동작합니다 (`.claude-plugin/marketplace.json`이 있는 위치를 그대로 marketplace로 등록). 새 Claude Code 세션부터 PreToolUse hook + MCP 서버가 활성됩니다. `claude plugin list`로 상태 확인.
-
-### 3) 소스 수정 후 재반영
-
-```bash
-npm run build:plugin
-```
-
-새 세션을 열면 갱신된 dist가 자동 로드됩니다. plugin uninstall/install 불필요.
+차단은 **fail-safe**, 위험 매칭 전의 오류는 **fail-open**(안전 명령을 막지 않음). 상세 설계: [`docs/architecture.md`](./docs/architecture.md).
 
 ---
 
-## 🚀 빠른 시작 — Plugin 설치 + 5분 튜토리얼
+## 설치
 
-이 프로젝트는 **Claude Code plugin**으로 패키징되어 있습니다. 리포지토리 자체가 marketplace 역할을 하며, 별도 인증·호스팅 없이 GitHub만으로 배포됩니다.
+### Claude Code (메인)
 
-### 설치 (두 줄)
-
-Claude Code 세션 안에서:
+마켓플레이스 = 이 리포. 세션 안에서 두 줄:
 
 ```
 /plugin marketplace add transcodings/ai-action-tracker-mcp
-/plugin install ai-action-tracker@ai-action-tracker
+/plugin install transcodes-guard@bigstrider
 ```
 
-설치 즉시 PreToolUse hook + MCP 서버가 활성됩니다. 추가 설정 불필요.
+`dist/`가 리포에 커밋돼 있어 클론 즉시 설치됩니다. 사내/팀 한정이면 리포를 private로 두고 접근 권한이 있는 멤버만 설치하면 됩니다(설치 시점에 각자의 git 자격으로 clone). 끄려면 네이티브 `/plugin disable transcodes-guard`.
 
-### 5분 튜토리얼
-
-**1단계 — 마켓플레이스 등록** *(머신당 1회)*
-```
-/plugin marketplace add transcodings/ai-action-tracker-mcp
-```
-GitHub의 `transcodings/ai-action-tracker-mcp` 리포지토리를 marketplace 카탈로그로 등록. `~/.claude`에 메타데이터만 캐시되고 plugin 본체는 아직 다운로드되지 않습니다.
-
-**2단계 — plugin 설치**
-```
-/plugin install ai-action-tracker@ai-action-tracker
-```
-plugin 본체가 `~/.claude/plugins/cache/...`로 복사되고 hook + MCP 서버가 자동 활성. `/plugin list`로 설치 상태 확인 가능.
-
-**3단계 — 위험 명령 차단 동작 확인**
-
-테스트용 임시 디렉터리에서 Claude에게 시켜봅니다:
-> "src 폴더를 지워봐"
-
-Claude가 `rm -rf src`를 시도하면 hook이 즉시 가로챕니다:
-
-```
-⛔ ai-action-tracker: BLOCKED dangerous command
-
-Reason: rm -rf would delete 3 file(s) tracked in git
-
-Affected:
-  - src — 3 tracked file(s): src/http.ts, src/server.ts, src/stdio.ts
-
-Command: rm -rf src
-```
-
-명령은 실행되지 않고 stderr가 Claude에게 피드백되어, 모델이 "차단됐다"는 사실을 인지합니다.
-
-**4단계 — MCP tool 호출**
-
-같은 세션에서:
-> "echo tool로 'hello plugin' 보내봐"
-
-→ Claude가 `echo` MCP tool을 호출하고 `Echo: hello plugin` 응답을 받습니다. `danger-patterns://list` 리소스(현재 차단 패턴 목록), `greeting` 프롬프트도 동일하게 사용 가능.
-
-**5단계 — 비활성화 / 제거**
-
-두 가지 끄는 방법이 있습니다:
-
-- **런타임 kill-switch (권장, 모든 호스트 공통)** — hook과 step-up 게이트를 세션 재로드 없이 즉시 끕니다. Claude Code뿐 아니라 Codex/Antigravity/Cursor에서도 동일하게 동작합니다.
-
-  ```
-  transcodes disable     # 게이트 OFF — Bash + MCP tool 차단 해제 (다음 hook부터 적용)
-  transcodes enable      # 게이트 ON — 다시 step-up MFA 요구
-  transcodes status      # 현재 게이트 상태 + 토큰 확인
-  ```
-
-  > **보안상 disable은 사람만 가능합니다.** 게이트를 끄는 것은 보호를 약화시키는 행위라 반드시 사람의 터미널 입력(out-of-band)이어야 합니다. 그렇지 않으면 프롬프트 인젝션당한 에이전트가 스스로 가드레일을 해제할 수 있기 때문입니다. 그래서:
-  > - MCP tool `set_tracker_enabled`는 **재활성화(true)만** 허용하고 `false`는 거부합니다. `get_tracker_status`로 상태 조회는 가능합니다.
-  > - 에이전트가 Bash로 `transcodes disable`을 실행하려 하면 그 자체가 step-up MFA로 차단됩니다(system 패턴 `tracker-self-disable`). 사람이 자기 터미널에서 직접 친 `transcodes disable`은 hook이 없으므로 그대로 동작합니다.
-  >
-  > 상태는 `~/.transcodes/config.json`의 `enabled` 플래그에 저장되며, 플래그가 없거나 파일이 손상되면 **활성(켜짐)** 으로 간주합니다.
-
-- **Claude Code 네이티브 (완전 언로드)** — plugin의 hook+MCP를 통째로 내립니다. Claude Code 전용입니다.
-
-  ```
-  /plugin disable ai-action-tracker                       # 일시 비활성화 (/reload-plugins로 적용)
-  /plugin uninstall ai-action-tracker@ai-action-tracker   # 완전 제거
-  ```
-
-### 팀 단위 자동 설치
-
-프로젝트 `.claude/settings.json`에 다음을 커밋하면 팀원이 클론할 때 자동 등록됩니다:
+팀 자동 등록은 프로젝트 `.claude/settings.json`에:
 
 ```json
 {
-  "extraKnownMarketplaces": [
-    { "source": "github", "repo": "transcodings/ai-action-tracker-mcp" }
-  ],
-  "enabledPlugins": ["ai-action-tracker@ai-action-tracker"]
+  "extraKnownMarketplaces": [{ "source": "github", "repo": "transcodings/ai-action-tracker-mcp" }],
+  "enabledPlugins": ["transcodes-guard@bigstrider"]
 }
 ```
 
-### Plugin을 사용하지 않는 경우 (수동 설치)
+### 그 외 호스트 (npm 미사용 — 각자 네이티브 방식)
 
-plugin 시스템 없이 hook만 직접 등록하려면 [`docs/hook-installation.md`](./docs/hook-installation.md) 참고. plugin 변환의 설계 근거는 [`docs/research/claude-code-plugin-marketplace-strategy.md`](./docs/research/claude-code-plugin-marketplace-strategy.md).
-
----
-
-## 트랙 A. Claude Code를 더 안전하게 (⭐ 메인 기능)
-
-PreToolUse hook을 등록하면 위험 Bash 명령이 *실행 직전에* 차단됩니다. `--dangerously-skip-permissions` 모드에서도 작동.
-
-### 차단되는 명령 (system 정규식 9개 + user 추가 패턴 + git tracked 의미 분석)
-
-| 종류 | 차단 예시 |
-|------|----------|
-| 절대경로/HOME 재귀 삭제 | `rm -rf /etc`, `rm -rf ~/Documents`, `rm -rf $HOME/data` |
-| Bare glob 재귀 삭제 | `rm -rf *` |
-| 디스크 직접 쓰기 | `dd if=/dev/zero of=/dev/sda` |
-| 파일시스템 생성 | `mkfs.ext4 /dev/sdz` |
-| 원격 스크립트 셸 실행 | `curl https://... \| bash`, `wget ... \| sh` |
-| Fork bomb | `:(){ :\|:& };:` |
-| 절대경로 재귀 chmod | `chmod -R 777 ~/.ssh` |
-| 보호 브랜치 force push | `git push --force origin main` |
-| **Git tracked 파일 재귀 삭제** | `rm -rf src` (의미 분석으로 차단 — 정규식엔 안 걸림) |
-
-### Step-up MFA 게이트
-
-위험 명령이 매칭되면 hook은 즉시 거부하지 않고 Transcodes 백엔드에 step-up 세션을 만들고 브라우저를 자동으로 띄운 뒤, **agent에게 결정론적으로 핸드오프**합니다(폴링은 hook이 아니라 MCP tool이 담당). hook은 stdout에 v2 JSON `permissionDecision: "deny"`를 emit하고 즉시 exit 0:
-
-```jsonc
-// stdout (모델 컨텍스트로 주입)
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "deny",
-    "permissionDecisionReason": "Step-up MFA pending. sid=tc_stepup_.... Open https://.../?tc_mode=stepup&sid=... , complete WebAuthn, then call MCP tool `poll_stepup_session_wait` with sid=\"...\" and retry the same Bash command."
-  },
-  "systemMessage": "🔐 BLOCKED — Step-up MFA required. ...\n1. Tell the user...\n2. Immediately call poll_stepup_session_wait...\n3. On outcome:verified retry..."
-}
-```
-
-(stderr에는 사용자 가독용 1줄 요약만: `ai-action-tracker: STEPUP-PENDING sid=… — rm -rf src`)
-
-agent는 즉시 `poll_stepup_session_wait` MCP tool을 호출. 이 tool이 서버측에서 최대 60초 long-polling 후 `outcome: "verified"` 또는 `"timeout"`을 반환합니다 — 한 번의 호출이 60회 폴링 루프를 대체합니다. verified 응답에 대해 agent가 동일 Bash 명령을 재시도하면, hook의 **fast-path가 `permissionDecision: "allow"` JSON을 명시적으로 emit**해 통과(이 명시적 allow가 `settings.json` deny 규칙·내장 safety까지 override). 검증 기록은 즉시 소비됩니다 — **단일-shot**, 다음 위험 명령은 새 MFA 필요.
-
-필요 환경변수:
-
-| 변수 | 필수 | 기본값 |
-|------|------|--------|
-| `TRANSCODES_TOKEN` | ✅ | Member MCP JWT (oid/pid/mid/exp claims 필수, aud=`transcodes-mcp` 권장). 미설정 시 hook은 deny JSON에 "no-token" 사유 명시 후 BLOCKED. |
-| `TRANSCODES_BACKEND_URL` | – | `https://api.transcodesapis.com` |
-
-같은 흐름을 MCP tool로 직접 구동하는 것도 가능 — `create_stepup_session` → `poll_stepup_session_wait`. Claude가 사전에 한 번 MFA를 통과시켜두는 워크플로우.
-
-### 차단 시 보이는 메시지
-
-두 채널을 분리해 출력합니다.
-
-**모델이 보는 컨텍스트** (`hookSpecificOutput.permissionDecision` + `systemMessage`, stdout JSON):
-
-```
-🔐 BLOCKED — Step-up MFA required. This Bash command was NOT executed.
-
-Reason : rm -rf would delete 3 file(s) tracked in git
-Command: rm -rf src
-
-A browser tab has been opened automatically:
-  https://prd-test-next.vercel.app/?tc_mode=stepup&sid=tc_stepup_…
-
-Session id: tc_stepup_…
-
-Agent — drive the step-up loop (do this WITHOUT asking the user for confirmation):
-  1. Tell the user (one short line) to complete WebAuthn in the opened tab …
-  2. Immediately call the MCP tool `poll_stepup_session_wait` with sid="…".
-  3. On `outcome: "verified"` retry the SAME Bash command — …
-```
-
-**사용자가 터미널에서 보는 한 줄** (stderr):
-
-```
-ai-action-tracker: STEPUP-PENDING sid=tc_stepup_… — rm -rf src
-```
-
-정규식 차단 + step-up 미구성(no token):
-
-```
-# stderr
-ai-action-tracker: BLOCKED (no token) — dd if=/dev/zero of=/dev/sda
-```
-
-(stdout JSON의 `permissionDecisionReason`에는 `Bash blocked by ai-action-tracker: matched system pattern \`dd-disk\` — Direct write to block device. Step-up MFA gate is not configured (TRANSCODES_TOKEN missing). …` 형식으로 명시.)
-
-### 설치
-
-권장: 위 [빠른 시작](#-빠른-시작--plugin-설치--5분-튜토리얼)의 plugin 설치(두 줄). 수동 hook 등록은 [`docs/hook-installation.md`](./docs/hook-installation.md).
-
-### Hook 두 단계 검사
-
-```
-모델이 Bash 호출
-    ↓
-1차: 정규식 패턴 (hooks/danger-patterns.json)
-    ↓ 매칭 안 됨
-2차: rm -rf 의미 분석 (cwd 기준 절대경로 + git ls-files)
-    ↓ 둘 다 통과
-명령 실행 허용
-```
-
-- **1차 (regex)**: `rm -rf /`, `dd`, `curl|bash` 등 *형태가 명백히 위험*한 명령. 빠르고 결정적.
-- **2차 (semantic)**: `rm -rf src` 같은 상대경로를 cwd 기준 절대경로로 정규화 후 git이 추적하는 파일이 포함되면 차단. 정규식이 못 잡는 사각지대 보강.
-
-### 패턴 커스터마이징 (재빌드 불필요)
-
-두 가지 경로가 있고 각각 다른 신뢰 레벨에 매핑됩니다.
-
-**1) System 패턴** — 플러그인이 배포하는 immutable 차단 룰. `plugins/ai-action-tracker/hooks/danger-patterns.json`을 편집하면 런타임 read이라 즉시 반영. plugin dist에도 동기화하려면 `npm run build:plugin`. 팀이 합의한 핵심 룰 위치.
-
-**2) User 패턴** — 개인 머신의 추가 룰. 저장 위치는 host별로 다르다 (자세히는 [데이터 저장 위치](#-데이터-저장-위치) 섹션):
-
-- **Claude Code**: `~/.claude/plugins/data/{plugin-id}/user-patterns.json` (Anthropic 공식 plugin-data 디렉토리)
-- **Codex / Antigravity / Cursor**: `~/.claude/ai-action-tracker/user-patterns.json` (legacy host-agnostic 경로)
-
-포맷은 **JSONC** — `//` 주석과 trailing comma를 허용하므로 룰을 한 줄 주석 처리해 임시 비활성화 가능 (MCP tool로 재작성 시 주석은 보존되지 않음). **MCP tool로 관리**(직접 편집 가능하지만 권장은 도구):
-
-```
-add_user_pattern    { id, regex, reason }   # 신규 등록
-update_user_pattern { id, regex?, reason? } # 기존 수정
-remove_user_pattern { id }                  # 삭제
-```
-
-JSON 스키마는 둘 다 동일:
-
-```json
-{
-  "patterns": [
-    {
-      "id": "no-sudo",
-      "regex": "\\bsudo\\b",
-      "reason": "sudo invocation requires manual review"
-    }
-  ]
-}
-```
-
-**주의**: `simulate_command` MCP tool로 미리 검증 가능합니다. 다만 user 패턴은 시뮬레이터에서는 매칭되지만 **Claude Code의 실제 PreToolUse hook 트리거는 system 패턴에서만 보장**됩니다 (Claude Code 자체의 hook routing이 system regex에 더 결정론적으로 반응). `simulate_command` 응답의 `will_trigger_hook` 필드가 이를 명시.
-
-### 알려진 한계
-
-- Shell quoting 미인식 — `echo "rm -rf /"` 같은 *문자열 안 패턴*도 차단됨(false positive 가능).
-- 정규식 우회(quote 분할, 변수 치환) 일부 가능 — 1차 방어선 한계.
-- 비-git 디렉터리에서는 의미 분석 skip.
-
----
-
-## 🗂️ 데이터 저장 위치
-
-모든 로컬 상태는 **`~/.transcodes/` 한 곳**에 저장됩니다 — CLI(`@bigstrider/transcodes-cli`)가 `config.json`(토큰 + enable 플래그)을 두는 바로 그 폴더입니다. 호스트(Claude Code / Codex / Antigravity / Cursor) 구분 없이 동일합니다.
-
-| 파일 | 종류 | 위치 |
+| 호스트 | 설치 | 가이드 |
 |---|---|---|
-| `config.json` | 토큰 + enable 플래그 (CLI 소유) | `~/.transcodes/` |
-| `user-patterns.json` | 사용자 룰 (JSONC) | `~/.transcodes/state/` |
-| `user-tool-rules.json` | 사용자 MCP 룰 (JSONC) | `~/.transcodes/state/` |
-| `stepup-verified.json` | Step-up verified 단발 record | `~/.transcodes/state/` |
-| `stepup-pending.json` | 진행 중 step-up 세션 | `~/.transcodes/state/` |
-| `stepup-browser-lock.json` | 동시 브라우저 launch 락 | `~/.transcodes/state/` |
+| OpenAI Codex CLI | Codex 네이티브 마켓플레이스(git) + `config.toml` hooks | [`plugins/codex-ai-action-tracker/README.md`](./plugins/codex-ai-action-tracker/README.md) |
+| Google Antigravity 2.0 | `agy plugin install <git-url>` | [`plugins/antigravity-ai-action-tracker/README.md`](./plugins/antigravity-ai-action-tracker/README.md) |
+| Cursor IDE | `install.sh` (`.cursor/hooks.json` + `mcp.json` 작성) | [`plugins/cursor-ai-action-tracker/README.md`](./plugins/cursor-ai-action-tracker/README.md) |
 
-CLI의 `config.json`과 plugin 런타임 상태가 한 디렉토리 리스팅에서 섞이지 않도록 후자는 `state/` 하위에 둡니다. `~/.transcodes/`는 홈 디렉토리에 있어 plugin 업데이트와 무관하게 보존되며, 한 폴더만 보면 토큰부터 게이트 상태까지 전부 확인·삭제할 수 있습니다.
-
-**자동 마이그레이션**: 이전(통합 전) 빌드를 쓰던 사용자의 파일이 옛 위치(`$CLAUDE_PLUGIN_DATA/`, `~/.claude/ai-action-tracker/`, OS 캐시 디렉토리)에 있으면, 첫 hook/MCP 호출 시 `~/.transcodes/state/`로 자동 복사되고 원본은 `*.bak`로 rename됩니다 (idempotent — 재실행 안전).
-
-자세한 배경과 리서치는 [`docs/research/mcp-state-persistence-patterns.md`](./docs/research/mcp-state-persistence-patterns.md) 참고.
+호스트별 배포 메커니즘 정리: [`docs/research/multi-host-plugin-distribution.md`](./docs/research/multi-host-plugin-distribution.md). plugin 없이 hook을 수동 등록하려면: [`docs/hook-installation.md`](./docs/hook-installation.md).
 
 ---
 
-## 트랙 B. MCP 서버 즉시 체험
+## 무엇이 차단되나
 
-Plugin을 설치하지 않고 dev 모드로 MCP 서버를 띄우려면 다음 두 명령으로 충분합니다.
+- **Bash 정규식**: `rm -rf /`·`rm -rf *`·`mkfs`·`dd of=/dev/…`·`curl … | bash`·fork bomb·`chmod -R … ~/`·보호 브랜치 force-push 등(system 패턴) + 사용자 추가 패턴.
+- **`rm -rf <상대경로>` 의미 분석**: cwd 기준으로 풀어 `git ls-files`로 추적 파일 포함 시 차단 — 정규식이 못 잡는 사각지대.
+- **보호된 MCP 도구**: `retire_member` 등 민감 도구(`tool-rules.json`).
+
+패턴 커스터마이징(재빌드 불필요): MCP 도구 `add_user_pattern` / `add_tool_rule` 또는 사용자 JSONC 파일(`//` 주석·trailing comma 허용). 시스템 패턴은 빌드에 임베드됩니다. 미리 확인은 `simulate_command` / `simulate_hook_invocation` / `inspect_stepup_state`.
+
+**알려진 한계**: 셸 quoting 미인식(`echo "rm -rf /"`도 매칭될 수 있음), 정규식 우회 일부 가능(1차 방어선), 비-git 디렉토리에선 의미 분석 skip.
+
+---
+
+## 전역 on/off — `transcodes` CLI
+
+게이트는 `~/.transcodes/config.json`의 `enabled` 플래그로 켜고 끕니다(`@bigstrider/transcodes-cli`가 관리). **파일 부재·손상 시 활성(true)** 기본 — 보안 게이트가 조용히 꺼지지 않도록.
 
 ```bash
-git clone <repo>
-cd ai-action-tracker
-npm install              # workspaces hoist
-npm run dev:stdio        # tsx 핫리로드 — Inspector/외부 클라이언트가 stdio로 직접 접속
+transcodes status     # 현재 상태
+transcodes enable     # 켜기
+transcodes disable    # 끄기 (사람이 직접 — 에이전트는 불가, 아래)
+transcodes tokens     # step-up 백엔드 토큰 관리
+transcodes            # 무인자 → GUI 대시보드
 ```
 
-또는 컴파일된 dist를 직접 MCP 클라이언트에 등록:
+**비대칭(보안 핵심)**: enable은 에이전트가 해도 안전하지만, **disable은 사람의 out-of-band 행동만** 허용합니다 — 에이전트가 셸로 `transcodes disable`을 시도하면 자체 패턴(`tracker-self-disable`)이 step-up으로 막고, MCP `set_tracker_enabled`는 `false`를 거부합니다. 사람이 자기 터미널에서 친 `transcodes disable`만 동작합니다(hook 없음).
+
+---
+
+## 데이터 저장 위치
+
+모든 로컬 상태는 `~/.transcodes/state/`에 통합 저장됩니다(킬스위치 `config.json`과 같은 제품 홈). 사용자 룰(`user-patterns.json` 등)·step-up 상태(`stepup-pending.json` 등)가 여기 있습니다. 과거 경로(`$CLAUDE_PLUGIN_DATA`, `~/.claude/ai-action-tracker/`, OS 캐시)는 첫 호출 시 자동 마이그레이션 소스로만 남습니다(원본은 `*.bak`). 배경: [`docs/research/mcp-state-persistence-patterns.md`](./docs/research/mcp-state-persistence-patterns.md).
+
+---
+
+## 릴리스 (발행은 보류)
+
+`.github/workflows/release.yml`은 **release-please 자동화만** 수행합니다: main의 conventional commit → Release PR → 머지 시 버전 bump + 루트 `CHANGELOG.md` + git tag(`transcodes-guard-vX.Y.Z`). **실제 npm publish/배포 단계는 없습니다** — 배포 채널을 아직 확정하지 않았기 때문입니다(npm은 Claude Code 한정 선택 채널, 나머지는 git+네이티브). 기능 개발 동안 버전·CHANGELOG·tag 기록만 유지되고, 채널이 정해지면 publish 단계를 추가합니다. 정리: [`docs/research/multi-host-plugin-distribution.md`](./docs/research/multi-host-plugin-distribution.md).
+
+---
+
+## 개발
 
 ```bash
-npm run build:plugin
-claude mcp add ai-action-tracker -- node plugins/ai-action-tracker/dist/src/stdio.js
+npm install            # 워크스페이스 설치
+npm run build:plugin   # 빌드 + dist 동기화 (5곳: packages/* + 4 plugins)
+npm run dev:stdio      # stdio 트랜스포트 핫리로드 (Inspector·외부 MCP 클라이언트)
+npm run dev:http       # Streamable HTTP, :3000/mcp
+npm run dev:hook       # PreToolUse hook 단발 실행 (stdin JSON)
+npm run inspect        # MCP Inspector UI
 ```
 
-세션에서 호출 가능한 capability (12개, 용도별 그룹):
-
-**패턴 정책 (system + user 2-tier)**
-
-| 종류 | 이름 | 설명 |
-|------|------|------|
-| Resource | `danger-patterns://list` | 현재 system 패턴(`hooks/danger-patterns.json`) + user 패턴(host별 `user-patterns.json` — [데이터 저장 위치](#-데이터-저장-위치))을 merge해 markdown 표로 반환. 런타임 read이라 편집 즉시 반영. |
-| Tool | `simulate_command` | 특정 Bash 명령이 regex 레이어에 걸리는지 dry-run. user 패턴은 시뮬레이터에선 매칭되지만 실제 hook 트리거는 system 패턴만 보장 — `will_trigger_hook` 필드로 구분. |
-| Tool | `add_user_pattern` | 신규 user 패턴 등록 (`id` 충돌·system ID reserved·regex compile 검증). 즉시 hook에 반영. |
-| Tool | `update_user_pattern` | 기존 user 패턴 regex/reason 변경. system 패턴은 수정 불가. |
-| Tool | `remove_user_pattern` | user 패턴 삭제. system 패턴은 삭제 불가. |
-
-**Step-up MFA 라이프사이클**
-
-| 종류 | 이름 | 설명 |
-|------|------|------|
-| Tool | `create_stepup_session` | Transcodes 백엔드에 step-up 세션 생성. sid + browser URL 반환 (TRANSCODES_TOKEN 필요). |
-| Tool | `poll_stepup_session_wait` | **권장**. 서버측 long-polling — 단일 호출이 verified 또는 timeout까지 블로킹(기본 60s, max 300s). PreToolUse deny 후 후속 액션은 항상 이쪽. |
-| Tool | `poll_stepup_session` | 단발 GET. 진단·디버깅 전용. 운영 흐름에선 `_wait`을 쓸 것. |
-
-**진단 (결정론적 상태 검증)**
-
-| 종류 | 이름 | 설명 |
-|------|------|------|
-| Tool | `inspect_stepup_state` | `stepup-verified.json` / `stepup-pending.json` / `stepup-browser-lock.json` 3개 파일의 read-only 스냅샷. 서버측에서 `age_ms` / `expired` / `ttl_ms` 계산해 반환 — agent가 timestamp 산수 안 해도 됨. **부수효과 없음** (consume·rewrite 안 함). |
-| Tool | `simulate_hook_invocation` | PreToolUse hook 바이너리를 controlled subprocess로 spawn해 stdin payload·exit code·state 전후 diff를 한 응답으로 반환. **dry-run 아님** — 위험 패턴 매칭 시 실제로 step-up 세션을 만들고 브라우저를 열 수 있음. 통합 테스트 용도. |
-
-**기타**
-
-| 종류 | 이름 | 설명 |
-|------|------|------|
-| Tool | `echo` | placeholder. 입력을 그대로 돌려줌. |
-| Prompt | `greeting` | placeholder. `name`을 받아 인사 템플릿 생성. |
-
-> 향후 secrets 검사·MCP 서버 위험 프로파일 등의 advisory tool 예정 — [`docs/prd/`](./docs/prd/) 참고.
-
-### 브라우저 UI로 직접 호출 (Inspector)
-
-```bash
-npm run inspect
-```
-
-MCP Inspector가 떠서 도구·리소스·프롬프트를 폼으로 호출해볼 수 있습니다.
-
-### 다른 위치에서 등록 (전역 / 데스크톱)
-
-`.mcp.json` 외에도 다음 방식으로 등록 가능:
-
-**Claude Code CLI 전역 등록:**
-```bash
-claude mcp add --transport stdio ai-action-tracker -- node /ABS/PATH/plugins/ai-action-tracker/dist/src/stdio.js
-```
-
-**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-```json
-{
-  "mcpServers": {
-    "ai-action-tracker": {
-      "command": "node",
-      "args": ["/ABS/PATH/plugins/ai-action-tracker/dist/src/stdio.js"]
-    }
-  }
-}
-```
-
-**원격 Streamable HTTP** (배포 후):
-```bash
-claude mcp add --transport http ai-action-tracker https://your-host.example.com/mcp
-```
-
----
-
-## 트랙 C. 자신만의 도구 추가하기
-
-이 리포지토리는 transport-agnostic MCP 서버 스캐폴드를 제공합니다 — 모든 capability(tool/resource/prompt)는 `plugins/ai-action-tracker/src/server.ts` 한 파일에서 관리되며, stdio·HTTP 양쪽으로 동시에 노출됩니다.
-
-step-by-step 가이드: [`docs/adding-capabilities.md`](./docs/adding-capabilities.md)
-
-설계 의도(왜 transport 분리, 왜 Streamable HTTP, 인증 미비점): [`docs/architecture.md`](./docs/architecture.md)
-
----
-
-## 실행 명령 cheat sheet
-
-루트에서 모든 명령 실행 가능. `build:*`는 Turborepo, `dev:*`/`inspect`는 npm workspaces로 dispatch.
-
-```bash
-npm install            # workspaces hoist (루트에서 한 번)
-npm run build          # turbo run build → plugins/ai-action-tracker/dist/
-npm run build:plugin   # turbo run build:plugin (danger-patterns.json 동기화 포함)
-
-# MCP 서버 (stdio, 로컬)
-npm run dev:stdio      # tsx로 즉시 실행
-npm -w plugins/ai-action-tracker run start:stdio   # 빌드된 산출물
-
-# MCP 서버 (Streamable HTTP, 원격)
-npm run dev:http       # localhost:3000/mcp
-
-# Hook (단발 실행 — stdin JSON 필요)
-npm run dev:hook       # 개발용
-
-# Inspector (디버그 UI)
-npm run inspect
-```
-
-요구 사항: Node.js >= 20. CI(`.github/workflows/ci.yml`)는 `build:plugin` 후 `git diff --exit-code plugins/ai-action-tracker/dist/`로 dist 동기성 + hook smoke test로 정합성을 검증.
-
----
-
-## 디렉터리 구조
-
-```
-/                            # 루트 = marketplace + monorepo orchestrator
-  .claude-plugin/
-    marketplace.json         #   Marketplace 카탈로그 — 이 리포가 곧 marketplace
-  package.json               #   private. workspaces + turbo orchestrator
-  turbo.json                 #   task pipeline (build, build:plugin)
-  .github/workflows/ci.yml   #   build sync + hook smoke test
-plugins/
-  ai-action-tracker/         # 배포 단위 plugin 패키지 — 단일 진실원천
-    .claude-plugin/plugin.json   # plugin 매니페스트
-    .mcp.json                #   MCP 서버 등록 (${CLAUDE_PLUGIN_ROOT})
-    package.json             #   진짜 npm metadata (name, main, bin, files, deps)
-    tsconfig.json            #   tsc rootDir = plugin root
-    src/                     #   MCP 서버 소스 (transport-agnostic)
-      server.ts              #     createServer() — 모든 capability 정의처
-      stdio.ts               #     로컬 진입점
-      http.ts                #     원격 진입점 (단일 /mcp, stateless)
-    hooks/                   #   Hook orchestra — 4종이 단일 pending 파일로 조율
-      hooks.json             #     매니페스트 (PreToolUse Bash matcher + 보조 3개 hook)
-      pre-tool-use.ts        #     위험 Bash 차단 + step-up 핸드오프 (regex + git semantic 2단계)
-      session-start.ts       #     프로토콜 사전 주입 + 이월 pending 알림
-      user-prompt-submit.ts  #     사용자 "완료" 메시지 감지 → polling 재개 컨텍스트
-      stop.ts                #     응답 종료 시 dangling step-up reminder
-      danger-patterns.json   #     system 차단 정규식 (8개, immutable)
-    dist/                    #   빌드 산출물 (git 커밋 — npm install 불필요)
-    README.md                #   plugin 단독 사용자 문서
-docs/
-  architecture.md            #   설계 의도 (트랜스포트·인증·자기검증)
-  adding-capabilities.md     #   새 tool/resource/prompt 추가 절차
-  hook-installation.md       #   plugin 미사용 시 수동 hook 등록 가이드
-  research/
-    claude-code-plugin-marketplace-strategy.md   # plugin 변환 전략·근거
-    ai-security-mcp-competitive-landscape.md
-    mcp-server-creation-and-deployment.md
-  prd/                       #   향후 기능 PRD (4건)
-```
-
----
-
-## 로드맵 — PRD 5건
-
-[`docs/prd/`](./docs/prd/)에 다음 4개 부가 기능 PRD가 작성돼 있습니다 (의존 그래프와 우선순위 포함):
-
-| ID | 기능 | 위치 | 우선순위 / 노력 |
-|----|------|------|----------------|
-| [0001](./docs/prd/0001-audit-emit.md) | `audit-emit` — JSON-Lines 감사 로그 emit | PostToolUse hook 신설 | P1 / M |
-| [0002](./docs/prd/0002-secrets-redact.md) | `secrets-redact` — AWS key·JWT·PEM 등 secret 차단 | PreToolUse hook 확장 | P1 / S |
-| [0003](./docs/prd/0003-file-change-delta.md) | `file-change-delta` — 예측 vs 실제 변경 비교 | PostToolUse hook | P1 / S |
-| [0004](./docs/prd/0004-policy-yaml.md) | `policy-yaml` — 정책 YAML 통합 + 시한부 override | PreToolUse hook | P2 / M |
-| [0005](./docs/prd/0005-token-auth-device-flow.md) | `token-auth-device-flow` — Device code + OS keychain 토큰 발급/보관 | infrastructure | P2 / L |
-
-작성 배경(경쟁 환경 분석): [`docs/research/ai-security-mcp-competitive-landscape.md`](./docs/research/ai-security-mcp-competitive-landscape.md)
-
----
-
-## 📦 릴리스 & npm 배포 (release-please)
-
-4개 plugin variant는 `@bigstrider/` scope의 정식 패키지명으로 npm에 발행됩니다 (코드네임 `ai-action-tracker`는 내부 매니페스트·MCP tool prefix로만 남습니다).
-
-| 호스트 | npm 패키지명 |
-|---|---|
-| Claude Code | `@bigstrider/transcodes-guard-claude-code` |
-| OpenAI Codex CLI | `@bigstrider/transcodes-guard-codex` |
-| Google Antigravity 2.0 | `@bigstrider/transcodes-guard-antigravity` |
-| Cursor IDE | `@bigstrider/transcodes-guard-cursor` |
-
-4종은 **항상 동일 버전으로 함께 릴리스**됩니다. 토큰 관리 CLI `@bigstrider/transcodes-cli`와는 버전을 동기화하지 않고, 각 plugin이 `peerDependencies`로 호환 범위(`>=0.3.0 <0.4.0`)만 선언합니다.
-
-### 버전·CHANGELOG·tag·publish는 하나의 atomic 흐름
-
-[release-please](https://github.com/googleapis/release-please)가 단일 루트 컴포넌트 모델로 릴리스 트레인을 운영합니다 (`release-please-config.json` + `.release-please-manifest.json`).
-
-1. main에 `feat:`/`fix:` 등 conventional commit이 쌓이면 release-please가 **Release PR**을 자동 생성/갱신 — 다음 버전, 루트 `CHANGELOG.md`, 4개 plugin `package.json`·매니페스트 version 동기 변경을 미리 보여줍니다.
-2. 팀이 Release PR을 머지하면 **같은 workflow run**(`.github/workflows/release.yml`)이 ① version bump 커밋 ② 루트 CHANGELOG ③ git tag `transcodes-guard-vX.Y.Z`(4종 공통 단일 태그)를 생성하고 ④ 곧이어 4개 plugin을 npm에 publish합니다. 버전 상승과 발행이 한 run 안에서만 일어나므로 정합성 오염이 없습니다.
-
-> **사전 준비**: 리포 Settings → Secrets에 `NPM_TOKEN`(`@bigstrider` scope publish 권한) 등록이 1회 필요합니다. 실제 발행은 Release PR을 머지하는 팀 결정으로만 트리거됩니다.
-
-산출물은 self-contained 번들입니다 — 각 plugin은 tsup `noExternal`로 내부 `@ai-action-tracker/*` 워크스페이스 패키지를 번들해 발행하므로, 소비자는 `@modelcontextprotocol/sdk`·`zod`만 외부 의존으로 받습니다.
-
----
-
-## 배포
-
-원격 Streamable HTTP 서버를 외부에 노출하려면 인증을 먼저 추가해야 합니다 (현재 스캐폴드 미포함).
-
-플랫폼 비교 + 셋업 가이드: [`docs/research/mcp-server-creation-and-deployment.md`](./docs/research/mcp-server-creation-and-deployment.md)
-
-빠른 옵션:
-- **Cloudflare Workers** — `McpAgent` + Durable Objects가 OAuth·세션 자동 처리.
-- **Google Cloud Run** — `gcloud run deploy --source .` (Dockerfile 별도 작성 필요).
-- 그 외 AWS ECS Fargate / Vercel / Fly.io / Render — 리서치 리포트 4번 섹션 참고.
-
----
-
-## 주의 사항
-
-- **stdio 모드에서 `console.log`/`stdout` 쓰기 금지.** JSON-RPC 프레임이 손상돼 클라이언트가 silently 끊깁니다. 로깅은 모두 `console.error`(stderr) 사용.
-- **원격 배포 시 인증 필요.** `plugins/ai-action-tracker/src/http.ts`에는 인증이 없습니다 — 프로덕션 전 OAuth 2.1 또는 Bearer 토큰 추가 필수.
-- **Hook fail-policy는 비대칭**: 위험 패턴 *매칭 전*(JSON 파싱, 패턴 파일 부재) → fail-open(exit 0, no JSON)으로 사용자 워크플로 보호. 위험 패턴 *매칭 후*의 step-up 단계 오류(백엔드 다운, 토큰 누락 등) → fail-safe(exit 0 + stdout JSON `permissionDecision: "deny"`). 인증을 증명하지 못하면 절대 통과시키지 않습니다.
-- **Hook 출력 채널은 v2 stdout JSON**: 모든 hook은 exit code `0`. 결정은 stdout JSON으로 — PreToolUse는 `hookSpecificOutput.permissionDecision: "deny" | "allow"`, SessionStart·UserPromptSubmit는 `hookSpecificOutput.additionalContext`, Stop은 top-level `{ decision: "block", reason }` (Stop은 `hookEventName` enum 제외). 레거시 `exit 2 + stderr text` 패턴은 **쓰지 말 것**.
-- **PreToolUse fast-path는 명시적 allow JSON emit 필수.** verified 레코드를 consume한 뒤 단순 exit 0만 하면 Claude Code 기본 권한 흐름으로 fall-through되어 `settings.json` deny 규칙이나 내장 safety가 다시 막을 수 있습니다 — explicit `permissionDecision: "allow"` JSON이 step-up 게이트를 "추가 안전망"이 아닌 "권위 source"로 만드는 핵심.
+요구: Node.js ≥ 20. 소스 수정 후 반드시 `npm run build:plugin` → `dist/` 커밋(CI가 5곳 동기성 + hook smoke test 23종 강제). 새 도구/리소스/프롬프트는 `packages/mcp-server-core/src/server.ts`의 `createServer()` 한 곳에서만 추가합니다 → [`docs/adding-capabilities.md`](./docs/adding-capabilities.md). 에이전트용 작업 규칙은 [`CLAUDE.md`](./CLAUDE.md) + [`.claude/rules/`](./.claude/rules/).
 
 ---
 
 ## 참고
 
-- Claude Code 공식 hooks 문서 — <https://code.claude.com/docs/en/hooks>
-- MCP 공식 빌드 가이드 — <https://modelcontextprotocol.io/docs/develop/build-server>
-- MCP 사양 (Streamable HTTP, 2025-03-26) — <https://modelcontextprotocol.io/specification/2025-03-26>
+- 설계 의도(트랜스포트 분리·Streamable HTTP·인증 미비점) → [`docs/architecture.md`](./docs/architecture.md)
+- 능력 추가 절차 → [`docs/adding-capabilities.md`](./docs/adding-capabilities.md)
+- 수동 hook 설치 → [`docs/hook-installation.md`](./docs/hook-installation.md)
+- 다중 호스트 배포 조사 → [`docs/research/multi-host-plugin-distribution.md`](./docs/research/multi-host-plugin-distribution.md)
+- 향후 기능 PRD → [`docs/prd/`](./docs/prd/)
+- Claude Code hooks 공식 문서 → <https://code.claude.com/docs/en/hooks>
 
 ## 라이선스
 
-MIT (필요 시 추가).
+MIT

@@ -11,7 +11,7 @@
  */
 export function formatNoTokenSessionNotice() {
     return [
-        "ai-action-tracker: no Transcodes token is configured.",
+        "transcodes-guard: no Transcodes token is configured.",
         "Danger commands will be BLOCKED and step-up MFA cannot start until a token is set.",
         "",
         "How to fix (guide the user — the token must NOT be pasted into this chat,",
@@ -39,11 +39,11 @@ export function formatBlockedSummary(block) {
     ].join("\n");
 }
 export function formatAllowReason(decision) {
-    return (`ai-action-tracker: step-up MFA verified — overriding default permission policy. ` +
+    return (`transcodes-guard: step-up MFA verified — overriding default permission policy. ` +
         `Original danger match: ${decision.block.reason}. Command: ${decision.block.command}`);
 }
 export function formatNoTokenReason(block) {
-    return (`Bash blocked by ai-action-tracker: ${block.reason}. ` +
+    return (`Bash blocked by transcodes-guard: ${block.reason}. ` +
         "Step-up MFA gate is not configured (no Transcodes token found). " +
         "Tell the user to get a token from the Transcodes console (member detail page, " +
         "https://app.transcodes.io) and run `transcodes login <token>` (or set the " +
@@ -66,7 +66,7 @@ export function formatStepupFailureDetail(decision) {
             : `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ""}.`;
 }
 export function formatStepupFailureReason(decision) {
-    return (`Bash blocked by ai-action-tracker: ${decision.block.reason}. ${formatStepupFailureDetail(decision)} ` +
+    return (`Bash blocked by transcodes-guard: ${decision.block.reason}. ${formatStepupFailureDetail(decision)} ` +
         "Report the failure to the user; do not retry until step-up is available.");
 }
 export function formatStepupFailureSystemMessage(decision) {
@@ -110,15 +110,15 @@ export function formatStepupPendingSystemMessage(decision) {
 export function formatStderrTag(decision) {
     switch (decision.kind) {
         case "pass":
-            return "ai-action-tracker: pass";
+            return "transcodes-guard: pass";
         case "allow":
-            return `ai-action-tracker: ALLOWED (stepup-verified) — ${decision.block.command}`;
+            return `transcodes-guard: ALLOWED (stepup-verified) — ${decision.block.command}`;
         case "deny-no-token":
-            return `ai-action-tracker: BLOCKED (no token) — ${decision.block.command}`;
+            return `transcodes-guard: BLOCKED (no token) — ${decision.block.command}`;
         case "deny-stepup-failure":
-            return `ai-action-tracker: BLOCKED (stepup-failure) — ${decision.block.command}`;
+            return `transcodes-guard: BLOCKED (stepup-failure) — ${decision.block.command}`;
         case "deny-stepup-pending":
-            return `ai-action-tracker: STEPUP-PENDING sid=${decision.sid} — ${decision.block.command}`;
+            return `transcodes-guard: STEPUP-PENDING sid=${decision.sid} — ${decision.block.command}`;
     }
 }
 //# sourceMappingURL=messages.js.map

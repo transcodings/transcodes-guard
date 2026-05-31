@@ -1,5 +1,5 @@
 /**
- * Public surface of @ai-action-tracker/danger-patterns.
+ * Public surface of @transcodes-guard/danger-patterns.
  *
  * Two parallel registries the PreToolUse hook consults:
  *  - danger-patterns: regex matchers against Bash command strings

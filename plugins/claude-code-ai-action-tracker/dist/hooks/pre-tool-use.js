@@ -15,7 +15,7 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   writePending
-} from "../chunk-RFH4GXTJ.js";
+} from "../chunk-Y3EG3253.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
@@ -79,7 +79,7 @@ async function main() {
         writePending(decision.pending);
       } catch (err) {
         process.stderr.write(
-          `ai-action-tracker: pending file write failed (deny still emitted): ${err}
+          `transcodes-guard: pending file write failed (deny still emitted): ${err}
 `
         );
       }
@@ -89,7 +89,7 @@ async function main() {
   }
 }
 main().catch((err) => {
-  process.stderr.write(`ai-action-tracker hook error: ${err}
+  process.stderr.write(`transcodes-guard hook error: ${err}
 `);
   process.exit(0);
 });

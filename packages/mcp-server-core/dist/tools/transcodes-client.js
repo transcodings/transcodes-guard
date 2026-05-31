@@ -9,7 +9,7 @@
  * through `withStepupVerifiedSid` so `request()` can attach the
  * `X-Step-Up-Session-Id` header.
  */
-import { request, } from "@ai-action-tracker/stepup-core";
+import { request, } from "@transcodes-guard/stepup-core";
 /** Tool name → API path under `/v1`. Scoped to this plugin's ported toolset. */
 const ENDPOINT_MAP = {
     // Project

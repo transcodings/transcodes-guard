@@ -9,7 +9,7 @@
  * through `withStepupVerifiedSid` so `request()` can attach the
  * `X-Step-Up-Session-Id` header.
  */
-import { type HttpRequestInput as RequestInput, type StepupConfig } from "@ai-action-tracker/stepup-core";
+import { type HttpRequestInput as RequestInput, type StepupConfig } from "@transcodes-guard/stepup-core";
 export type ReqInput = Omit<RequestInput, "path">;
 /**
  * Resolve the tool's base path from ENDPOINT_MAP + optional `pathSuffix`

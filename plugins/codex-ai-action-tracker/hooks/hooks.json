@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|mcp__plugin_ai-action-tracker_ai-action-tracker__.*",
+        "matcher": "Bash|mcp__plugin_transcodes-guard_transcodes-guard__.*",
         "hooks": [
           {
             "type": "command",

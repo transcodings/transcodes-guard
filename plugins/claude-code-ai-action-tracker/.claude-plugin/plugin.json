@@ -1,5 +1,5 @@
 {
-  "name": "ai-action-tracker",
+  "name": "transcodes-guard",
   "description": "Risky-bash interceptor (PreToolUse hook) and audit MCP server for Claude Code.",
   "version": "0.2.0",
   "author": {

@@ -9,14 +9,14 @@
  * Pure additive context — never blocks.
  */
 import "../host.js";
-import { codexAdapter } from "@ai-action-tracker/hook-adapters";
+import { codexAdapter } from "@transcodes-guard/hook-adapters";
 import {
   formatNoTokenSessionNotice,
   isExpired,
   isTrackerEnabled,
   readPending,
   resolveToken,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 
 function carryoverBlock(): string | null {
   const pending = readPending();
@@ -52,6 +52,6 @@ function main(): void {
 try {
   main();
 } catch (err) {
-  process.stderr.write(`ai-action-tracker session-start hook error: ${err}\n`);
+  process.stderr.write(`transcodes-guard session-start hook error: ${err}\n`);
   process.exit(0);
 }

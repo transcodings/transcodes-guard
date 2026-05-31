@@ -30,7 +30,7 @@ import {
   updateUserPattern,
   updateUserToolRule,
   writeVerified
-} from "../chunk-2IJSD757.js";
+} from "../chunk-53XLFTXI.js";
 
 // src/stdio.ts
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -926,7 +926,7 @@ function textResult9(text, isError = false) {
 }
 function createServer() {
   const server = new McpServer({
-    name: "ai-action-tracker-mcp",
+    name: "transcodes-guard-mcp",
     version: "0.1.0"
   });
   server.registerResource("danger-patterns", "danger-patterns://list", {
@@ -1137,8 +1137,8 @@ reason: ${saved.reason}`);
     };
   });
   server.registerTool("get_tracker_status", {
-    title: "Get ai-action-tracker gate status",
-    description: `Report whether the ai-action-tracker step-up gate is currently enabled, plus the active token source and its expiry. Read-only. Call when the user asks if the tracker/hook/protection is on or off \u2014 e.g. '\uD2B8\uB798\uCEE4 \uCF1C\uC838 \uC788\uC5B4?', 'hook \uD65C\uC131\uD654 \uC0C1\uD0DC\uC57C?', 'is the gate enabled?'. The enabled flag lives in the same file as the token (${transcodesConfigFile()}); a missing flag means enabled.`,
+    title: "Get transcodes-guard gate status",
+    description: `Report whether the transcodes-guard step-up gate is currently enabled, plus the active token source and its expiry. Read-only. Call when the user asks if the tracker/hook/protection is on or off \u2014 e.g. '\uD2B8\uB798\uCEE4 \uCF1C\uC838 \uC788\uC5B4?', 'hook \uD65C\uC131\uD654 \uC0C1\uD0DC\uC57C?', 'is the gate enabled?'. The enabled flag lives in the same file as the token (${transcodesConfigFile()}); a missing flag means enabled.`,
     inputSchema: {}
   }, async () => {
     const enabled = isTrackerEnabled();
@@ -1160,8 +1160,8 @@ reason: ${saved.reason}`);
     }, null, 2));
   });
   server.registerTool("set_tracker_enabled", {
-    title: "Re-enable the ai-action-tracker gate",
-    description: `Re-ENABLE the ai-action-tracker step-up gate across all hosts. This tool can only turn protection ON \u2014 it deliberately REFUSES \`enabled=false\`. Disabling the gate is a privilege reduction that must be a human, out-of-band action (the agent could otherwise disable its own guardrails via prompt injection), so disabling is only possible by running \`transcodes disable\` in a terminal. Call this when the user asks to turn the tracker/hook/protection back ON \u2014 e.g. '\uD2B8\uB798\uCEE4 \uB2E4\uC2DC \uCF1C\uC918', 'enable the gate', 'turn protection back on'. Persists to ${transcodesConfigFile()}; effective on the next hook invocation (no restart needed).`,
+    title: "Re-enable the transcodes-guard gate",
+    description: `Re-ENABLE the transcodes-guard step-up gate across all hosts. This tool can only turn protection ON \u2014 it deliberately REFUSES \`enabled=false\`. Disabling the gate is a privilege reduction that must be a human, out-of-band action (the agent could otherwise disable its own guardrails via prompt injection), so disabling is only possible by running \`transcodes disable\` in a terminal. Call this when the user asks to turn the tracker/hook/protection back ON \u2014 e.g. '\uD2B8\uB798\uCEE4 \uB2E4\uC2DC \uCF1C\uC918', 'enable the gate', 'turn protection back on'. Persists to ${transcodesConfigFile()}; effective on the next hook invocation (no restart needed).`,
     inputSchema: {
       enabled: z9.boolean().describe("Must be true. This tool only re-enables the gate; pass true to turn protection on. false is refused \u2014 disable via `transcodes disable` in a terminal.")
     }
@@ -1174,7 +1174,7 @@ reason: ${saved.reason}`);
     } catch (e) {
       return textResult9(`Failed to enable gate: ${e instanceof Error ? e.message : String(e)}`, true);
     }
-    return textResult9("ai-action-tracker gate ENABLED. Danger commands and protected MCP tools will require step-up MFA again.");
+    return textResult9("transcodes-guard gate ENABLED. Danger commands and protected MCP tools will require step-up MFA again.");
   });
   server.registerTool("simulate_hook_invocation", {
     title: "Invoke PreToolUse hook in a controlled subprocess",
@@ -1182,7 +1182,7 @@ reason: ${saved.reason}`);
     inputSchema: {
       command: z9.string().min(1).optional().describe("Bash command string. Builds tool_input={command} when tool_name is Bash and tool_input is not provided. Ignored if tool_input is set."),
       cwd: z9.string().optional().describe("Optional working directory passed to the hook payload. Defaults to process.cwd()."),
-      tool_name: z9.string().min(1).optional().describe("Tool name to put in the PreToolUse payload. Defaults to 'Bash'. For MCP tool simulation use the wire name, e.g. 'mcp__plugin_ai-action-tracker_ai-action-tracker__retire_member'."),
+      tool_name: z9.string().min(1).optional().describe("Tool name to put in the PreToolUse payload. Defaults to 'Bash'. For MCP tool simulation use the wire name, e.g. 'mcp__plugin_transcodes-guard_transcodes-guard__retire_member'."),
       tool_input: z9.unknown().optional().describe("Raw tool_input object. Overrides the {command}-based default. Use for MCP tool simulation.")
     }
   }, async ({ command, cwd, tool_name, tool_input }) => {
@@ -1400,7 +1400,7 @@ async function main() {
   const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("ai-action-tracker-mcp: stdio transport ready (cursor)");
+  console.error("transcodes-guard-mcp: stdio transport ready (cursor)");
 }
 main().catch((err) => {
   console.error(err);

@@ -20,7 +20,7 @@ import {
   loadMergedPatterns,
   loadMergedToolRules,
   type MergedToolRule,
-} from "@ai-action-tracker/danger-patterns";
+} from "@transcodes-guard/danger-patterns";
 import { requestStepup, type RequestResult } from "./gate.js";
 import type { PendingState } from "./pending.js";
 import { readVerified } from "./store.js";
@@ -275,7 +275,7 @@ export async function evaluatePreToolUse(
       ? {
           reason: block.reason,
           action: "bash_exec",
-          resource: "ai-action-tracker:pre-tool-use",
+          resource: "transcodes-guard:pre-tool-use",
           fingerprintKey: classified.command,
           comment: `Confirm danger command: ${block.reason}`,
         }

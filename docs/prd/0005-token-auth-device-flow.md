@@ -25,7 +25,7 @@ tags: [auth, secrets, device-flow, keychain, plugin, dx]
 
 ## 컨텍스트 & 문제 정의
 
-현재 `ai-action-tracker` plugin은 Transcodes 백엔드에 붙기 위해 `TRANSCODES_TOKEN`(Member MCP JWT)을 요구한다(`src/stepup/config.ts`). 사용자가 토큰을 얻으려면:
+현재 `transcodes-guard` plugin은 Transcodes 백엔드에 붙기 위해 `TRANSCODES_TOKEN`(Member MCP JWT)을 요구한다(`src/stepup/config.ts`). 사용자가 토큰을 얻으려면:
 
 1. Transcodes 콘솔에 로그인해 직접 토큰을 복사
 2. `~/.zshrc`(또는 동급 rc 파일)에 `export TRANSCODES_TOKEN="..."`를 평문으로 박음
@@ -64,7 +64,7 @@ tags: [auth, secrets, device-flow, keychain, plugin, dx]
 ### S1. 첫 설치 후 자동 로그인 (행복 경로)
 
 ```
-사용자: /plugin install ai-action-tracker@ai-action-tracker
+사용자: /plugin install transcodes-guard@transcodes-guard
 Claude Code: ✅ installed.
 
 사용자: rm -rf /etc 같은 거 한번 막아봐
@@ -117,7 +117,7 @@ hook이 토큰을 load할 때 `exp` 잔여 < 24h이면 backend의 refresh endpoi
 
 ```
 1. process.env.TRANSCODES_TOKEN (트림 후 빈 문자열이 아닐 때)
-2. keychain.get("ai-action-tracker", "transcodes-token")
+2. keychain.get("transcodes-guard", "transcodes-token")
 3. (없음) → 호출자가 fail-safe 처리
 ```
 
@@ -148,7 +148,7 @@ POST /v1/auth/device/code
   → { device_code, user_code, verification_uri, verification_uri_complete, expires_in, interval }
 
 POST /v1/auth/device/token
-  body: { device_code, client_id: "ai-action-tracker" }
+  body: { device_code, client_id: "transcodes-guard" }
   → 200: { access_token, expires_in, refresh_token? }
   → 400 authorization_pending: 계속 폴링
   → 400 slow_down: interval 증가
@@ -245,7 +245,7 @@ loadStepupConfig({ refreshIfExpiringWithin: 24 * 3600 })
 ## 검증 기준 (Acceptance Criteria)
 
 - [ ] `transcodes_login` tool이 device code + verification URL을 반환한다.
-- [ ] WebAuthn 완료 후 토큰이 OS keychain에 저장된다(macOS: `security find-generic-password -s ai-action-tracker` 로 확인).
+- [ ] WebAuthn 완료 후 토큰이 OS keychain에 저장된다(macOS: `security find-generic-password -s transcodes-guard` 로 확인).
 - [ ] `TRANSCODES_TOKEN` env가 없는 셸에서도 hook이 위험 명령을 정상적으로 게이트한다(keychain load 동작).
 - [ ] `TRANSCODES_TOKEN` env가 있으면 keychain 무시(우선순위 회귀 테스트).
 - [ ] `transcodes_logout` 후 keychain 항목이 삭제되고 hook은 다시 fail-safe로 차단한다.

@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "ai-action-tracker": {
+    "transcodes-guard": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/dist/src/stdio.js"]
     }

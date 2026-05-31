@@ -13,7 +13,7 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { cacheDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+import { cacheDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
 import { STEPUP_TTL_MS } from "./config.js";
 
 const VERIFIED_FILE = "stepup-verified.json";

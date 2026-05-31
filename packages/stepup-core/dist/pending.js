@@ -14,7 +14,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { cacheDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+import { cacheDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
 import { STEPUP_TTL_MS } from "./config.js";
 const FILE_NAME = "stepup-pending.json";
 const PendingStateSchema = z.object({

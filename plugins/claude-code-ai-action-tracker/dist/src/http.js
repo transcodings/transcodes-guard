@@ -1,7 +1,7 @@
 import {
   createServer
-} from "../chunk-SITV72JK.js";
-import "../chunk-RFH4GXTJ.js";
+} from "../chunk-HUZVJTTJ.js";
+import "../chunk-Y3EG3253.js";
 
 // src/http.ts
 import http from "http";
@@ -24,6 +24,6 @@ var httpServer = http.createServer(async (req, res) => {
 });
 httpServer.listen(PORT, () => {
   console.error(
-    `ai-action-tracker-mcp: Streamable HTTP at http://localhost:${PORT}/mcp`
+    `transcodes-guard-mcp: Streamable HTTP at http://localhost:${PORT}/mcp`
   );
 });

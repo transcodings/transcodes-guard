@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import "../host.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createServer } from "@ai-action-tracker/mcp-server-core";
+import { createServer } from "@transcodes-guard/mcp-server-core";
 
 async function main(): Promise<void> {
   const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("ai-action-tracker-mcp: stdio transport ready");
+  console.error("transcodes-guard-mcp: stdio transport ready");
 }
 
 main().catch((err) => {

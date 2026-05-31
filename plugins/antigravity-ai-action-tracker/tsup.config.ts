@@ -1,6 +1,6 @@
 import { defineConfig } from "tsup";
 
-// Self-contained npm package: bundle internal @ai-action-tracker/* (never
+// Self-contained npm package: bundle internal @transcodes-guard/* (never
 // published), keep @modelcontextprotocol/sdk + zod external. Entry keys
 // preserve the dist layout the manifests reference. host.ts is bundled in via
 // the first `import "../host.js"` of each entry. No `banner` — esbuild keeps the
@@ -17,7 +17,7 @@ export default defineConfig({
   target: "node20",
   platform: "node",
   bundle: true,
-  noExternal: [/^@ai-action-tracker\//],
+  noExternal: [/^@transcodes-guard\//],
   splitting: true,
   clean: true,
   sourcemap: false,

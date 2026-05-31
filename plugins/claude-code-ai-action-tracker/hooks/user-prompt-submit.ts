@@ -8,12 +8,12 @@
  */
 import "../host.js";
 import { readFileSync } from "node:fs";
-import { claudeCodeAdapter } from "@ai-action-tracker/hook-adapters";
+import { claudeCodeAdapter } from "@transcodes-guard/hook-adapters";
 import {
   isExpired,
   readPending,
   type PendingState,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 
 // Loose matcher — false positives only matter when a pending record exists,
 // in which case the worst case is one unnecessary poll call.
@@ -27,7 +27,7 @@ function buildContext(prompt: string, pending: PendingState): string | null {
       ? "already verified — just retry the original command."
       : "still pending — call poll_stepup_session_wait now to block until verified.";
   return [
-    "ai-action-tracker: user appears to report step-up MFA completion.",
+    "transcodes-guard: user appears to report step-up MFA completion.",
     "",
     `Pending session sid : ${pending.sid}`,
     `Status              : ${pending.status} (${statusNote})`,
@@ -67,7 +67,7 @@ try {
   main();
 } catch (err) {
   process.stderr.write(
-    `ai-action-tracker user-prompt-submit hook error: ${err}\n`,
+    `transcodes-guard user-prompt-submit hook error: ${err}\n`,
   );
   process.exit(0);
 }

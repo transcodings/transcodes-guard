@@ -31,7 +31,7 @@ import {
   antigravityAdapter,
   detectUserDoneFromTranscript,
   type InjectStep,
-} from "@ai-action-tracker/hook-adapters";
+} from "@transcodes-guard/hook-adapters";
 import {
   formatNoTokenSessionNotice,
   isExpired,
@@ -39,11 +39,11 @@ import {
   readPending,
   resolveToken,
   type PendingState,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 
 function primerMessage(pending: PendingState | null): string {
   const base = [
-    "ai-action-tracker step-up MFA protocol primer:",
+    "transcodes-guard step-up MFA protocol primer:",
     "",
     "When a PreToolUse hook denies a shell or MCP tool call with reason",
     "mentioning Step-up MFA, the command was BLOCKED and did NOT execute.",
@@ -85,7 +85,7 @@ function userDoneNotice(pending: PendingState, matchedContent: string): string {
       ? "already verified — just retry the original command."
       : "still pending — call poll_stepup_session_wait now to block until verified.";
   return [
-    `ai-action-tracker: user message matched completion pattern ("${trimmed}").`,
+    `transcodes-guard: user message matched completion pattern ("${trimmed}").`,
     "",
     `Pending session sid : ${pending.sid}`,
     `Status              : ${pending.status} (${statusNote})`,
@@ -151,7 +151,7 @@ try {
   main();
 } catch (err) {
   process.stderr.write(
-    `ai-action-tracker pre-invocation hook error: ${err}\n`,
+    `transcodes-guard pre-invocation hook error: ${err}\n`,
   );
   process.exit(0);
 }

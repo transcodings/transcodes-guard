@@ -34,7 +34,7 @@ Claude Code가 PreToolUse hook 실행 (이 스크립트)
 정규식 매칭 차단:
 
 ```
-⛔ ai-action-tracker: BLOCKED dangerous command
+⛔ transcodes-guard: BLOCKED dangerous command
 
 Reason: matched pattern `rm-rf-root` — Recursive removal of an absolute path, ~, or $HOME
 
@@ -44,7 +44,7 @@ Command: rm -rf /tmp/foo
 git tracking 기반 차단:
 
 ```
-⛔ ai-action-tracker: BLOCKED dangerous command
+⛔ transcodes-guard: BLOCKED dangerous command
 
 Reason: rm -rf would delete 3 file(s) tracked in git
 
@@ -103,7 +103,7 @@ npm install -g ./plugins/ai-action-tracker   # plugin 디렉터리 기준
 설치 후 `command` 부분을 다음으로 단순화 가능:
 
 ```json
-"command": "ai-action-tracker-hook"
+"command": "transcodes-guard-hook"
 ```
 
 ## 3단계 — 검증
@@ -117,7 +117,7 @@ Claude Code 세션에서 다음을 시도:
 기대 동작: 명령이 실행되지 않고, 채팅 트랜스크립트에 다음과 유사한 경고가 표시됨:
 
 ```
-⛔ ai-action-tracker: BLOCKED dangerous command
+⛔ transcodes-guard: BLOCKED dangerous command
    Pattern: rm-rf-root — Recursive removal of /, ~, or $HOME
    Command: rm -rf ~/Documents
 ```
