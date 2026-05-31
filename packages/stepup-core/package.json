@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@ai-action-tracker/danger-patterns": "*",
+    "@ai-action-tracker/plugin-paths": "*",
     "zod": "^3.23.0"
   },
   "devDependencies": {

@@ -16,6 +16,7 @@
  * Fail-open before any danger match, fail-safe after — same asymmetric policy
  * as the original 500-line file, now expressed in ~80 lines.
  */
+import "../host.js";
 import { readFileSync } from "node:fs";
 import { claudeCodeAdapter } from "@ai-action-tracker/hook-adapters";
 import { clearPending, consumeVerified, evaluatePreToolUse, formatAllowReason, formatNoTokenReason, formatNoTokenSystemMessage, formatStderrTag, formatStepupFailureReason, formatStepupFailureSystemMessage, formatStepupPendingReason, formatStepupPendingSystemMessage, writePending, } from "@ai-action-tracker/stepup-core";

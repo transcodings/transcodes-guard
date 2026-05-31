@@ -33,7 +33,7 @@ Works the same on macOS, Linux, and Windows (Node ≥ 20).
 npx @bigstrider/transcodes-cli dashboard
 ```
 
-Starts a small localhost server (127.0.0.1 only), opens your browser, and lets you save or clear the token without pasting it on the command line. Same file as `transcodes login` — `~/.transcodes/config.json`.
+Starts a small localhost server (127.0.0.1 only), opens your browser, and lets you save or clear the token without pasting it on the command line. Same file as `transcodes set` — `~/.transcodes/config.json`.
 
 Options:
 

@@ -10,6 +10,7 @@
  * actually surfaced to the model (vs silently dropped) is pending e2e
  * validation — see docs/research/antigravity-e2e-findings.md #4.
  */
+import "../host.js";
 import { antigravityAdapter } from "@ai-action-tracker/hook-adapters";
 import {
   clearPending,

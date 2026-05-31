@@ -25,6 +25,7 @@
  * Both injections land in the same `injectSteps` array, emitted via
  * antigravityAdapter.emitPreInvocation. Empty array → empty `{}` payload.
  */
+import "../host.js";
 import { readFileSync } from "node:fs";
 import { antigravityAdapter, detectUserDoneFromTranscript, } from "@ai-action-tracker/hook-adapters";
 import { formatNoTokenSessionNotice, isExpired, readPending, resolveToken, } from "@ai-action-tracker/stepup-core";

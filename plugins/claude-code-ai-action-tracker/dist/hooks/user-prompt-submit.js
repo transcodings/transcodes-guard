@@ -6,6 +6,7 @@
  * a pending step-up session is in flight, this hook injects a context block
  * naming the sid + next action so the agent knows which session to poll.
  */
+import "../host.js";
 import { readFileSync } from "node:fs";
 import { claudeCodeAdapter } from "@ai-action-tracker/hook-adapters";
 import { isExpired, readPending, } from "@ai-action-tracker/stepup-core";

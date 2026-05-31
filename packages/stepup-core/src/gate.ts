@@ -14,9 +14,9 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { cacheDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
 import { loadStepupConfig } from "./config.js";
 import { createStepupSession } from "./session.js";
-import { cacheDir } from "./store.js";
 import { resolveToken } from "./token-store.js";
 
 // Window during which concurrent hook processes for the same command should
@@ -41,6 +41,7 @@ function fingerprintOf(key: string): string {
  * loses MFA visibility because of a broken lock file.
  */
 function claimBrowserLaunch(fingerprintKey: string): boolean {
+  migrateLegacyFile(BROWSER_LOCK_FILE, "cache");
   const lockFile = path.join(cacheDir(), BROWSER_LOCK_FILE);
   const fingerprint = fingerprintOf(fingerprintKey);
   try {

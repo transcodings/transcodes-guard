@@ -93,7 +93,7 @@ export function createServer(): McpServer {
     {
       title: "Blocked Bash patterns",
       description:
-        "Regex patterns the PreToolUse hook uses to block dangerous Bash commands. Merges immutable system patterns (hooks/danger-patterns.json) with user patterns (~/.claude/ai-action-tracker/user-patterns.json), read fresh at every request.",
+        `Regex patterns the PreToolUse hook uses to block dangerous Bash commands. Merges immutable system patterns (hooks/danger-patterns.json) with user patterns (${getUserPatternsPath()}, JSONC — comments allowed for hand-edits), read fresh at every request.`,
       mimeType: "text/markdown",
     },
     async (uri) => ({
@@ -166,7 +166,7 @@ export function createServer(): McpServer {
     {
       title: "Add user danger pattern",
       description:
-        "Register a new user-owned block pattern that the PreToolUse hook will enforce. Call when the user asks to add/register/block a new pattern, ban a command, or extend danger-patterns — e.g. '패턴 추가해줘', 'sudo 막아줘', '이런 명령도 차단되게 해줘'. id must be unique across both system and user patterns; regex must compile. Persisted to ~/.claude/ai-action-tracker/user-patterns.json and effective on the next hook invocation.",
+        `Register a new user-owned block pattern that the PreToolUse hook will enforce. Call when the user asks to add/register/block a new pattern, ban a command, or extend danger-patterns — e.g. '패턴 추가해줘', 'sudo 막아줘', '이런 명령도 차단되게 해줘'. id must be unique across both system and user patterns; regex must compile. Persisted to ${getUserPatternsPath()} (JSONC) and effective on the next hook invocation.`,
       inputSchema: {
         id: z
           .string()
@@ -646,7 +646,7 @@ export function createServer(): McpServer {
     {
       title: "Step-up-protected MCP tool rules",
       description:
-        "Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with user rules (~/.claude/ai-action-tracker/user-tool-rules.json), read fresh at every request.",
+        `Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with user rules (${getUserToolRulesPath()}, JSONC), read fresh at every request.`,
       mimeType: "text/markdown",
     },
     async (uri) => ({
@@ -665,7 +665,7 @@ export function createServer(): McpServer {
     {
       title: "Add user MCP tool-rule",
       description:
-        "Register a new user-owned tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. id must be unique across system and user rules; persisted to ~/.claude/ai-action-tracker/user-tool-rules.json.",
+        `Register a new user-owned tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. id must be unique across system and user rules; persisted to ${getUserToolRulesPath()} (JSONC).`,
       inputSchema: {
         id: z
           .string()

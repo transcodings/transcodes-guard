@@ -8,6 +8,7 @@
  * sid + status so the agent can resume polling instead of starting over.
  * Pure additive context — never blocks.
  */
+import "../host.js";
 import { codexAdapter } from "@ai-action-tracker/hook-adapters";
 import {
   formatNoTokenSessionNotice,

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import "../host.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "@ai-action-tracker/mcp-server-core";
 async function main() {

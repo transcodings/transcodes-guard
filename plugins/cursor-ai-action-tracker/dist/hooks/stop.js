@@ -7,6 +7,7 @@
  * the next turn) but uses a different key name. The cursorAdapter handles
  * the rendering; the rest of the body mirrors the codex stop entry.
  */
+import "../host.js";
 import { cursorAdapter } from "@ai-action-tracker/hook-adapters";
 import { clearPending, consumeVerified, isExpired, readPending, readVerified, } from "@ai-action-tracker/stepup-core";
 function reminderFor(pending) {

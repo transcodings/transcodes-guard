@@ -5,8 +5,9 @@ import {
   existsSync,
 } from "node:fs";
 import { fileURLToPath } from "node:url";
-import os from "node:os";
 import path from "node:path";
+import { parse as parseJsonc } from "jsonc-parser";
+import { dataDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
 
 export interface DangerPattern {
   id: string;
@@ -24,17 +25,12 @@ export interface MergedPattern extends DangerPattern {
   source: PatternSource;
 }
 
-const USER_PATTERNS_PATH = path.join(
-  os.homedir(),
-  ".claude",
-  "ai-action-tracker",
-  "user-patterns.json",
-);
+const USER_PATTERNS_FILE = "user-patterns.json";
 
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 
 export function getUserPatternsPath(): string {
-  return USER_PATTERNS_PATH;
+  return path.join(dataDir(), USER_PATTERNS_FILE);
 }
 
 export function loadSystemPatterns(): DangerConfig {
@@ -52,24 +48,31 @@ export function loadSystemPatterns(): DangerConfig {
 }
 
 export function loadUserPatterns(): DangerConfig {
+  migrateLegacyFile(USER_PATTERNS_FILE, "data");
   try {
-    return JSON.parse(readFileSync(USER_PATTERNS_PATH, "utf8")) as DangerConfig;
+    const raw = readFileSync(getUserPatternsPath(), "utf8");
+    // JSONC parse: tolerates // and /* */ comments + trailing commas, so a
+    // user may temporarily disable a pattern by commenting out its line.
+    // Comments are NOT preserved on MCP-tool write (full rewrite via
+    // JSON.stringify) — only meaningful for hand-edited files.
+    const parsed = parseJsonc(raw) as DangerConfig | undefined;
+    if (parsed && Array.isArray(parsed.patterns)) {
+      return parsed;
+    }
+    return { patterns: [] };
   } catch {
     return { patterns: [] };
   }
 }
 
 export function saveUserPatterns(config: DangerConfig): void {
-  mkdirSync(path.dirname(USER_PATTERNS_PATH), { recursive: true });
-  writeFileSync(
-    USER_PATTERNS_PATH,
-    JSON.stringify(config, null, 2) + "\n",
-    "utf8",
-  );
+  const file = getUserPatternsPath();
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify(config, null, 2) + "\n", "utf8");
 }
 
 export function userPatternsFileExists(): boolean {
-  return existsSync(USER_PATTERNS_PATH);
+  return existsSync(getUserPatternsPath());
 }
 
 export function loadMergedPatterns(): MergedPattern[] {

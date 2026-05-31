@@ -13,6 +13,7 @@
  *
  * Output is always `{ continue: true }` (never blocks user input).
  */
+import "../host.js";
 import { readFileSync } from "node:fs";
 import { cursorAdapter } from "@ai-action-tracker/hook-adapters";
 import { clearPending, consumeVerified, isExpired, readPending, readVerified, } from "@ai-action-tracker/stepup-core";
