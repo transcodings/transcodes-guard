@@ -60,12 +60,20 @@ export {
 export {
   resolveToken,
   readTokenFromFile,
+  readTokenList,
+  readTokenRecords,
   writeTokenToFile,
+  setActiveToken,
+  setTokenLabel,
+  removeTokenFromFile,
   clearTokenFile,
+  isTrackerEnabled,
+  setTrackerEnabled,
   transcodesConfigDir,
   transcodesConfigFile,
   type TokenSource,
   type ResolvedToken,
+  type TokenRecord,
 } from "./token-store.js";
 
 export {

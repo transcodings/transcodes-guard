@@ -16,7 +16,7 @@ export { readVerified, writeVerified, consumeVerified, cacheDir, type VerifiedSt
 export { readPending, writePending, clearPending, markVerified, isExpired, type PendingState, } from "./pending.js";
 export { request, type Envelope, type RequestInput as HttpRequestInput, } from "./client.js";
 export { loadStepupConfig, type StepupConfig, DEFAULT_BACKEND_URL, STEPUP_TTL_MS, } from "./config.js";
-export { resolveToken, readTokenFromFile, writeTokenToFile, clearTokenFile, transcodesConfigDir, transcodesConfigFile, type TokenSource, type ResolvedToken, } from "./token-store.js";
+export { resolveToken, readTokenFromFile, readTokenList, readTokenRecords, writeTokenToFile, setActiveToken, setTokenLabel, removeTokenFromFile, clearTokenFile, isTrackerEnabled, setTrackerEnabled, transcodesConfigDir, transcodesConfigFile, type TokenSource, type ResolvedToken, type TokenRecord, } from "./token-store.js";
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, type MemberTokenClaims, type ParsedMemberToken, } from "./jwt.js";
 export { inspectStepupState, type VerifiedInspection, type PendingInspection, type BrowserLockInspection, type StepupStateInspection, } from "./inspector.js";
 export { evaluatePreToolUse, type BlockResult, type GateDecision, type ToolCallInput, } from "./evaluate.js";

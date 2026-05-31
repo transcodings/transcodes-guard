@@ -24,7 +24,10 @@ import {
 import { requestStepup, type RequestResult } from "./gate.js";
 import type { PendingState } from "./pending.js";
 import { readVerified } from "./store.js";
-import { resolveToken } from "./token-store.js";
+import {
+  isTrackerEnabled,
+  resolveToken,
+} from "./token-store.js";
 
 export interface ToolCallInput {
   toolName: string;
@@ -234,6 +237,10 @@ function classifyToolCall(input: ToolCallInput): Classified | null {
 export async function evaluatePreToolUse(
   input: ToolCallInput,
 ): Promise<GateDecision> {
+  if (!isTrackerEnabled()) {
+    return { kind: "pass" };
+  }
+
   let classified: Classified | null;
   try {
     classified = classifyToolCall(input);
