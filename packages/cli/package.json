@@ -1,7 +1,7 @@
 {
   "name": "@bigstrider/transcodes-cli",
   "version": "0.3.0",
-  "description": "Transcodes CLI — manage the ai-action-tracker member token (login/logout/status).",
+  "description": "Transcodes CLI — manage ai-action-tracker member tokens and the step-up gate (set/reset/status/tokens, enable/disable, dashboard).",
   "type": "module",
   "bin": {
     "transcodes": "dist/index.js"
