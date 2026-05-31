@@ -30,7 +30,7 @@ CI(`.github/workflows/ci.yml`)는 PR마다 `build:plugin` 실행 후 ① `packag
   .claude-plugin/marketplace.json                # Marketplace 카탈로그 (이 리포가 곧 marketplace).
   package.json                                   # private. workspaces ["packages/*", "plugins/*"] + turbo orchestrator.
   turbo.json                                     # task pipeline (build / build:plugin, ^build 의존성).
-  .github/workflows/ci.yml                       # multi-plugin dist sync + 15종 hook smoke test.
+  .github/workflows/ci.yml                       # multi-plugin dist sync + 25종 hook smoke test.
 
 packages/                                        # 호스트 무관 라이브러리 (워크스페이스 패키지)
   plugin-paths/                                  #   host-aware data/cache 디렉토리 해석 (CLAUDE_PLUGIN_DATA vs legacy)
@@ -43,7 +43,7 @@ packages/                                        # 호스트 무관 라이브러
     src/index.ts                                 #   public surface re-export
     dist/                                        #   git 커밋, npm publish 대상
   danger-patterns/                               #   regex 패턴 + tool-rule 레지스트리 + system data
-    data/{danger-patterns,tool-rules}.json       #   system 룰 (이전 hooks/*.json)
+    src/data/{danger-patterns,tool-rules}.json   #   system 룰 (이전 hooks/*.json, static import로 번들에 임베드)
     src/{danger-patterns,tool-rules,index}.ts    #   loader + 사용자 룰 CRUD
     dist/                                        #
   mcp-server-core/                               #   MCP server 본체 (createServer + 모든 tool/resource/prompt)
@@ -121,8 +121,8 @@ docs/
   - *After* danger match → **fail-safe** (`deny-*` decision 반환). hook은 stdout JSON에 `permissionDecision: "deny"` emit. `systemMessage` 필드는 프로토콜 instruction; stderr는 1줄 요약.
 - Hook orchestra (host event 집합에 따라 다름 — Claude Code/Codex는 4종, Antigravity는 3종): PreToolUse(Bash/run_command + matched MCP) 차단, SessionStart 프로토콜 primer (Antigravity는 PreInvocation에 통합), UserPromptSubmit user "auth done" 감지 (Antigravity는 PreInvocation의 transcript tail에 통합), Stop dangling pending 리마인더. 모든 hook은 단일 shared file `~/.cache/.../stepup-pending.json`을 통해 조정 — see [`docs/architecture.md`](./docs/architecture.md) §5. step-up 용 추가 hook 도입 금지; 기존 orchestra를 재사용.
 - 두 trigger source 모두 동일 PreToolUse hook에서 라우팅:
-  - **Bash**: `packages/danger-patterns/data/danger-patterns.json` regex + `rm -rf` git semantic check.
-  - **MCP tool call**: `packages/danger-patterns/data/tool-rules.json`의 exact `toolName` match. plugin matcher: `Bash|mcp__plugin_ai-action-tracker_ai-action-tracker__.*`. 신규 protected MCP tool → `packages/danger-patterns/data/tool-rules.json` 추가 (system) 또는 `add_tool_rule` MCP tool (user).
+  - **Bash**: `packages/danger-patterns/src/data/danger-patterns.json` regex + `rm -rf` git semantic check.
+  - **MCP tool call**: `packages/danger-patterns/src/data/tool-rules.json`의 exact `toolName` match. plugin matcher: `Bash|mcp__plugin_ai-action-tracker_ai-action-tracker__.*`. 신규 protected MCP tool → `packages/danger-patterns/src/data/tool-rules.json` 추가 (system) 또는 `add_tool_rule` MCP tool (user).
 - fast-path verified consume diverges by **rule** (kind 아님): `consume_in_hook` 필드로 결정.
   - **Bash**: 항상 hook에서 consume (follow-up handler 없음).
   - **MCP system rule** (`consume_in_hook=false`, default in `data/tool-rules.json`): handler가 `withStepupVerifiedSid`로 consume (sid를 backend `X-Step-Up-Session-Id` 헤더에 사용).
