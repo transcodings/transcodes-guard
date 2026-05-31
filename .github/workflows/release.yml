@@ -35,13 +35,20 @@ jobs:
           manifest-file: .release-please-manifest.json
 
       # release-please가 Release PR을 생성/갱신했으면 자동 머지한다.
+      # PR 번호는 run 안에서 jq로 파싱한다 — `pr` output이 비어 있을 때
+      # env에서 fromJSON('')을 평가하면 워크플로 템플릿이 깨지기 때문(이 step은
+      # prs_created 게이트 + 직전 step success로만 도므로 보통 비지 않지만 방어).
       - name: Auto-merge the Release PR
         if: ${{ steps.release.outputs.prs_created == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ fromJSON(steps.release.outputs.pr).number }}
+          RELEASE_PR_JSON: ${{ steps.release.outputs.pr }}
         run: |
           set -e
+          PR_NUMBER=$(printf '%s' "$RELEASE_PR_JSON" | jq -r '.number')
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            echo "No Release PR number resolved; skipping."; exit 0
+          fi
           echo "Auto-merging Release PR #$PR_NUMBER"
           # auto-merge(체크 통과 후 머지) 우선, 불가하면 즉시 머지로 폴백.
           gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --merge --auto \
