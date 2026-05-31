@@ -1,0 +1,54 @@
+{
+  "patterns": [
+    {
+      "id": "rm-rf-root",
+      "regex": "\\brm\\s+(-[rRf]+\\s+)+(/[^\\s]*|~[^\\s]*|\\$HOME[^\\s]*)",
+      "reason": "Recursive removal of an absolute path, ~, or $HOME"
+    },
+    {
+      "id": "rm-rf-broad",
+      "regex": "\\brm\\s+-[rRf]*[rR][rRf]*\\s+\\*",
+      "reason": "Recursive removal with bare glob (rm -rf *)"
+    },
+    {
+      "id": "dd-disk",
+      "regex": "\\bdd\\s+.*of=/dev/(sd|nvme|hd|disk)",
+      "reason": "Direct write to block device"
+    },
+    {
+      "id": "mkfs",
+      "regex": "\\bmkfs(\\.|\\s)",
+      "reason": "Filesystem creation"
+    },
+    {
+      "id": "curl-pipe-shell",
+      "regex": "\\b(curl|wget)\\b[^|]*\\|\\s*(sudo\\s+)?(sh|bash|zsh)\\b",
+      "reason": "Piping remote content to shell"
+    },
+    {
+      "id": "fork-bomb",
+      "regex": ":\\(\\)\\s*\\{\\s*:\\|:&",
+      "reason": "Classic fork bomb"
+    },
+    {
+      "id": "chmod-recursive-root",
+      "regex": "\\bchmod\\s+-R\\s+\\d+\\s+(/[^\\s]*|~[^\\s]*|\\$HOME[^\\s]*)",
+      "reason": "Recursive chmod on an absolute path, ~, or $HOME"
+    },
+    {
+      "id": "git-force-push-protected",
+      "regex": "\\bgit\\s+push\\s+(--force|-f)\\b.*\\b(main|master|prod|production)\\b",
+      "reason": "Force push to protected branch"
+    },
+    {
+      "id": "tracker-self-disable",
+      "regex": "\\btranscodes\\b[^\\n]*\\bdisable\\b",
+      "reason": "Disabling the ai-action-tracker step-up gate — requires human step-up approval (an agent must not silently switch off its own guardrails)"
+    },
+    {
+      "id": "tracker-dashboard-launch",
+      "regex": "(?<![/.\\w])transcodes\\b(?!\\s+(?:set|reset|status|tokens|enable|disable|help|--help|-h)\\b)",
+      "reason": "Launching the transcodes dashboard exposes /api/settings, which can turn the step-up gate off — spawning it is gated like a self-disable. Human-run dashboards are unaffected; token-management subcommands pass through. The leading lookbehind excludes path/dotfile occurrences (e.g. a repo dir named 'transcodes' or ~/.transcodes) so only the invoked command matches."
+    }
+  ]
+}

@@ -8,26 +8,22 @@
  * mental model is single.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, } from "node:fs";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { parse as parseJsonc } from "jsonc-parser";
 import { dataDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+// System rules embedded at build time — see the matching note in
+// danger-patterns.ts (bundlers inline this; a runtime path read breaks once the
+// plugin is bundled by tsup).
+import systemToolRulesData from "./data/tool-rules.json" with { type: "json" };
 const USER_TOOL_RULES_FILE = "user-tool-rules.json";
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 export function getUserToolRulesPath() {
     return path.join(dataDir(), USER_TOOL_RULES_FILE);
 }
 export function loadSystemToolRules() {
-    // Package-local resolution: data/ is a sibling of dist/, so from the
-    // built file under dist/ we walk up one level and into data/.
-    const here = path.dirname(fileURLToPath(import.meta.url));
-    const dataPath = path.join(here, "..", "data", "tool-rules.json");
-    try {
-        return JSON.parse(readFileSync(dataPath, "utf8"));
-    }
-    catch (err) {
-        throw new Error(`tool-rules.json not found at ${dataPath}: ${err.message}`);
-    }
+    // Embedded at build time — see the static import above. Fresh shape per call
+    // so callers cannot mutate the shared embedded array.
+    return { rules: [...systemToolRulesData.rules] };
 }
 export function loadUserToolRules() {
     migrateLegacyFile(USER_TOOL_RULES_FILE, "data");

@@ -13,11 +13,10 @@
     }
   },
   "files": [
-    "dist",
-    "data"
+    "dist"
   ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc && mkdir -p dist/data && cp src/data/*.json dist/data/"
   },
   "dependencies": {
     "@ai-action-tracker/plugin-paths": "*",

@@ -4,10 +4,16 @@ import {
   mkdirSync,
   existsSync,
 } from "node:fs";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { parse as parseJsonc } from "jsonc-parser";
 import { dataDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+// System rules are embedded at build time (static import → bundler inlines the
+// JSON). This is mandatory because plugins ship as tsup bundles where a runtime
+// `import.meta.url`-relative read would resolve to the bundle's location, not
+// this package's data/ dir. The JSON lives under src/data/ so it stays within
+// tsconfig `rootDir`; the package build copies it to dist/data/ so esbuild can
+// inline it when bundling the compiled dist.
+import systemPatternsData from "./data/danger-patterns.json" with { type: "json" };
 
 export interface DangerPattern {
   id: string;
@@ -34,17 +40,9 @@ export function getUserPatternsPath(): string {
 }
 
 export function loadSystemPatterns(): DangerConfig {
-  // Package-local resolution: data/ is a sibling of dist/, so from the
-  // built file under dist/ we walk up one level and into data/.
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const dataPath = path.join(here, "..", "data", "danger-patterns.json");
-  try {
-    return JSON.parse(readFileSync(dataPath, "utf8")) as DangerConfig;
-  } catch (err) {
-    throw new Error(
-      `danger-patterns.json not found at ${dataPath}: ${(err as Error).message}`,
-    );
-  }
+  // Embedded at build time — see the static import above. Return a fresh shape
+  // each call so no caller can mutate the shared embedded array.
+  return { patterns: [...(systemPatternsData as DangerConfig).patterns] };
 }
 
 export function loadUserPatterns(): DangerConfig {
