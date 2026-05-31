@@ -16,6 +16,18 @@
  *   2. ~/.transcodes/config.json     — written by the CLI
  *   3. null                          — caller fail-safes (hook → block)
  *
+ * File schema (multi-token, labelled):
+ *   {
+ *     "token": "<active token>",                 // the one resolveToken() returns
+ *     "token_list": [                            // pool the user can switch between
+ *       { "token": "<t1>", "label": "prod" },
+ *       { "token": "<t2>" }                      // label is optional
+ *     ]
+ *   }
+ * The active `token` is always kept inside `token_list`. Legacy files are
+ * upgraded in-memory: a `token`-only file becomes a one-item list, and a
+ * `token_list` of bare strings is read as records with no label.
+ *
  * Security: the directory is created 0700 and the file 0600 (best-effort;
  * POSIX mode bits are largely ignored on Windows, where the file still sits
  * under the user profile and is user-scoped by default). A real OS keychain
@@ -34,51 +46,179 @@ export function transcodesConfigDir() {
 export function transcodesConfigFile() {
     return path.join(transcodesConfigDir(), CONFIG_FILE_NAME);
 }
+function normalizeToken(v) {
+    if (typeof v !== "string")
+        return null;
+    const trimmed = v.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+function normalizeLabel(v) {
+    if (typeof v !== "string")
+        return null;
+    const trimmed = v.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+/** Accept both the new `{ token, label }` records and legacy bare strings. */
+function normalizeRecord(item) {
+    if (typeof item === "string") {
+        const token = normalizeToken(item);
+        return token ? { token, label: null } : null;
+    }
+    if (item && typeof item === "object" && !Array.isArray(item)) {
+        const obj = item;
+        const token = normalizeToken(obj.token);
+        if (!token)
+            return null;
+        return { token, label: normalizeLabel(obj.label) };
+    }
+    return null;
+}
 /**
- * Read the token from `~/.transcodes/config.json`. Returns null when the
- * file is absent, unreadable, malformed, or holds no non-empty token. Never
- * throws — a broken config file must not brick the hook (fail-open before a
- * danger match, fail-safe after — see evaluate.ts).
+ * Read + normalize the full config. Never throws — a broken config file must
+ * not brick the hook (fail-open before a danger match, fail-safe after — see
+ * evaluate.ts). Returns `{ token: null, tokenList: [] }` on any problem.
+ *
+ * Upgrade rule: a legacy `{ token }`-only file is read as a one-item list,
+ * and any `token` missing from `token_list` is folded in so the active token
+ * is always part of the pool.
  */
-export function readTokenFromFile() {
+function readConfig() {
     let raw;
     try {
         raw = readFileSync(transcodesConfigFile(), "utf8");
     }
     catch {
-        return null;
+        return { token: null, tokenList: [] };
     }
     let parsed;
     try {
         parsed = JSON.parse(raw);
     }
     catch {
-        return null;
+        return { token: null, tokenList: [] };
     }
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return null;
+        return { token: null, tokenList: [] };
     }
-    const token = parsed.token;
-    if (typeof token !== "string")
-        return null;
-    const trimmed = token.trim();
-    return trimmed.length > 0 ? trimmed : null;
+    const obj = parsed;
+    const list = [];
+    const seen = new Set();
+    const push = (rec) => {
+        if (!rec)
+            return;
+        const existing = list.find((r) => r.token === rec.token);
+        if (existing) {
+            // Keep the first label we saw, but fold one in if it was missing.
+            if (!existing.label && rec.label)
+                existing.label = rec.label;
+            return;
+        }
+        seen.add(rec.token);
+        list.push(rec);
+    };
+    if (Array.isArray(obj.token_list)) {
+        for (const item of obj.token_list)
+            push(normalizeRecord(item));
+    }
+    const active = normalizeToken(obj.token);
+    if (active)
+        push({ token: active, label: null }); // ensure active is in the pool
+    return {
+        token: active ?? (list.length > 0 ? list[0].token : null),
+        tokenList: list,
+    };
+}
+function writeConfig(config) {
+    const dir = transcodesConfigDir();
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const token_list = config.tokenList.map((r) => r.label ? { token: r.token, label: r.label } : { token: r.token });
+    writeFileSync(transcodesConfigFile(), JSON.stringify({ token: config.token, token_list }), { mode: 0o600 });
 }
 /**
- * Persist the token to `~/.transcodes/config.json` (dir 0700, file 0600).
- * Used by the CLI, never by a hook. Throws on I/O failure so the CLI can
- * report the problem to the user.
+ * Read the active token from `~/.transcodes/config.json`. Returns null when
+ * the file is absent, unreadable, malformed, or holds no non-empty token.
+ * Backward-compatible signature used by `resolveToken()` and the hooks.
  */
-export function writeTokenToFile(token) {
+export function readTokenFromFile() {
+    return readConfig().token;
+}
+/** All saved tokens in the pool (active token included). Never throws. */
+export function readTokenList() {
+    return readConfig().tokenList.map((r) => r.token);
+}
+/** All saved token records (token + optional label). Never throws. */
+export function readTokenRecords() {
+    return readConfig().tokenList;
+}
+/**
+ * Persist `token` as the active token, adding it to the pool if new
+ * (dir 0700, file 0600). Existing tokens in the pool are preserved.
+ *
+ * A `label` is **mandatory** when adding a new token — every saved token must
+ * be identifiable. When re-activating a token already in the pool, the label
+ * may be omitted (the stored label is kept) or supplied to rename it. Used by
+ * the CLI, never by a hook. Throws on empty token, missing label for a new
+ * token, or I/O failure.
+ */
+export function writeTokenToFile(token, label) {
     const trimmed = token.trim();
     if (!trimmed) {
         throw new Error("token is empty");
     }
-    const dir = transcodesConfigDir();
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
-    writeFileSync(transcodesConfigFile(), JSON.stringify({ token: trimmed }), {
-        mode: 0o600,
-    });
+    const nextLabel = normalizeLabel(label);
+    const current = readConfig();
+    const existing = current.tokenList.find((r) => r.token === trimmed);
+    if (!existing && !nextLabel) {
+        throw new Error("label is required");
+    }
+    const tokenList = existing
+        ? current.tokenList.map((r) => r.token === trimmed
+            ? { token: trimmed, label: nextLabel ?? r.label }
+            : r)
+        : [...current.tokenList, { token: trimmed, label: nextLabel }];
+    writeConfig({ token: trimmed, tokenList });
+}
+/**
+ * Switch the active token to one already in (or newly added to) the pool.
+ * Throws on empty token / I/O failure.
+ */
+export function setActiveToken(token) {
+    writeTokenToFile(token);
+}
+/**
+ * Rename the label of a token already in the pool, without changing which
+ * token is active. Throws when the token is not found or the label is empty.
+ */
+export function setTokenLabel(token, label) {
+    const trimmed = token.trim();
+    const nextLabel = normalizeLabel(label);
+    if (!nextLabel) {
+        throw new Error("label is required");
+    }
+    const current = readConfig();
+    if (!current.tokenList.some((r) => r.token === trimmed)) {
+        throw new Error("token not found");
+    }
+    const tokenList = current.tokenList.map((r) => r.token === trimmed ? { token: r.token, label: nextLabel } : r);
+    writeConfig({ token: current.token, tokenList });
+}
+/**
+ * Remove a token from the pool. If it was the active token, the first
+ * remaining token becomes active (or none). Deletes the file entirely when
+ * the pool becomes empty. Best-effort I/O.
+ */
+export function removeTokenFromFile(token) {
+    const trimmed = token.trim();
+    const current = readConfig();
+    const tokenList = current.tokenList.filter((r) => r.token !== trimmed);
+    if (tokenList.length === 0) {
+        clearTokenFile();
+        return;
+    }
+    const active = current.token && tokenList.some((r) => r.token === current.token)
+        ? current.token
+        : tokenList[0].token;
+    writeConfig({ token: active, tokenList });
 }
 /** Delete `~/.transcodes/config.json` (CLI `logout`). Best-effort. */
 export function clearTokenFile() {

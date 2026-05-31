@@ -24,7 +24,21 @@ Works the same on macOS, Linux, and Windows (Node ≥ 20).
 | `transcodes login <token>` | Validates the JWT and saves it to `~/.transcodes/config.json` (dir `0700`, file `0600`). |
 | `transcodes logout` | Deletes the saved token. |
 | `transcodes status` | Shows the active token source (env vs file) and its expiry. |
+| `transcodes dashboard` | Opens a local web UI at `http://127.0.0.1:3847/` to paste, save, or clear the token. |
 | `transcodes help` | Usage. |
+
+### Dashboard
+
+```bash
+npx @bigstrider/transcodes-cli dashboard
+```
+
+Starts a small localhost server (127.0.0.1 only), opens your browser, and lets you save or clear the token without pasting it on the command line. Same file as `transcodes login` — `~/.transcodes/config.json`.
+
+Options:
+
+- `--port N` — bind to a specific port (default `3847`; increments if busy)
+- `--no-open` — do not open the browser automatically
 
 ## Token precedence
 
