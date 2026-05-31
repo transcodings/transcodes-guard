@@ -13,6 +13,12 @@ Active when editing the release workflow or release-please config. Version autom
 
 `.github/workflows/release.yml` runs **release-please only** (on push to `main`): it reads conventional commits, maintains a Release PR, and on merge produces ① a version bump commit ② the root `CHANGELOG.md` ③ a git tag `transcodes-guard-vX.Y.Z`. **There is no publish step / `NPM_TOKEN`.** Feature development keeps version, CHANGELOG, and tag records flowing; a publish step (or a separate workflow) is added once the channel is decided.
 
+## Auto-merge the Release PR
+
+The Release PR is **auto-merged** (immediately, no human approval) by a step gated on `steps.release.outputs.prs_created == 'true'`, using `fromJSON(steps.release.outputs.pr).number`. This is safe because publishing is deferred — auto-merge only commits the version bump + CHANGELOG and lets the tag be cut. **Re-gate this behind a human approval before any publish step is added.**
+
+Token caveat (release-please docs): events created by `GITHUB_TOKEN` do **not** re-trigger workflows. So for CI to run on the Release PR and for the merge to trigger the tag-creating release-please run, the workflow must use a PAT — secret `RELEASE_PLEASE_TOKEN` (repo + workflow scope), with `GITHUB_TOKEN` fallback. With only `GITHUB_TOKEN`, the merge still happens but the tag is created on the *next* push instead of immediately. `--merge --auto` (needs repo "Allow auto-merge") falls back to immediate `--merge`.
+
 ## Version model
 
 - Single root component. Version source of truth = root `package.json` + `.release-please-manifest.json`.

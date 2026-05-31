@@ -1,18 +1,18 @@
 name: Release
 
-# release-please가 main의 conventional commit을 읽어 Release PR을 만들고,
-# 그 PR이 머지되면 ① 버전 bump 커밋 ② CHANGELOG.md
-# ③ git tag(transcodes-guard-vX.Y.Z) 를 자동 생성한다.
+# release-please가 main의 conventional commit을 읽어 Release PR을 만들고, 그 PR이
+# 머지되면 ① 버전 bump 커밋 ② CHANGELOG.md ③ git tag(transcodes-guard-vX.Y.Z) 를
+# 자동 생성한다. Release PR은 아래 auto-merge 스텝이 **자동 approve 없이 즉시 머지**
+# 하므로(발행 보류 상태라 안전 — 버전·CHANGELOG·tag 기록만 자동 진행) 사람이 손댈 일이
+# 없다. **실제 npm publish/배포 단계는 없다** — 배포 채널 미확정(docs/research/
+# multi-host-plugin-distribution.md). 채널이 정해지면 그때 publish step을 추가한다.
 #
-# **실제 배포(npm publish 등)는 이 workflow에 없다.** 배포 채널을 아직 정하지
-# 않았기 때문이다 — Claude Code는 marketplace(git source)가 정식 경로이고 npm은
-# 선택적 채널이며, Codex/Antigravity/Cursor는 npm이 아니라 호스트 네이티브 방식으로
-# 설치된다(조사·계획: docs/research/multi-host-plugin-distribution.md). 따라서
-# 기능 개발 동안에는 버전·CHANGELOG·tag 기록만 자동 유지하고, 배포 결정이 서면
-# 그때 publish 단계(또는 별도 workflow)를 추가한다.
-#
-# CI(ci.yml)와 분리한 이유: 이 workflow는 태그·Release PR 생성을 위해
-# contents/pull-requests write 권한이 필요하다.
+# 토큰: GITHUB_TOKEN으로 만든/머지한 이벤트는 워크플로를 재트리거하지 않는다(recursive
+# 방지). 그래서 ① Release PR에 CI가 돌고 ② 머지가 다음 release-please run(태그 생성)을
+# 트리거하려면 PAT가 필요하다 → secret `RELEASE_PLEASE_TOKEN`(repo+workflow scope)을
+# 등록하면 자동 사용하고, 없으면 GITHUB_TOKEN으로 폴백한다(이 경우 태그는 다음 push 때
+# 생성됨). 자동 머지는 repo Settings의 "Allow auto-merge"가 켜져 있으면 체크 통과 후
+# 머지, 아니면 즉시 머지로 폴백한다.
 
 on:
   push:
@@ -27,8 +27,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run release-please
+        id: release
         uses: googleapis/release-please-action@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # release-please가 Release PR을 생성/갱신했으면 자동 머지한다.
+      - name: Auto-merge the Release PR
+        if: ${{ steps.release.outputs.prs_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ fromJSON(steps.release.outputs.pr).number }}
+        run: |
+          set -e
+          echo "Auto-merging Release PR #$PR_NUMBER"
+          # auto-merge(체크 통과 후 머지) 우선, 불가하면 즉시 머지로 폴백.
+          gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --merge --auto \
+            || gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --merge
