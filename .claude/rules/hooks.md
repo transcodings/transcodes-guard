@@ -89,9 +89,11 @@ Do not introduce a fifth hook for step-up. Extend one of the four or consume the
 
 ## Cross-plugin state coordination
 
-Cache and data directories are resolved by `@ai-action-tracker/plugin-paths`. Claude Code receives a per-plugin `$CLAUDE_PLUGIN_DATA` directory (`~/.claude/plugins/data/<plugin-id>/`) and isolates state there; Codex, Antigravity, and Cursor share the legacy `~/.cache/ai-action-tracker/` because they expose no equivalent env var. A user who runs Claude Code and Codex side-by-side will therefore NOT see verified/pending records bleed across — Claude Code is now isolated. The other three still bleed across each other by design (same Transcodes backend).
+Cache and data directories are resolved by `@ai-action-tracker/plugin-paths`. All four hosts now resolve to the SAME host-independent location `~/.transcodes/state/` (the `state/` subdir of the Transcodes product home the CLI uses for `config.json`). `dataDir()` and `cacheDir()` are kept as distinct functions for intent but currently return the same path. The previous per-host split (`$CLAUDE_PLUGIN_DATA` for Claude Code, `~/.claude/ai-action-tracker/` + an OS cache dir for the others) is retired — those locations survive only as migration sources in `migrateLegacyFile`, which now scans all three and copies the first hit into `~/.transcodes/state/` (renaming the source to `*.bak`).
 
-Known limit: when two non-claude-code hosts fire concurrent hooks with system-rule MCP tools, both can read the same verified record and pass it to two different backend calls with the same `X-Step-Up-Session-Id`. Authoritative backstop is the backend's sid-replay rejection. No client-side fix planned.
+Consequence: step-up verified/pending records are shared across ALL hosts now (Claude Code included) — a user who runs Claude Code and Codex against the same machine shares one step-up state by design (same Transcodes backend, one local folder). The earlier Claude Code isolation no longer applies.
+
+Known limit: when two hosts fire concurrent hooks with system-rule MCP tools, both can read the same verified record and pass it to two different backend calls with the same `X-Step-Up-Session-Id`. Authoritative backstop is the backend's sid-replay rejection. No client-side fix planned.
 
 ## Recommended MCP tool to surface in deny/reminder text
 

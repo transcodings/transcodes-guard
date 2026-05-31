@@ -291,21 +291,20 @@ JSON 스키마는 둘 다 동일:
 
 ## 🗂️ 데이터 저장 위치
 
-영속 상태 파일은 **host별로 다르게** 저장됩니다.
+모든 로컬 상태는 **`~/.transcodes/` 한 곳**에 저장됩니다 — CLI(`@bigstrider/transcodes-cli`)가 `config.json`(토큰 + enable 플래그)을 두는 바로 그 폴더입니다. 호스트(Claude Code / Codex / Antigravity / Cursor) 구분 없이 동일합니다.
 
-| 파일 | 종류 | Claude Code | Codex / Antigravity / Cursor |
-|---|---|---|---|
-| `user-patterns.json` | 사용자 룰 (JSONC) | `$CLAUDE_PLUGIN_DATA/` | `~/.claude/ai-action-tracker/` |
-| `user-tool-rules.json` | 사용자 MCP 룰 (JSONC) | `$CLAUDE_PLUGIN_DATA/` | `~/.claude/ai-action-tracker/` |
-| `stepup-verified.json` | Step-up verified 단발 record | `$CLAUDE_PLUGIN_DATA/` | `~/.cache/ai-action-tracker/` |
-| `stepup-pending.json` | 진행 중 step-up 세션 | `$CLAUDE_PLUGIN_DATA/` | `~/.cache/ai-action-tracker/` |
-| `stepup-browser-lock.json` | 동시 브라우저 launch 락 | `$CLAUDE_PLUGIN_DATA/` | `~/.cache/ai-action-tracker/` |
+| 파일 | 종류 | 위치 |
+|---|---|---|
+| `config.json` | 토큰 + enable 플래그 (CLI 소유) | `~/.transcodes/` |
+| `user-patterns.json` | 사용자 룰 (JSONC) | `~/.transcodes/state/` |
+| `user-tool-rules.json` | 사용자 MCP 룰 (JSONC) | `~/.transcodes/state/` |
+| `stepup-verified.json` | Step-up verified 단발 record | `~/.transcodes/state/` |
+| `stepup-pending.json` | 진행 중 step-up 세션 | `~/.transcodes/state/` |
+| `stepup-browser-lock.json` | 동시 브라우저 launch 락 | `~/.transcodes/state/` |
 
-`CLAUDE_PLUGIN_DATA`는 Claude Code가 plugin마다 자동 주입하는 환경변수로 보통 `~/.claude/plugins/data/<plugin-id>/`를 가리키며 plugin 업데이트 후에도 보존됩니다 ([공식 문서](https://code.claude.com/docs/en/plugins-reference)). 이 환경변수가 설정되지 않은 경우(예: tsx dev 모드, Inspector) Claude Code도 legacy 경로로 폴백합니다.
+CLI의 `config.json`과 plugin 런타임 상태가 한 디렉토리 리스팅에서 섞이지 않도록 후자는 `state/` 하위에 둡니다. `~/.transcodes/`는 홈 디렉토리에 있어 plugin 업데이트와 무관하게 보존되며, 한 폴더만 보면 토큰부터 게이트 상태까지 전부 확인·삭제할 수 있습니다.
 
-**자동 마이그레이션**: 기존 사용자가 legacy 경로에 파일을 갖고 있는 상태에서 Claude Code plugin을 업데이트하면, 첫 hook/MCP 호출 시 자동으로 새 경로(`$CLAUDE_PLUGIN_DATA`)로 복사되고 원본은 `*.bak`로 rename됩니다 (idempotent — 재실행 안전).
-
-**Host 격리 이유**: Claude Code의 `CLAUDE_PLUGIN_DATA`는 *해당 plugin 전용 디렉토리*이므로 다른 plugin과 충돌이 없고 업데이트 시 데이터 손실이 없는 정석 위치입니다. 나머지 3개 host는 공식 동등 변수를 제공하지 않아 기존 host-agnostic 경로를 유지합니다.
+**자동 마이그레이션**: 이전(통합 전) 빌드를 쓰던 사용자의 파일이 옛 위치(`$CLAUDE_PLUGIN_DATA/`, `~/.claude/ai-action-tracker/`, OS 캐시 디렉토리)에 있으면, 첫 hook/MCP 호출 시 `~/.transcodes/state/`로 자동 복사되고 원본은 `*.bak`로 rename됩니다 (idempotent — 재실행 안전).
 
 자세한 배경과 리서치는 [`docs/research/mcp-state-persistence-patterns.md`](./docs/research/mcp-state-persistence-patterns.md) 참고.
 
