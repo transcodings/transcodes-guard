@@ -8,8 +8,7 @@
  * Why a home-dir dotfile (not the cache dir): the token must survive cache
  * cleanup and be discoverable by both the MCP server AND the four hook
  * subprocesses, none of which inherit a GUI host's shell environment. The
- * CLI (`@bigstrider/transcodes-cli login`) writes here; `resolveToken()`
- * reads here.
+ * CLI (`@bigstrider/transcodes-cli`) writes here; `resolveToken()` reads here.
  *
  * Token precedence (resolveToken):
  *   1. process.env.TRANSCODES_TOKEN  — explicit override (CI, power users)
@@ -21,8 +20,9 @@
  *     "token": "<active token>",                 // the one resolveToken() returns
  *     "token_list": [                            // pool the user can switch between
  *       { "token": "<t1>", "label": "prod" },
- *       { "token": "<t2>" }                      // label is optional
- *     ]
+ *       { "token": "<t2>" }
+ *     ],
+ *     "enabled": false                           // optional kill-switch; default true
  *   }
  * The active `token` is always kept inside `token_list`. Legacy files are
  * upgraded in-memory: a `token`-only file becomes a one-item list, and a
@@ -61,6 +61,44 @@ type StoredConfig = {
   tokenList: TokenRecord[];
 };
 
+type RawConfig = {
+  token?: unknown;
+  token_list?: unknown;
+  enabled?: unknown;
+};
+
+/**
+ * Read and parse the whole config object. Returns null when the file is
+ * absent, unreadable, or not a JSON object. Never throws.
+ */
+function readRawConfig(): RawConfig | null {
+  let raw: string;
+  try {
+    raw = readFileSync(transcodesConfigFile(), "utf8");
+  } catch {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  return parsed as RawConfig;
+}
+
+/** Persist the full config object (dir 0700, file 0600). Throws on I/O failure. */
+function writeRawConfig(config: RawConfig): void {
+  const dir = transcodesConfigDir();
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  writeFileSync(transcodesConfigFile(), JSON.stringify(config), {
+    mode: 0o600,
+  });
+}
+
 function normalizeToken(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const trimmed = v.trim();
@@ -89,31 +127,15 @@ function normalizeRecord(item: unknown): TokenRecord | null {
 }
 
 /**
- * Read + normalize the full config. Never throws — a broken config file must
+ * Read + normalize token fields. Never throws — a broken config file must
  * not brick the hook (fail-open before a danger match, fail-safe after — see
  * evaluate.ts). Returns `{ token: null, tokenList: [] }` on any problem.
- *
- * Upgrade rule: a legacy `{ token }`-only file is read as a one-item list,
- * and any `token` missing from `token_list` is folded in so the active token
- * is always part of the pool.
  */
 function readConfig(): StoredConfig {
-  let raw: string;
-  try {
-    raw = readFileSync(transcodesConfigFile(), "utf8");
-  } catch {
+  const obj = readRawConfig();
+  if (!obj) {
     return { token: null, tokenList: [] };
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return { token: null, tokenList: [] };
-  }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return { token: null, tokenList: [] };
-  }
-  const obj = parsed as { token?: unknown; token_list?: unknown };
 
   const list: TokenRecord[] = [];
   const seen = new Set<string>();
@@ -121,7 +143,6 @@ function readConfig(): StoredConfig {
     if (!rec) return;
     const existing = list.find((r) => r.token === rec.token);
     if (existing) {
-      // Keep the first label we saw, but fold one in if it was missing.
       if (!existing.label && rec.label) existing.label = rec.label;
       return;
     }
@@ -133,7 +154,7 @@ function readConfig(): StoredConfig {
     for (const item of obj.token_list) push(normalizeRecord(item));
   }
   const active = normalizeToken(obj.token);
-  if (active) push({ token: active, label: null }); // ensure active is in the pool
+  if (active) push({ token: active, label: null });
 
   return {
     token: active ?? (list.length > 0 ? list[0].token : null),
@@ -142,16 +163,14 @@ function readConfig(): StoredConfig {
 }
 
 function writeConfig(config: StoredConfig): void {
-  const dir = transcodesConfigDir();
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
   const token_list = config.tokenList.map((r) =>
     r.label ? { token: r.token, label: r.label } : { token: r.token },
   );
-  writeFileSync(
-    transcodesConfigFile(),
-    JSON.stringify({ token: config.token, token_list }),
-    { mode: 0o600 },
-  );
+  writeRawConfig({
+    ...(readRawConfig() ?? {}),
+    token: config.token,
+    token_list,
+  });
 }
 
 /**
@@ -235,7 +254,7 @@ export function setTokenLabel(token: string, label: string): void {
 /**
  * Remove a token from the pool. If it was the active token, the first
  * remaining token becomes active (or none). Deletes the file entirely when
- * the pool becomes empty. Best-effort I/O.
+ * the pool becomes empty (preserving an explicit `enabled` flag). Best-effort.
  */
 export function removeTokenFromFile(token: string): void {
   const trimmed = token.trim();
@@ -252,13 +271,43 @@ export function removeTokenFromFile(token: string): void {
   writeConfig({ token: active, tokenList });
 }
 
-/** Delete `~/.transcodes/config.json` (CLI `logout`). Best-effort. */
+/**
+ * Remove all saved tokens (CLI `reset`). If the file carries an explicit
+ * `enabled` flag, rewrite without tokens so the disable state survives;
+ * otherwise delete the file entirely. Best-effort.
+ */
 export function clearTokenFile(): void {
+  const existing = readRawConfig();
   try {
+    if (existing && existing.enabled !== undefined) {
+      const { token: _token, token_list: _list, ...rest } = existing;
+      writeRawConfig(rest);
+      return;
+    }
     rmSync(transcodesConfigFile(), { force: true });
   } catch {
     // best-effort cleanup
   }
+}
+
+/**
+ * Whether the ai-action-tracker gate is enabled. Reads the `enabled` flag
+ * from `~/.transcodes/config.json`. Default is `true`: a missing flag,
+ * absent file, or corrupt file all resolve to enabled so the security gate
+ * is never silently switched off. Only an explicit `"enabled": false`
+ * disables it. Never throws.
+ */
+export function isTrackerEnabled(): boolean {
+  return readRawConfig()?.enabled !== false;
+}
+
+/**
+ * Toggle the gate. Read-modify-write preserving tokens and labels. Used by
+ * the CLI, dashboard, and the `set_tracker_enabled` MCP tool. Throws on I/O
+ * failure.
+ */
+export function setTrackerEnabled(enabled: boolean): void {
+  writeRawConfig({ ...(readRawConfig() ?? {}), enabled });
 }
 
 export type TokenSource = "env" | "file" | "none";

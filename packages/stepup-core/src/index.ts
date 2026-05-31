@@ -67,6 +67,8 @@ export {
   setTokenLabel,
   removeTokenFromFile,
   clearTokenFile,
+  isTrackerEnabled,
+  setTrackerEnabled,
   transcodesConfigDir,
   transcodesConfigFile,
   type TokenSource,

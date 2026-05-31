@@ -17,7 +17,7 @@ import path from "node:path";
 import { findFirstMatch, findFirstToolRule, loadMergedPatterns, loadMergedToolRules, } from "@ai-action-tracker/danger-patterns";
 import { requestStepup } from "./gate.js";
 import { readVerified } from "./store.js";
-import { resolveToken } from "./token-store.js";
+import { isTrackerEnabled, resolveToken, } from "./token-store.js";
 function checkPatternMatch(command) {
     const hit = findFirstMatch(command, loadMergedPatterns());
     if (!hit)
@@ -160,6 +160,9 @@ function classifyToolCall(input) {
  *    `decision.consumeHere`.
  */
 export async function evaluatePreToolUse(input) {
+    if (!isTrackerEnabled()) {
+        return { kind: "pass" };
+    }
     let classified;
     try {
         classified = classifyToolCall(input);
