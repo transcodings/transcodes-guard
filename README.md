@@ -495,6 +495,32 @@ docs/
 
 ---
 
+## 📦 릴리스 & npm 배포 (release-please)
+
+4개 plugin variant는 `@bigstrider/` scope의 정식 패키지명으로 npm에 발행됩니다 (코드네임 `ai-action-tracker`는 내부 매니페스트·MCP tool prefix로만 남습니다).
+
+| 호스트 | npm 패키지명 |
+|---|---|
+| Claude Code | `@bigstrider/transcodes-guard-claude-code` |
+| OpenAI Codex CLI | `@bigstrider/transcodes-guard-codex` |
+| Google Antigravity 2.0 | `@bigstrider/transcodes-guard-antigravity` |
+| Cursor IDE | `@bigstrider/transcodes-guard-cursor` |
+
+4종은 **항상 동일 버전으로 함께 릴리스**됩니다. 토큰 관리 CLI `@bigstrider/transcodes-cli`와는 버전을 동기화하지 않고, 각 plugin이 `peerDependencies`로 호환 범위(`>=0.3.0 <0.4.0`)만 선언합니다.
+
+### 버전·CHANGELOG·tag·publish는 하나의 atomic 흐름
+
+[release-please](https://github.com/googleapis/release-please)가 단일 루트 컴포넌트 모델로 릴리스 트레인을 운영합니다 (`release-please-config.json` + `.release-please-manifest.json`).
+
+1. main에 `feat:`/`fix:` 등 conventional commit이 쌓이면 release-please가 **Release PR**을 자동 생성/갱신 — 다음 버전, 루트 `CHANGELOG.md`, 4개 plugin `package.json`·매니페스트 version 동기 변경을 미리 보여줍니다.
+2. 팀이 Release PR을 머지하면 **같은 workflow run**(`.github/workflows/release.yml`)이 ① version bump 커밋 ② 루트 CHANGELOG ③ git tag `transcodes-guard-vX.Y.Z`(4종 공통 단일 태그)를 생성하고 ④ 곧이어 4개 plugin을 npm에 publish합니다. 버전 상승과 발행이 한 run 안에서만 일어나므로 정합성 오염이 없습니다.
+
+> **사전 준비**: 리포 Settings → Secrets에 `NPM_TOKEN`(`@bigstrider` scope publish 권한) 등록이 1회 필요합니다. 실제 발행은 Release PR을 머지하는 팀 결정으로만 트리거됩니다.
+
+산출물은 self-contained 번들입니다 — 각 plugin은 tsup `noExternal`로 내부 `@ai-action-tracker/*` 워크스페이스 패키지를 번들해 발행하므로, 소비자는 `@modelcontextprotocol/sdk`·`zod`만 외부 의존으로 받습니다.
+
+---
+
 ## 배포
 
 원격 Streamable HTTP 서버를 외부에 노출하려면 인증을 먼저 추가해야 합니다 (현재 스캐폴드 미포함).
