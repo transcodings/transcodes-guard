@@ -1,0 +1,72 @@
+name: Release
+
+# 버전 상승 + 루트 CHANGELOG + git tag + 4종 plugin npm publish를 하나의
+# atomic한 흐름으로 수행한다. release-please가 main의 conventional commit을
+# 읽어 Release PR을 만들고, 그 PR이 머지되는 순간(=동일 workflow run)에
+#   ① 버전 bump 커밋  ② CHANGELOG.md  ③ git tag(transcodes-guard-vX.Y.Z)
+# 를 release-please가 생성하고, 곧이어 같은 run의 publish job이 4개 plugin을
+# npm에 올린다. 두 단계가 한 run 안에서만 일어나므로 정합성 오염이 없다.
+#
+# CI(ci.yml)와 분리한 이유: 이 workflow는 contents/pull-requests write 권한이
+# 필요하고(태그·PR 생성), publish는 main push에서만 동작해야 한다.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: npm ci
+
+      # turbo가 packages/* 를 먼저 빌드한 뒤 4개 plugin을 tsup으로 번들한다.
+      # release-please가 이미 각 plugin package.json의 version을 올려둔 상태이므로
+      # 여기서 빌드되는 dist는 새 버전으로 발행된다.
+      - name: Build bundled plugin dist
+        run: npm run build:plugin
+
+      - name: Publish plugins to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -e
+          for dir in \
+            plugins/claude-code-ai-action-tracker \
+            plugins/codex-ai-action-tracker \
+            plugins/antigravity-ai-action-tracker \
+            plugins/cursor-ai-action-tracker; do
+            echo "::group::publish $dir"
+            npm publish -w "$dir" --access public
+            echo "::endgroup::"
+          done

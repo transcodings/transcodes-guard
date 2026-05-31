@@ -30,7 +30,7 @@ CI(`.github/workflows/ci.yml`)는 PR마다 `build:plugin` 실행 후 ① `packag
   .claude-plugin/marketplace.json                # Marketplace 카탈로그 (이 리포가 곧 marketplace).
   package.json                                   # private. workspaces ["packages/*", "plugins/*"] + turbo orchestrator.
   turbo.json                                     # task pipeline (build / build:plugin, ^build 의존성).
-  .github/workflows/ci.yml                       # multi-plugin dist sync + 15종 hook smoke test.
+  .github/workflows/ci.yml                       # multi-plugin dist sync + 25종 hook smoke test.
 
 packages/                                        # 호스트 무관 라이브러리 (워크스페이스 패키지)
   plugin-paths/                                  #   host-aware data/cache 디렉토리 해석 (CLAUDE_PLUGIN_DATA vs legacy)
@@ -43,7 +43,7 @@ packages/                                        # 호스트 무관 라이브러
     src/index.ts                                 #   public surface re-export
     dist/                                        #   git 커밋, npm publish 대상
   danger-patterns/                               #   regex 패턴 + tool-rule 레지스트리 + system data
-    data/{danger-patterns,tool-rules}.json       #   system 룰 (이전 hooks/*.json)
+    src/data/{danger-patterns,tool-rules}.json   #   system 룰 (이전 hooks/*.json, static import로 번들에 임베드)
     src/{danger-patterns,tool-rules,index}.ts    #   loader + 사용자 룰 CRUD
     dist/                                        #
   mcp-server-core/                               #   MCP server 본체 (createServer + 모든 tool/resource/prompt)
@@ -121,8 +121,8 @@ docs/
   - *After* danger match → **fail-safe** (`deny-*` decision 반환). hook은 stdout JSON에 `permissionDecision: "deny"` emit. `systemMessage` 필드는 프로토콜 instruction; stderr는 1줄 요약.
 - Hook orchestra (host event 집합에 따라 다름 — Claude Code/Codex는 4종, Antigravity는 3종): PreToolUse(Bash/run_command + matched MCP) 차단, SessionStart 프로토콜 primer (Antigravity는 PreInvocation에 통합), UserPromptSubmit user "auth done" 감지 (Antigravity는 PreInvocation의 transcript tail에 통합), Stop dangling pending 리마인더. 모든 hook은 단일 shared file `~/.cache/.../stepup-pending.json`을 통해 조정 — see [`docs/architecture.md`](./docs/architecture.md) §5. step-up 용 추가 hook 도입 금지; 기존 orchestra를 재사용.
 - 두 trigger source 모두 동일 PreToolUse hook에서 라우팅:
-  - **Bash**: `packages/danger-patterns/data/danger-patterns.json` regex + `rm -rf` git semantic check.
-  - **MCP tool call**: `packages/danger-patterns/data/tool-rules.json`의 exact `toolName` match. plugin matcher: `Bash|mcp__plugin_ai-action-tracker_ai-action-tracker__.*`. 신규 protected MCP tool → `packages/danger-patterns/data/tool-rules.json` 추가 (system) 또는 `add_tool_rule` MCP tool (user).
+  - **Bash**: `packages/danger-patterns/src/data/danger-patterns.json` regex + `rm -rf` git semantic check.
+  - **MCP tool call**: `packages/danger-patterns/src/data/tool-rules.json`의 exact `toolName` match. plugin matcher: `Bash|mcp__plugin_ai-action-tracker_ai-action-tracker__.*`. 신규 protected MCP tool → `packages/danger-patterns/src/data/tool-rules.json` 추가 (system) 또는 `add_tool_rule` MCP tool (user).
 - fast-path verified consume diverges by **rule** (kind 아님): `consume_in_hook` 필드로 결정.
   - **Bash**: 항상 hook에서 consume (follow-up handler 없음).
   - **MCP system rule** (`consume_in_hook=false`, default in `data/tool-rules.json`): handler가 `withStepupVerifiedSid`로 consume (sid를 backend `X-Step-Up-Session-Id` 헤더에 사용).
@@ -146,6 +146,7 @@ docs/
   본질적으로 새 stepup-core / mcp-server-core / danger-patterns 코드 추가 없이 plugin만 추가하는 작업.
 - 영속/캐시 디렉토리 해석은 항상 `@ai-action-tracker/plugin-paths`의 `dataDir()` / `cacheDir()`만 사용. `os.homedir()` 직접 join이나 plain `~/.claude/...` 경로 하드코딩 금지. user 룰 파일은 `dataDir()`(영속 의도), stepup 단기 상태 파일은 `cacheDir()`(캐시 의도) — `CLAUDE_PLUGIN_DATA` 환경변수가 set돼 있고 host="claude-code"인 경우에만 plugin-data 디렉토리로 격리되며, 그 외는 legacy 경로(`~/.claude/ai-action-tracker/` 또는 `~/.cache/ai-action-tracker/`)로 fallback. 새 영속 파일을 추가할 때 `migrateLegacyFile(name, kind)`를 첫 read 진입점에서 호출해 기존 사용자의 데이터를 자동 마이그레이션.
 - 사용자가 손으로 편집할 가능성이 있는 JSON 파일(user-patterns.json, user-tool-rules.json)은 **JSONC**(`jsonc-parser`로 parse) — `//` 주석과 trailing comma 허용. MCP tool로 write 시 `JSON.stringify`로 풀 리라이트하므로 손편집 주석은 보존되지 않음을 description에 명시.
+- **릴리스·npm 발행은 release-please 단일 루트 컴포넌트 모델로만.** 4개 plugin은 `@bigstrider/transcodes-guard-{host}`로 **동일 버전 함께** 발행되며, 버전 진실원천은 루트 `package.json` + `.release-please-manifest.json` 하나. plugin `package.json`·매니페스트 version은 `release-please-config.json`의 `extra-files`로 자동 동기 — **수동 bump 금지**(트레인 정합성 깨짐). 버전 bump + 루트 CHANGELOG + git tag(`transcodes-guard-vX.Y.Z`) + 4종 npm publish는 `.github/workflows/release.yml`의 Release PR 머지 1회로 atomic 수행. plugin은 tsup `noExternal`로 `@ai-action-tracker/*`를 번들해 self-contained 발행하므로 내부 패키지는 private 유지(별도 발행 금지). `@bigstrider/transcodes-cli`는 버전 동기 대상이 아니며 plugin의 `peerDependencies` 범위로만 호환을 선언.
 
 ## Never
 
@@ -163,7 +164,8 @@ docs/
 - 다중 호스트 plugin 포팅 전략 + Codex/Antigravity/Cursor 비교 → [`docs/research/multi-tool-hook-plugin-support.md`](./docs/research/multi-tool-hook-plugin-support.md)
 - 배포 플랫폼 비교 리서치 → [`docs/research/mcp-server-creation-and-deployment.md`](./docs/research/mcp-server-creation-and-deployment.md)
 - MCP/플러그인 장기 상태 유지 패턴 리서치 (로컬 JSON vs SQLite/Chroma vs 클라우드) → [`docs/research/mcp-state-persistence-patterns.md`](./docs/research/mcp-state-persistence-patterns.md)
-- 외부 사용자용 문서 → [`README.md`](./README.md)
+- 외부 사용자용 문서 + 릴리스/npm 발행 절차 → [`README.md`](./README.md)
+- 릴리스 자동화 설정 → [`release-please-config.json`](./release-please-config.json) + [`.github/workflows/release.yml`](./.github/workflows/release.yml)
 - Codex plugin 설치 가이드 → [`plugins/codex-ai-action-tracker/README.md`](./plugins/codex-ai-action-tracker/README.md)
 - Antigravity 2.0 plugin 설치 가이드 → [`plugins/antigravity-ai-action-tracker/README.md`](./plugins/antigravity-ai-action-tracker/README.md)
 - Antigravity e2e findings (구현 전 unknown 4종 — MCP tool naming / plugin root 변수 / subagent stdin / Stop continue UX) → [`docs/research/antigravity-e2e-findings.md`](./docs/research/antigravity-e2e-findings.md)

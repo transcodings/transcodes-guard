@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import {
   PatternValidationError,
   ToolRuleValidationError,
@@ -30,10 +29,7 @@ import {
   updateUserPattern,
   updateUserToolRule,
   writeVerified
-} from "../chunk-BPCLN6AG.js";
-
-// src/stdio.ts
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+} from "./chunk-DMIBEVDC.js";
 
 // ../../packages/mcp-server-core/dist/server.js
 import { spawn as childSpawn } from "child_process";
@@ -1395,14 +1391,6 @@ consume_in_hook: ${saved.consume_in_hook ?? true}`);
   return server;
 }
 
-// src/stdio.ts
-async function main() {
-  const server = createServer();
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("ai-action-tracker-mcp: stdio transport ready (codex)");
-}
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+export {
+  createServer
+};

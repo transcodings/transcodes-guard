@@ -1,50 +1,44 @@
 #!/usr/bin/env node
-/**
- * Codex CLI SessionStart hook — pending carry-over notice only.
- *
- * The static protocol primer lives in AGENTS.md (Codex auto-loads it into
- * every turn's system message), so this hook focuses on the dynamic part:
- * if a step-up session carried over from the previous session, surface its
- * sid + status so the agent can resume polling instead of starting over.
- * Pure additive context — never blocks.
- */
-import "../host.js";
-import { codexAdapter } from "@ai-action-tracker/hook-adapters";
-import { formatNoTokenSessionNotice, isExpired, isTrackerEnabled, readPending, resolveToken, } from "@ai-action-tracker/stepup-core";
+import {
+  codexAdapter
+} from "../chunk-F23VFFYP.js";
+import {
+  formatNoTokenSessionNotice,
+  isExpired,
+  isTrackerEnabled,
+  readPending,
+  resolveToken
+} from "../chunk-BPCLN6AG.js";
+
+// hooks/session-start.ts
 function carryoverBlock() {
-    const pending = readPending();
-    if (!pending)
-        return null;
-    if (isExpired(pending))
-        return null;
-    const statusNote = pending.status === "verified"
-        ? "VERIFIED but not yet consumed — retry the original command to release it."
-        : "PENDING — resume polling.";
-    return [
-        "Carried-over step-up state from a previous session:",
-        `  sid     : ${pending.sid}`,
-        `  status  : ${pending.status} (${statusNote})`,
-        `  command : ${pending.command}`,
-        `  reason  : ${pending.reason}`,
-        `  url     : ${pending.browserUrl}`,
-    ].join("\n");
+  const pending = readPending();
+  if (!pending) return null;
+  if (isExpired(pending)) return null;
+  const statusNote = pending.status === "verified" ? "VERIFIED but not yet consumed \u2014 retry the original command to release it." : "PENDING \u2014 resume polling.";
+  return [
+    "Carried-over step-up state from a previous session:",
+    `  sid     : ${pending.sid}`,
+    `  status  : ${pending.status} (${statusNote})`,
+    `  command : ${pending.command}`,
+    `  reason  : ${pending.reason}`,
+    `  url     : ${pending.browserUrl}`
+  ].join("\n");
 }
 function main() {
-    // Gate disabled: stay silent (no carry-over, no token nag).
-    if (!isTrackerEnabled())
-        process.exit(0);
-    const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
-    const parts = [carryoverBlock(), tokenNotice].filter((s) => Boolean(s));
-    if (parts.length === 0)
-        process.exit(0);
-    process.stdout.write(codexAdapter.emitSessionStartContext(parts.join("\n")));
-    process.exit(0);
+  if (!isTrackerEnabled()) process.exit(0);
+  const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
+  const parts = [carryoverBlock(), tokenNotice].filter(
+    (s) => Boolean(s)
+  );
+  if (parts.length === 0) process.exit(0);
+  process.stdout.write(codexAdapter.emitSessionStartContext(parts.join("\n")));
+  process.exit(0);
 }
 try {
-    main();
+  main();
+} catch (err) {
+  process.stderr.write(`ai-action-tracker session-start hook error: ${err}
+`);
+  process.exit(0);
 }
-catch (err) {
-    process.stderr.write(`ai-action-tracker session-start hook error: ${err}\n`);
-    process.exit(0);
-}
-//# sourceMappingURL=session-start.js.map

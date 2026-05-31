@@ -1,0 +1,32 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "bump-minor-pre-major": true,
+  "include-v-in-tag": true,
+  "changelog-path": "CHANGELOG.md",
+  "pull-request-title-pattern": "chore: release transcodes-guard ${version}",
+  "pull-request-header": "transcodes-guard 플러그인 4종(claude-code / codex / antigravity / cursor)을 동일 버전으로 함께 릴리스합니다.",
+  "changelog-sections": [
+    { "type": "feat", "section": "Features" },
+    { "type": "fix", "section": "Bug Fixes" },
+    { "type": "perf", "section": "Performance Improvements" },
+    { "type": "revert", "section": "Reverts" },
+    { "type": "docs", "section": "Documentation" },
+    { "type": "refactor", "section": "Code Refactoring" },
+    { "type": "chore", "section": "Miscellaneous", "hidden": true }
+  ],
+  "packages": {
+    ".": {
+      "component": "transcodes-guard",
+      "extra-files": [
+        { "type": "json", "path": "plugins/claude-code-ai-action-tracker/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "plugins/claude-code-ai-action-tracker/.claude-plugin/plugin.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "plugins/codex-ai-action-tracker/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "plugins/codex-ai-action-tracker/plugin.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "plugins/antigravity-ai-action-tracker/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "plugins/antigravity-ai-action-tracker/plugin.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "plugins/cursor-ai-action-tracker/package.json", "jsonpath": "$.version" }
+      ]
+    }
+  }
+}
