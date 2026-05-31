@@ -1,5 +1,5 @@
 // host.ts
-process.env.AI_ACTION_TRACKER_HOST = "antigravity";
+process.env.AI_ACTION_TRACKER_HOST = "claude-code";
 
 // ../../packages/stepup-core/dist/token-store.js
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
@@ -124,19 +124,12 @@ import path3 from "path";
 import { existsSync, mkdirSync as mkdirSync2, renameSync, copyFileSync } from "fs";
 import os2 from "os";
 import path2 from "path";
-var HOST_ENV_VAR = "AI_ACTION_TRACKER_HOST";
 var CLAUDE_PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA";
-function detectHost() {
-  const raw = process.env[HOST_ENV_VAR]?.trim();
-  switch (raw) {
-    case "claude-code":
-    case "codex":
-    case "antigravity":
-    case "cursor":
-      return raw;
-    default:
-      return null;
-  }
+function transcodesDir() {
+  return path2.join(os2.homedir(), ".transcodes");
+}
+function stateDir() {
+  return path2.join(transcodesDir(), "state");
 }
 function legacyDataDir() {
   return path2.join(os2.homedir(), ".claude", "ai-action-tracker");
@@ -154,39 +147,31 @@ function legacyCacheDir() {
   return path2.join(base, "ai-action-tracker");
 }
 function dataDir() {
-  if (detectHost() === "claude-code") {
-    const plug = process.env[CLAUDE_PLUGIN_DATA_ENV]?.trim();
-    if (plug && plug.length > 0) {
-      return plug;
-    }
-  }
-  return legacyDataDir();
+  return stateDir();
 }
 function cacheDir() {
-  if (detectHost() === "claude-code") {
-    const plug = process.env[CLAUDE_PLUGIN_DATA_ENV]?.trim();
-    if (plug && plug.length > 0) {
-      return plug;
-    }
-  }
-  return legacyCacheDir();
+  return stateDir();
 }
 function migrateLegacyFile(name, kind) {
+  void kind;
   try {
-    const currentDir = kind === "data" ? dataDir() : cacheDir();
-    const legacyBase = kind === "data" ? legacyDataDir() : legacyCacheDir();
-    if (currentDir === legacyBase) {
-      return;
-    }
-    const newPath = path2.join(currentDir, name);
+    const target = stateDir();
+    const newPath = path2.join(target, name);
     if (existsSync(newPath)) {
       return;
     }
-    const oldPath = path2.join(legacyBase, name);
-    if (!existsSync(oldPath)) {
+    const candidates = [];
+    const plug = process.env[CLAUDE_PLUGIN_DATA_ENV]?.trim();
+    if (plug && plug.length > 0) {
+      candidates.push(path2.join(plug, name));
+    }
+    candidates.push(path2.join(legacyDataDir(), name));
+    candidates.push(path2.join(legacyCacheDir(), name));
+    const oldPath = candidates.find((p) => p !== newPath && existsSync(p));
+    if (!oldPath) {
       return;
     }
-    mkdirSync2(currentDir, { recursive: true });
+    mkdirSync2(target, { recursive: true });
     copyFileSync(oldPath, newPath);
     renameSync(oldPath, oldPath + ".bak");
   } catch {

@@ -1,21 +1,21 @@
 /**
- * Host-aware persistent + cache directory resolution.
+ * Local data + cache directory resolution.
  *
- * The plugin runs under one of four hosts: Claude Code, Codex CLI, Google
- * Antigravity, or Cursor IDE. Only Claude Code provides a standard plugin
- * data directory via the `CLAUDE_PLUGIN_DATA` environment variable
- * (`~/.claude/plugins/data/{id}/`, survives plugin updates). The other three
- * hosts have no equivalent, so they keep using the legacy host-agnostic
- * paths under the user's home directory.
+ * All plugin-managed local state lives under the Transcodes product home
+ * `~/.transcodes/` — the same root the CLI (`@bigstrider/transcodes-cli`)
+ * already uses for `config.json` (token + enable flag). Plugin state goes one
+ * level down in `~/.transcodes/state/` so the CLI's config and the plugins'
+ * runtime state never mingle in the same listing, while a user still has a
+ * single folder to inspect or wipe.
  *
- * Host identification is an internal contract: each plugin's transport
- * entry and each hook adapter sets `AI_ACTION_TRACKER_HOST` to one of
- * the HostName values before any code that resolves a path runs. If the
- * env var is missing (e.g. running tsx directly without setting it,
- * Inspector dev session), `dataDir()` falls back to the legacy path —
- * never to `CLAUDE_PLUGIN_DATA`, even when set, to prevent accidental
- * cross-host data bleed when a user starts a non-claude-code host from
- * a shell that happens to have `CLAUDE_PLUGIN_DATA` exported.
+ * This path is host-independent on purpose: Claude Code, Codex, Antigravity,
+ * and Cursor all resolve to the same `~/.transcodes/state/`. (Previously
+ * Claude Code isolated state under `$CLAUDE_PLUGIN_DATA` and the other hosts
+ * used `~/.claude/ai-action-tracker/` + an OS cache dir; those locations are
+ * now migration sources only — see `migrateLegacyFile`.)
+ *
+ * `detectHost()` is still exported for callers that need the host identity
+ * (e.g. session-start primers); it no longer affects path resolution.
  */
 import { existsSync, mkdirSync, renameSync, copyFileSync } from "node:fs";
 import os from "node:os";
@@ -39,12 +39,26 @@ export function detectHost(): HostName | null {
   }
 }
 
+/** Transcodes product home (`~/.transcodes`) — shared with the CLI's config.json. */
+export function transcodesDir(): string {
+  return path.join(os.homedir(), ".transcodes");
+}
+
+/** Where all plugin-managed local state lives (`~/.transcodes/state`). */
+function stateDir(): string {
+  return path.join(transcodesDir(), "state");
+}
+
+/**
+ * Legacy persistent-data location (`~/.claude/ai-action-tracker`). Retained
+ * only as a migration source for users who ran a pre-consolidation build.
+ */
 export function legacyDataDir(): string {
   return path.join(os.homedir(), ".claude", "ai-action-tracker");
 }
 
 /**
- * OS-appropriate cache directory.
+ * Legacy OS cache location. Retained only as a migration source.
  *
  *   linux   $XDG_CACHE_HOME or ~/.cache, suffix "ai-action-tracker"
  *   macOS   ~/Library/Caches/ai-action-tracker
@@ -67,75 +81,72 @@ export function legacyCacheDir(): string {
 
 /**
  * Persistent data directory. Use for files that should survive plugin
- * updates: user rules, step-up coordination state, etc.
- *
- *   claude-code + $CLAUDE_PLUGIN_DATA set → $CLAUDE_PLUGIN_DATA
- *   otherwise                              → legacyDataDir()
+ * updates: user rules, etc. Resolves to `~/.transcodes/state`.
  */
 export function dataDir(): string {
-  if (detectHost() === "claude-code") {
-    const plug = process.env[CLAUDE_PLUGIN_DATA_ENV]?.trim();
-    if (plug && plug.length > 0) {
-      return plug;
-    }
-  }
-  return legacyDataDir();
+  return stateDir();
 }
 
 /**
- * Short-lived cache directory. Currently identical to dataDir() under
- * Claude Code (CLAUDE_PLUGIN_DATA covers both), and falls back to
- * legacyCacheDir() elsewhere. Kept as a separate function so a future
+ * Short-lived cache directory. Identical to {@link dataDir} now that all state
+ * lives under `~/.transcodes/state`. Kept as a separate function so a future
  * change can split them again without touching call sites.
  */
 export function cacheDir(): string {
-  if (detectHost() === "claude-code") {
-    const plug = process.env[CLAUDE_PLUGIN_DATA_ENV]?.trim();
-    if (plug && plug.length > 0) {
-      return plug;
-    }
-  }
-  return legacyCacheDir();
+  return stateDir();
 }
 
 /**
- * One-shot migration of a single file from legacy to current path.
+ * One-shot migration of a single file from any historical location into
+ * `~/.transcodes/state/`.
  *
  * Behaviour:
- *   - If new path file already exists → no-op (already migrated or fresh).
- *   - Else if legacy file exists → copy to new path, rename legacy to
- *     `<name>.bak` so a re-run is idempotent and the user has a recovery
- *     copy.
+ *   - If the new path already exists → no-op (already migrated or fresh).
+ *   - Else scan every historical location for `name` and migrate the first
+ *     one found: copy to the new path, rename the source to `<name>.bak` so
+ *     a re-run is idempotent and the user keeps a recovery copy.
  *   - Else → no-op (nothing to migrate).
  *
- * Fails open: any IO error is swallowed. The caller will fall back to
- * reading the new path (which may be empty), matching the existing
- * fail-open policy of loadUserPatterns / readVerified / readPending.
- * Never breaks a hook.
+ * Historical locations scanned (a user may have run any host before):
+ *   1. `$CLAUDE_PLUGIN_DATA/<name>`  — Claude Code stored both data and cache here
+ *   2. `legacyDataDir()/<name>`       — Codex/Antigravity/Cursor user-rule files
+ *   3. `legacyCacheDir()/<name>`      — Codex/Antigravity/Cursor step-up state
+ *
+ * `kind` is accepted for call-site compatibility but no longer affects the
+ * target (data and cache both consolidate into `~/.transcodes/state`).
+ *
+ * Fails open: any IO error is swallowed. The caller falls back to reading the
+ * new path (which may be empty), matching the fail-open policy of
+ * loadUserPatterns / readVerified / readPending. Never breaks a hook.
  */
 export function migrateLegacyFile(
   name: string,
   kind: "data" | "cache",
 ): void {
+  void kind;
   try {
-    const currentDir = kind === "data" ? dataDir() : cacheDir();
-    const legacyBase = kind === "data" ? legacyDataDir() : legacyCacheDir();
-
-    if (currentDir === legacyBase) {
-      return;
-    }
-
-    const newPath = path.join(currentDir, name);
+    const target = stateDir();
+    const newPath = path.join(target, name);
     if (existsSync(newPath)) {
       return;
     }
 
-    const oldPath = path.join(legacyBase, name);
-    if (!existsSync(oldPath)) {
+    const candidates: string[] = [];
+    const plug = process.env[CLAUDE_PLUGIN_DATA_ENV]?.trim();
+    if (plug && plug.length > 0) {
+      candidates.push(path.join(plug, name));
+    }
+    candidates.push(path.join(legacyDataDir(), name));
+    candidates.push(path.join(legacyCacheDir(), name));
+
+    const oldPath = candidates.find(
+      (p) => p !== newPath && existsSync(p),
+    );
+    if (!oldPath) {
       return;
     }
 
-    mkdirSync(currentDir, { recursive: true });
+    mkdirSync(target, { recursive: true });
     copyFileSync(oldPath, newPath);
     renameSync(oldPath, oldPath + ".bak");
   } catch {

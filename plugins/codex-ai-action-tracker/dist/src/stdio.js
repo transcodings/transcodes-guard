@@ -30,7 +30,7 @@ import {
   updateUserPattern,
   updateUserToolRule,
   writeVerified
-} from "../chunk-BPCLN6AG.js";
+} from "../chunk-WUYC63Y6.js";
 
 // src/stdio.ts
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
