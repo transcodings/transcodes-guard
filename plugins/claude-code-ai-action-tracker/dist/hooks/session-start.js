@@ -8,7 +8,7 @@
  */
 import "../host.js";
 import { claudeCodeAdapter } from "@ai-action-tracker/hook-adapters";
-import { formatNoTokenSessionNotice, isExpired, readPending, resolveToken, } from "@ai-action-tracker/stepup-core";
+import { formatNoTokenSessionNotice, isExpired, isTrackerEnabled, readPending, resolveToken, } from "@ai-action-tracker/stepup-core";
 const PROTOCOL_PRIMER = [
     "ai-action-tracker step-up MFA protocol:",
     "",
@@ -52,6 +52,10 @@ function carryoverBlock() {
     ].join("\n");
 }
 function main() {
+    // Gate disabled (transcodes disable / set_tracker_enabled): stay silent —
+    // no protocol primer, no carry-over. exit 0 with no additionalContext.
+    if (!isTrackerEnabled())
+        process.exit(0);
     const carry = carryoverBlock();
     const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
     const additionalContext = [PROTOCOL_PRIMER, carry, tokenNotice]

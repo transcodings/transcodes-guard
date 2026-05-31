@@ -14,7 +14,7 @@ npm run dev:hook             # tsx, Claude Code plugin의 PreToolUse hook (stdin
 npm run inspect              # MCP Inspector UI 자동 기동 (Claude Code plugin의 stdio 서버에 접속)
 ```
 
-CI(`.github/workflows/ci.yml`)는 PR마다 `build:plugin` 실행 후 ① `packages/*/dist/`, ② `plugins/claude-code-ai-action-tracker/dist/`, ③ `plugins/codex-ai-action-tracker/dist/`, ④ `plugins/antigravity-ai-action-tracker/dist/`, ⑤ `plugins/cursor-ai-action-tracker/dist/` **다섯 곳**에 대해 `git diff --exit-code`로 빌드 산출물 동기성을 검증한다. hook smoke test **21종**(claude-code 7 + codex 3 + antigravity 5 + cursor 6)도 함께 통과해야 한다.
+CI(`.github/workflows/ci.yml`)는 PR마다 `build:plugin` 실행 후 ① `packages/*/dist/`, ② `plugins/claude-code-ai-action-tracker/dist/`, ③ `plugins/codex-ai-action-tracker/dist/`, ④ `plugins/antigravity-ai-action-tracker/dist/`, ⑤ `plugins/cursor-ai-action-tracker/dist/` **다섯 곳**에 대해 `git diff --exit-code`로 빌드 산출물 동기성을 검증한다. hook smoke test **25종**(claude-code 11 + codex 3 + antigravity 5 + cursor 6)도 함께 통과해야 한다.
 
 ## Running locally without installing the plugin
 
@@ -114,6 +114,8 @@ docs/
 - Log via `console.error` (stderr). `console.log` to stdout corrupts JSON-RPC framing in stdio mode and the client will silently disconnect.
 - Run `npm run build:plugin` before claiming work complete. `tsc` + multi-plugin dist sync는 CI가 강제하는 정합성 계약.
 - After capability changes, verify with `npm run inspect` — the Inspector renders new tools immediately.
+- **Runtime kill-switch** (전역 enable/disable): `~/.transcodes/config.json`의 `enabled` 플래그 (token-store.ts가 관리, dataDir 아님 — CLI 프로세스와 4개 호스트 hook이 닿는 유일한 고정 경로). `evaluatePreToolUse` 최상단 `isTrackerEnabled()` 체크가 비활성 시 `{kind:"pass"}` 반환 → Bash + 보호 MCP-tool 차단을 한 지점에서 동시 무력화. SessionStart primer(4개 host entry)도 별도 가드. **부재·손상 = 활성(true)** 기본(보안 게이트가 조용히 꺼지지 않도록).
+  - **enable/disable 비대칭 (보안 핵심):** disable은 보호 약화이므로 **사람의 out-of-band 행동만** 허용 — 에이전트가 자기 가드레일을 끄지 못하게 함. ① MCP tool `set_tracker_enabled`는 `enabled=true`만 허용하고 `false`는 거부(`get_tracker_status`는 read-only 조회). ② 에이전트의 Bash `transcodes disable` 시도는 system 패턴 `tracker-self-disable`이 step-up으로 차단. ③ 사람이 직접 친 터미널 `transcodes disable`만 게이트를 끔(hook 부재). ④ GUI dashboard(`transcodes` 무인자)의 `POST /api/settings`도 disable 경로이므로, 에이전트의 dashboard **기동**을 system 패턴 `tracker-dashboard-launch`가 차단(경로·dotfile 내 'transcodes'는 leading lookbehind `(?<![/.\w])`로 제외 — 이 리포 디렉토리명이 `transcodes`라 `\b`만으로는 모든 `cd` 경로가 오탐; `set`/`status`/`tokens`/`enable` 서브커맨드는 통과). dashboard 서버(`dashboard.ts`)는 Host 헤더 검증으로 DNS rebinding도 거부. **알려진 한계**: 사람이 이미 띄운 dashboard에 에이전트가 `curl POST /api/settings {enabled:false}`로 끄는 경로는 미차단(localhost HTTP는 발신자 식별 불가) — 완전 차단은 토글 자체에 WebAuthn step-up 게이트가 필요(미구현). enable은 보호 강화라 에이전트가 해도 안전 → MCP·CLI 양쪽 자유. Claude Code 사용자는 네이티브 `/plugin disable`로 hook+MCP 완전 언로드도 가능.
 - PreToolUse hook의 **asymmetric fail policy**는 `packages/stepup-core/src/evaluate.ts`의 `evaluatePreToolUse`에 내장되어 네 plugin이 공유:
   - *Before* danger match (stdin parse, classify, pattern load) → **fail-open** (decision `kind:"pass"` 반환). hook은 exit 0, no JSON.
   - *After* danger match → **fail-safe** (`deny-*` decision 반환). hook은 stdout JSON에 `permissionDecision: "deny"` emit. `systemMessage` 필드는 프로토콜 instruction; stderr는 1줄 요약.

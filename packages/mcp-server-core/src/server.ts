@@ -23,10 +23,15 @@ import {
 import {
   createStepupSession,
   inspectStepupState,
+  isTrackerEnabled,
   loadStepupConfig,
   markVerified,
+  parseMemberAccessToken,
   pollStepupSession,
   pollStepupSessionWait,
+  resolveToken,
+  setTrackerEnabled,
+  transcodesConfigFile,
   writeVerified,
 } from "@ai-action-tracker/stepup-core";
 import { registerAuditTools } from "./tools/audit.js";
@@ -440,6 +445,93 @@ export function createServer(): McpServer {
           },
         ],
       };
+    },
+  );
+
+  server.registerTool(
+    "get_tracker_status",
+    {
+      title: "Get ai-action-tracker gate status",
+      description:
+        "Report whether the ai-action-tracker step-up gate is currently " +
+        "enabled, plus the active token source and its expiry. Read-only. " +
+        "Call when the user asks if the tracker/hook/protection is on or off " +
+        "— e.g. '트래커 켜져 있어?', 'hook 활성화 상태야?', 'is the gate enabled?'. " +
+        "The enabled flag lives in the same file as the token " +
+        `(${transcodesConfigFile()}); a missing flag means enabled.`,
+      inputSchema: {},
+    },
+    async () => {
+      const enabled = isTrackerEnabled();
+      const { token, source } = resolveToken();
+      let tokenSummary: string | null = null;
+      if (token) {
+        try {
+          const parsed = parseMemberAccessToken(token);
+          tokenSummary = `member=${parsed.claims.memberId} project=${parsed.claims.projectId} expires=${new Date(parsed.claims.exp * 1000).toISOString()}`;
+        } catch {
+          tokenSummary = "present but undecodable";
+        }
+      }
+      return textResult(
+        JSON.stringify(
+          {
+            enabled,
+            config_file: transcodesConfigFile(),
+            token_source: source,
+            token: tokenSummary,
+          },
+          null,
+          2,
+        ),
+      );
+    },
+  );
+
+  server.registerTool(
+    "set_tracker_enabled",
+    {
+      title: "Re-enable the ai-action-tracker gate",
+      description:
+        "Re-ENABLE the ai-action-tracker step-up gate across all hosts. " +
+        "This tool can only turn protection ON — it deliberately REFUSES " +
+        "`enabled=false`. Disabling the gate is a privilege reduction that " +
+        "must be a human, out-of-band action (the agent could otherwise " +
+        "disable its own guardrails via prompt injection), so disabling is " +
+        "only possible by running `transcodes disable` in a terminal. Call " +
+        "this when the user asks to turn the tracker/hook/protection back " +
+        "ON — e.g. '트래커 다시 켜줘', 'enable the gate', 'turn protection " +
+        `back on'. Persists to ${transcodesConfigFile()}; effective on the ` +
+        "next hook invocation (no restart needed).",
+      inputSchema: {
+        enabled: z
+          .boolean()
+          .describe(
+            "Must be true. This tool only re-enables the gate; pass true to turn protection on. false is refused — disable via `transcodes disable` in a terminal.",
+          ),
+      },
+    },
+    async ({ enabled }) => {
+      if (!enabled) {
+        return textResult(
+          "Refused: the gate cannot be disabled through an MCP tool — that " +
+            "would let an agent switch off its own step-up protection. To " +
+            "disable, the human operator must run `transcodes disable` in a " +
+            "terminal (out-of-band from this agent).",
+          true,
+        );
+      }
+      try {
+        setTrackerEnabled(true);
+      } catch (e) {
+        return textResult(
+          `Failed to enable gate: ${e instanceof Error ? e.message : String(e)}`,
+          true,
+        );
+      }
+      return textResult(
+        "ai-action-tracker gate ENABLED. Danger commands and protected MCP tools will require step-up MFA again.",
+      );
     },
   );
 

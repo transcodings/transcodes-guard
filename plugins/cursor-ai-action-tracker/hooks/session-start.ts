@@ -12,6 +12,7 @@ import { cursorAdapter } from "@ai-action-tracker/hook-adapters";
 import {
   formatNoTokenSessionNotice,
   isExpired,
+  isTrackerEnabled,
   readPending,
   resolveToken,
 } from "@ai-action-tracker/stepup-core";
@@ -35,6 +36,9 @@ function carryoverBlock(): string | null {
 }
 
 function main(): void {
+  // Gate disabled: stay silent (no carry-over, no token nag).
+  if (!isTrackerEnabled()) process.exit(0);
+
   const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
   const parts = [carryoverBlock(), tokenNotice].filter(
     (s): s is string => Boolean(s),

@@ -35,6 +35,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   isExpired,
+  isTrackerEnabled,
   readPending,
   resolveToken,
   type PendingState,
@@ -97,6 +98,10 @@ function userDoneNotice(pending: PendingState, matchedContent: string): string {
 }
 
 function main(): void {
+  // Gate disabled (transcodes disable / set_tracker_enabled): inject nothing —
+  // no primer, no carry-over, no user-done detection. exit 0 with no payload.
+  if (!isTrackerEnabled()) process.exit(0);
+
   if (
     !antigravityAdapter.parsePreInvocationStdin ||
     !antigravityAdapter.emitPreInvocation

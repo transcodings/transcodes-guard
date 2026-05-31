@@ -100,10 +100,28 @@ Command: rm -rf src
 
 **5단계 — 비활성화 / 제거**
 
-```
-/plugin disable ai-action-tracker      # 일시 비활성화
-/plugin uninstall ai-action-tracker@ai-action-tracker   # 완전 제거
-```
+두 가지 끄는 방법이 있습니다:
+
+- **런타임 kill-switch (권장, 모든 호스트 공통)** — hook과 step-up 게이트를 세션 재로드 없이 즉시 끕니다. Claude Code뿐 아니라 Codex/Antigravity/Cursor에서도 동일하게 동작합니다.
+
+  ```
+  transcodes disable     # 게이트 OFF — Bash + MCP tool 차단 해제 (다음 hook부터 적용)
+  transcodes enable      # 게이트 ON — 다시 step-up MFA 요구
+  transcodes status      # 현재 게이트 상태 + 토큰 확인
+  ```
+
+  > **보안상 disable은 사람만 가능합니다.** 게이트를 끄는 것은 보호를 약화시키는 행위라 반드시 사람의 터미널 입력(out-of-band)이어야 합니다. 그렇지 않으면 프롬프트 인젝션당한 에이전트가 스스로 가드레일을 해제할 수 있기 때문입니다. 그래서:
+  > - MCP tool `set_tracker_enabled`는 **재활성화(true)만** 허용하고 `false`는 거부합니다. `get_tracker_status`로 상태 조회는 가능합니다.
+  > - 에이전트가 Bash로 `transcodes disable`을 실행하려 하면 그 자체가 step-up MFA로 차단됩니다(system 패턴 `tracker-self-disable`). 사람이 자기 터미널에서 직접 친 `transcodes disable`은 hook이 없으므로 그대로 동작합니다.
+  >
+  > 상태는 `~/.transcodes/config.json`의 `enabled` 플래그에 저장되며, 플래그가 없거나 파일이 손상되면 **활성(켜짐)** 으로 간주합니다.
+
+- **Claude Code 네이티브 (완전 언로드)** — plugin의 hook+MCP를 통째로 내립니다. Claude Code 전용입니다.
+
+  ```
+  /plugin disable ai-action-tracker                       # 일시 비활성화 (/reload-plugins로 적용)
+  /plugin uninstall ai-action-tracker@ai-action-tracker   # 완전 제거
+  ```
 
 ### 팀 단위 자동 설치
 
@@ -128,7 +146,7 @@ plugin 시스템 없이 hook만 직접 등록하려면 [`docs/hook-installation.
 
 PreToolUse hook을 등록하면 위험 Bash 명령이 *실행 직전에* 차단됩니다. `--dangerously-skip-permissions` 모드에서도 작동.
 
-### 차단되는 명령 (system 정규식 8개 + user 추가 패턴 + git tracked 의미 분석)
+### 차단되는 명령 (system 정규식 9개 + user 추가 패턴 + git tracked 의미 분석)
 
 | 종류 | 차단 예시 |
 |------|----------|
