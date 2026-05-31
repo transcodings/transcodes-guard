@@ -1,5 +1,5 @@
 {
-  "ai-action-tracker-stepup": {
+  "transcodes-guard-stepup": {
     "PreToolUse": [
       {
         "matcher": "run_command",

@@ -1,7 +1,7 @@
 {
   "name": "@bigstrider/transcodes-cli",
   "version": "0.3.0",
-  "description": "Transcodes CLI — manage ai-action-tracker member tokens and the step-up gate (set/reset/status/tokens, enable/disable, dashboard).",
+  "description": "Transcodes CLI — manage transcodes-guard member tokens and the step-up gate (set/reset/status/tokens, enable/disable, dashboard).",
   "type": "module",
   "bin": {
     "transcodes": "dist/index.js"
@@ -16,7 +16,7 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@ai-action-tracker/stepup-core": "*",
+    "@transcodes-guard/stepup-core": "*",
     "@types/node": "^22.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0"

@@ -16,7 +16,7 @@
 - **각 CLI 바이너리 자체**(Codex 등)는 npm/Homebrew/shell installer로 설치되지만, **그 위의 plugin은 호스트별 메커니즘**으로 깔린다 — 둘을 혼동하면 안 됨. (신뢰도 높음)
 - 웹은 "Codex/Antigravity의 lifecycle-hook API가 미문서화"라 보고하지만, **실제로는 Codex 공식 hooks 문서가 존재**(`developers.openai.com/codex/hooks`)하고 Antigravity 2.0은 native `PreInvocation`을 쓴다 — 웹 종합이 약간 outdated. 이 프로젝트의 CLAUDE.md/research 문서가 더 최신·정확. (신뢰도 보통)
 
-## 이 프로젝트(ai-action-tracker) 적용 — 답: 어느 variant도 npm publish 불필요
+## 이 프로젝트(transcodes-guard) 적용 — 답: 어느 variant도 npm publish 불필요
 
 배포 단위는 **이 git repo 하나**이고, 각 호스트가 자기 plugin 디렉토리를 네이티브 방식으로 등록한다:
 
@@ -51,7 +51,7 @@
 ### ① Claude Code — marketplace가 정식, npm은 선택적 source
 
 - **배포 단위 = marketplace 카탈로그**(`.claude-plugin/marketplace.json`). 각 plugin이 `source`로 fetch 위치를 가리킨다. source 타입 5종: **상대경로 / `github` / `url`(git) / `git-subdir` / `npm`**.
-- **이 repo의 현재 방식(비-npm):** 루트가 곧 marketplace이고 plugin을 상대경로(`"./plugins/claude-code-ai-action-tracker"`)로 참조. 사용자: `/plugin marketplace add <owner/repo>` → repo git clone → `/plugin install ai-action-tracker@ai-action-tracker`. 커밋된 `dist/`·`hooks/hooks.json`·`.mcp.json`·`.claude-plugin/plugin.json`을 그대로 읽어 hook·MCP 등록. **npm·레지스트리 불필요.** (이래서 dist를 repo에 커밋하고 CI가 동기성을 강제한다.)
+- **이 repo의 현재 방식(비-npm):** 루트가 곧 marketplace이고 plugin을 상대경로(`"./plugins/claude-code-ai-action-tracker"`)로 참조. 사용자: `/plugin marketplace add <owner/repo>` → repo git clone → `/plugin install transcodes-guard@transcodes-guard`. 커밋된 `dist/`·`hooks/hooks.json`·`.mcp.json`·`.claude-plugin/plugin.json`을 그대로 읽어 hook·MCP 등록. **npm·레지스트리 불필요.** (이래서 dist를 repo에 커밋하고 CI가 동기성을 강제한다.)
 - **npm을 쓰려면(선택):** `@bigstrider/transcodes-guard-claude-code`를 npm 발행 + marketplace 엔트리를 `"source": {"source":"npm","package":"...","version":"^x"}`로. 사용자 명령은 동일(`marketplace add`+`install`)하나 fetch가 `npm install`로 바뀜. **`/plugin install @npm패키지` 직접 명령은 없다** — npm은 항상 marketplace 엔트리의 fetch 백엔드.
 - **public 필요 여부:** marketplace add는 설치자 로컬 git 자격으로 clone하므로, **공개 배포 → public repo 필요**, **사내/팀 한정 → private 유지 가능**(권한 있는 멤버만 설치). 기술적 필수조건은 "설치자가 clone 가능한가"일 뿐.
 - 출처: [discover-plugins](https://code.claude.com/docs/en/discover-plugins) · [plugin-marketplaces](https://code.claude.com/docs/en/plugin-marketplaces) · [plugins-reference](https://code.claude.com/docs/en/plugins-reference)

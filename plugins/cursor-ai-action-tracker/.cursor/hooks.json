@@ -12,7 +12,7 @@
       {
         "type": "command",
         "command": "node __AI_ACTION_TRACKER_ROOT__/dist/hooks/pre-tool-use.js",
-        "matcher": "MCP:plugin_ai-action-tracker_*",
+        "matcher": "MCP:plugin_transcodes-guard_*",
         "timeout": 30
       }
     ],

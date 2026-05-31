@@ -30,7 +30,7 @@
  * Tool-name normalization: Antigravity's shell tool is `run_command` (not
  * `Bash`), with args `CommandLine` / `Cwd` / `WaitMsBeforeAsync` instead of
  * `command` / `cwd`. The adapter rewrites `args.CommandLine -> args.command`
- * so `@ai-action-tracker/stepup-core`'s `classifyToolCall` doesn't need
+ * so `@transcodes-guard/stepup-core`'s `classifyToolCall` doesn't need
  * host branching beyond the additional toolName check it has for
  * `run_command`.
  */

@@ -1,8 +1,8 @@
 {
-  "name": "ai-action-tracker-monorepo",
+  "name": "transcodes-guard-monorepo",
   "private": true,
   "version": "0.1.0",
-  "description": "Monorepo orchestrator for ai-action-tracker plugins + marketplace. Root is the release-please train coordinator (never published).",
+  "description": "Monorepo orchestrator for transcodes-guard plugins + marketplace. Root is the release-please train coordinator (never published).",
   "workspaces": [
     "packages/*",
     "plugins/*"

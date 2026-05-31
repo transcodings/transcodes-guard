@@ -1,5 +1,5 @@
 /**
- * Public surface of @ai-action-tracker/hook-adapters.
+ * Public surface of @transcodes-guard/hook-adapters.
  *
  * Pick the adapter matching the host that invoked the hook. Each adapter
  * exposes the same `HookAdapter` interface, so plugins can swap hosts

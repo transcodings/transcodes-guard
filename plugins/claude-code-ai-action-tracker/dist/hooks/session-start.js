@@ -8,11 +8,11 @@ import {
   isTrackerEnabled,
   readPending,
   resolveToken
-} from "../chunk-RFH4GXTJ.js";
+} from "../chunk-Y3EG3253.js";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
-  "ai-action-tracker step-up MFA protocol:",
+  "transcodes-guard step-up MFA protocol:",
   "",
   'When a PreToolUse hook denies a Bash with `permissionDecision: "deny"`',
   "and the reason mentions Step-up MFA, the command was BLOCKED and",
@@ -60,7 +60,7 @@ function main() {
 try {
   main();
 } catch (err) {
-  process.stderr.write(`ai-action-tracker session-start hook error: ${err}
+  process.stderr.write(`transcodes-guard session-start hook error: ${err}
 `);
   process.exit(0);
 }

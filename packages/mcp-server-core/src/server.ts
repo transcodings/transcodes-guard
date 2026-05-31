@@ -19,7 +19,7 @@ import {
   updateUserToolRule,
   type MergedPattern,
   type MergedToolRule,
-} from "@ai-action-tracker/danger-patterns";
+} from "@transcodes-guard/danger-patterns";
 import {
   createStepupSession,
   inspectStepupState,
@@ -33,7 +33,7 @@ import {
   setTrackerEnabled,
   transcodesConfigFile,
   writeVerified,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 import { registerAuditTools } from "./tools/audit.js";
 import { registerAuthDeviceTools } from "./tools/auth-devices.js";
 import { registerJwkTools } from "./tools/jwk.js";
@@ -88,7 +88,7 @@ function textResult(text: string, isError = false) {
 
 export function createServer(): McpServer {
   const server = new McpServer({
-    name: "ai-action-tracker-mcp",
+    name: "transcodes-guard-mcp",
     version: "0.1.0",
   });
 
@@ -451,9 +451,9 @@ export function createServer(): McpServer {
   server.registerTool(
     "get_tracker_status",
     {
-      title: "Get ai-action-tracker gate status",
+      title: "Get transcodes-guard gate status",
       description:
-        "Report whether the ai-action-tracker step-up gate is currently " +
+        "Report whether the transcodes-guard step-up gate is currently " +
         "enabled, plus the active token source and its expiry. Read-only. " +
         "Call when the user asks if the tracker/hook/protection is on or off " +
         "— e.g. '트래커 켜져 있어?', 'hook 활성화 상태야?', 'is the gate enabled?'. " +
@@ -491,9 +491,9 @@ export function createServer(): McpServer {
   server.registerTool(
     "set_tracker_enabled",
     {
-      title: "Re-enable the ai-action-tracker gate",
+      title: "Re-enable the transcodes-guard gate",
       description:
-        "Re-ENABLE the ai-action-tracker step-up gate across all hosts. " +
+        "Re-ENABLE the transcodes-guard step-up gate across all hosts. " +
         "This tool can only turn protection ON — it deliberately REFUSES " +
         "`enabled=false`. Disabling the gate is a privilege reduction that " +
         "must be a human, out-of-band action (the agent could otherwise " +
@@ -530,7 +530,7 @@ export function createServer(): McpServer {
         );
       }
       return textResult(
-        "ai-action-tracker gate ENABLED. Danger commands and protected MCP tools will require step-up MFA again.",
+        "transcodes-guard gate ENABLED. Danger commands and protected MCP tools will require step-up MFA again.",
       );
     },
   );
@@ -569,7 +569,7 @@ export function createServer(): McpServer {
           .min(1)
           .optional()
           .describe(
-            "Tool name to put in the PreToolUse payload. Defaults to 'Bash'. For MCP tool simulation use the wire name, e.g. 'mcp__plugin_ai-action-tracker_ai-action-tracker__retire_member'.",
+            "Tool name to put in the PreToolUse payload. Defaults to 'Bash'. For MCP tool simulation use the wire name, e.g. 'mcp__plugin_transcodes-guard_transcodes-guard__retire_member'.",
           ),
         tool_input: z
           .unknown()

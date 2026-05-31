@@ -4,7 +4,7 @@ export type RequestInput = {
     /** Backend audit-log action identifier (e.g. "bash_exec", "retire_member"). */
     action: string;
     /** Backend audit-log resource identifier
-     * (e.g. "ai-action-tracker:pre-tool-use", "ai-action-tracker:mcp:members"). */
+     * (e.g. "transcodes-guard:pre-tool-use", "transcodes-guard:mcp:members"). */
     resource: string;
     /** Stable key for browser-launch deduplication. Bash → command; MCP →
      * `${toolName}:${JSON.stringify(tool_input)}`. */

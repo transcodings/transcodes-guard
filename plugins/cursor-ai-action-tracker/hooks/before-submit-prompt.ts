@@ -15,14 +15,14 @@
  */
 import "../host.js";
 import { readFileSync } from "node:fs";
-import { cursorAdapter } from "@ai-action-tracker/hook-adapters";
+import { cursorAdapter } from "@transcodes-guard/hook-adapters";
 import {
   clearPending,
   consumeVerified,
   isExpired,
   readPending,
   readVerified,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 
 const COMPLETION_PATTERN =
   /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
@@ -64,7 +64,7 @@ try {
   main();
 } catch (err) {
   process.stderr.write(
-    `ai-action-tracker before-submit-prompt hook error: ${err}\n`,
+    `transcodes-guard before-submit-prompt hook error: ${err}\n`,
   );
   emitContinue();
 }

@@ -15,7 +15,7 @@ import {
   clearPending,
   consumeVerified,
   readVerified,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 
 export async function withStepupVerifiedSid<T>(
   toolName: string,

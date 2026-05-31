@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 // This plugin ships to npm as a self-contained package: the internal
-// @ai-action-tracker/* workspace packages are never published, so they must be
+// @transcodes-guard/* workspace packages are never published, so they must be
 // bundled into the plugin (noExternal). Real runtime deps (@modelcontextprotocol/sdk,
 // zod — declared in `dependencies`) are auto-externalised by tsup and stay external.
 //
@@ -9,7 +9,7 @@ import { defineConfig } from "tsup";
 // KEYS preserve the dist layout (dist/src/stdio.js, dist/hooks/*.js) that
 // .mcp.json / hooks.json / bin point at. host.ts is NOT an entry — it is a
 // side-effect module imported first by every entry and gets bundled in, keeping
-// the `import "../host.js"` source-order guarantee (AI_ACTION_TRACKER_HOST set
+// the `import "../host.js"` source-order guarantee (TRANSCODES_GUARD_HOST set
 // before hook-adapters' barrel evaluates).
 //
 // No `banner` shebang: esbuild preserves the `#!/usr/bin/env node` already on
@@ -27,7 +27,7 @@ export default defineConfig({
   target: "node20",
   platform: "node",
   bundle: true,
-  noExternal: [/^@ai-action-tracker\//],
+  noExternal: [/^@transcodes-guard\//],
   splitting: true,
   clean: true,
   sourcemap: false,

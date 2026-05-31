@@ -1,7 +1,7 @@
 {
-  "name": "@ai-action-tracker/mcp-server-core",
+  "name": "@transcodes-guard/mcp-server-core",
   "version": "0.1.0",
-  "description": "MCP server core for ai-action-tracker — createServer() + all tools/resources/prompts. Plugins import this and wire it to a transport.",
+  "description": "MCP server core for transcodes-guard — createServer() + all tools/resources/prompts. Plugins import this and wire it to a transport.",
   "private": true,
   "type": "module",
   "main": "dist/server.js",
@@ -19,8 +19,8 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@ai-action-tracker/danger-patterns": "*",
-    "@ai-action-tracker/stepup-core": "*",
+    "@transcodes-guard/danger-patterns": "*",
+    "@transcodes-guard/stepup-core": "*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23.0"
   },

@@ -8,7 +8,7 @@ import {
   isTrackerEnabled,
   readPending,
   resolveToken
-} from "../chunk-3EF6UBLA.js";
+} from "../chunk-AMQCKTXV.js";
 
 // hooks/session-start.ts
 function carryoverBlock() {
@@ -38,7 +38,7 @@ function main() {
 try {
   main();
 } catch (err) {
-  process.stderr.write(`ai-action-tracker session-start hook error: ${err}
+  process.stderr.write(`transcodes-guard session-start hook error: ${err}
 `);
   process.exit(0);
 }

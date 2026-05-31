@@ -5,7 +5,7 @@ import {
 import {
   isExpired,
   readPending
-} from "../chunk-3EF6UBLA.js";
+} from "../chunk-AMQCKTXV.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";
@@ -14,7 +14,7 @@ function buildContext(prompt, pending) {
   if (!COMPLETION_PATTERN.test(prompt)) return null;
   const statusNote = pending.status === "verified" ? "already verified \u2014 just retry the original command." : "still pending \u2014 call poll_stepup_session_wait now to block until verified.";
   return [
-    "ai-action-tracker: user appears to report step-up MFA completion.",
+    "transcodes-guard: user appears to report step-up MFA completion.",
     "",
     `Pending session sid : ${pending.sid}`,
     `Status              : ${pending.status} (${statusNote})`,
@@ -47,7 +47,7 @@ try {
   main();
 } catch (err) {
   process.stderr.write(
-    `ai-action-tracker user-prompt-submit hook error: ${err}
+    `transcodes-guard user-prompt-submit hook error: ${err}
 `
   );
   process.exit(0);

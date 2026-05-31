@@ -11,7 +11,7 @@
  * `hookSpecificOutput` enum — wrapping it makes the validator reject.
  */
 import "../host.js";
-import { claudeCodeAdapter } from "@ai-action-tracker/hook-adapters";
+import { claudeCodeAdapter } from "@transcodes-guard/hook-adapters";
 import {
   clearPending,
   consumeVerified,
@@ -19,11 +19,11 @@ import {
   readPending,
   readVerified,
   type PendingState,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 
 function reminderFor(pending: PendingState): string {
   return [
-    "ai-action-tracker: a step-up MFA session is still PENDING. The Bash",
+    "transcodes-guard: a step-up MFA session is still PENDING. The Bash",
     "command it gated was NOT executed. Resume the loop or report to the",
     "user that authentication is still required.",
     "",
@@ -69,6 +69,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  process.stderr.write(`ai-action-tracker stop hook error: ${err}\n`);
+  process.stderr.write(`transcodes-guard stop hook error: ${err}\n`);
   process.exit(0);
 });

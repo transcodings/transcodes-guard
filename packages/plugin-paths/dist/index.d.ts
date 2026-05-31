@@ -10,7 +10,7 @@ export declare function legacyDataDir(): string;
 /**
  * Legacy OS cache location. Retained only as a migration source.
  *
- *   linux   $XDG_CACHE_HOME or ~/.cache, suffix "ai-action-tracker"
+ *   linux   $XDG_CACHE_HOME or ~/.cache, suffix "transcodes-guard"
  *   macOS   ~/Library/Caches/ai-action-tracker
  *   win32   %LOCALAPPDATA%\ai-action-tracker\Cache
  */

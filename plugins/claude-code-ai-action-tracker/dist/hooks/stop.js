@@ -8,12 +8,12 @@ import {
   isExpired,
   readPending,
   readVerified
-} from "../chunk-RFH4GXTJ.js";
+} from "../chunk-Y3EG3253.js";
 
 // hooks/stop.ts
 function reminderFor(pending) {
   return [
-    "ai-action-tracker: a step-up MFA session is still PENDING. The Bash",
+    "transcodes-guard: a step-up MFA session is still PENDING. The Bash",
     "command it gated was NOT executed. Resume the loop or report to the",
     "user that authentication is still required.",
     "",
@@ -48,7 +48,7 @@ async function main() {
   process.exit(0);
 }
 main().catch((err) => {
-  process.stderr.write(`ai-action-tracker stop hook error: ${err}
+  process.stderr.write(`transcodes-guard stop hook error: ${err}
 `);
   process.exit(0);
 });

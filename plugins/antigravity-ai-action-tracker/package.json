@@ -5,8 +5,8 @@
   "type": "module",
   "main": "dist/src/stdio.js",
   "bin": {
-    "ai-action-tracker-mcp": "dist/src/stdio.js",
-    "ai-action-tracker-hook": "dist/hooks/pre-tool-use.js"
+    "transcodes-guard-mcp": "dist/src/stdio.js",
+    "transcodes-guard-hook": "dist/hooks/pre-tool-use.js"
   },
   "files": [
     "dist",
@@ -37,9 +37,9 @@
     }
   },
   "devDependencies": {
-    "@ai-action-tracker/hook-adapters": "*",
-    "@ai-action-tracker/mcp-server-core": "*",
-    "@ai-action-tracker/stepup-core": "*",
+    "@transcodes-guard/hook-adapters": "*",
+    "@transcodes-guard/mcp-server-core": "*",
+    "@transcodes-guard/stepup-core": "*",
     "@types/node": "^22.0.0",
     "tsup": "^8.0.0",
     "tsx": "^4.19.0",

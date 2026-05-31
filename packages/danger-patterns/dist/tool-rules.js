@@ -10,7 +10,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, } from "node:fs";
 import path from "node:path";
 import { parse as parseJsonc } from "jsonc-parser";
-import { dataDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+import { dataDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
 // System rules embedded at build time — see the matching note in
 // danger-patterns.ts (bundlers inline this; a runtime path read breaks once the
 // plugin is bundled by tsup).

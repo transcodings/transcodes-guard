@@ -51,7 +51,7 @@ export declare function removeTokenFromFile(token: string): void;
  */
 export declare function clearTokenFile(): void;
 /**
- * Whether the ai-action-tracker gate is enabled. Reads the `enabled` flag
+ * Whether the transcodes-guard gate is enabled. Reads the `enabled` flag
  * from `~/.transcodes/config.json`. Default is `true`: a missing flag,
  * absent file, or corrupt file all resolve to enabled so the security gate
  * is never silently switched off. Only an explicit `"enabled": false`

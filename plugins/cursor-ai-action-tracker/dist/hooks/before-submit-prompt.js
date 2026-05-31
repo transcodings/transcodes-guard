@@ -8,7 +8,7 @@ import {
   isExpired,
   readPending,
   readVerified
-} from "../chunk-2IJSD757.js";
+} from "../chunk-53XLFTXI.js";
 
 // hooks/before-submit-prompt.ts
 import { readFileSync } from "fs";
@@ -39,7 +39,7 @@ try {
   main();
 } catch (err) {
   process.stderr.write(
-    `ai-action-tracker before-submit-prompt hook error: ${err}
+    `transcodes-guard before-submit-prompt hook error: ${err}
 `
   );
   emitContinue();

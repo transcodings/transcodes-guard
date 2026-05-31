@@ -1,7 +1,7 @@
 {
-  "name": "@ai-action-tracker/hook-adapters",
+  "name": "@transcodes-guard/hook-adapters",
   "version": "0.1.0",
-  "description": "Host-specific stdin/stdout JSON contract adapters for ai-action-tracker plugins (Claude Code, Codex CLI, ...).",
+  "description": "Host-specific stdin/stdout JSON contract adapters for transcodes-guard plugins (Claude Code, Codex CLI, ...).",
   "private": true,
   "type": "module",
   "main": "dist/index.js",

@@ -1,11 +1,11 @@
 /**
- * Transcodes CLI — manages the ai-action-tracker member MCP token.
+ * Transcodes CLI — manages the transcodes-guard member MCP token.
  *
  * The plugins (Claude Code / Codex / Cursor / Antigravity) and their hooks
  * read the token via `resolveToken()` (env → ~/.transcodes/config.json).
  * This CLI is the safe way to populate that file: the token is pasted into
  * the terminal, never into the agent chat (which would leak it into the
- * transcript). All token logic lives in `@ai-action-tracker/stepup-core`;
+ * transcript). All token logic lives in `@transcodes-guard/stepup-core`;
  * this file is just an argv front-end.
  *
  * Commands:
@@ -29,21 +29,21 @@ import {
   setTrackerEnabled,
   transcodesConfigFile,
   writeTokenToFile,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 
-const USAGE = `transcodes — ai-action-tracker token manager
+const USAGE = `transcodes — transcodes-guard token manager
 
 Usage:
   transcodes                      Open the dashboard at http://127.0.0.1:3847/ (add --port N or --no-open)
   transcodes set <token> -l <label>  Save your Transcodes member token (label required) to ${transcodesConfigFile()}
   transcodes reset                Remove all saved tokens
-  transcodes enable               Turn the ai-action-tracker step-up gate ON
+  transcodes enable               Turn the transcodes-guard step-up gate ON
   transcodes disable              Turn the gate OFF (stops blocking Bash + MCP across all hosts)
   transcodes status               Show the active token source, expiry, and gate state
   transcodes tokens               List all saved tokens (active one marked with *)
   transcodes help                 Show this message
 
-The token is read by the ai-action-tracker plugins/hooks with precedence:
+The token is read by the transcodes-guard plugins/hooks with precedence:
   1. TRANSCODES_TOKEN environment variable (overrides everything)
   2. ${transcodesConfigFile()}
 
@@ -129,8 +129,8 @@ function cmdSetEnabled(enabled: boolean): void {
   }
   process.stdout.write(
     enabled
-      ? "ai-action-tracker gate ENABLED — danger commands require step-up MFA again.\n"
-      : "ai-action-tracker gate DISABLED — Bash + MCP tool calls pass without step-up until `transcodes enable`.\n",
+      ? "transcodes-guard gate ENABLED — danger commands require step-up MFA again.\n"
+      : "transcodes-guard gate DISABLED — Bash + MCP tool calls pass without step-up until `transcodes enable`.\n",
   );
 }
 

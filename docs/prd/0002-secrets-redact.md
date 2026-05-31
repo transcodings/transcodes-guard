@@ -100,7 +100,7 @@ tags: [secrets, credentials, pre-tool-use, leak-prevention, regex]
 ### FR-4. 차단 메시지 (secret 값 비노출)
 
 ```
-⛔ ai-action-tracker: BLOCKED — secret pattern detected
+⛔ transcodes-guard: BLOCKED — secret pattern detected
 
 Reason: matched pattern `aws-access-key` — AWS Access Key ID pattern
 Field: tool_input.command

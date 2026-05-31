@@ -111,7 +111,7 @@ jobs:
       - name: claude-code · protected MCP tool denied (retire_member) + arg context
         run: |
           set -e
-          OUT=$(echo '{"tool_name":"mcp__plugin_ai-action-tracker_ai-action-tracker__retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
+          OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
             | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for protected MCP tool"; exit 1; }
@@ -121,7 +121,7 @@ jobs:
       - name: claude-code · unprotected MCP tool passes (get_member)
         run: |
           set -e
-          OUT=$(echo '{"tool_name":"mcp__plugin_ai-action-tracker_ai-action-tracker__get_member","tool_input":{"member_id":"x"}}' \
+          OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__get_member","tool_input":{"member_id":"x"}}' \
             | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow unprotected MCP tool"; exit 1; }
@@ -135,7 +135,7 @@ jobs:
           mkdir -p "$HOME/.transcodes/state"
           NOW=$(node -e 'console.log(Date.now())')
           echo "{\"sid\":\"ci-test-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
-          OUT=$(echo '{"tool_name":"mcp__plugin_ai-action-tracker_ai-action-tracker__retire_member","tool_input":{"body":{"member_id":"x"}}}' \
+          OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__retire_member","tool_input":{"body":{"member_id":"x"}}}' \
             | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 with verified record"; exit 1; }
@@ -156,7 +156,7 @@ jobs:
                 "toolName": "mcp__ci_user_test_tool",
                 "reason": "CI smoke test — verify hook-side consume for user rule",
                 "stepupAction": "ci_test_action",
-                "stepupResource": "ai-action-tracker:ci:test"
+                "stepupResource": "transcodes-guard:ci:test"
               }
             ]
           }

@@ -1,5 +1,5 @@
 // host.ts
-process.env.AI_ACTION_TRACKER_HOST = "cursor";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
 
 // ../../packages/stepup-core/dist/token-store.js
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
@@ -132,19 +132,19 @@ function stateDir() {
   return path2.join(transcodesDir(), "state");
 }
 function legacyDataDir() {
-  return path2.join(os2.homedir(), ".claude", "ai-action-tracker");
+  return path2.join(os2.homedir(), ".claude", "transcodes-guard");
 }
 function legacyCacheDir() {
   if (process.platform === "win32") {
     const base2 = process.env.LOCALAPPDATA?.trim() || path2.join(os2.homedir(), "AppData", "Local");
-    return path2.join(base2, "ai-action-tracker", "Cache");
+    return path2.join(base2, "transcodes-guard", "Cache");
   }
   if (process.platform === "darwin") {
-    return path2.join(os2.homedir(), "Library", "Caches", "ai-action-tracker");
+    return path2.join(os2.homedir(), "Library", "Caches", "transcodes-guard");
   }
   const xdg = process.env.XDG_CACHE_HOME?.trim();
   const base = xdg && xdg.length > 0 ? xdg : path2.join(os2.homedir(), ".cache");
-  return path2.join(base, "ai-action-tracker");
+  return path2.join(base, "transcodes-guard");
 }
 function dataDir() {
   return stateDir();
@@ -289,7 +289,7 @@ function loadStepupConfig() {
   }
   const parsed = parseMemberAccessToken(tokenRaw);
   for (const w of parsed.warnings) {
-    process.stderr.write(`[ai-action-tracker] WARN TRANSCODES_TOKEN: ${w}
+    process.stderr.write(`[transcodes-guard] WARN TRANSCODES_TOKEN: ${w}
 `);
   }
   return {
@@ -339,7 +339,7 @@ function readVerified() {
   }
   const ageMs = Date.now() - verifiedAt;
   if (ageMs > STEPUP_TTL_MS) {
-    process.stderr.write(`ai-action-tracker: verified record EXPIRED (sid=${sid}, age=${ageMs}ms, ttl=${STEPUP_TTL_MS}ms) \u2014 starting a new step-up.
+    process.stderr.write(`transcodes-guard: verified record EXPIRED (sid=${sid}, age=${ageMs}ms, ttl=${STEPUP_TTL_MS}ms) \u2014 starting a new step-up.
 `);
     consumeVerified();
     return null;
@@ -1324,7 +1324,7 @@ var danger_patterns_default = {
     {
       id: "tracker-self-disable",
       regex: "\\btranscodes\\b[^\\n]*\\bdisable\\b",
-      reason: "Disabling the ai-action-tracker step-up gate \u2014 requires human step-up approval (an agent must not silently switch off its own guardrails)"
+      reason: "Disabling the transcodes-guard step-up gate \u2014 requires human step-up approval (an agent must not silently switch off its own guardrails)"
     }
   ]
 };
@@ -1456,59 +1456,59 @@ var tool_rules_default = {
   rules: [
     {
       id: "tc-retire-member",
-      toolName: "mcp__plugin_ai-action-tracker_ai-action-tracker__retire_member",
+      toolName: "mcp__plugin_transcodes-guard_transcodes-guard__retire_member",
       reason: "Permanent member deletion",
       stepupAction: "retire_member",
-      stepupResource: "ai-action-tracker:mcp:members"
+      stepupResource: "transcodes-guard:mcp:members"
     },
     {
       id: "tc-suspend-member",
-      toolName: "mcp__plugin_ai-action-tracker_ai-action-tracker__suspend_member",
+      toolName: "mcp__plugin_transcodes-guard_transcodes-guard__suspend_member",
       reason: "Member login suspension",
       stepupAction: "suspend_member",
-      stepupResource: "ai-action-tracker:mcp:members"
+      stepupResource: "transcodes-guard:mcp:members"
     },
     {
       id: "tc-unsuspend-member",
-      toolName: "mcp__plugin_ai-action-tracker_ai-action-tracker__unsuspend_member",
+      toolName: "mcp__plugin_transcodes-guard_transcodes-guard__unsuspend_member",
       reason: "Member suspension removal",
       stepupAction: "unsuspend_member",
-      stepupResource: "ai-action-tracker:mcp:members"
+      stepupResource: "transcodes-guard:mcp:members"
     },
     {
       id: "tc-retire-role",
-      toolName: "mcp__plugin_ai-action-tracker_ai-action-tracker__retire_role",
+      toolName: "mcp__plugin_transcodes-guard_transcodes-guard__retire_role",
       reason: "Permanent role deletion",
       stepupAction: "retire_role",
-      stepupResource: "ai-action-tracker:mcp:rbac"
+      stepupResource: "transcodes-guard:mcp:rbac"
     },
     {
       id: "tc-set-role-permissions",
-      toolName: "mcp__plugin_ai-action-tracker_ai-action-tracker__set_role_permissions",
+      toolName: "mcp__plugin_transcodes-guard_transcodes-guard__set_role_permissions",
       reason: "Role permissions matrix reset",
       stepupAction: "set_role_permissions",
-      stepupResource: "ai-action-tracker:mcp:rbac"
+      stepupResource: "transcodes-guard:mcp:rbac"
     },
     {
       id: "tc-update-member-role",
-      toolName: "mcp__plugin_ai-action-tracker_ai-action-tracker__update_member_role",
+      toolName: "mcp__plugin_transcodes-guard_transcodes-guard__update_member_role",
       reason: "Member role reassignment",
       stepupAction: "update_member_role",
-      stepupResource: "ai-action-tracker:mcp:rbac"
+      stepupResource: "transcodes-guard:mcp:rbac"
     },
     {
       id: "tc-retire-resource",
-      toolName: "mcp__plugin_ai-action-tracker_ai-action-tracker__retire_resource",
+      toolName: "mcp__plugin_transcodes-guard_transcodes-guard__retire_resource",
       reason: "Permanent RBAC resource deletion",
       stepupAction: "retire_resource",
-      stepupResource: "ai-action-tracker:mcp:rbac"
+      stepupResource: "transcodes-guard:mcp:rbac"
     },
     {
       id: "tc-passcode-create",
-      toolName: "mcp__plugin_ai-action-tracker_ai-action-tracker__passcode_create",
+      toolName: "mcp__plugin_transcodes-guard_transcodes-guard__passcode_create",
       reason: "Recovery passcode generation",
       stepupAction: "passcode_create",
-      stepupResource: "ai-action-tracker:mcp:passcode"
+      stepupResource: "transcodes-guard:mcp:passcode"
     }
   ]
 };
@@ -2044,7 +2044,7 @@ async function evaluatePreToolUse(input) {
   const gateInput = classified.kind === "bash" ? {
     reason: block.reason,
     action: "bash_exec",
-    resource: "ai-action-tracker:pre-tool-use",
+    resource: "transcodes-guard:pre-tool-use",
     fingerprintKey: classified.command,
     comment: `Confirm danger command: ${block.reason}`
   } : {
@@ -2080,7 +2080,7 @@ async function evaluatePreToolUse(input) {
 // ../../packages/stepup-core/dist/messages.js
 function formatNoTokenSessionNotice() {
   return [
-    "ai-action-tracker: no Transcodes token is configured.",
+    "transcodes-guard: no Transcodes token is configured.",
     "Danger commands will be BLOCKED and step-up MFA cannot start until a token is set.",
     "",
     "How to fix (guide the user \u2014 the token must NOT be pasted into this chat,",
@@ -2106,10 +2106,10 @@ function formatBlockedSummary(block) {
   ].join("\n");
 }
 function formatAllowReason(decision) {
-  return `ai-action-tracker: step-up MFA verified \u2014 overriding default permission policy. Original danger match: ${decision.block.reason}. Command: ${decision.block.command}`;
+  return `transcodes-guard: step-up MFA verified \u2014 overriding default permission policy. Original danger match: ${decision.block.reason}. Command: ${decision.block.command}`;
 }
 function formatNoTokenReason(block) {
-  return `Bash blocked by ai-action-tracker: ${block.reason}. Step-up MFA gate is not configured (no Transcodes token found). Tell the user to get a token from the Transcodes console (member detail page, https://app.transcodes.io) and run \`transcodes login <token>\` (or set the TRANSCODES_TOKEN environment variable) to enable on-demand authentication, or run the command outside the agent.`;
+  return `Bash blocked by transcodes-guard: ${block.reason}. Step-up MFA gate is not configured (no Transcodes token found). Tell the user to get a token from the Transcodes console (member detail page, https://app.transcodes.io) and run \`transcodes login <token>\` (or set the TRANSCODES_TOKEN environment variable) to enable on-demand authentication, or run the command outside the agent.`;
 }
 function formatNoTokenSystemMessage(block) {
   return `${formatBlockedSummary(block)}
@@ -2124,7 +2124,7 @@ function formatStepupFailureDetail(decision) {
   return failure.reason === "no-token" ? "No Transcodes token found \u2014 step-up MFA gate is unavailable. Get a token from the Transcodes console (https://app.transcodes.io member detail page), then run `transcodes login <token>`." : failure.reason === "create-failed" ? `Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ""}.` : `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ""}.`;
 }
 function formatStepupFailureReason(decision) {
-  return `Bash blocked by ai-action-tracker: ${decision.block.reason}. ${formatStepupFailureDetail(decision)} Report the failure to the user; do not retry until step-up is available.`;
+  return `Bash blocked by transcodes-guard: ${decision.block.reason}. ${formatStepupFailureDetail(decision)} Report the failure to the user; do not retry until step-up is available.`;
 }
 function formatStepupFailureSystemMessage(decision) {
   return `${formatBlockedSummary(decision.block)}
@@ -2156,15 +2156,15 @@ function formatStepupPendingSystemMessage(decision) {
 function formatStderrTag(decision) {
   switch (decision.kind) {
     case "pass":
-      return "ai-action-tracker: pass";
+      return "transcodes-guard: pass";
     case "allow":
-      return `ai-action-tracker: ALLOWED (stepup-verified) \u2014 ${decision.block.command}`;
+      return `transcodes-guard: ALLOWED (stepup-verified) \u2014 ${decision.block.command}`;
     case "deny-no-token":
-      return `ai-action-tracker: BLOCKED (no token) \u2014 ${decision.block.command}`;
+      return `transcodes-guard: BLOCKED (no token) \u2014 ${decision.block.command}`;
     case "deny-stepup-failure":
-      return `ai-action-tracker: BLOCKED (stepup-failure) \u2014 ${decision.block.command}`;
+      return `transcodes-guard: BLOCKED (stepup-failure) \u2014 ${decision.block.command}`;
     case "deny-stepup-pending":
-      return `ai-action-tracker: STEPUP-PENDING sid=${decision.sid} \u2014 ${decision.block.command}`;
+      return `transcodes-guard: STEPUP-PENDING sid=${decision.sid} \u2014 ${decision.block.command}`;
   }
 }
 

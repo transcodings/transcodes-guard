@@ -6,7 +6,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { parse as parseJsonc } from "jsonc-parser";
-import { dataDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+import { dataDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
 // System rules are embedded at build time (static import → bundler inlines the
 // JSON). This is mandatory because plugins ship as tsup bundles where a runtime
 // `import.meta.url`-relative read would resolve to the bundle's location, not

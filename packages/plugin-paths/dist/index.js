@@ -20,7 +20,7 @@
 import { existsSync, mkdirSync, renameSync, copyFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-const HOST_ENV_VAR = "AI_ACTION_TRACKER_HOST";
+const HOST_ENV_VAR = "TRANSCODES_GUARD_HOST";
 const CLAUDE_PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA";
 export function detectHost() {
     const raw = process.env[HOST_ENV_VAR]?.trim();
@@ -47,12 +47,12 @@ function stateDir() {
  * only as a migration source for users who ran a pre-consolidation build.
  */
 export function legacyDataDir() {
-    return path.join(os.homedir(), ".claude", "ai-action-tracker");
+    return path.join(os.homedir(), ".claude", "transcodes-guard");
 }
 /**
  * Legacy OS cache location. Retained only as a migration source.
  *
- *   linux   $XDG_CACHE_HOME or ~/.cache, suffix "ai-action-tracker"
+ *   linux   $XDG_CACHE_HOME or ~/.cache, suffix "transcodes-guard"
  *   macOS   ~/Library/Caches/ai-action-tracker
  *   win32   %LOCALAPPDATA%\ai-action-tracker\Cache
  */
@@ -60,14 +60,14 @@ export function legacyCacheDir() {
     if (process.platform === "win32") {
         const base = process.env.LOCALAPPDATA?.trim() ||
             path.join(os.homedir(), "AppData", "Local");
-        return path.join(base, "ai-action-tracker", "Cache");
+        return path.join(base, "transcodes-guard", "Cache");
     }
     if (process.platform === "darwin") {
-        return path.join(os.homedir(), "Library", "Caches", "ai-action-tracker");
+        return path.join(os.homedir(), "Library", "Caches", "transcodes-guard");
     }
     const xdg = process.env.XDG_CACHE_HOME?.trim();
     const base = xdg && xdg.length > 0 ? xdg : path.join(os.homedir(), ".cache");
-    return path.join(base, "ai-action-tracker");
+    return path.join(base, "transcodes-guard");
 }
 /**
  * Persistent data directory. Use for files that should survive plugin

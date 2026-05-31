@@ -6,7 +6,7 @@
  * after) deletes it. TTL (`STEPUP_TTL_MS`) is enforced on read as a
  * defence against stale files left behind by abnormal exits.
  *
- * Storage location is host-aware (see @ai-action-tracker/plugin-paths):
+ * Storage location is host-aware (see @transcodes-guard/plugin-paths):
  *   claude-code + CLAUDE_PLUGIN_DATA set → $CLAUDE_PLUGIN_DATA/
  *   any other host or env unset          → ~/.cache/ai-action-tracker/
  *
@@ -18,7 +18,7 @@ import path from "node:path";
 import {
   cacheDir as pluginCacheDir,
   migrateLegacyFile,
-} from "@ai-action-tracker/plugin-paths";
+} from "@transcodes-guard/plugin-paths";
 import { STEPUP_TTL_MS } from "./config.js";
 
 /**
@@ -83,7 +83,7 @@ export function readVerified(): VerifiedStepup | null {
     // appears identical to a never-verified deny and root-cause analysis
     // requires reading timestamps off disk.
     process.stderr.write(
-      `ai-action-tracker: verified record EXPIRED (sid=${sid}, age=${ageMs}ms, ttl=${STEPUP_TTL_MS}ms) — starting a new step-up.\n`,
+      `transcodes-guard: verified record EXPIRED (sid=${sid}, age=${ageMs}ms, ttl=${STEPUP_TTL_MS}ms) — starting a new step-up.\n`,
     );
     consumeVerified();
     return null;

@@ -56,7 +56,7 @@ export function loadStepupConfig(): StepupConfig {
   const parsed = parseMemberAccessToken(tokenRaw);
   for (const w of parsed.warnings) {
     process.stderr.write(
-      `[ai-action-tracker] WARN TRANSCODES_TOKEN: ${w}\n`,
+      `[transcodes-guard] WARN TRANSCODES_TOKEN: ${w}\n`,
     );
   }
 

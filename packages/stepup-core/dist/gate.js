@@ -14,7 +14,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { cacheDir, migrateLegacyFile } from "@ai-action-tracker/plugin-paths";
+import { cacheDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
 import { loadStepupConfig } from "./config.js";
 import { createStepupSession } from "./session.js";
 import { resolveToken } from "./token-store.js";

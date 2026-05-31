@@ -7,17 +7,17 @@
  * pending sid that survived a restart. Pure additive context — never blocks.
  */
 import "../host.js";
-import { claudeCodeAdapter } from "@ai-action-tracker/hook-adapters";
+import { claudeCodeAdapter } from "@transcodes-guard/hook-adapters";
 import {
   formatNoTokenSessionNotice,
   isExpired,
   isTrackerEnabled,
   readPending,
   resolveToken,
-} from "@ai-action-tracker/stepup-core";
+} from "@transcodes-guard/stepup-core";
 
 const PROTOCOL_PRIMER = [
-  "ai-action-tracker step-up MFA protocol:",
+  "transcodes-guard step-up MFA protocol:",
   "",
   'When a PreToolUse hook denies a Bash with `permissionDecision: "deny"`',
   "and the reason mentions Step-up MFA, the command was BLOCKED and",
@@ -76,6 +76,6 @@ function main(): void {
 try {
   main();
 } catch (err) {
-  process.stderr.write(`ai-action-tracker session-start hook error: ${err}\n`);
+  process.stderr.write(`transcodes-guard session-start hook error: ${err}\n`);
   process.exit(0);
 }
