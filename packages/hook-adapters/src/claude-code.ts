@@ -17,7 +17,7 @@ import type {
   PreToolUseDecision,
   PreToolUseInput,
   UserPromptSubmitInput,
-} from "./types.js";
+} from './types.js';
 
 interface RawPreToolUsePayload {
   tool_name?: unknown;
@@ -34,16 +34,16 @@ interface RawUserPromptSubmitPayload {
 }
 
 function readString(v: unknown): string | undefined {
-  return typeof v === "string" ? v : undefined;
+  return typeof v === 'string' ? v : undefined;
 }
 
 export const claudeCodeAdapter: HookAdapter = {
-  host: "claude-code",
+  host: 'claude-code',
 
   parsePreToolUseStdin(raw: string): PreToolUseInput {
     const payload = JSON.parse(raw) as RawPreToolUsePayload;
     const toolName = readString(payload.tool_name);
-    if (!toolName) throw new Error("PreToolUse payload missing tool_name");
+    if (!toolName) throw new Error('PreToolUse payload missing tool_name');
     return {
       toolName,
       toolInput: payload.tool_input,
@@ -57,17 +57,17 @@ export const claudeCodeAdapter: HookAdapter = {
   parseUserPromptSubmitStdin(raw: string): UserPromptSubmitInput {
     const payload = JSON.parse(raw) as RawUserPromptSubmitPayload;
     return {
-      prompt: readString(payload.prompt) ?? "",
+      prompt: readString(payload.prompt) ?? '',
       hookEventName: readString(payload.hook_event_name),
     };
   },
 
   emitPreToolUse(decision: PreToolUseDecision): string {
-    if (decision.kind === "allow") {
+    if (decision.kind === 'allow') {
       return JSON.stringify({
         hookSpecificOutput: {
-          hookEventName: "PreToolUse",
-          permissionDecision: "allow",
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'allow',
           permissionDecisionReason: decision.reason,
           ...(decision.updatedInput !== undefined
             ? { updatedInput: decision.updatedInput }
@@ -77,8 +77,8 @@ export const claudeCodeAdapter: HookAdapter = {
     }
     return JSON.stringify({
       hookSpecificOutput: {
-        hookEventName: "PreToolUse",
-        permissionDecision: "deny",
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
         permissionDecisionReason: decision.reason,
       },
       ...(decision.systemMessage !== undefined
@@ -90,7 +90,7 @@ export const claudeCodeAdapter: HookAdapter = {
   emitSessionStartContext(additionalContext: string): string {
     return JSON.stringify({
       hookSpecificOutput: {
-        hookEventName: "SessionStart",
+        hookEventName: 'SessionStart',
         additionalContext,
       },
     });
@@ -99,7 +99,7 @@ export const claudeCodeAdapter: HookAdapter = {
   emitUserPromptSubmitContext(additionalContext: string): string {
     return JSON.stringify({
       hookSpecificOutput: {
-        hookEventName: "UserPromptSubmit",
+        hookEventName: 'UserPromptSubmit',
         additionalContext,
       },
     });
@@ -109,7 +109,7 @@ export const claudeCodeAdapter: HookAdapter = {
     // Top-level decision: Stop is excluded from the hookSpecificOutput enum
     // in Claude Code's validator, so wrapping rejects the payload.
     return JSON.stringify({
-      decision: "block",
+      decision: 'block',
       reason,
     });
   },

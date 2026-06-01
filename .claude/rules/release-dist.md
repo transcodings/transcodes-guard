@@ -7,15 +7,15 @@ paths:
 
 # Release & Distribution
 
-Active when editing the release workflow or release-please config. Version automation is on; **actual publishing is deferred** until a distribution channel is chosen.
+Active when editing the release workflow or release-please config.
 
 ## What runs today
 
-`.github/workflows/release.yml` runs **release-please only** (on push to `main`): it reads conventional commits, maintains a Release PR, and on merge produces ① a version bump commit ② the root `CHANGELOG.md` ③ a git tag `transcodes-guard-vX.Y.Z`. **There is no publish step / `NPM_TOKEN`.** Feature development keeps version, CHANGELOG, and tag records flowing; a publish step (or a separate workflow) is added once the channel is decided.
+`.github/workflows/release.yml` runs **release-please only** (on push to `main`): it reads conventional commits, maintains a Release PR, and on merge produces ① a version bump commit ② the root `CHANGELOG.md` ③ a git tag `transcodes-guard-vX.Y.Z`. Distribution itself happens through the public GitHub repository — hosts install plugins by referencing the repo directly (see Distribution channels below). Version automation keeps tag/CHANGELOG records flowing in lockstep with the source the hosts pull from.
 
 ## Auto-merge the Release PR
 
-The Release PR is **auto-merged** (immediately, no human approval) by a step gated on `steps.release.outputs.prs_created == 'true'`, using `fromJSON(steps.release.outputs.pr).number`. This is safe because publishing is deferred — auto-merge only commits the version bump + CHANGELOG and lets the tag be cut. **Re-gate this behind a human approval before any publish step is added.**
+The Release PR is **auto-merged** (immediately, no human approval) by a step gated on `steps.release.outputs.prs_created == 'true'`, using `fromJSON(steps.release.outputs.pr).number`. Auto-merge only commits the version bump + CHANGELOG and lets the tag be cut — the same source then becomes installable by the next host that pulls the repo.
 
 Token caveat (release-please docs): events created by `GITHUB_TOKEN` do **not** re-trigger workflows. So for CI to run on the Release PR and for the merge to trigger the tag-creating release-please run, the workflow must use a PAT — secret `RELEASE_PLEASE_TOKEN` (repo + workflow scope), with `GITHUB_TOKEN` fallback. With only `GITHUB_TOKEN`, the merge still happens but the tag is created on the *next* push instead of immediately. `--merge --auto` (needs repo "Allow auto-merge") falls back to immediate `--merge`.
 
@@ -23,23 +23,25 @@ Token caveat (release-please docs): events created by `GITHUB_TOKEN` do **not** 
 
 - Single root component. Version source of truth = root `package.json` + `.release-please-manifest.json`.
 - The four plugin `package.json` + manifest versions are auto-synced via `release-please-config.json` `extra-files`, **same version together**. **Never hand-bump** a plugin version — it breaks train consistency.
-- `@bigstrider/transcodes-cli` is not in the version train; only the plugins' `peerDependencies` range declares compatibility.
+- `@bigstrider/transcodes-cli` is the lone npm artifact in this repo (see `packages/cli/PUBLISHING.md`). It is **not** in the version train; the plugins' `peerDependencies` range declares compatibility.
 
-## Distribution channels (per host, not all npm)
+## Distribution channels (GitHub repo is the primary unit)
 
-npm is **not** the universal channel — it only fits Claude Code, and even there it is optional:
+Hosts install plugins by referencing this repository — not via per-plugin npm packages:
 
-| Host | Channel | npm? |
-|------|---------|------|
-| Claude Code | marketplace + git source (repo root is the marketplace, plugin referenced by relative path). npm is an optional `"source":"npm"` entry in `marketplace.json`. | optional |
-| Codex | native marketplace (`.agents/plugins/marketplace.json` + `git-subdir`) | no |
-| Antigravity | `agy plugin install <git-url>` | no |
-| Cursor | `install.sh` writing `.cursor/hooks.json` + `mcp.json` | no |
+| Host | Channel |
+|------|---------|
+| Claude Code | marketplace + git source (repo root is the marketplace, plugin referenced by relative path) |
+| Codex | native marketplace (`.agents/plugins/marketplace.json` + `git-subdir`) |
+| Antigravity | `agy plugin install <git-url>` |
+| Cursor | `install.sh` writing `.cursor/hooks.json` + `mcp.json` |
 
-The common deploy unit is **this git repo**. Plugins do not each need an npm package. Full per-host research and the deploy plan live in `docs/research/multi-host-plugin-distribution.md` — read it before adding any publish step.
+The common deploy unit is **this git repo, made public**. Plugins do not each need an npm package. The CLI (`@bigstrider/transcodes-cli`) is the single exception — humans install it via npm. Full per-host research and the deploy plan live in `docs/research/multi-host-plugin-distribution.md`.
 
-## When adding a publish step later
+## Public-mirror surface (private-packages must stay isolated)
 
-- Gate it behind a human decision (manual `workflow_dispatch` or an environment approval) — publishing is outward-facing and hard to reverse.
-- For Claude Code npm: publishing alone is inert; the package becomes installable only when `marketplace.json` references it via `"source":"npm"`.
-- Re-check each plugin's `files` array (see `.claude/rules/plugin-build.md`) before any publish.
+Every `private-packages/*` member ships with `"private": true`. CI asserts this per-package — if a future commit drops the flag, the build fails. The flag also enforces that anything inside `private-packages/` stays out of any incidental tarball flow (only the CLI builds a tarball, and its `tsup` bundles the private code in obfuscated form — see `.claude/rules/plugin-build.md`).
+
+Public packages (`packages/*`, `plugins/*`) carry an explicit `"files"` allowlist so the GitHub mirror — and the CLI tarball that consumes them via tsup — only ship the intended files.
+
+The eventual `git filter-repo --invert-paths --path private-packages/` step (when the repo goes public) drops `private-packages/` from the public mirror's git history. The build job that produces the CLI tarball runs from the **full** repo (not the mirror), because tsup needs to inline `private-packages/*` deps at bundle time.

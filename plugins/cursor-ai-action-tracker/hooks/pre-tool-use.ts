@@ -14,9 +14,9 @@
  * cursorAdapter. The classifier in stepup-core accepts `Shell` (Cursor) in
  * addition to `Bash` / `run_command`.
  */
-import "../host.js";
-import { readFileSync } from "node:fs";
-import { cursorAdapter } from "@transcodes-guard/hook-adapters";
+import '../host.js';
+import { readFileSync } from 'node:fs';
+import { cursorAdapter } from '@transcodes-guard/hook-adapters';
 import {
   clearPending,
   consumeVerified,
@@ -30,10 +30,10 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   writePending,
-} from "@transcodes-guard/stepup-core";
+} from '@transcodes-guard-private/stepup-core';
 
 async function main(): Promise<void> {
-  const raw = readFileSync(0, "utf8");
+  const raw = readFileSync(0, 'utf8');
 
   let input;
   try {
@@ -45,13 +45,13 @@ async function main(): Promise<void> {
   const decision = await evaluatePreToolUse(input);
 
   switch (decision.kind) {
-    case "pass":
+    case 'pass':
       process.exit(0);
 
-    case "allow":
+    case 'allow':
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
-          kind: "allow",
+          kind: 'allow',
           reason: formatAllowReason(decision),
         }),
       );
@@ -62,10 +62,10 @@ async function main(): Promise<void> {
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       process.exit(0);
 
-    case "deny-no-token":
+    case 'deny-no-token':
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
-          kind: "deny",
+          kind: 'deny',
           reason: formatNoTokenReason(decision.block),
           systemMessage: formatNoTokenSystemMessage(decision.block),
         }),
@@ -73,10 +73,10 @@ async function main(): Promise<void> {
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       process.exit(0);
 
-    case "deny-stepup-failure":
+    case 'deny-stepup-failure':
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
-          kind: "deny",
+          kind: 'deny',
           reason: formatStepupFailureReason(decision),
           systemMessage: formatStepupFailureSystemMessage(decision),
         }),
@@ -84,10 +84,10 @@ async function main(): Promise<void> {
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       process.exit(0);
 
-    case "deny-stepup-pending":
+    case 'deny-stepup-pending':
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
-          kind: "deny",
+          kind: 'deny',
           reason: formatStepupPendingReason(decision),
           systemMessage: formatStepupPendingSystemMessage(decision),
         }),

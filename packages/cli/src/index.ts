@@ -5,7 +5,7 @@
  * read the token via `resolveToken()` (env → ~/.transcodes/config.json).
  * This CLI is the safe way to populate that file: the token is pasted into
  * the terminal, never into the agent chat (which would leak it into the
- * transcript). All token logic lives in `@transcodes-guard/stepup-core`;
+ * transcript). All token logic lives in `@transcodes-guard-private/stepup-core`;
  * this file is just an argv front-end.
  *
  * Commands:
@@ -18,7 +18,7 @@
  *   transcodes tokens          List all saved tokens (active marked with *).
  *   transcodes help            Usage.
  */
-import { runDashboard } from "./dashboard.js";
+
 import {
   clearTokenFile,
   isTrackerEnabled,
@@ -29,7 +29,8 @@ import {
   setTrackerEnabled,
   transcodesConfigFile,
   writeTokenToFile,
-} from "@transcodes-guard/stepup-core";
+} from '@transcodes-guard-private/stepup-core';
+import { runDashboard } from './dashboard.js';
 
 const USAGE = `transcodes — transcodes-guard token manager
 
@@ -61,7 +62,9 @@ function expiryLine(token: string): string {
     const parsed = parseMemberAccessToken(token);
     const exp = new Date(parsed.claims.exp * 1000).toISOString();
     const warn =
-      parsed.warnings.length > 0 ? `  (warnings: ${parsed.warnings.join("; ")})` : "";
+      parsed.warnings.length > 0
+        ? `  (warnings: ${parsed.warnings.join('; ')})`
+        : '';
     return `member=${parsed.claims.memberId} project=${parsed.claims.projectId} expires=${exp}${warn}`;
   } catch (err) {
     return `unable to decode token: ${err instanceof Error ? err.message : String(err)}`;
@@ -73,20 +76,22 @@ function cmdSet(args: string[]): void {
   let label: string | undefined;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === "-l" || arg === "--label") {
+    if (arg === '-l' || arg === '--label') {
       label = args[++i];
     } else if (token === undefined) {
       token = arg;
     } else {
-      fail(`unexpected argument "${arg}". Usage: transcodes set <token> -l <label>`);
+      fail(
+        `unexpected argument "${arg}". Usage: transcodes set <token> -l <label>`,
+      );
     }
   }
 
   if (!token || !token.trim()) {
-    fail("missing token. Usage: transcodes set <token> -l <label>");
+    fail('missing token. Usage: transcodes set <token> -l <label>');
   }
   if (!label || !label.trim()) {
-    fail("missing label. Usage: transcodes set <token> -l <label>");
+    fail('missing label. Usage: transcodes set <token> -l <label>');
   }
   const trimmed = (token as string).trim();
   const trimmedLabel = (label as string).trim();
@@ -96,9 +101,7 @@ function cmdSet(args: string[]): void {
   try {
     parseMemberAccessToken(trimmed);
   } catch (err) {
-    fail(
-      `token rejected: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    fail(`token rejected: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   try {
@@ -116,7 +119,9 @@ function cmdSet(args: string[]): void {
 
 function cmdReset(): void {
   clearTokenFile();
-  process.stdout.write(`Removed all saved tokens (${transcodesConfigFile()})\n`);
+  process.stdout.write(
+    `Removed all saved tokens (${transcodesConfigFile()})\n`,
+  );
 }
 
 function cmdSetEnabled(enabled: boolean): void {
@@ -129,51 +134,53 @@ function cmdSetEnabled(enabled: boolean): void {
   }
   process.stdout.write(
     enabled
-      ? "transcodes-guard gate ENABLED — danger commands require step-up MFA again.\n"
-      : "transcodes-guard gate DISABLED — Bash + MCP tool calls pass without step-up until `transcodes enable`.\n",
+      ? 'transcodes-guard gate ENABLED — danger commands require step-up MFA again.\n'
+      : 'transcodes-guard gate DISABLED — Bash + MCP tool calls pass without step-up until `transcodes enable`.\n',
   );
 }
 
 function cmdStatus(): void {
   process.stdout.write(
-    `Gate: ${isTrackerEnabled() ? "enabled" : "DISABLED"}\n`,
+    `Gate: ${isTrackerEnabled() ? 'enabled' : 'DISABLED'}\n`,
   );
   const { token, source } = resolveToken();
-  if (source === "none" || !token) {
+  if (source === 'none' || !token) {
     process.stdout.write(
-      "No token configured. Run `transcodes set <token> -l <label>` or `transcodes` to set one.\n",
+      'No token configured. Run `transcodes set <token> -l <label>` or `transcodes` to set one.\n',
     );
     return;
   }
   const where =
-    source === "env"
-      ? "TRANSCODES_TOKEN environment variable"
+    source === 'env'
+      ? 'TRANSCODES_TOKEN environment variable'
       : transcodesConfigFile();
-  process.stdout.write(`Active token source: ${where}\n  ${expiryLine(token)}\n`);
+  process.stdout.write(
+    `Active token source: ${where}\n  ${expiryLine(token)}\n`,
+  );
 }
 
 function cmdTokens(): void {
   const records = readTokenRecords();
   if (records.length === 0) {
     process.stdout.write(
-      "No tokens saved. Run `transcodes set <token> -l <label>` or `transcodes` to add one.\n",
+      'No tokens saved. Run `transcodes set <token> -l <label>` or `transcodes` to add one.\n',
     );
     return;
   }
   const active = readTokenFromFile();
   process.stdout.write(`Saved tokens (${transcodesConfigFile()}):\n`);
   for (const { token, label } of records) {
-    const marker = token === active ? "*" : " ";
-    process.stdout.write(`  ${marker} ${label ?? "(no label)"}\n`);
+    const marker = token === active ? '*' : ' ';
+    process.stdout.write(`  ${marker} ${label ?? '(no label)'}\n`);
     process.stdout.write(`      ${expiryLine(token)}\n`);
   }
   const envToken = process.env.TRANSCODES_TOKEN?.trim();
   if (envToken) {
     process.stdout.write(
-      "\nNote: TRANSCODES_TOKEN is set and overrides the active selection above.\n",
+      '\nNote: TRANSCODES_TOKEN is set and overrides the active selection above.\n',
     );
   } else {
-    process.stdout.write("\n* = active token used by the plugins/hooks.\n");
+    process.stdout.write('\n* = active token used by the plugins/hooks.\n');
   }
 }
 
@@ -181,15 +188,17 @@ async function cmdDashboard(args: string[]): Promise<void> {
   let port: number | undefined;
   let open = true;
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--port" && args[i + 1]) {
+    if (args[i] === '--port' && args[i + 1]) {
       port = Number(args[++i]);
       if (!Number.isInteger(port) || port < 1 || port > 65535) {
-        fail("--port must be an integer between 1 and 65535");
+        fail('--port must be an integer between 1 and 65535');
       }
-    } else if (args[i] === "--no-open") {
+    } else if (args[i] === '--no-open') {
       open = false;
     } else {
-      fail(`unknown flag "${args[i]}". Usage: transcodes [--port N] [--no-open]`);
+      fail(
+        `unknown flag "${args[i]}". Usage: transcodes [--port N] [--no-open]`,
+      );
     }
   }
   try {
@@ -203,27 +212,27 @@ function main(): void {
   const [command, ...rest] = process.argv.slice(2);
 
   switch (command) {
-    case "set":
+    case 'set':
       cmdSet(rest);
       break;
-    case "reset":
+    case 'reset':
       cmdReset();
       break;
-    case "enable":
+    case 'enable':
       cmdSetEnabled(true);
       break;
-    case "disable":
+    case 'disable':
       cmdSetEnabled(false);
       break;
-    case "status":
+    case 'status':
       cmdStatus();
       break;
-    case "tokens":
+    case 'tokens':
       cmdTokens();
       break;
-    case "help":
-    case "--help":
-    case "-h":
+    case 'help':
+    case '--help':
+    case '-h':
       process.stdout.write(USAGE);
       break;
     case undefined:
@@ -232,7 +241,7 @@ function main(): void {
     default:
       // No subcommand: bare flags (e.g. `transcodes --port 4000`) open the
       // dashboard. Anything else is an unknown command.
-      if (command.startsWith("-")) {
+      if (command.startsWith('-')) {
         void cmdDashboard([command, ...rest]);
         break;
       }

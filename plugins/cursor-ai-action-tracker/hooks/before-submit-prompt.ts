@@ -13,16 +13,16 @@
  *
  * Output is always `{ continue: true }` (never blocks user input).
  */
-import "../host.js";
-import { readFileSync } from "node:fs";
-import { cursorAdapter } from "@transcodes-guard/hook-adapters";
+import '../host.js';
+import { readFileSync } from 'node:fs';
+import { cursorAdapter } from '@transcodes-guard/hook-adapters';
 import {
   clearPending,
   consumeVerified,
   isExpired,
   readPending,
   readVerified,
-} from "@transcodes-guard/stepup-core";
+} from '@transcodes-guard-private/stepup-core';
 
 const COMPLETION_PATTERN =
   /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
@@ -33,7 +33,7 @@ function emitContinue(): never {
 }
 
 function main(): void {
-  const raw = readFileSync(0, "utf8");
+  const raw = readFileSync(0, 'utf8');
 
   let parsed;
   try {

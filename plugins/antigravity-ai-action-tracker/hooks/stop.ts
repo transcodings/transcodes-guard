@@ -10,31 +10,31 @@
  * actually surfaced to the model (vs silently dropped) is pending e2e
  * validation — see docs/research/antigravity-e2e-findings.md #4.
  */
-import "../host.js";
-import { antigravityAdapter } from "@transcodes-guard/hook-adapters";
+import '../host.js';
+import { antigravityAdapter } from '@transcodes-guard/hook-adapters';
 import {
   clearPending,
   consumeVerified,
   isExpired,
+  type PendingState,
   readPending,
   readVerified,
-  type PendingState,
-} from "@transcodes-guard/stepup-core";
+} from '@transcodes-guard-private/stepup-core';
 
 function reminderFor(pending: PendingState): string {
   return [
-    "transcodes-guard: a step-up MFA session is still PENDING. The shell",
-    "command it gated was NOT executed. Resume the loop or report to the",
-    "user that authentication is still required.",
-    "",
+    'transcodes-guard: a step-up MFA session is still PENDING. The shell',
+    'command it gated was NOT executed. Resume the loop or report to the',
+    'user that authentication is still required.',
+    '',
     `Session sid     : ${pending.sid}`,
     `Original command: ${pending.command}`,
     `Browser URL     : ${pending.browserUrl}`,
-    "",
-    "Next action:",
+    '',
+    'Next action:',
     `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${pending.sid}".`,
     '  - On `outcome: "verified"` retry the exact original command.',
-  ].join("\n");
+  ].join('\n');
 }
 
 async function main(): Promise<void> {
@@ -54,12 +54,12 @@ async function main(): Promise<void> {
   // Orphan reap: verified record exists without an in-flight pending →
   // silently consume (the gate's fast-path didn't get a chance to). This
   // is the same backstop as the Claude Code / Codex Stop hooks.
-  if (verified && (!pending || pending.status !== "pending")) {
+  if (verified && (!pending || pending.status !== 'pending')) {
     consumeVerified();
     if (pending) clearPending();
     process.exit(0);
   }
-  if (pending && !verified && pending.status === "verified") {
+  if (pending && !verified && pending.status === 'verified') {
     clearPending();
     process.exit(0);
   }

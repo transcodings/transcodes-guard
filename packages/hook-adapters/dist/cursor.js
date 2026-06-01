@@ -25,9 +25,9 @@
  * variants) instead of the generic `preToolUse`. They share the same
  * snake_case stdin shape so a single `pre-tool-use.ts` entry handles both.
  */
-import { claudeCodeAdapter } from "./claude-code.js";
+import { claudeCodeAdapter } from './claude-code.js';
 export const cursorAdapter = {
-    host: "cursor",
+    host: 'cursor',
     parsePreToolUseStdin(raw) {
         return claudeCodeAdapter.parsePreToolUseStdin(raw);
     },
@@ -35,16 +35,16 @@ export const cursorAdapter = {
         return claudeCodeAdapter.parseUserPromptSubmitStdin(raw);
     },
     emitPreToolUse(decision) {
-        if (decision.kind === "allow") {
+        if (decision.kind === 'allow') {
             return JSON.stringify({
-                permission: "allow",
+                permission: 'allow',
                 ...(decision.updatedInput !== undefined
                     ? { updated_input: decision.updatedInput }
                     : {}),
             });
         }
         return JSON.stringify({
-            permission: "deny",
+            permission: 'deny',
             user_message: decision.reason,
             agent_message: decision.systemMessage ?? decision.reason,
         });
@@ -59,11 +59,11 @@ export const cursorAdapter = {
         // effects directly and emit `{ continue: true }`. Reaching this stub
         // indicates the entry script wrongly routed an additionalContext path.
         throw new Error("Cursor's beforeSubmitPrompt has no additional_context channel. " +
-            "Perform consumeVerified/clearPending as side effects and emit `{ continue: true }` directly.");
+            'Perform consumeVerified/clearPending as side effects and emit `{ continue: true }` directly.');
     },
     emitStop(reason) {
         if (!reason)
-            return "{}";
+            return '{}';
         return JSON.stringify({ followup_message: reason });
     },
 };

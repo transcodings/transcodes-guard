@@ -52,6 +52,37 @@ jobs:
       - name: Verify cursor plugin dist is committed and in sync
         run: git diff --exit-code -- plugins/cursor-ai-action-tracker/dist/
 
+      - name: Verify private-packages dist is committed and in sync
+        run: git diff --exit-code -- 'private-packages/*/dist/'
+
+      # ─────────────────────────────────────────────────────────
+      # Biome lint + format check (no --write).
+      # Fails if any source file deviates from biome.json conventions or
+      # contains lint errors. Warnings (incl. noRestrictedImports for the
+      # public→private boundary) do not fail the build in phase 1.
+      - name: Biome check
+        run: npx biome check --reporter=github
+
+      # ─────────────────────────────────────────────────────────
+      # Public-mirror surface gate.
+      # Asserts each private-packages/* member keeps "private": true so
+      # nothing in private-packages/ can leak out as a separate tarball.
+      # If a future commit drops the flag, this step fails loudly.
+      - name: Public-mirror surface — private packages must stay isolated
+        run: |
+          MISSING=0
+          for dir in private-packages/*/; do
+            pkg=$(node -p "require('./${dir}package.json').name")
+            is_private=$(node -p "require('./${dir}package.json').private === true")
+            if [ "$is_private" != "true" ]; then
+              echo "::error::${pkg} (${dir}) is missing \"private\": true"
+              MISSING=1
+            else
+              echo "OK: ${pkg} marked private"
+            fi
+          done
+          exit $MISSING
+
       # ─────────────────────────────────────────────────────────
       # Claude Code plugin smoke tests (9 scenarios — 7 preserved verbatim
       # from pre-monorepo CI, plus the gate-disabled kill-switch check and the

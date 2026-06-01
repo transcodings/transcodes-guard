@@ -19,13 +19,41 @@
     ".": {
       "component": "transcodes-guard",
       "extra-files": [
-        { "type": "json", "path": "plugins/claude-code-ai-action-tracker/package.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "plugins/claude-code-ai-action-tracker/.claude-plugin/plugin.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "plugins/codex-ai-action-tracker/package.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "plugins/codex-ai-action-tracker/plugin.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "plugins/antigravity-ai-action-tracker/package.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "plugins/antigravity-ai-action-tracker/plugin.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "plugins/cursor-ai-action-tracker/package.json", "jsonpath": "$.version" }
+        {
+          "type": "json",
+          "path": "plugins/claude-code-ai-action-tracker/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "plugins/claude-code-ai-action-tracker/.claude-plugin/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "plugins/codex-ai-action-tracker/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "plugins/codex-ai-action-tracker/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "plugins/antigravity-ai-action-tracker/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "plugins/antigravity-ai-action-tracker/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "plugins/cursor-ai-action-tracker/package.json",
+          "jsonpath": "$.version"
+        }
       ]
     }
   }

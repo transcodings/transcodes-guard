@@ -1,4 +1,4 @@
-import type { HookAdapter } from "./types.js";
+import type { HookAdapter } from './types.js';
 /**
  * The Korean+English keyword set the agent should recognize as "user
  * reports step-up done". Shared with the Claude Code / Codex

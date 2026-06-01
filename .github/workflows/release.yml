@@ -3,9 +3,10 @@ name: Release
 # release-please가 main의 conventional commit을 읽어 Release PR을 만들고, 그 PR이
 # 머지되면 ① 버전 bump 커밋 ② CHANGELOG.md ③ git tag(transcodes-guard-vX.Y.Z) 를
 # 자동 생성한다. Release PR은 아래 auto-merge 스텝이 **자동 approve 없이 즉시 머지**
-# 하므로(발행 보류 상태라 안전 — 버전·CHANGELOG·tag 기록만 자동 진행) 사람이 손댈 일이
-# 없다. **실제 npm publish/배포 단계는 없다** — 배포 채널 미확정(docs/research/
-# multi-host-plugin-distribution.md). 채널이 정해지면 그때 publish step을 추가한다.
+# 하므로 사람이 손댈 일이 없다. plugin 배포는 GitHub repository 자체를 공개 채널로
+# 쓴다 — 호스트(Claude Code/Codex/Antigravity/Cursor)가 repo URL을 직접 참조해
+# 설치하므로, 각 release tag가 곧 배포 단위다. CLI(@bigstrider/transcodes-cli)는
+# 예외로 npm 채널을 쓴다. 채널 매트릭스는 docs/research/multi-host-plugin-distribution.md.
 #
 # 토큰: GITHUB_TOKEN으로 만든/머지한 이벤트는 워크플로를 재트리거하지 않는다(recursive
 # 방지). 그래서 ① Release PR에 CI가 돌고 ② 머지가 다음 release-please run(태그 생성)을

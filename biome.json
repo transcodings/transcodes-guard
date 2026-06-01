@@ -1,0 +1,65 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "vcs": {
+    "enabled": false,
+    "clientKind": "git",
+    "useIgnoreFile": false
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": ["**", "!**/dist/**/*", "!**/.turbo/**/*", "!**/CHANGELOG.md"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "includes": [
+      "**/src/**/*.ts",
+      "**/hooks/**/*.ts",
+      "**/host.ts",
+      "**/*.json",
+      "**/tsup.config.ts"
+    ]
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "noImplicitAnyLet": "warn",
+        "noFallthroughSwitchClause": "warn"
+      },
+      "style": {
+        "noParameterAssign": "error",
+        "useAsConstAssertion": "error",
+        "useDefaultParameterLast": "error",
+        "useEnumInitializers": "error",
+        "useSelfClosingElements": "error",
+        "useSingleVarDeclarator": "error",
+        "noUnusedTemplateLiteral": "error",
+        "useNumberNamespace": "error",
+        "noInferrableTypes": "error",
+        "noUselessElse": "error",
+        "noRestrictedImports": {
+          "level": "warn",
+          "options": {
+            "paths": {
+              "@transcodes-guard-private/stepup-core": "Public packages should not import @transcodes-guard-private/* directly. Phase 2 will introduce a GateBackend DI interface so the public side can build standalone.",
+              "@transcodes-guard-private/transcodes-mcp-tools": "Public packages should not import @transcodes-guard-private/* directly. Phase 2 will introduce a tool-registration interface so the public side can build standalone.",
+              "@transcodes-guard-private/danger-rules": "Public packages should not import @transcodes-guard-private/* directly. Phase 2 will introduce a rule-registry interface so the public side can build standalone."
+            }
+          }
+        }
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "indentStyle": "space"
+    }
+  }
+}

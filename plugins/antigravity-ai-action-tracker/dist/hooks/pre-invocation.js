@@ -9,7 +9,7 @@ import {
   isTrackerEnabled,
   readPending,
   resolveToken
-} from "../chunk-ZZZI4476.js";
+} from "../chunk-7SHXIXGP.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";
@@ -95,9 +95,7 @@ function main() {
 try {
   main();
 } catch (err) {
-  process.stderr.write(
-    `transcodes-guard pre-invocation hook error: ${err}
-`
-  );
+  process.stderr.write(`transcodes-guard pre-invocation hook error: ${err}
+`);
   process.exit(0);
 }

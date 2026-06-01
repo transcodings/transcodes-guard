@@ -25,16 +25,16 @@
  * variants) instead of the generic `preToolUse`. They share the same
  * snake_case stdin shape so a single `pre-tool-use.ts` entry handles both.
  */
-import { claudeCodeAdapter } from "./claude-code.js";
+import { claudeCodeAdapter } from './claude-code.js';
 import type {
   HookAdapter,
   PreToolUseDecision,
   PreToolUseInput,
   UserPromptSubmitInput,
-} from "./types.js";
+} from './types.js';
 
 export const cursorAdapter: HookAdapter = {
-  host: "cursor",
+  host: 'cursor',
 
   parsePreToolUseStdin(raw: string): PreToolUseInput {
     return claudeCodeAdapter.parsePreToolUseStdin(raw);
@@ -45,16 +45,16 @@ export const cursorAdapter: HookAdapter = {
   },
 
   emitPreToolUse(decision: PreToolUseDecision): string {
-    if (decision.kind === "allow") {
+    if (decision.kind === 'allow') {
       return JSON.stringify({
-        permission: "allow",
+        permission: 'allow',
         ...(decision.updatedInput !== undefined
           ? { updated_input: decision.updatedInput }
           : {}),
       });
     }
     return JSON.stringify({
-      permission: "deny",
+      permission: 'deny',
       user_message: decision.reason,
       agent_message: decision.systemMessage ?? decision.reason,
     });
@@ -72,12 +72,12 @@ export const cursorAdapter: HookAdapter = {
     // indicates the entry script wrongly routed an additionalContext path.
     throw new Error(
       "Cursor's beforeSubmitPrompt has no additional_context channel. " +
-        "Perform consumeVerified/clearPending as side effects and emit `{ continue: true }` directly.",
+        'Perform consumeVerified/clearPending as side effects and emit `{ continue: true }` directly.',
     );
   },
 
   emitStop(reason: string): string {
-    if (!reason) return "{}";
+    if (!reason) return '{}';
     return JSON.stringify({ followup_message: reason });
   },
 };

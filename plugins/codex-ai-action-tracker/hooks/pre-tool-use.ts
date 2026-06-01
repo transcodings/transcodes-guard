@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Codex CLI PreToolUse hook — thin entrypoint over @transcodes-guard/stepup-core.
+ * Codex CLI PreToolUse hook — thin entrypoint over @transcodes-guard-private/stepup-core.
  *
  * Mirrors plugins/claude-code-ai-action-tracker/hooks/pre-tool-use.ts; the
  * only divergence is the adapter (codexAdapter). Codex's wire format
@@ -9,9 +9,9 @@
  * behavioural, and provides the seam for future host divergence (Cursor
  * camelCase, Antigravity wrap differences) without further code changes.
  */
-import "../host.js";
-import { readFileSync } from "node:fs";
-import { codexAdapter } from "@transcodes-guard/hook-adapters";
+import '../host.js';
+import { readFileSync } from 'node:fs';
+import { codexAdapter } from '@transcodes-guard/hook-adapters';
 import {
   clearPending,
   consumeVerified,
@@ -25,10 +25,10 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   writePending,
-} from "@transcodes-guard/stepup-core";
+} from '@transcodes-guard-private/stepup-core';
 
 async function main(): Promise<void> {
-  const raw = readFileSync(0, "utf8");
+  const raw = readFileSync(0, 'utf8');
 
   let input;
   try {
@@ -40,13 +40,13 @@ async function main(): Promise<void> {
   const decision = await evaluatePreToolUse(input);
 
   switch (decision.kind) {
-    case "pass":
+    case 'pass':
       process.exit(0);
 
-    case "allow":
+    case 'allow':
       process.stdout.write(
         codexAdapter.emitPreToolUse({
-          kind: "allow",
+          kind: 'allow',
           reason: formatAllowReason(decision),
         }),
       );
@@ -57,10 +57,10 @@ async function main(): Promise<void> {
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       process.exit(0);
 
-    case "deny-no-token":
+    case 'deny-no-token':
       process.stdout.write(
         codexAdapter.emitPreToolUse({
-          kind: "deny",
+          kind: 'deny',
           reason: formatNoTokenReason(decision.block),
           systemMessage: formatNoTokenSystemMessage(decision.block),
         }),
@@ -68,10 +68,10 @@ async function main(): Promise<void> {
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       process.exit(0);
 
-    case "deny-stepup-failure":
+    case 'deny-stepup-failure':
       process.stdout.write(
         codexAdapter.emitPreToolUse({
-          kind: "deny",
+          kind: 'deny',
           reason: formatStepupFailureReason(decision),
           systemMessage: formatStepupFailureSystemMessage(decision),
         }),
@@ -79,10 +79,10 @@ async function main(): Promise<void> {
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       process.exit(0);
 
-    case "deny-stepup-pending":
+    case 'deny-stepup-pending':
       process.stdout.write(
         codexAdapter.emitPreToolUse({
-          kind: "deny",
+          kind: 'deny',
           reason: formatStepupPendingReason(decision),
           systemMessage: formatStepupPendingSystemMessage(decision),
         }),

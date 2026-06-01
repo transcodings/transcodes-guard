@@ -1,55 +1,31 @@
 /**
  * Public surface of @transcodes-guard/danger-patterns.
  *
- * Two parallel registries the PreToolUse hook consults:
- *  - danger-patterns: regex matchers against Bash command strings
- *  - tool-rules:      exact-match registry for MCP tool names
+ * Bash danger-pattern registry: regex matchers against Bash command strings.
  *
- * Both expose the same shape: load system rows shipped with the package,
- * load user rows from ~/.claude/ai-action-tracker/, merge with provenance,
- * find the first match, plus a strict CRUD surface for user-managed rows.
- * Hooks and the MCP server import from here; system data files live next
- * to this package under data/.
+ * Two-layer source (system + user) and the load/validate/CRUD surface mirror
+ * @transcodes-guard-private/danger-rules deliberately so the mental model is
+ * single. tool-rules (MCP tool-name registry) is the private sibling — it
+ * carries Transcodes-specific protected tool mappings and ships separately.
  */
 
 export {
-  type DangerPattern,
+  addUserPattern,
   type DangerConfig,
-  type PatternSource,
-  type MergedPattern,
-  type MatchResult,
-  type PatternInput,
-  PatternValidationError,
+  type DangerPattern,
+  findFirstMatch,
   getUserPatternsPath,
+  loadMergedPatterns,
   loadSystemPatterns,
   loadUserPatterns,
-  saveUserPatterns,
-  userPatternsFileExists,
-  loadMergedPatterns,
-  findFirstMatch,
-  validateNewPattern,
-  addUserPattern,
-  updateUserPattern,
+  type MatchResult,
+  type MergedPattern,
+  type PatternInput,
+  type PatternSource,
+  PatternValidationError,
   removeUserPattern,
-} from "./danger-patterns.js";
-
-export {
-  type ToolRule,
-  type ToolRuleConfig,
-  type ToolRuleSource,
-  type MergedToolRule,
-  type ToolRuleMatch,
-  type ToolRuleInput,
-  ToolRuleValidationError,
-  getUserToolRulesPath,
-  loadSystemToolRules,
-  loadUserToolRules,
-  saveUserToolRules,
-  userToolRulesFileExists,
-  loadMergedToolRules,
-  findFirstToolRule,
-  validateNewToolRule,
-  addUserToolRule,
-  updateUserToolRule,
-  removeUserToolRule,
-} from "./tool-rules.js";
+  saveUserPatterns,
+  updateUserPattern,
+  userPatternsFileExists,
+  validateNewPattern,
+} from './danger-patterns.js';

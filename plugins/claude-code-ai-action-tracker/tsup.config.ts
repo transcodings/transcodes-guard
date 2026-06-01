@@ -1,4 +1,4 @@
-import { defineConfig } from "tsup";
+import { defineConfig } from 'tsup';
 
 // This plugin ships to npm as a self-contained package: the internal
 // @transcodes-guard/* workspace packages are never published, so they must be
@@ -16,18 +16,18 @@ import { defineConfig } from "tsup";
 // each executable entry source, so shared chunks (splitting) stay shebang-free.
 export default defineConfig({
   entry: {
-    "src/stdio": "src/stdio.ts",
-    "src/http": "src/http.ts",
-    "hooks/pre-tool-use": "hooks/pre-tool-use.ts",
-    "hooks/session-start": "hooks/session-start.ts",
-    "hooks/user-prompt-submit": "hooks/user-prompt-submit.ts",
-    "hooks/stop": "hooks/stop.ts",
+    'src/stdio': 'src/stdio.ts',
+    'src/http': 'src/http.ts',
+    'hooks/pre-tool-use': 'hooks/pre-tool-use.ts',
+    'hooks/session-start': 'hooks/session-start.ts',
+    'hooks/user-prompt-submit': 'hooks/user-prompt-submit.ts',
+    'hooks/stop': 'hooks/stop.ts',
   },
-  format: ["esm"],
-  target: "node20",
-  platform: "node",
+  format: ['esm'],
+  target: 'node20',
+  platform: 'node',
   bundle: true,
-  noExternal: [/^@transcodes-guard\//],
+  noExternal: [/^@transcodes-guard(-private)?\//],
   splitting: true,
   clean: true,
   sourcemap: false,

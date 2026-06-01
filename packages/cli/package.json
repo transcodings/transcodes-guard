@@ -12,11 +12,11 @@
   ],
   "scripts": {
     "build": "tsup && chmod 755 dist/index.js",
-    "typecheck": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@transcodes-guard/stepup-core": "*",
+    "@transcodes-guard-private/stepup-core": "*",
     "@types/node": "^22.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0"

@@ -6,14 +6,14 @@
  * next-action context block. Identical body to the Claude Code hook except
  * for the adapter import.
  */
-import "../host.js";
-import { readFileSync } from "node:fs";
-import { codexAdapter } from "@transcodes-guard/hook-adapters";
+import '../host.js';
+import { readFileSync } from 'node:fs';
+import { codexAdapter } from '@transcodes-guard/hook-adapters';
 import {
   isExpired,
-  readPending,
   type PendingState,
-} from "@transcodes-guard/stepup-core";
+  readPending,
+} from '@transcodes-guard-private/stepup-core';
 
 const COMPLETION_PATTERN =
   /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
@@ -21,24 +21,24 @@ const COMPLETION_PATTERN =
 function buildContext(prompt: string, pending: PendingState): string | null {
   if (!COMPLETION_PATTERN.test(prompt)) return null;
   const statusNote =
-    pending.status === "verified"
-      ? "already verified — just retry the original command."
-      : "still pending — call poll_stepup_session_wait now to block until verified.";
+    pending.status === 'verified'
+      ? 'already verified — just retry the original command.'
+      : 'still pending — call poll_stepup_session_wait now to block until verified.';
   return [
-    "transcodes-guard: user appears to report step-up MFA completion.",
-    "",
+    'transcodes-guard: user appears to report step-up MFA completion.',
+    '',
     `Pending session sid : ${pending.sid}`,
     `Status              : ${pending.status} (${statusNote})`,
     `Original command    : ${pending.command}`,
-    "",
-    "Next action:",
+    '',
+    'Next action:',
     `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${pending.sid}".`,
     '  - On `outcome: "verified"` retry the exact original Bash command above.',
-  ].join("\n");
+  ].join('\n');
 }
 
 function main(): void {
-  const raw = readFileSync(0, "utf8");
+  const raw = readFileSync(0, 'utf8');
 
   let parsed;
   try {

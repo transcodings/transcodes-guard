@@ -16,7 +16,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && mkdir -p dist/data && cp src/data/*.json dist/data/"
+    "build": "tsc && mkdir -p dist/data && cp src/data/*.json dist/data/",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@transcodes-guard/plugin-paths": "*",

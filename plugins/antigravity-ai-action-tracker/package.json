@@ -19,7 +19,7 @@
   "scripts": {
     "build": "tsup",
     "build:plugin": "tsc --noEmit && tsup && chmod 755 dist/src/stdio.js dist/hooks/pre-tool-use.js dist/hooks/pre-invocation.js dist/hooks/stop.js",
-    "typecheck": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
     "dev:stdio": "tsx src/stdio.ts",
     "dev:hook": "tsx hooks/pre-tool-use.ts",
     "prepublishOnly": "npm run build:plugin"
@@ -39,7 +39,7 @@
   "devDependencies": {
     "@transcodes-guard/hook-adapters": "*",
     "@transcodes-guard/mcp-server-core": "*",
-    "@transcodes-guard/stepup-core": "*",
+    "@transcodes-guard-private/stepup-core": "*",
     "@types/node": "^22.0.0",
     "tsup": "^8.0.0",
     "tsx": "^4.19.0",

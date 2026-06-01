@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import {
   claudeCodeAdapter
-} from "../chunk-RNXEHGBK.js";
+} from "../chunk-ODK4KW7V.js";
 import {
   formatNoTokenSessionNotice,
   isExpired,
   isTrackerEnabled,
   readPending,
   resolveToken
-} from "../chunk-Y3EG3253.js";
+} from "../chunk-JOKLDK4M.js";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
@@ -54,7 +54,9 @@ function main() {
   const carry = carryoverBlock();
   const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
   const additionalContext = [PROTOCOL_PRIMER, carry, tokenNotice].filter((s) => Boolean(s)).join("\n");
-  process.stdout.write(claudeCodeAdapter.emitSessionStartContext(additionalContext));
+  process.stdout.write(
+    claudeCodeAdapter.emitSessionStartContext(additionalContext)
+  );
   process.exit(0);
 }
 try {
