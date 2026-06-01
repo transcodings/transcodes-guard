@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.2.1...transcodes-guard-v0.3.0) (2026-06-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* danger-rules 패키지 분리 (tool-rules 격리)
+* 백엔드 통신 도구 구현이 별도 비공개 패키지로 이동. createServer()의 외부 시그니처/노출 도구 목록은 변경 없음.
+* 패키지 이름이 @transcodes-guard-private scope로 이동. 외부에서 직접 import하던 경로가 변경됨 (현재로선 모노레포 내부 의존만 있어 영향 없음).
+
+### Documentation
+
+* **research:** 공개/비공개 분리 사례 + 현 코드 민감도 매핑 ([3e35ac9](https://github.com/transcodings/ai-action-tracker-mcp/commit/3e35ac94d0fb8153f133c6b1ab92c19545542ef7))
+* workspace layout/rules에 private-packages 반영 ([4c44ee0](https://github.com/transcodings/ai-action-tracker-mcp/commit/4c44ee0775029d8df862fbac5daa2eb2372f2a27))
+
+
+### Code Refactoring
+
+* danger-rules 패키지 분리 (tool-rules 격리) ([c5bbd3c](https://github.com/transcodings/ai-action-tracker-mcp/commit/c5bbd3c964aff3456b37b5314ea7a0145cd80391))
+* stepup-core를 private-packages로 격리 ([655127b](https://github.com/transcodings/ai-action-tracker-mcp/commit/655127b590645ba7fa19348c856fef9e469ccf10))
+* transcodes-mcp-tools 패키지 분리 ([8f8ec36](https://github.com/transcodings/ai-action-tracker-mcp/commit/8f8ec365311cd45ef409f8c7d48025f2dda1e2b1))
+
 ## [0.2.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.2.0...transcodes-guard-v0.2.1) (2026-05-31)
 
 
