@@ -16,7 +16,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@transcodes-guard/danger-patterns": "*",

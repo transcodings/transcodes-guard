@@ -19,7 +19,7 @@
   "scripts": {
     "build": "tsup",
     "build:plugin": "tsc --noEmit && tsup && chmod 755 dist/src/stdio.js dist/hooks/pre-tool-use.js dist/hooks/pre-invocation.js dist/hooks/stop.js",
-    "typecheck": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
     "dev:stdio": "tsx src/stdio.ts",
     "dev:hook": "tsx hooks/pre-tool-use.ts",
     "prepublishOnly": "npm run build:plugin"

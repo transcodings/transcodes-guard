@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsup",
     "build:plugin": "tsc --noEmit && tsup && chmod 755 dist/src/stdio.js dist/hooks/pre-tool-use.js dist/hooks/session-start.js dist/hooks/before-submit-prompt.js dist/hooks/stop.js",
-    "typecheck": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
     "dev:stdio": "tsx src/stdio.ts",
     "dev:hook": "tsx hooks/pre-tool-use.ts",
     "start:stdio": "node dist/src/stdio.js",

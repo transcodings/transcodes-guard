@@ -1,0 +1,20 @@
+# #   Refer for explanation to following link:
+# #   https://lefthook.dev/configuration/
+# #
+pre-commit:
+  parallel: false # format, check 에 동시 적용되는 파일이 있을 경우 parallel 모드 아래에서 동시성 오류를 겪으므로 반드시 false
+  commands:
+    format:
+      run: npm run format -- {staged_files}
+      glob: "*"
+      stage_fixed: true
+    check:
+      run: npm run check -- {staged_files}
+      glob: "*.{ts,js,json,jsonc}"
+      stage_fixed: true
+
+pre-push:
+  piped: true # type-check 가 다단계로 늘어날 경우 첫 실패 시 즉시 중단
+  commands:
+    1_type-check:
+      run: npm run type-check

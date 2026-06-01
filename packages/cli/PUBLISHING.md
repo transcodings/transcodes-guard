@@ -33,7 +33,7 @@
 ```bash
 # 레포 루트에서
 npm run build:plugin          # packages/* + plugins/* dist 동기화
-npm run typecheck -w @bigstrider/transcodes-cli
+npm run type-check -w @bigstrider/transcodes-cli
 ```
 
 > `dist/index.js`는 gitignore 대상(번들 산출물)이라 커밋되지 않습니다. publish 시점에 `prepublishOnly`가 자동 빌드하므로 수동 커밋 불필요.

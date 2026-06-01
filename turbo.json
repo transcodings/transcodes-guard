@@ -22,6 +22,17 @@
         "tsconfig.json",
         "package.json"
       ]
+    },
+    "type-check": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "inputs": [
+        "src/**",
+        "hooks/**",
+        "host.ts",
+        "tsconfig.json",
+        "package.json"
+      ]
     }
   }
 }
