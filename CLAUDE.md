@@ -75,7 +75,7 @@ The plugins/hooks **read** what the CLI manages (config, step-up tokens) — the
 - Write to stdout under stdio (`console.log`, `process.stdout.write`) — it corrupts JSON-RPC framing. Log via `console.error`.
 - Mutate state inside a Resource handler. Side effects belong in Tools.
 - Duplicate the MCP server or the gate per plugin. One `createServer()`, one gate, host-specific adapters only.
-- Drop `"private": true` from any `private-packages/*/package.json`. The publish-surface CI gate fails the build if you do.
+- Drop `"private": true` from any `private-packages/*/package.json`. The public-mirror surface CI gate fails the build if you do.
 
 ## See also
 

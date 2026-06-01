@@ -159,13 +159,15 @@ plugins/                                 # 공개
 
 ## 7. 검증 체크리스트
 
+배포 모델: GitHub repository를 공개 채널로 사용. 호스트(Claude Code/Codex/Antigravity/Cursor)는 repo URL을 직접 참조해 plugin을 설치한다. CLI(`@bigstrider/transcodes-cli`)만 예외로 npm을 쓰며, 그 tarball은 tsup이 private-packages를 inline해 빌드한다.
+
 - [ ] 모든 HIGH 파일이 `private-packages/` 아래에 있는가?
 - [ ] `packages/*/package.json`의 `"files"` allowlist가 명시되어 있는가?
-- [ ] `private-packages/*/package.json`에 `"private": true` 가 있는가?
-- [ ] `npm publish --dry-run --workspaces`가 `private-packages/*`를 거부하는가?
-- [ ] eslint가 `packages/**` → `@transcodes-guard-private/*` import를 검출하는가?
+- [ ] `private-packages/*/package.json`에 `"private": true` 가 있는가? (CI `Public-mirror surface` 스텝이 강제)
+- [ ] biome가 `packages/**` → `@transcodes-guard-private/*` import를 `noRestrictedImports` warn으로 검출하는가?
 - [ ] `docs/architecture.md`, `README.md`에 구체 endpoint/도구명이 남아 있지 않은가?
-- [ ] `git filter-repo --invert-paths --path private-packages/ --dry-run` 가 의도대로 동작하는가?
+- [ ] `git filter-repo --invert-paths --path private-packages/ --dry-run` 가 의도대로 동작하는가? (공개 미러 추출 한 줄)
+- [ ] CLI tarball을 dry-build해 dist/index.js에 백엔드 URL/엔드포인트 문자열이 직접 노출되지 않는지 grep으로 확인했는가?
 
 ## 8. 후속 phase 트래킹
 
@@ -173,5 +175,5 @@ plugins/                                 # 공개
 |---|---|
 | 2 | `GateBackend` DI 인터페이스 추출, 경계 lint를 `error`로 승격 |
 | 2 | 정책 결정의 백엔드 이관 (Clerk 모델) |
-| 3 | `@transcodes-guard/loader` thin wrapper + obfuscated CDN bundle |
-| 4 | `git filter-repo`로 실제 private repo 분리 |
+| 3 | CLI tarball의 private 부분 obfuscation 또는 thin loader 모델 도입 |
+| 4 | `git filter-repo`로 공개 미러 분리 후 GitHub repo 공개 |
