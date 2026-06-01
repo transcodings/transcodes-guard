@@ -17,7 +17,7 @@ export default defineConfig({
   target: "node20",
   platform: "node",
   bundle: true,
-  noExternal: [/^@transcodes-guard\//],
+  noExternal: [/^@transcodes-guard(-private)?\//],
   splitting: true,
   clean: true,
   sourcemap: false,
