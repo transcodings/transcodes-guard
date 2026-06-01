@@ -2,18 +2,25 @@
 paths:
   - "packages/danger-patterns/src/**/*.ts"
   - "packages/danger-patterns/src/data/*.json"
+  - "private-packages/danger-rules/src/**/*.ts"
+  - "private-packages/danger-rules/src/data/*.json"
 ---
 
 # Danger Patterns & Tool Rules
 
-Active when editing `packages/danger-patterns/`. This package decides what the PreToolUse hook treats as risky. Two trigger sources route through the same hook.
+Two parallel registries, two packages — same mental model, opposite privacy.
+
+- `packages/danger-patterns/` (**public**) — Bash regex registry. Generic system patterns (e.g. `rm -rf` against an absolute path) + a user-CRUD surface. Safe to publish.
+- `private-packages/danger-rules/` (**private**) — MCP tool-rule registry. Transcodes-specific protected-tool ↔ `stepupAction`/`stepupResource` policy mappings; the toolName list itself is policy surface that should not be public.
+
+This file is active when editing either package.
 
 ## Two trigger sources
 
-- **Bash** — regex match against `src/data/danger-patterns.json` + an `rm -rf` git-semantic check (is the target git-tracked?).
-- **MCP tool call** — exact `toolName` match against `src/data/tool-rules.json`. Plugin matcher: `Bash|mcp__plugin_transcodes-guard_transcodes-guard__.*`.
+- **Bash** — regex match against `packages/danger-patterns/src/data/danger-patterns.json` + an `rm -rf` git-semantic check (is the target git-tracked?).
+- **MCP tool call** — exact `toolName` match against `private-packages/danger-rules/src/data/tool-rules.json`. Plugin matcher: `Bash|mcp__plugin_transcodes-guard_transcodes-guard__.*`.
 
-A new protected MCP tool goes into `src/data/tool-rules.json` (system) or via the `add_tool_rule` MCP tool (user).
+A new protected MCP tool goes into `private-packages/danger-rules/src/data/tool-rules.json` (system) or via the `add_tool_rule` MCP tool (user).
 
 ## System vs user rules
 

@@ -17,7 +17,7 @@ Active when editing plugin packaging, tsup configs, or the turbo pipeline. Code 
 
 ## Self-contained bundling
 
-Each plugin's `tsup.config.ts` sets `noExternal: [/^@transcodes-guard\//]` — the internal workspace packages are **bundled in**, never published. Real runtime deps (`@modelcontextprotocol/sdk`, `zod`, in `dependencies`) stay external. Internal packages therefore live in `devDependencies` on each plugin, and stay `private`.
+Each plugin's `tsup.config.ts` sets `noExternal: [/^@transcodes-guard(-private)?\//]` — both the public (`@transcodes-guard/*`) and private (`@transcodes-guard-private/*`) workspace packages are **bundled in**, never published as separate npm modules. Real runtime deps (`@modelcontextprotocol/sdk`, `zod`, in `dependencies`) stay external. Internal packages therefore live in `devDependencies` on each plugin (tsup auto-bundles devDeps) and stay `private`. The regex's `(-private)?` alternation is the safety net: if a future commit moves a private package into a plugin's `dependencies`, it would otherwise externalize and break the published tarball.
 
 ## `files` must ship the host manifest
 
@@ -36,7 +36,11 @@ Every plugin has a one-line `host.ts`: `process.env.TRANSCODES_GUARD_HOST = "<ho
 
 ## Dist sync (CI-enforced)
 
-After any source change, `npm run build:plugin` and commit all five `dist/` locations in the same change: `packages/*/dist/` + each `plugins/*/dist/`. CI runs `git diff --exit-code` on all five and fails on drift. Never hand-edit `dist/`.
+After any source change, `npm run build:plugin` and commit all six `dist/` locations in the same change: `packages/*/dist/` + `private-packages/*/dist/` + each `plugins/*/dist/`. CI runs `git diff --exit-code` on all six and fails on drift. Never hand-edit `dist/`.
+
+## Lint + format
+
+`biome.json` at the repo root governs linting and formatting; `npm run check` runs `biome check --write` (lint + format + organize-imports). Lefthook (installed by `npm install` via postinstall) runs the same biome step on staged files at `pre-commit` and `npm run type-check` at `pre-push`. CI runs `npx biome check --reporter=github` non-destructively. Warnings (incl. `noRestrictedImports` for public→private boundary violations) do not fail the build in phase 1; errors do.
 
 ## Adding a new host
 
@@ -45,4 +49,4 @@ After any source change, `npm run build:plugin` and commit all five `dist/` loca
 3. Add `plugins/<host>-ai-action-tracker/host.ts` (the single env line); make it every entry's first import.
 4. Add CI smoke tests for the host.
 
-No new `stepup-core` / `mcp-server-core` / `danger-patterns` code — a host is an adapter + a thin shell only.
+No new `stepup-core` / `mcp-server-core` / `danger-patterns` / `transcodes-mcp-tools` / `danger-rules` code — a host is an adapter + a thin shell only.

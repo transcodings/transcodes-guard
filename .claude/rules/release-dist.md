@@ -38,8 +38,13 @@ npm is **not** the universal channel — it only fits Claude Code, and even ther
 
 The common deploy unit is **this git repo**. Plugins do not each need an npm package. Full per-host research and the deploy plan live in `docs/research/multi-host-plugin-distribution.md` — read it before adding any publish step.
 
+## Publish surface (private-packages must stay blocked)
+
+Every `private-packages/*` member ships with `"private": true`. The CI `Publish surface` step asserts this per-package by running `npm publish --dry-run` inside each directory and looking for the `"Skipping workspace ... marked as private"` notice. **Never** drop `"private": true` from a `private-packages/*/package.json` — doing so would expose Transcodes business logic on npm. Public packages (`packages/*`, `plugins/*`) carry an explicit `"files"` allowlist (typically `["dist", "README.md", ...host-manifest...]`) so anything else stays out of the tarball.
+
 ## When adding a publish step later
 
 - Gate it behind a human decision (manual `workflow_dispatch` or an environment approval) — publishing is outward-facing and hard to reverse.
 - For Claude Code npm: publishing alone is inert; the package becomes installable only when `marketplace.json` references it via `"source":"npm"`.
 - Re-check each plugin's `files` array (see `.claude/rules/plugin-build.md`) before any publish.
+- The publish job must run from the **full** repo (not the post-`git filter-repo` public mirror), because plugin/CLI bundles need to inline `private-packages/*` deps at build time.

@@ -1,16 +1,25 @@
 ---
 paths:
   - "packages/mcp-server-core/src/**/*.ts"
+  - "private-packages/transcodes-mcp-tools/src/**/*.ts"
   - "plugins/*/src/**/*.ts"
 ---
 
 # MCP Server Source Rules
 
-Active when editing `packages/mcp-server-core/src/**/*.ts` (the shared MCP server) or `plugins/*/src/**/*.ts` (the transport entry points each plugin owns). Pair with the project-wide `CLAUDE.md`.
+Active when editing `packages/mcp-server-core/src/**/*.ts` (the shared MCP server shell + danger-pattern tools), `private-packages/transcodes-mcp-tools/src/**/*.ts` (the Transcodes-backend tool implementations), or `plugins/*/src/**/*.ts` (the transport entry points each plugin owns). Pair with the project-wide `CLAUDE.md`.
+
+## Where capabilities live
+
+- `packages/mcp-server-core/src/server.ts` — `createServer()`, danger-pattern tools/resources, and the wiring that calls each `register*Tools(server)` from the private package.
+- `private-packages/transcodes-mcp-tools/src/{audit,auth-devices,jwk,members,membership,meta,organization,passcode,project,rbac}.ts` — Transcodes-backend tool implementations, each exporting a `register*Tools(server)` function re-exported from the package's `src/index.ts`.
+- `private-packages/transcodes-mcp-tools/src/{transcodes-client,stepup-helper}.ts` — internals shared by the above (HTTP client, verified-record orchestrator). Not exported from the package.
+
+A new Transcodes-backend MCP tool goes into the private package and is added to its `src/index.ts` re-export + invoked from `createServer()` once. A new generic capability (one not coupled to the Transcodes backend) goes into `createServer()` directly.
 
 ## Capability Authoring
 
-All capabilities live in `createServer()` in `packages/mcp-server-core/src/server.ts`. Use the modern `register*` APIs — the positional-argument forms (`server.tool(name, desc, schema, cb)`) are deprecated in SDK v1 and will be removed.
+Use the modern `register*` APIs — the positional-argument forms (`server.tool(name, desc, schema, cb)`) are deprecated in SDK v1 and will be removed.
 
 ```ts
 // Tool — model-invoked side effect

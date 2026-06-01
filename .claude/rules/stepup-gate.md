@@ -1,11 +1,13 @@
 ---
 paths:
-  - "packages/stepup-core/src/**/*.ts"
+  - "private-packages/stepup-core/src/**/*.ts"
 ---
 
 # Step-up MFA Gate Rules
 
-Active when editing `packages/stepup-core/src/**/*.ts` — the single source of truth for the step-up MFA gate. This is the only place that talks to the Transcodes backend. New sensitive features must consume this gate, never reimplement it.
+Active when editing `private-packages/stepup-core/src/**/*.ts` — the single source of truth for the step-up MFA gate. This is the only place that talks to the Transcodes backend. New sensitive features must consume this gate, never reimplement it.
+
+The package lives under `private-packages/` (npm name `@transcodes-guard-private/stepup-core`) so the public GitHub mirror can exclude it via `git filter-repo`. Public consumers (e.g. `packages/mcp-server-core`, `packages/cli`, `packages/hook-adapters`) import from this private path during phase 1 and are warned by biome's `noRestrictedImports`. Phase 2 will introduce a `GateBackend` DI interface in a public package so the public side can build standalone.
 
 ## Layering (do not invert)
 
