@@ -14,9 +14,15 @@
     "dev:stdio": "npm run dev:stdio -w plugins/claude-code-ai-action-tracker",
     "dev:http": "npm run dev:http -w plugins/claude-code-ai-action-tracker",
     "dev:hook": "npm run dev:hook -w plugins/claude-code-ai-action-tracker",
-    "inspect": "npm run inspect -w plugins/claude-code-ai-action-tracker"
+    "inspect": "npm run inspect -w plugins/claude-code-ai-action-tracker",
+    "format": "biome format --write --files-ignore-unknown=true --no-errors-on-unmatched",
+    "check": "biome check --write --files-ignore-unknown=true --no-errors-on-unmatched",
+    "type-check": "turbo run type-check",
+    "postinstall": "[ -z \"$CI\" ] && lefthook install || true"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.11",
+    "lefthook": "^1.13.6",
     "turbo": "^2.0.0"
   },
   "engines": {
