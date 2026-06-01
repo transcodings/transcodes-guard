@@ -14,7 +14,8 @@
  */
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { findFirstMatch, findFirstToolRule, loadMergedPatterns, loadMergedToolRules, } from "@transcodes-guard/danger-patterns";
+import { findFirstMatch, loadMergedPatterns, } from "@transcodes-guard/danger-patterns";
+import { findFirstToolRule, loadMergedToolRules, } from "@transcodes-guard-private/danger-rules";
 import { requestStepup } from "./gate.js";
 import { readVerified } from "./store.js";
 import { isTrackerEnabled, resolveToken, } from "./token-store.js";

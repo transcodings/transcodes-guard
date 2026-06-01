@@ -4,22 +4,24 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
   addUserPattern,
-  addUserToolRule,
   findFirstMatch,
-  findFirstToolRule,
   getUserPatternsPath,
-  getUserToolRulesPath,
   loadMergedPatterns,
-  loadMergedToolRules,
   PatternValidationError,
   removeUserPattern,
+  updateUserPattern,
+  type MergedPattern,
+} from "@transcodes-guard/danger-patterns";
+import {
+  addUserToolRule,
+  findFirstToolRule,
+  getUserToolRulesPath,
+  loadMergedToolRules,
   removeUserToolRule,
   ToolRuleValidationError,
-  updateUserPattern,
   updateUserToolRule,
-  type MergedPattern,
   type MergedToolRule,
-} from "@transcodes-guard/danger-patterns";
+} from "@transcodes-guard-private/danger-rules";
 import {
   createStepupSession,
   inspectStepupState,

@@ -16,11 +16,13 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import {
   findFirstMatch,
-  findFirstToolRule,
   loadMergedPatterns,
+} from "@transcodes-guard/danger-patterns";
+import {
+  findFirstToolRule,
   loadMergedToolRules,
   type MergedToolRule,
-} from "@transcodes-guard/danger-patterns";
+} from "@transcodes-guard-private/danger-rules";
 import { requestStepup, type RequestResult } from "./gate.js";
 import type { PendingState } from "./pending.js";
 import { readVerified } from "./store.js";

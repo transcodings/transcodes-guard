@@ -29,7 +29,7 @@ import {
   updateUserPattern,
   updateUserToolRule,
   writeVerified
-} from "./chunk-LHLN6C4G.js";
+} from "./chunk-3J7XK5DB.js";
 
 // ../../packages/mcp-server-core/dist/server.js
 import { spawn as childSpawn } from "child_process";

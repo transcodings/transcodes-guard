@@ -1,5 +1,5 @@
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "cursor";
+process.env.TRANSCODES_GUARD_HOST = "codex";
 
 // ../../private-packages/stepup-core/dist/token-store.js
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
@@ -1447,11 +1447,11 @@ function removeUserPattern(id) {
   saveUserPatterns(current);
 }
 
-// ../../packages/danger-patterns/dist/tool-rules.js
+// ../../private-packages/danger-rules/dist/tool-rules.js
 import { readFileSync as readFileSync5, writeFileSync as writeFileSync5, mkdirSync as mkdirSync6, existsSync as existsSync3 } from "fs";
 import path6 from "path";
 
-// ../../packages/danger-patterns/dist/data/tool-rules.json
+// ../../private-packages/danger-rules/dist/data/tool-rules.json
 var tool_rules_default = {
   rules: [
     {
@@ -1513,7 +1513,7 @@ var tool_rules_default = {
   ]
 };
 
-// ../../packages/danger-patterns/dist/tool-rules.js
+// ../../private-packages/danger-rules/dist/tool-rules.js
 var USER_TOOL_RULES_FILE = "user-tool-rules.json";
 var ID_REGEX2 = /^[a-z0-9][a-z0-9-]*$/;
 function getUserToolRulesPath() {

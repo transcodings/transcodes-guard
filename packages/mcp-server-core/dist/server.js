@@ -2,7 +2,8 @@ import { spawn as childSpawn } from "node:child_process";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { addUserPattern, addUserToolRule, findFirstMatch, findFirstToolRule, getUserPatternsPath, getUserToolRulesPath, loadMergedPatterns, loadMergedToolRules, PatternValidationError, removeUserPattern, removeUserToolRule, ToolRuleValidationError, updateUserPattern, updateUserToolRule, } from "@transcodes-guard/danger-patterns";
+import { addUserPattern, findFirstMatch, getUserPatternsPath, loadMergedPatterns, PatternValidationError, removeUserPattern, updateUserPattern, } from "@transcodes-guard/danger-patterns";
+import { addUserToolRule, findFirstToolRule, getUserToolRulesPath, loadMergedToolRules, removeUserToolRule, ToolRuleValidationError, updateUserToolRule, } from "@transcodes-guard-private/danger-rules";
 import { createStepupSession, inspectStepupState, isTrackerEnabled, loadStepupConfig, markVerified, parseMemberAccessToken, pollStepupSession, pollStepupSessionWait, resolveToken, setTrackerEnabled, transcodesConfigFile, writeVerified, } from "@transcodes-guard-private/stepup-core";
 import { registerAuditTools, registerAuthDeviceTools, registerJwkTools, registerMemberTools, registerMembershipTools, registerMetaTools, registerOrganizationTools, registerPasscodeTools, registerProjectTools, registerRbacTools, } from "@transcodes-guard-private/transcodes-mcp-tools";
 function formatPatternsMarkdown(patterns) {

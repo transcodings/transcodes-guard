@@ -1,10 +1,9 @@
 {
-  "name": "@transcodes-guard-private/stepup-core",
+  "name": "@transcodes-guard-private/danger-rules",
   "version": "0.1.0",
-  "description": "Step-up MFA gate core — host-agnostic logic shared by transcodes-guard plugins.",
+  "description": "MCP tool-rule registry — Transcodes-specific protected tool mappings (action/resource). Private policy data.",
   "private": true,
   "type": "module",
-  "sideEffects": false,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -17,13 +16,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc && mkdir -p dist/data && cp src/data/*.json dist/data/"
   },
   "dependencies": {
-    "@transcodes-guard/danger-patterns": "*",
     "@transcodes-guard/plugin-paths": "*",
-    "@transcodes-guard-private/danger-rules": "*",
-    "zod": "^3.23.0"
+    "jsonc-parser": "^3.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

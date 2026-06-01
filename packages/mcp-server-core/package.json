@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@transcodes-guard/danger-patterns": "*",
+    "@transcodes-guard-private/danger-rules": "*",
     "@transcodes-guard-private/stepup-core": "*",
     "@transcodes-guard-private/transcodes-mcp-tools": "*",
     "@modelcontextprotocol/sdk": "^1.0.0",
