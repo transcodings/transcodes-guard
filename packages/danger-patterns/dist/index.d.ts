@@ -8,4 +8,4 @@
  * single. tool-rules (MCP tool-name registry) is the private sibling — it
  * carries Transcodes-specific protected tool mappings and ships separately.
  */
-export { type DangerPattern, type DangerConfig, type PatternSource, type MergedPattern, type MatchResult, type PatternInput, PatternValidationError, getUserPatternsPath, loadSystemPatterns, loadUserPatterns, saveUserPatterns, userPatternsFileExists, loadMergedPatterns, findFirstMatch, validateNewPattern, addUserPattern, updateUserPattern, removeUserPattern, } from "./danger-patterns.js";
+export { addUserPattern, type DangerConfig, type DangerPattern, findFirstMatch, getUserPatternsPath, loadMergedPatterns, loadSystemPatterns, loadUserPatterns, type MatchResult, type MergedPattern, type PatternInput, type PatternSource, PatternValidationError, removeUserPattern, saveUserPatterns, updateUserPattern, userPatternsFileExists, validateNewPattern, } from './danger-patterns.js';

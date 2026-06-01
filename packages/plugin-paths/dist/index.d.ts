@@ -1,4 +1,4 @@
-export type HostName = "claude-code" | "codex" | "antigravity" | "cursor";
+export type HostName = 'claude-code' | 'codex' | 'antigravity' | 'cursor';
 export declare function detectHost(): HostName | null;
 /** Transcodes product home (`~/.transcodes`) — shared with the CLI's config.json. */
 export declare function transcodesDir(): string;
@@ -49,4 +49,4 @@ export declare function cacheDir(): string;
  * new path (which may be empty), matching the fail-open policy of
  * loadUserPatterns / readVerified / readPending. Never breaks a hook.
  */
-export declare function migrateLegacyFile(name: string, kind: "data" | "cache"): void;
+export declare function migrateLegacyFile(name: string, kind: 'data' | 'cache'): void;

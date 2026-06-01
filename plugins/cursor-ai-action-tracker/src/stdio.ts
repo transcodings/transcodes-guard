@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import "../host.js";
+import '../host.js';
 /**
  * MCP stdio entrypoint for the Cursor IDE plugin.
  *
@@ -9,14 +9,14 @@ import "../host.js";
  * via `~/.cursor/mcp.json` (Claude Desktop format), so the binary path in
  * that config points at `dist/src/stdio.js` produced from this file.
  */
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createServer } from "@transcodes-guard/mcp-server-core";
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { createServer } from '@transcodes-guard/mcp-server-core';
 
 async function main(): Promise<void> {
   const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("transcodes-guard-mcp: stdio transport ready (cursor)");
+  console.error('transcodes-guard-mcp: stdio transport ready (cursor)');
 }
 
 main().catch((err) => {

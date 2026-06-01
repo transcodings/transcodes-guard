@@ -17,22 +17,22 @@
  * `detectHost()` is still exported for callers that need the host identity
  * (e.g. session-start primers); it no longer affects path resolution.
  */
-import { existsSync, mkdirSync, renameSync, copyFileSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { copyFileSync, existsSync, mkdirSync, renameSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
-export type HostName = "claude-code" | "codex" | "antigravity" | "cursor";
+export type HostName = 'claude-code' | 'codex' | 'antigravity' | 'cursor';
 
-const HOST_ENV_VAR = "TRANSCODES_GUARD_HOST";
-const CLAUDE_PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA";
+const HOST_ENV_VAR = 'TRANSCODES_GUARD_HOST';
+const CLAUDE_PLUGIN_DATA_ENV = 'CLAUDE_PLUGIN_DATA';
 
 export function detectHost(): HostName | null {
   const raw = process.env[HOST_ENV_VAR]?.trim();
   switch (raw) {
-    case "claude-code":
-    case "codex":
-    case "antigravity":
-    case "cursor":
+    case 'claude-code':
+    case 'codex':
+    case 'antigravity':
+    case 'cursor':
       return raw;
     default:
       return null;
@@ -41,12 +41,12 @@ export function detectHost(): HostName | null {
 
 /** Transcodes product home (`~/.transcodes`) — shared with the CLI's config.json. */
 export function transcodesDir(): string {
-  return path.join(os.homedir(), ".transcodes");
+  return path.join(os.homedir(), '.transcodes');
 }
 
 /** Where all plugin-managed local state lives (`~/.transcodes/state`). */
 function stateDir(): string {
-  return path.join(transcodesDir(), "state");
+  return path.join(transcodesDir(), 'state');
 }
 
 /**
@@ -54,7 +54,7 @@ function stateDir(): string {
  * only as a migration source for users who ran a pre-consolidation build.
  */
 export function legacyDataDir(): string {
-  return path.join(os.homedir(), ".claude", "transcodes-guard");
+  return path.join(os.homedir(), '.claude', 'transcodes-guard');
 }
 
 /**
@@ -65,18 +65,18 @@ export function legacyDataDir(): string {
  *   win32   %LOCALAPPDATA%\ai-action-tracker\Cache
  */
 export function legacyCacheDir(): string {
-  if (process.platform === "win32") {
+  if (process.platform === 'win32') {
     const base =
       process.env.LOCALAPPDATA?.trim() ||
-      path.join(os.homedir(), "AppData", "Local");
-    return path.join(base, "transcodes-guard", "Cache");
+      path.join(os.homedir(), 'AppData', 'Local');
+    return path.join(base, 'transcodes-guard', 'Cache');
   }
-  if (process.platform === "darwin") {
-    return path.join(os.homedir(), "Library", "Caches", "transcodes-guard");
+  if (process.platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'Caches', 'transcodes-guard');
   }
   const xdg = process.env.XDG_CACHE_HOME?.trim();
-  const base = xdg && xdg.length > 0 ? xdg : path.join(os.homedir(), ".cache");
-  return path.join(base, "transcodes-guard");
+  const base = xdg && xdg.length > 0 ? xdg : path.join(os.homedir(), '.cache');
+  return path.join(base, 'transcodes-guard');
 }
 
 /**
@@ -119,10 +119,7 @@ export function cacheDir(): string {
  * new path (which may be empty), matching the fail-open policy of
  * loadUserPatterns / readVerified / readPending. Never breaks a hook.
  */
-export function migrateLegacyFile(
-  name: string,
-  kind: "data" | "cache",
-): void {
+export function migrateLegacyFile(name: string, kind: 'data' | 'cache'): void {
   void kind;
   try {
     const target = stateDir();
@@ -139,16 +136,14 @@ export function migrateLegacyFile(
     candidates.push(path.join(legacyDataDir(), name));
     candidates.push(path.join(legacyCacheDir(), name));
 
-    const oldPath = candidates.find(
-      (p) => p !== newPath && existsSync(p),
-    );
+    const oldPath = candidates.find((p) => p !== newPath && existsSync(p));
     if (!oldPath) {
       return;
     }
 
     mkdirSync(target, { recursive: true });
     copyFileSync(oldPath, newPath);
-    renameSync(oldPath, oldPath + ".bak");
+    renameSync(oldPath, oldPath + '.bak');
   } catch {
     // Fail open. Caller treats missing/unreadable file as empty state.
   }

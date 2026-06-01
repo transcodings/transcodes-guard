@@ -64,7 +64,7 @@ export declare function isTrackerEnabled(): boolean;
  * failure.
  */
 export declare function setTrackerEnabled(enabled: boolean): void;
-export type TokenSource = "env" | "file" | "none";
+export type TokenSource = 'env' | 'file' | 'none';
 export type ResolvedToken = {
     token: string | null;
     source: TokenSource;

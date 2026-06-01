@@ -8,44 +8,46 @@
  * sid + status so the agent can resume polling instead of starting over.
  * Pure additive context — never blocks.
  */
-import "../host.js";
-import { codexAdapter } from "@transcodes-guard/hook-adapters";
+import '../host.js';
+import { codexAdapter } from '@transcodes-guard/hook-adapters';
 import {
   formatNoTokenSessionNotice,
   isExpired,
   isTrackerEnabled,
   readPending,
   resolveToken,
-} from "@transcodes-guard-private/stepup-core";
+} from '@transcodes-guard-private/stepup-core';
 
 function carryoverBlock(): string | null {
   const pending = readPending();
   if (!pending) return null;
   if (isExpired(pending)) return null;
   const statusNote =
-    pending.status === "verified"
-      ? "VERIFIED but not yet consumed — retry the original command to release it."
-      : "PENDING — resume polling.";
+    pending.status === 'verified'
+      ? 'VERIFIED but not yet consumed — retry the original command to release it.'
+      : 'PENDING — resume polling.';
   return [
-    "Carried-over step-up state from a previous session:",
+    'Carried-over step-up state from a previous session:',
     `  sid     : ${pending.sid}`,
     `  status  : ${pending.status} (${statusNote})`,
     `  command : ${pending.command}`,
     `  reason  : ${pending.reason}`,
     `  url     : ${pending.browserUrl}`,
-  ].join("\n");
+  ].join('\n');
 }
 
 function main(): void {
   // Gate disabled: stay silent (no carry-over, no token nag).
   if (!isTrackerEnabled()) process.exit(0);
 
-  const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
-  const parts = [carryoverBlock(), tokenNotice].filter(
-    (s): s is string => Boolean(s),
+  const tokenNotice = resolveToken().token
+    ? null
+    : formatNoTokenSessionNotice();
+  const parts = [carryoverBlock(), tokenNotice].filter((s): s is string =>
+    Boolean(s),
   );
   if (parts.length === 0) process.exit(0);
-  process.stdout.write(codexAdapter.emitSessionStartContext(parts.join("\n")));
+  process.stdout.write(codexAdapter.emitSessionStartContext(parts.join('\n')));
   process.exit(0);
 }
 

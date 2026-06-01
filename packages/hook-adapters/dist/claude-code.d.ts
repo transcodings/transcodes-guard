@@ -11,5 +11,5 @@
  * re-exports all four adapters, so setting env in the adapter would cause
  * whichever loads last to overwrite the previous claim.
  */
-import type { HookAdapter } from "./types.js";
+import type { HookAdapter } from './types.js';
 export declare const claudeCodeAdapter: HookAdapter;

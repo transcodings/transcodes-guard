@@ -33,12 +33,12 @@
  * under the user profile and is user-scoped by default). A real OS keychain
  * is tracked separately in docs/prd/0005-token-auth-device-flow.md.
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
-const CONFIG_DIR_NAME = ".transcodes";
-const CONFIG_FILE_NAME = "config.json";
+const CONFIG_DIR_NAME = '.transcodes';
+const CONFIG_FILE_NAME = 'config.json';
 
 /** `~/.transcodes` — same resolution on macOS/Linux/Windows via os.homedir(). */
 export function transcodesConfigDir(): string {
@@ -74,7 +74,7 @@ type RawConfig = {
 function readRawConfig(): RawConfig | null {
   let raw: string;
   try {
-    raw = readFileSync(transcodesConfigFile(), "utf8");
+    raw = readFileSync(transcodesConfigFile(), 'utf8');
   } catch {
     return null;
   }
@@ -84,7 +84,7 @@ function readRawConfig(): RawConfig | null {
   } catch {
     return null;
   }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return null;
   }
   return parsed as RawConfig;
@@ -100,24 +100,24 @@ function writeRawConfig(config: RawConfig): void {
 }
 
 function normalizeToken(v: unknown): string | null {
-  if (typeof v !== "string") return null;
+  if (typeof v !== 'string') return null;
   const trimmed = v.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
 function normalizeLabel(v: unknown): string | null {
-  if (typeof v !== "string") return null;
+  if (typeof v !== 'string') return null;
   const trimmed = v.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
 /** Accept both the new `{ token, label }` records and legacy bare strings. */
 function normalizeRecord(item: unknown): TokenRecord | null {
-  if (typeof item === "string") {
+  if (typeof item === 'string') {
     const token = normalizeToken(item);
     return token ? { token, label: null } : null;
   }
-  if (item && typeof item === "object" && !Array.isArray(item)) {
+  if (item && typeof item === 'object' && !Array.isArray(item)) {
     const obj = item as { token?: unknown; label?: unknown };
     const token = normalizeToken(obj.token);
     if (!token) return null;
@@ -205,13 +205,13 @@ export function readTokenRecords(): TokenRecord[] {
 export function writeTokenToFile(token: string, label?: string): void {
   const trimmed = token.trim();
   if (!trimmed) {
-    throw new Error("token is empty");
+    throw new Error('token is empty');
   }
   const nextLabel = normalizeLabel(label);
   const current = readConfig();
   const existing = current.tokenList.find((r) => r.token === trimmed);
   if (!existing && !nextLabel) {
-    throw new Error("label is required");
+    throw new Error('label is required');
   }
   const tokenList = existing
     ? current.tokenList.map((r) =>
@@ -239,11 +239,11 @@ export function setTokenLabel(token: string, label: string): void {
   const trimmed = token.trim();
   const nextLabel = normalizeLabel(label);
   if (!nextLabel) {
-    throw new Error("label is required");
+    throw new Error('label is required');
   }
   const current = readConfig();
   if (!current.tokenList.some((r) => r.token === trimmed)) {
-    throw new Error("token not found");
+    throw new Error('token not found');
   }
   const tokenList = current.tokenList.map((r) =>
     r.token === trimmed ? { token: r.token, label: nextLabel } : r,
@@ -310,7 +310,7 @@ export function setTrackerEnabled(enabled: boolean): void {
   writeRawConfig({ ...(readRawConfig() ?? {}), enabled });
 }
 
-export type TokenSource = "env" | "file" | "none";
+export type TokenSource = 'env' | 'file' | 'none';
 
 export type ResolvedToken = {
   token: string | null;
@@ -325,11 +325,11 @@ export type ResolvedToken = {
 export function resolveToken(): ResolvedToken {
   const envToken = process.env.TRANSCODES_TOKEN?.trim();
   if (envToken) {
-    return { token: envToken, source: "env" };
+    return { token: envToken, source: 'env' };
   }
   const fileToken = readTokenFromFile();
   if (fileToken) {
-    return { token: fileToken, source: "file" };
+    return { token: fileToken, source: 'file' };
   }
-  return { token: null, source: "none" };
+  return { token: null, source: 'none' };
 }

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 declare const PendingStateSchema: z.ZodObject<{
     sid: z.ZodString;
     command: z.ZodString;

@@ -12,102 +12,92 @@
  */
 
 export {
-  requestStepup,
-  type RequestInput,
-  type RequestResult,
-} from "./gate.js";
-
-export {
-  createStepupSession,
-  pollStepupSession,
-  pollStepupSessionWait,
-  type CreateStepupArgs,
-  type CreatedStepupSession,
-  type PollStepupResult,
-  type WaitStepupResult,
-} from "./session.js";
-
-export {
-  readVerified,
-  writeVerified,
-  consumeVerified,
-  cacheDir,
-  type VerifiedStepup,
-} from "./store.js";
-
-export {
-  readPending,
-  writePending,
-  clearPending,
-  markVerified,
-  isExpired,
-  type PendingState,
-} from "./pending.js";
-
-export {
-  request,
   type Envelope,
   type RequestInput as HttpRequestInput,
-} from "./client.js";
-
+  request,
+} from './client.js';
 export {
-  loadStepupConfig,
-  type StepupConfig,
   DEFAULT_BACKEND_URL,
+  loadStepupConfig,
   STEPUP_TTL_MS,
-} from "./config.js";
-
+  type StepupConfig,
+} from './config.js';
 export {
-  resolveToken,
-  readTokenFromFile,
-  readTokenList,
-  readTokenRecords,
-  writeTokenToFile,
-  setActiveToken,
-  setTokenLabel,
-  removeTokenFromFile,
-  clearTokenFile,
-  isTrackerEnabled,
-  setTrackerEnabled,
-  transcodesConfigDir,
-  transcodesConfigFile,
-  type TokenSource,
-  type ResolvedToken,
-  type TokenRecord,
-} from "./token-store.js";
-
-export {
-  parseMemberAccessToken,
-  REQUIRED_AUDIENCE,
-  type MemberTokenClaims,
-  type ParsedMemberToken,
-} from "./jwt.js";
-
-export {
-  inspectStepupState,
-  type VerifiedInspection,
-  type PendingInspection,
-  type BrowserLockInspection,
-  type StepupStateInspection,
-} from "./inspector.js";
-
-export {
-  evaluatePreToolUse,
   type BlockResult,
+  evaluatePreToolUse,
   type GateDecision,
   type ToolCallInput,
-} from "./evaluate.js";
-
+} from './evaluate.js';
 export {
-  formatBlockedSummary,
-  formatNoTokenSessionNotice,
+  type RequestInput,
+  type RequestResult,
+  requestStepup,
+} from './gate.js';
+export {
+  type BrowserLockInspection,
+  inspectStepupState,
+  type PendingInspection,
+  type StepupStateInspection,
+  type VerifiedInspection,
+} from './inspector.js';
+export {
+  type MemberTokenClaims,
+  type ParsedMemberToken,
+  parseMemberAccessToken,
+  REQUIRED_AUDIENCE,
+} from './jwt.js';
+export {
   formatAllowReason,
+  formatBlockedSummary,
   formatNoTokenReason,
+  formatNoTokenSessionNotice,
   formatNoTokenSystemMessage,
+  formatStderrTag,
   formatStepupFailureDetail,
   formatStepupFailureReason,
   formatStepupFailureSystemMessage,
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
-  formatStderrTag,
-} from "./messages.js";
+} from './messages.js';
+export {
+  clearPending,
+  isExpired,
+  markVerified,
+  type PendingState,
+  readPending,
+  writePending,
+} from './pending.js';
+export {
+  type CreatedStepupSession,
+  type CreateStepupArgs,
+  createStepupSession,
+  type PollStepupResult,
+  pollStepupSession,
+  pollStepupSessionWait,
+  type WaitStepupResult,
+} from './session.js';
+export {
+  cacheDir,
+  consumeVerified,
+  readVerified,
+  type VerifiedStepup,
+  writeVerified,
+} from './store.js';
+export {
+  clearTokenFile,
+  isTrackerEnabled,
+  type ResolvedToken,
+  readTokenFromFile,
+  readTokenList,
+  readTokenRecords,
+  removeTokenFromFile,
+  resolveToken,
+  setActiveToken,
+  setTokenLabel,
+  setTrackerEnabled,
+  type TokenRecord,
+  type TokenSource,
+  transcodesConfigDir,
+  transcodesConfigFile,
+  writeTokenToFile,
+} from './token-store.js';

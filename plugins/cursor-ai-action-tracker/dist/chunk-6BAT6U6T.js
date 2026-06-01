@@ -1,5 +1,5 @@
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "claude-code";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
 
 // ../../private-packages/stepup-core/dist/token-store.js
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
@@ -121,7 +121,7 @@ import { mkdirSync as mkdirSync3, readFileSync as readFileSync2, rmSync as rmSyn
 import path3 from "path";
 
 // ../../packages/plugin-paths/dist/index.js
-import { existsSync, mkdirSync as mkdirSync2, renameSync, copyFileSync } from "fs";
+import { copyFileSync, existsSync, mkdirSync as mkdirSync2, renameSync } from "fs";
 import os2 from "os";
 import path2 from "path";
 var CLAUDE_PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA";
@@ -358,66 +358,13 @@ function consumeVerified() {
   }
 }
 
-// ../../private-packages/stepup-core/dist/pending.js
-import { mkdirSync as mkdirSync4, readFileSync as readFileSync3, rmSync as rmSync3, writeFileSync as writeFileSync3 } from "fs";
-import path4 from "path";
-import { z } from "zod";
-var FILE_NAME2 = "stepup-pending.json";
-var PendingStateSchema = z.object({
-  sid: z.string().min(1),
-  command: z.string(),
-  reason: z.string(),
-  browserUrl: z.string(),
-  createdAt: z.number().int().nonnegative(),
-  expiresAt: z.string().optional(),
-  status: z.enum(["pending", "verified"])
-});
-function pendingPath() {
-  return path4.join(cacheDir(), FILE_NAME2);
-}
-function readPending() {
-  migrateLegacyFile(FILE_NAME2, "cache");
-  try {
-    const raw = readFileSync3(pendingPath(), "utf8");
-    const parsed = PendingStateSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
-function writePending(state) {
-  const file = pendingPath();
-  mkdirSync4(path4.dirname(file), { recursive: true });
-  writeFileSync3(file, JSON.stringify(state), { mode: 384 });
-}
-function clearPending() {
-  try {
-    rmSync3(pendingPath(), { force: true });
-  } catch {
-  }
-}
-function markVerified(sid) {
-  const prev = readPending();
-  if (!prev || prev.sid !== sid)
-    return;
-  writePending({ ...prev, status: "verified" });
-}
-function isExpired(state, now = Date.now()) {
-  if (state.expiresAt) {
-    const t = Date.parse(state.expiresAt);
-    if (Number.isFinite(t))
-      return now >= t;
-  }
-  return now - state.createdAt > STEPUP_TTL_MS;
-}
-
 // ../../private-packages/stepup-core/dist/evaluate.js
 import { execFileSync } from "child_process";
-import path8 from "path";
+import path7 from "path";
 
 // ../../packages/danger-patterns/dist/danger-patterns.js
-import { readFileSync as readFileSync4, writeFileSync as writeFileSync4, mkdirSync as mkdirSync5, existsSync as existsSync2 } from "fs";
-import path5 from "path";
+import { existsSync as existsSync2, mkdirSync as mkdirSync4, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
+import path4 from "path";
 
 // ../../node_modules/jsonc-parser/lib/esm/impl/scanner.js
 function createScanner(text, ignoreTrivia = false) {
@@ -1333,7 +1280,7 @@ var danger_patterns_default = {
 var USER_PATTERNS_FILE = "user-patterns.json";
 var ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 function getUserPatternsPath() {
-  return path5.join(dataDir(), USER_PATTERNS_FILE);
+  return path4.join(dataDir(), USER_PATTERNS_FILE);
 }
 function loadSystemPatterns() {
   return { patterns: [...danger_patterns_default.patterns] };
@@ -1341,7 +1288,7 @@ function loadSystemPatterns() {
 function loadUserPatterns() {
   migrateLegacyFile(USER_PATTERNS_FILE, "data");
   try {
-    const raw = readFileSync4(getUserPatternsPath(), "utf8");
+    const raw = readFileSync3(getUserPatternsPath(), "utf8");
     const parsed = parse2(raw);
     if (parsed && Array.isArray(parsed.patterns)) {
       return parsed;
@@ -1353,8 +1300,8 @@ function loadUserPatterns() {
 }
 function saveUserPatterns(config) {
   const file = getUserPatternsPath();
-  mkdirSync5(path5.dirname(file), { recursive: true });
-  writeFileSync4(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+  mkdirSync4(path4.dirname(file), { recursive: true });
+  writeFileSync3(file, JSON.stringify(config, null, 2) + "\n", "utf8");
 }
 function loadMergedPatterns() {
   const system = loadSystemPatterns().patterns.map((p) => ({
@@ -1448,8 +1395,8 @@ function removeUserPattern(id) {
 }
 
 // ../../private-packages/danger-rules/dist/tool-rules.js
-import { readFileSync as readFileSync5, writeFileSync as writeFileSync5, mkdirSync as mkdirSync6, existsSync as existsSync3 } from "fs";
-import path6 from "path";
+import { existsSync as existsSync3, mkdirSync as mkdirSync5, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
+import path5 from "path";
 
 // ../../private-packages/danger-rules/dist/data/tool-rules.json
 var tool_rules_default = {
@@ -1517,7 +1464,7 @@ var tool_rules_default = {
 var USER_TOOL_RULES_FILE = "user-tool-rules.json";
 var ID_REGEX2 = /^[a-z0-9][a-z0-9-]*$/;
 function getUserToolRulesPath() {
-  return path6.join(dataDir(), USER_TOOL_RULES_FILE);
+  return path5.join(dataDir(), USER_TOOL_RULES_FILE);
 }
 function loadSystemToolRules() {
   return { rules: [...tool_rules_default.rules] };
@@ -1525,7 +1472,7 @@ function loadSystemToolRules() {
 function loadUserToolRules() {
   migrateLegacyFile(USER_TOOL_RULES_FILE, "data");
   try {
-    const raw = readFileSync5(getUserToolRulesPath(), "utf8");
+    const raw = readFileSync4(getUserToolRulesPath(), "utf8");
     const parsed = parse2(raw);
     if (parsed && Array.isArray(parsed.rules)) {
       return parsed;
@@ -1537,8 +1484,8 @@ function loadUserToolRules() {
 }
 function saveUserToolRules(config) {
   const file = getUserToolRulesPath();
-  mkdirSync6(path6.dirname(file), { recursive: true });
-  writeFileSync5(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+  mkdirSync5(path5.dirname(file), { recursive: true });
+  writeFileSync4(file, JSON.stringify(config, null, 2) + "\n", "utf8");
 }
 function loadMergedToolRules() {
   const system = loadSystemToolRules().rules.map((r) => ({
@@ -1647,8 +1594,8 @@ function removeUserToolRule(id) {
 // ../../private-packages/stepup-core/dist/gate.js
 import { spawn } from "child_process";
 import { createHash } from "crypto";
-import { mkdirSync as mkdirSync7, readFileSync as readFileSync6, writeFileSync as writeFileSync6 } from "fs";
-import path7 from "path";
+import { mkdirSync as mkdirSync6, readFileSync as readFileSync5, writeFileSync as writeFileSync5 } from "fs";
+import path6 from "path";
 
 // ../../private-packages/stepup-core/dist/client.js
 var REQUEST_TIMEOUT_MS = 3e4;
@@ -1817,10 +1764,10 @@ function fingerprintOf(key) {
 }
 function claimBrowserLaunch(fingerprintKey) {
   migrateLegacyFile(BROWSER_LOCK_FILE, "cache");
-  const lockFile = path7.join(cacheDir(), BROWSER_LOCK_FILE);
+  const lockFile = path6.join(cacheDir(), BROWSER_LOCK_FILE);
   const fingerprint = fingerprintOf(fingerprintKey);
   try {
-    const raw = readFileSync6(lockFile, "utf8");
+    const raw = readFileSync5(lockFile, "utf8");
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       const obj = parsed;
@@ -1833,8 +1780,8 @@ function claimBrowserLaunch(fingerprintKey) {
   } catch {
   }
   try {
-    mkdirSync7(path7.dirname(lockFile), { recursive: true });
-    writeFileSync6(lockFile, JSON.stringify({ fingerprint, openedAt: Date.now() }), { mode: 384 });
+    mkdirSync6(path6.dirname(lockFile), { recursive: true });
+    writeFileSync5(lockFile, JSON.stringify({ fingerprint, openedAt: Date.now() }), { mode: 384 });
   } catch {
   }
   return true;
@@ -1941,15 +1888,15 @@ function extractRmTargets(command) {
 function checkTargetGitTracked(target, cwd) {
   if (/[*?{[]/.test(target))
     return null;
-  const abs = path8.resolve(cwd, target);
+  const abs = path7.resolve(cwd, target);
   let toplevel;
   try {
     toplevel = execFileSync("git", ["-C", cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
     return null;
   }
-  const rel = path8.relative(toplevel, abs);
-  if (rel.startsWith("..") || path8.isAbsolute(rel))
+  const rel = path7.relative(toplevel, abs);
+  if (rel.startsWith("..") || path7.isAbsolute(rel))
     return null;
   let tracked;
   try {
@@ -2168,6 +2115,59 @@ function formatStderrTag(decision) {
   }
 }
 
+// ../../private-packages/stepup-core/dist/pending.js
+import { mkdirSync as mkdirSync7, readFileSync as readFileSync6, rmSync as rmSync3, writeFileSync as writeFileSync6 } from "fs";
+import path8 from "path";
+import { z } from "zod";
+var FILE_NAME2 = "stepup-pending.json";
+var PendingStateSchema = z.object({
+  sid: z.string().min(1),
+  command: z.string(),
+  reason: z.string(),
+  browserUrl: z.string(),
+  createdAt: z.number().int().nonnegative(),
+  expiresAt: z.string().optional(),
+  status: z.enum(["pending", "verified"])
+});
+function pendingPath() {
+  return path8.join(cacheDir(), FILE_NAME2);
+}
+function readPending() {
+  migrateLegacyFile(FILE_NAME2, "cache");
+  try {
+    const raw = readFileSync6(pendingPath(), "utf8");
+    const parsed = PendingStateSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+function writePending(state) {
+  const file = pendingPath();
+  mkdirSync7(path8.dirname(file), { recursive: true });
+  writeFileSync6(file, JSON.stringify(state), { mode: 384 });
+}
+function clearPending() {
+  try {
+    rmSync3(pendingPath(), { force: true });
+  } catch {
+  }
+}
+function markVerified(sid) {
+  const prev = readPending();
+  if (!prev || prev.sid !== sid)
+    return;
+  writePending({ ...prev, status: "verified" });
+}
+function isExpired(state, now = Date.now()) {
+  if (state.expiresAt) {
+    const t = Date.parse(state.expiresAt);
+    if (Number.isFinite(t))
+      return now >= t;
+  }
+  return now - state.createdAt > STEPUP_TTL_MS;
+}
+
 // ../../private-packages/stepup-core/dist/inspector.js
 import { readFileSync as readFileSync7 } from "fs";
 import path9 from "path";
@@ -2291,26 +2291,21 @@ export {
   addUserToolRule,
   updateUserToolRule,
   removeUserToolRule,
+  request,
   parseMemberAccessToken,
   transcodesConfigFile,
   isTrackerEnabled,
   setTrackerEnabled,
   resolveToken,
   loadStepupConfig,
-  request,
   createStepupSession,
   pollStepupSession,
   pollStepupSessionWait,
   readVerified,
   writeVerified,
   consumeVerified,
-  readPending,
-  writePending,
-  clearPending,
-  markVerified,
-  isExpired,
-  inspectStepupState,
   evaluatePreToolUse,
+  inspectStepupState,
   formatNoTokenSessionNotice,
   formatAllowReason,
   formatNoTokenReason,
@@ -2319,5 +2314,10 @@ export {
   formatStepupFailureSystemMessage,
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
-  formatStderrTag
+  formatStderrTag,
+  readPending,
+  writePending,
+  clearPending,
+  markVerified,
+  isExpired
 };

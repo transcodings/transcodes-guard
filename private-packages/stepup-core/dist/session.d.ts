@@ -5,8 +5,8 @@
  * specific MCP tool wiring is split out (see src/server.ts); this file
  * holds pure async functions usable from both the hook and the server.
  */
-import { type Envelope } from "./client.js";
-import type { StepupConfig } from "./config.js";
+import { type Envelope } from './client.js';
+import type { StepupConfig } from './config.js';
 export type CreateStepupArgs = {
     comment: string;
     action?: string;
@@ -38,7 +38,7 @@ export type WaitStepupResult = {
     /** Last poll's envelope — useful for diagnostics. */
     envelope: Envelope;
     /** "verified" if reached before deadline, otherwise "timeout". */
-    outcome: "verified" | "timeout";
+    outcome: 'verified' | 'timeout';
     /** Total elapsed time in ms across all polls. */
     elapsedMs: number;
     /** Number of poll requests issued. */

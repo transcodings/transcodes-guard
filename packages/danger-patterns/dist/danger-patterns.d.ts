@@ -6,7 +6,7 @@ export interface DangerPattern {
 export interface DangerConfig {
     patterns: DangerPattern[];
 }
-export type PatternSource = "system" | "user";
+export type PatternSource = 'system' | 'user';
 export interface MergedPattern extends DangerPattern {
     source: PatternSource;
 }

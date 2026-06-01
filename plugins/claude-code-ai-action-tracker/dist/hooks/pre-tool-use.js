@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   claudeCodeAdapter
-} from "../chunk-RNXEHGBK.js";
+} from "../chunk-ODK4KW7V.js";
 import {
   clearPending,
   consumeVerified,
@@ -15,7 +15,7 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   writePending
-} from "../chunk-3J7XK5DB.js";
+} from "../chunk-JOKLDK4M.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";

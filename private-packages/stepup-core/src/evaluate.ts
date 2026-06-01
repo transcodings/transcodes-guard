@@ -12,24 +12,21 @@
  *  - After a danger pattern match (verified read, step-up create) →
  *    surface as a `deny-*` decision so callers can fail-safe.
  */
-import { execFileSync } from "node:child_process";
-import path from "node:path";
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 import {
   findFirstMatch,
   loadMergedPatterns,
-} from "@transcodes-guard/danger-patterns";
+} from '@transcodes-guard/danger-patterns';
 import {
   findFirstToolRule,
   loadMergedToolRules,
   type MergedToolRule,
-} from "@transcodes-guard-private/danger-rules";
-import { requestStepup, type RequestResult } from "./gate.js";
-import type { PendingState } from "./pending.js";
-import { readVerified } from "./store.js";
-import {
-  isTrackerEnabled,
-  resolveToken,
-} from "./token-store.js";
+} from '@transcodes-guard-private/danger-rules';
+import { type RequestResult, requestStepup } from './gate.js';
+import type { PendingState } from './pending.js';
+import { readVerified } from './store.js';
+import { isTrackerEnabled, resolveToken } from './token-store.js';
 
 export interface ToolCallInput {
   toolName: string;
@@ -47,16 +44,16 @@ export interface BlockResult {
 }
 
 export type GateDecision =
-  | { kind: "pass" }
-  | { kind: "allow"; block: BlockResult; consumeHere: boolean }
-  | { kind: "deny-no-token"; block: BlockResult }
+  | { kind: 'pass' }
+  | { kind: 'allow'; block: BlockResult; consumeHere: boolean }
+  | { kind: 'deny-no-token'; block: BlockResult }
   | {
-      kind: "deny-stepup-failure";
+      kind: 'deny-stepup-failure';
       block: BlockResult;
       failure: Extract<RequestResult, { ok: false }>;
     }
   | {
-      kind: "deny-stepup-pending";
+      kind: 'deny-stepup-pending';
       block: BlockResult;
       sid: string;
       browserUrl: string;
@@ -76,18 +73,18 @@ function checkPatternMatch(command: string): BlockResult | null {
 
 function extractRmTargets(command: string): string[] | null {
   const tokens = command.trim().split(/\s+/);
-  const rmIdx = tokens.indexOf("rm");
+  const rmIdx = tokens.indexOf('rm');
   if (rmIdx === -1) return null;
 
   let i = rmIdx + 1;
   let recursive = false;
   while (i < tokens.length) {
     const t = tokens[i];
-    if (t === "--") {
+    if (t === '--') {
       i++;
       break;
     }
-    if (t.startsWith("-") && /^-[a-zA-Z]+$/.test(t)) {
+    if (t.startsWith('-') && /^-[a-zA-Z]+$/.test(t)) {
       if (/[rR]/.test(t)) recursive = true;
       i++;
       continue;
@@ -96,7 +93,7 @@ function extractRmTargets(command: string): string[] | null {
   }
   if (!recursive) return null;
 
-  const targets = tokens.slice(i).filter((t) => !t.startsWith("-"));
+  const targets = tokens.slice(i).filter((t) => !t.startsWith('-'));
   return targets.length > 0 ? targets : null;
 }
 
@@ -117,25 +114,25 @@ function checkTargetGitTracked(
   let toplevel: string;
   try {
     toplevel = execFileSync(
-      "git",
-      ["-C", cwd, "rev-parse", "--show-toplevel"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+      'git',
+      ['-C', cwd, 'rev-parse', '--show-toplevel'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
     ).trim();
   } catch {
     return null;
   }
 
   const rel = path.relative(toplevel, abs);
-  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
 
   let tracked: string[];
   try {
     const out = execFileSync(
-      "git",
-      ["-C", toplevel, "ls-files", "--", rel || "."],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+      'git',
+      ['-C', toplevel, 'ls-files', '--', rel || '.'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
     );
-    tracked = out.split("\n").filter(Boolean);
+    tracked = out.split('\n').filter(Boolean);
   } catch {
     return null;
   }
@@ -148,10 +145,7 @@ function checkTargetGitTracked(
   };
 }
 
-function checkRmGitTracked(
-  command: string,
-  cwd: string,
-): BlockResult | null {
+function checkRmGitTracked(command: string, cwd: string): BlockResult | null {
   const targets = extractRmTargets(command);
   if (!targets) return null;
 
@@ -169,8 +163,8 @@ function checkRmGitTracked(
       const more =
         h.trackedCount > h.samples.length
           ? `, +${h.trackedCount - h.samples.length} more`
-          : "";
-      return `${h.target} — ${h.trackedCount} tracked file(s): ${h.samples.join(", ")}${more}`;
+          : '';
+      return `${h.target} — ${h.trackedCount} tracked file(s): ${h.samples.join(', ')}${more}`;
     }),
     command,
   };
@@ -180,17 +174,17 @@ function checkRmGitTracked(
 function stringifyToolInput(input: unknown): string {
   try {
     const s = JSON.stringify(input);
-    if (s === undefined) return "[unserializable]";
-    return s.length > 200 ? s.slice(0, 197) + "..." : s;
+    if (s === undefined) return '[unserializable]';
+    return s.length > 200 ? s.slice(0, 197) + '...' : s;
   } catch {
-    return "[unserializable]";
+    return '[unserializable]';
   }
 }
 
 type Classified =
-  | { kind: "bash"; command: string; cwd: string }
+  | { kind: 'bash'; command: string; cwd: string }
   | {
-      kind: "mcp";
+      kind: 'mcp';
       toolName: string;
       toolInput: unknown;
       rule: MergedToolRule;
@@ -203,19 +197,19 @@ function classifyToolCall(input: ToolCallInput): Classified | null {
   // antigravity adapter rewrites `args.CommandLine` → `args.command`
   // before the classifier sees it, so the body below is host-neutral.
   if (
-    input.toolName === "Bash" ||
-    input.toolName === "run_command" ||
-    input.toolName === "Shell"
+    input.toolName === 'Bash' ||
+    input.toolName === 'run_command' ||
+    input.toolName === 'Shell'
   ) {
     const cmd = (input.toolInput as { command?: unknown } | undefined)?.command;
-    if (typeof cmd !== "string") return null;
-    return { kind: "bash", command: cmd, cwd: input.cwd };
+    if (typeof cmd !== 'string') return null;
+    return { kind: 'bash', command: cmd, cwd: input.cwd };
   }
   const rules = loadMergedToolRules();
   const match = findFirstToolRule(input.toolName, rules);
   if (!match) return null;
   return {
-    kind: "mcp",
+    kind: 'mcp',
     toolName: input.toolName,
     toolInput: input.toolInput,
     rule: match.matched,
@@ -240,19 +234,19 @@ export async function evaluatePreToolUse(
   input: ToolCallInput,
 ): Promise<GateDecision> {
   if (!isTrackerEnabled()) {
-    return { kind: "pass" };
+    return { kind: 'pass' };
   }
 
   let classified: Classified | null;
   try {
     classified = classifyToolCall(input);
   } catch {
-    return { kind: "pass" };
+    return { kind: 'pass' };
   }
-  if (!classified) return { kind: "pass" };
+  if (!classified) return { kind: 'pass' };
 
   const block: BlockResult | null =
-    classified.kind === "bash"
+    classified.kind === 'bash'
       ? (checkPatternMatch(classified.command) ??
         checkRmGitTracked(classified.command, classified.cwd))
       : {
@@ -260,24 +254,24 @@ export async function evaluatePreToolUse(
           command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
         };
 
-  if (!block) return { kind: "pass" };
+  if (!block) return { kind: 'pass' };
 
   if (readVerified()) {
     const consumeHere =
-      classified.kind === "bash" || classified.rule.consume_in_hook === true;
-    return { kind: "allow", block, consumeHere };
+      classified.kind === 'bash' || classified.rule.consume_in_hook === true;
+    return { kind: 'allow', block, consumeHere };
   }
 
   if (!resolveToken().token) {
-    return { kind: "deny-no-token", block };
+    return { kind: 'deny-no-token', block };
   }
 
   const gateInput =
-    classified.kind === "bash"
+    classified.kind === 'bash'
       ? {
           reason: block.reason,
-          action: "bash_exec",
-          resource: "transcodes-guard:pre-tool-use",
+          action: 'bash_exec',
+          resource: 'transcodes-guard:pre-tool-use',
           fingerprintKey: classified.command,
           comment: `Confirm danger command: ${block.reason}`,
         }
@@ -291,7 +285,7 @@ export async function evaluatePreToolUse(
 
   const req = await requestStepup(gateInput);
   if (!req.ok) {
-    return { kind: "deny-stepup-failure", block, failure: req };
+    return { kind: 'deny-stepup-failure', block, failure: req };
   }
 
   const pending: PendingState = {
@@ -301,11 +295,11 @@ export async function evaluatePreToolUse(
     browserUrl: req.browserUrl,
     createdAt: Date.now(),
     expiresAt: req.expiresAt,
-    status: "pending",
+    status: 'pending',
   };
 
   return {
-    kind: "deny-stepup-pending",
+    kind: 'deny-stepup-pending',
     block,
     sid: req.sid,
     browserUrl: req.browserUrl,

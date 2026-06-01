@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import {
   createServer
-} from "../chunk-IAY6PRU4.js";
-import "../chunk-3J7XK5DB.js";
+} from "../chunk-2F2OOMNQ.js";
+import "../chunk-JOKLDK4M.js";
 
 // src/stdio.ts
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";

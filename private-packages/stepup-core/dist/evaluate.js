@@ -12,13 +12,13 @@
  *  - After a danger pattern match (verified read, step-up create) →
  *    surface as a `deny-*` decision so callers can fail-safe.
  */
-import { execFileSync } from "node:child_process";
-import path from "node:path";
-import { findFirstMatch, loadMergedPatterns, } from "@transcodes-guard/danger-patterns";
-import { findFirstToolRule, loadMergedToolRules, } from "@transcodes-guard-private/danger-rules";
-import { requestStepup } from "./gate.js";
-import { readVerified } from "./store.js";
-import { isTrackerEnabled, resolveToken, } from "./token-store.js";
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { findFirstMatch, loadMergedPatterns, } from '@transcodes-guard/danger-patterns';
+import { findFirstToolRule, loadMergedToolRules, } from '@transcodes-guard-private/danger-rules';
+import { requestStepup } from './gate.js';
+import { readVerified } from './store.js';
+import { isTrackerEnabled, resolveToken } from './token-store.js';
 function checkPatternMatch(command) {
     const hit = findFirstMatch(command, loadMergedPatterns());
     if (!hit)
@@ -31,18 +31,18 @@ function checkPatternMatch(command) {
 }
 function extractRmTargets(command) {
     const tokens = command.trim().split(/\s+/);
-    const rmIdx = tokens.indexOf("rm");
+    const rmIdx = tokens.indexOf('rm');
     if (rmIdx === -1)
         return null;
     let i = rmIdx + 1;
     let recursive = false;
     while (i < tokens.length) {
         const t = tokens[i];
-        if (t === "--") {
+        if (t === '--') {
             i++;
             break;
         }
-        if (t.startsWith("-") && /^-[a-zA-Z]+$/.test(t)) {
+        if (t.startsWith('-') && /^-[a-zA-Z]+$/.test(t)) {
             if (/[rR]/.test(t))
                 recursive = true;
             i++;
@@ -52,7 +52,7 @@ function extractRmTargets(command) {
     }
     if (!recursive)
         return null;
-    const targets = tokens.slice(i).filter((t) => !t.startsWith("-"));
+    const targets = tokens.slice(i).filter((t) => !t.startsWith('-'));
     return targets.length > 0 ? targets : null;
 }
 function checkTargetGitTracked(target, cwd) {
@@ -61,18 +61,18 @@ function checkTargetGitTracked(target, cwd) {
     const abs = path.resolve(cwd, target);
     let toplevel;
     try {
-        toplevel = execFileSync("git", ["-C", cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+        toplevel = execFileSync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     }
     catch {
         return null;
     }
     const rel = path.relative(toplevel, abs);
-    if (rel.startsWith("..") || path.isAbsolute(rel))
+    if (rel.startsWith('..') || path.isAbsolute(rel))
         return null;
     let tracked;
     try {
-        const out = execFileSync("git", ["-C", toplevel, "ls-files", "--", rel || "."], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-        tracked = out.split("\n").filter(Boolean);
+        const out = execFileSync('git', ['-C', toplevel, 'ls-files', '--', rel || '.'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+        tracked = out.split('\n').filter(Boolean);
     }
     catch {
         return null;
@@ -103,8 +103,8 @@ function checkRmGitTracked(command, cwd) {
         details: hits.map((h) => {
             const more = h.trackedCount > h.samples.length
                 ? `, +${h.trackedCount - h.samples.length} more`
-                : "";
-            return `${h.target} — ${h.trackedCount} tracked file(s): ${h.samples.join(", ")}${more}`;
+                : '';
+            return `${h.target} — ${h.trackedCount} tracked file(s): ${h.samples.join(', ')}${more}`;
         }),
         command,
     };
@@ -114,11 +114,11 @@ function stringifyToolInput(input) {
     try {
         const s = JSON.stringify(input);
         if (s === undefined)
-            return "[unserializable]";
-        return s.length > 200 ? s.slice(0, 197) + "..." : s;
+            return '[unserializable]';
+        return s.length > 200 ? s.slice(0, 197) + '...' : s;
     }
     catch {
-        return "[unserializable]";
+        return '[unserializable]';
     }
 }
 function classifyToolCall(input) {
@@ -127,20 +127,20 @@ function classifyToolCall(input) {
     // Cursor uses "Shell" (per cursor.com/docs/agent/hooks matchers). The
     // antigravity adapter rewrites `args.CommandLine` → `args.command`
     // before the classifier sees it, so the body below is host-neutral.
-    if (input.toolName === "Bash" ||
-        input.toolName === "run_command" ||
-        input.toolName === "Shell") {
+    if (input.toolName === 'Bash' ||
+        input.toolName === 'run_command' ||
+        input.toolName === 'Shell') {
         const cmd = input.toolInput?.command;
-        if (typeof cmd !== "string")
+        if (typeof cmd !== 'string')
             return null;
-        return { kind: "bash", command: cmd, cwd: input.cwd };
+        return { kind: 'bash', command: cmd, cwd: input.cwd };
     }
     const rules = loadMergedToolRules();
     const match = findFirstToolRule(input.toolName, rules);
     if (!match)
         return null;
     return {
-        kind: "mcp",
+        kind: 'mcp',
         toolName: input.toolName,
         toolInput: input.toolInput,
         rule: match.matched,
@@ -162,18 +162,18 @@ function classifyToolCall(input) {
  */
 export async function evaluatePreToolUse(input) {
     if (!isTrackerEnabled()) {
-        return { kind: "pass" };
+        return { kind: 'pass' };
     }
     let classified;
     try {
         classified = classifyToolCall(input);
     }
     catch {
-        return { kind: "pass" };
+        return { kind: 'pass' };
     }
     if (!classified)
-        return { kind: "pass" };
-    const block = classified.kind === "bash"
+        return { kind: 'pass' };
+    const block = classified.kind === 'bash'
         ? (checkPatternMatch(classified.command) ??
             checkRmGitTracked(classified.command, classified.cwd))
         : {
@@ -181,19 +181,19 @@ export async function evaluatePreToolUse(input) {
             command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
         };
     if (!block)
-        return { kind: "pass" };
+        return { kind: 'pass' };
     if (readVerified()) {
-        const consumeHere = classified.kind === "bash" || classified.rule.consume_in_hook === true;
-        return { kind: "allow", block, consumeHere };
+        const consumeHere = classified.kind === 'bash' || classified.rule.consume_in_hook === true;
+        return { kind: 'allow', block, consumeHere };
     }
     if (!resolveToken().token) {
-        return { kind: "deny-no-token", block };
+        return { kind: 'deny-no-token', block };
     }
-    const gateInput = classified.kind === "bash"
+    const gateInput = classified.kind === 'bash'
         ? {
             reason: block.reason,
-            action: "bash_exec",
-            resource: "transcodes-guard:pre-tool-use",
+            action: 'bash_exec',
+            resource: 'transcodes-guard:pre-tool-use',
             fingerprintKey: classified.command,
             comment: `Confirm danger command: ${block.reason}`,
         }
@@ -206,7 +206,7 @@ export async function evaluatePreToolUse(input) {
         };
     const req = await requestStepup(gateInput);
     if (!req.ok) {
-        return { kind: "deny-stepup-failure", block, failure: req };
+        return { kind: 'deny-stepup-failure', block, failure: req };
     }
     const pending = {
         sid: req.sid,
@@ -215,10 +215,10 @@ export async function evaluatePreToolUse(input) {
         browserUrl: req.browserUrl,
         createdAt: Date.now(),
         expiresAt: req.expiresAt,
-        status: "pending",
+        status: 'pending',
     };
     return {
-        kind: "deny-stepup-pending",
+        kind: 'deny-stepup-pending',
         block,
         sid: req.sid,
         browserUrl: req.browserUrl,

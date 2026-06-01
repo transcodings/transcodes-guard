@@ -6,7 +6,7 @@
  * here are stable across hosts because the agent-facing protocol
  * instructions don't depend on which CLI ran the hook.
  */
-import type { BlockResult, GateDecision } from "./evaluate.js";
+import type { BlockResult, GateDecision } from './evaluate.js';
 /**
  * Session-start notice text shown when no Transcodes token is configured.
  *
@@ -21,24 +21,24 @@ import type { BlockResult, GateDecision } from "./evaluate.js";
 export declare function formatNoTokenSessionNotice(): string;
 export declare function formatBlockedSummary(block: BlockResult): string;
 export declare function formatAllowReason(decision: Extract<GateDecision, {
-    kind: "allow";
+    kind: 'allow';
 }>): string;
 export declare function formatNoTokenReason(block: BlockResult): string;
 export declare function formatNoTokenSystemMessage(block: BlockResult): string;
 export declare function formatStepupFailureDetail(decision: Extract<GateDecision, {
-    kind: "deny-stepup-failure";
+    kind: 'deny-stepup-failure';
 }>): string;
 export declare function formatStepupFailureReason(decision: Extract<GateDecision, {
-    kind: "deny-stepup-failure";
+    kind: 'deny-stepup-failure';
 }>): string;
 export declare function formatStepupFailureSystemMessage(decision: Extract<GateDecision, {
-    kind: "deny-stepup-failure";
+    kind: 'deny-stepup-failure';
 }>): string;
 export declare function formatStepupPendingReason(decision: Extract<GateDecision, {
-    kind: "deny-stepup-pending";
+    kind: 'deny-stepup-pending';
 }>): string;
 export declare function formatStepupPendingSystemMessage(decision: Extract<GateDecision, {
-    kind: "deny-stepup-pending";
+    kind: 'deny-stepup-pending';
 }>): string;
 /**
  * Stderr 1-line summary tag for the hook process. Distinct from the

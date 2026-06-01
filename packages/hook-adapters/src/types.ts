@@ -59,13 +59,13 @@ export type InjectStep =
 /** Universal PreToolUse decision the gate produces. */
 export type PreToolUseDecision =
   | {
-      kind: "allow";
+      kind: 'allow';
       reason: string;
       /** MCP tool argument rewrite. Hosts that don't support it ignore. */
       updatedInput?: unknown;
     }
   | {
-      kind: "deny";
+      kind: 'deny';
       reason: string;
       /** Long-form text surfaced to the model (multi-line ok). */
       systemMessage?: string;

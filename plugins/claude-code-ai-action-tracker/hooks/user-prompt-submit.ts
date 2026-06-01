@@ -6,14 +6,14 @@
  * a pending step-up session is in flight, this hook injects a context block
  * naming the sid + next action so the agent knows which session to poll.
  */
-import "../host.js";
-import { readFileSync } from "node:fs";
-import { claudeCodeAdapter } from "@transcodes-guard/hook-adapters";
+import '../host.js';
+import { readFileSync } from 'node:fs';
+import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
 import {
   isExpired,
-  readPending,
   type PendingState,
-} from "@transcodes-guard-private/stepup-core";
+  readPending,
+} from '@transcodes-guard-private/stepup-core';
 
 // Loose matcher — false positives only matter when a pending record exists,
 // in which case the worst case is one unnecessary poll call.
@@ -23,24 +23,24 @@ const COMPLETION_PATTERN =
 function buildContext(prompt: string, pending: PendingState): string | null {
   if (!COMPLETION_PATTERN.test(prompt)) return null;
   const statusNote =
-    pending.status === "verified"
-      ? "already verified — just retry the original command."
-      : "still pending — call poll_stepup_session_wait now to block until verified.";
+    pending.status === 'verified'
+      ? 'already verified — just retry the original command.'
+      : 'still pending — call poll_stepup_session_wait now to block until verified.';
   return [
-    "transcodes-guard: user appears to report step-up MFA completion.",
-    "",
+    'transcodes-guard: user appears to report step-up MFA completion.',
+    '',
     `Pending session sid : ${pending.sid}`,
     `Status              : ${pending.status} (${statusNote})`,
     `Original command    : ${pending.command}`,
-    "",
-    "Next action:",
+    '',
+    'Next action:',
     `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${pending.sid}".`,
     '  - On `outcome: "verified"` retry the exact original Bash command above.',
-  ].join("\n");
+  ].join('\n');
 }
 
 function main(): void {
-  const raw = readFileSync(0, "utf8");
+  const raw = readFileSync(0, 'utf8');
 
   let parsed;
   try {

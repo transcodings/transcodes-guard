@@ -1,4 +1,4 @@
-import { defineConfig } from "tsup";
+import { defineConfig } from 'tsup';
 
 // Self-contained npm package: bundle internal @transcodes-guard/* (never
 // published), keep @modelcontextprotocol/sdk + zod external. Entry keys
@@ -8,14 +8,14 @@ import { defineConfig } from "tsup";
 // Antigravity uses 3 hooks: PreInvocation merges SessionStart + UserPromptSubmit.
 export default defineConfig({
   entry: {
-    "src/stdio": "src/stdio.ts",
-    "hooks/pre-tool-use": "hooks/pre-tool-use.ts",
-    "hooks/pre-invocation": "hooks/pre-invocation.ts",
-    "hooks/stop": "hooks/stop.ts",
+    'src/stdio': 'src/stdio.ts',
+    'hooks/pre-tool-use': 'hooks/pre-tool-use.ts',
+    'hooks/pre-invocation': 'hooks/pre-invocation.ts',
+    'hooks/stop': 'hooks/stop.ts',
   },
-  format: ["esm"],
-  target: "node20",
-  platform: "node",
+  format: ['esm'],
+  target: 'node20',
+  platform: 'node',
   bundle: true,
   noExternal: [/^@transcodes-guard(-private)?\//],
   splitting: true,

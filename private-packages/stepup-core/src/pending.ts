@@ -11,13 +11,13 @@
  * secondary hooks can surface status to the agent without re-hitting
  * the backend.
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import { z } from "zod";
-import { cacheDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
-import { STEPUP_TTL_MS } from "./config.js";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { cacheDir, migrateLegacyFile } from '@transcodes-guard/plugin-paths';
+import { z } from 'zod';
+import { STEPUP_TTL_MS } from './config.js';
 
-const FILE_NAME = "stepup-pending.json";
+const FILE_NAME = 'stepup-pending.json';
 
 const PendingStateSchema = z.object({
   sid: z.string().min(1),
@@ -26,7 +26,7 @@ const PendingStateSchema = z.object({
   browserUrl: z.string(),
   createdAt: z.number().int().nonnegative(),
   expiresAt: z.string().optional(),
-  status: z.enum(["pending", "verified"]),
+  status: z.enum(['pending', 'verified']),
 });
 
 export type PendingState = z.infer<typeof PendingStateSchema>;
@@ -36,9 +36,9 @@ function pendingPath(): string {
 }
 
 export function readPending(): PendingState | null {
-  migrateLegacyFile(FILE_NAME, "cache");
+  migrateLegacyFile(FILE_NAME, 'cache');
   try {
-    const raw = readFileSync(pendingPath(), "utf8");
+    const raw = readFileSync(pendingPath(), 'utf8');
     const parsed = PendingStateSchema.safeParse(JSON.parse(raw));
     return parsed.success ? parsed.data : null;
   } catch {
@@ -63,7 +63,7 @@ export function clearPending(): void {
 export function markVerified(sid: string): void {
   const prev = readPending();
   if (!prev || prev.sid !== sid) return;
-  writePending({ ...prev, status: "verified" });
+  writePending({ ...prev, status: 'verified' });
 }
 
 /**

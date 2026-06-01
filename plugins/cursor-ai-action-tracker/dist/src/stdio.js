@@ -30,7 +30,7 @@ import {
   updateUserPattern,
   updateUserToolRule,
   writeVerified
-} from "../chunk-YML7BLMB.js";
+} from "../chunk-6BAT6U6T.js";
 
 // src/stdio.ts
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -39,7 +39,6 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { spawn as childSpawn } from "child_process";
 import path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z as z9 } from "zod";
 
 // ../../private-packages/transcodes-mcp-tools/dist/audit.js
 import { z } from "zod";
@@ -888,6 +887,7 @@ function registerRbacTools(server) {
 }
 
 // ../../packages/mcp-server-core/dist/server.js
+import { z as z9 } from "zod";
 function formatPatternsMarkdown(patterns) {
   const lines = [
     "# Blocked Bash command patterns",

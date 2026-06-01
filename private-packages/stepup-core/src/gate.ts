@@ -10,23 +10,23 @@
  * The retry hits a verified record in the cross-platform store and the
  * fast path emits an explicit allow JSON.
  */
-import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import { cacheDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
-import { loadStepupConfig } from "./config.js";
-import { createStepupSession } from "./session.js";
-import { resolveToken } from "./token-store.js";
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { cacheDir, migrateLegacyFile } from '@transcodes-guard/plugin-paths';
+import { loadStepupConfig } from './config.js';
+import { createStepupSession } from './session.js';
+import { resolveToken } from './token-store.js';
 
 // Window during which concurrent hook processes for the same command should
 // share a single browser launch. Long enough to absorb same-second races,
 // short enough not to swallow an intentional retry.
 const BROWSER_LOCK_TTL_MS = 15_000;
-const BROWSER_LOCK_FILE = "stepup-browser-lock.json";
+const BROWSER_LOCK_FILE = 'stepup-browser-lock.json';
 
 function fingerprintOf(key: string): string {
-  return createHash("sha256").update(key).digest("hex").slice(0, 16);
+  return createHash('sha256').update(key).digest('hex').slice(0, 16);
 }
 
 /**
@@ -41,17 +41,16 @@ function fingerprintOf(key: string): string {
  * loses MFA visibility because of a broken lock file.
  */
 function claimBrowserLaunch(fingerprintKey: string): boolean {
-  migrateLegacyFile(BROWSER_LOCK_FILE, "cache");
+  migrateLegacyFile(BROWSER_LOCK_FILE, 'cache');
   const lockFile = path.join(cacheDir(), BROWSER_LOCK_FILE);
   const fingerprint = fingerprintOf(fingerprintKey);
   try {
-    const raw = readFileSync(lockFile, "utf8");
+    const raw = readFileSync(lockFile, 'utf8');
     const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       const obj = parsed as Record<string, unknown>;
       const sameCommand = obj.fingerprint === fingerprint;
-      const openedAt =
-        typeof obj.openedAt === "number" ? obj.openedAt : 0;
+      const openedAt = typeof obj.openedAt === 'number' ? obj.openedAt : 0;
       if (sameCommand && Date.now() - openedAt < BROWSER_LOCK_TTL_MS) {
         return false;
       }
@@ -75,18 +74,18 @@ function claimBrowserLaunch(fingerprintKey: string): boolean {
 
 function openBrowser(url: string): void {
   const opener =
-    process.platform === "darwin"
-      ? "open"
-      : process.platform === "win32"
-        ? "cmd"
-        : "xdg-open";
-  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+    process.platform === 'darwin'
+      ? 'open'
+      : process.platform === 'win32'
+        ? 'cmd'
+        : 'xdg-open';
+  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
   try {
     const child = spawn(opener, args, {
-      stdio: "ignore",
+      stdio: 'ignore',
       detached: true,
     });
-    child.on("error", () => {});
+    child.on('error', () => {});
     child.unref();
   } catch {
     // Best-effort: if the OS has no opener, the URL in stderr is the fallback.
@@ -118,7 +117,7 @@ export type RequestResult =
     }
   | {
       ok: false;
-      reason: "no-token" | "create-failed" | "error";
+      reason: 'no-token' | 'create-failed' | 'error';
       detail?: string;
     };
 
@@ -131,7 +130,7 @@ export async function requestStepup(
   input: RequestInput,
 ): Promise<RequestResult> {
   if (!resolveToken().token) {
-    return { ok: false, reason: "no-token" };
+    return { ok: false, reason: 'no-token' };
   }
 
   let config;
@@ -140,7 +139,7 @@ export async function requestStepup(
   } catch (err) {
     return {
       ok: false,
-      reason: "error",
+      reason: 'error',
       detail: err instanceof Error ? err.message : String(err),
     };
   }
@@ -155,7 +154,7 @@ export async function requestStepup(
   } catch (err) {
     return {
       ok: false,
-      reason: "create-failed",
+      reason: 'create-failed',
       detail: err instanceof Error ? err.message : String(err),
     };
   }
@@ -163,7 +162,7 @@ export async function requestStepup(
   if (!created.envelope.ok || !created.sid || !created.browserUrl) {
     return {
       ok: false,
-      reason: "create-failed",
+      reason: 'create-failed',
       detail: `backend rejected create_stepup_session (status ${created.envelope.status})`,
     };
   }

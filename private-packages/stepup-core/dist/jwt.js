@@ -10,15 +10,15 @@
  *              token shape that does not look like a JWT.
  *   - Signature verification is performed by the backend (x-transcodes-token).
  */
-export const REQUIRED_AUDIENCE = "transcodes-mcp";
+export const REQUIRED_AUDIENCE = 'transcodes-mcp';
 function isPlainObject(v) {
-    return typeof v === "object" && v !== null && !Array.isArray(v);
+    return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 function tryDecodeBase64UrlJson(segment) {
     if (!segment)
         return undefined;
     try {
-        const json = Buffer.from(segment, "base64url").toString("utf8");
+        const json = Buffer.from(segment, 'base64url').toString('utf8');
         const parsed = JSON.parse(json);
         return isPlainObject(parsed) ? parsed : undefined;
     }
@@ -28,29 +28,29 @@ function tryDecodeBase64UrlJson(segment) {
 }
 function readString(rec, key) {
     const v = rec[key];
-    if (typeof v !== "string")
+    if (typeof v !== 'string')
         return undefined;
     const t = v.trim();
     return t || undefined;
 }
 function readNumericDate(rec, key) {
     const v = rec[key];
-    const n = typeof v === "number"
+    const n = typeof v === 'number'
         ? v
-        : typeof v === "string" && v.trim()
+        : typeof v === 'string' && v.trim()
             ? Number(v)
             : Number.NaN;
     return Number.isFinite(n) ? Math.floor(n) : undefined;
 }
 function readAudience(rec) {
-    const aud = rec["aud"];
-    if (typeof aud === "string") {
+    const aud = rec['aud'];
+    if (typeof aud === 'string') {
         const t = aud.trim();
         return t ? [t] : undefined;
     }
     if (Array.isArray(aud)) {
         const list = aud
-            .filter((x) => typeof x === "string")
+            .filter((x) => typeof x === 'string')
             .map((x) => x.trim())
             .filter((x) => x.length > 0);
         return list.length > 0 ? list : undefined;
@@ -58,43 +58,43 @@ function readAudience(rec) {
     return undefined;
 }
 export function parseMemberAccessToken(rawToken) {
-    if (typeof rawToken !== "string") {
-        throw new Error("token must be a string");
+    if (typeof rawToken !== 'string') {
+        throw new Error('token must be a string');
     }
     const raw = rawToken.trim();
     if (!raw) {
-        throw new Error("token is empty");
+        throw new Error('token is empty');
     }
     const warnings = [];
-    const parts = raw.split(".");
+    const parts = raw.split('.');
     if (parts.length !== 3 || parts.some((p) => !p)) {
         warnings.push(`token does not look like a JWT (expected 3 non-empty segments, got ${parts.length})`);
     }
     const payloadSegment = parts.length === 3 ? parts[1] : raw;
     const payload = tryDecodeBase64UrlJson(payloadSegment);
     if (!payload) {
-        throw new Error("token payload could not be decoded as base64url JSON object");
+        throw new Error('token payload could not be decoded as base64url JSON object');
     }
-    const organizationId = readString(payload, "oid");
-    const projectId = readString(payload, "pid");
-    const memberId = readString(payload, "mid");
+    const organizationId = readString(payload, 'oid');
+    const projectId = readString(payload, 'pid');
+    const memberId = readString(payload, 'mid');
     if (!organizationId || !projectId || !memberId) {
-        throw new Error("token payload must include oid, pid, and mid claims");
+        throw new Error('token payload must include oid, pid, and mid claims');
     }
     const aud = readAudience(payload);
     if (!aud) {
-        warnings.push("aud claim is missing");
+        warnings.push('aud claim is missing');
     }
     else if (!aud.includes(REQUIRED_AUDIENCE)) {
         warnings.push(`aud does not include "${REQUIRED_AUDIENCE}" (got ${JSON.stringify(aud)})`);
     }
-    const exp = readNumericDate(payload, "exp");
+    const exp = readNumericDate(payload, 'exp');
     if (exp === undefined) {
-        throw new Error("token must include exp claim (NumericDate, integer seconds)");
+        throw new Error('token must include exp claim (NumericDate, integer seconds)');
     }
     const nowSec = Math.floor(Date.now() / 1000);
     if (nowSec >= exp) {
-        throw new Error("token has expired");
+        throw new Error('token has expired');
     }
     return {
         raw,
@@ -104,9 +104,9 @@ export function parseMemberAccessToken(rawToken) {
             memberId,
             aud,
             exp,
-            iss: readString(payload, "iss"),
-            jti: readString(payload, "jti"),
-            iat: readNumericDate(payload, "iat"),
+            iss: readString(payload, 'iss'),
+            jti: readString(payload, 'jti'),
+            iat: readNumericDate(payload, 'iat'),
         },
         warnings,
     };

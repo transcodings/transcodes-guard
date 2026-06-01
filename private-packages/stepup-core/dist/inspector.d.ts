@@ -13,7 +13,7 @@ export type PendingInspection = {
 } | {
     exists: true;
     sid: string;
-    status: "pending" | "verified";
+    status: 'pending' | 'verified';
     command_preview: string;
     browser_url: string;
     created_at_ms: number;

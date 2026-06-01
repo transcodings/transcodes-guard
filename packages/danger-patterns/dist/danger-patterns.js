@@ -1,15 +1,17 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, } from "node:fs";
-import path from "node:path";
-import { parse as parseJsonc } from "jsonc-parser";
-import { dataDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { dataDir, migrateLegacyFile } from '@transcodes-guard/plugin-paths';
+import { parse as parseJsonc } from 'jsonc-parser';
 // System rules are embedded at build time (static import → bundler inlines the
 // JSON). This is mandatory because plugins ship as tsup bundles where a runtime
 // `import.meta.url`-relative read would resolve to the bundle's location, not
 // this package's data/ dir. The JSON lives under src/data/ so it stays within
 // tsconfig `rootDir`; the package build copies it to dist/data/ so esbuild can
 // inline it when bundling the compiled dist.
-import systemPatternsData from "./data/danger-patterns.json" with { type: "json" };
-const USER_PATTERNS_FILE = "user-patterns.json";
+import systemPatternsData from './data/danger-patterns.json' with {
+    type: 'json'
+};
+const USER_PATTERNS_FILE = 'user-patterns.json';
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 export function getUserPatternsPath() {
     return path.join(dataDir(), USER_PATTERNS_FILE);
@@ -20,9 +22,9 @@ export function loadSystemPatterns() {
     return { patterns: [...systemPatternsData.patterns] };
 }
 export function loadUserPatterns() {
-    migrateLegacyFile(USER_PATTERNS_FILE, "data");
+    migrateLegacyFile(USER_PATTERNS_FILE, 'data');
     try {
-        const raw = readFileSync(getUserPatternsPath(), "utf8");
+        const raw = readFileSync(getUserPatternsPath(), 'utf8');
         // JSONC parse: tolerates // and /* */ comments + trailing commas, so a
         // user may temporarily disable a pattern by commenting out its line.
         // Comments are NOT preserved on MCP-tool write (full rewrite via
@@ -40,7 +42,7 @@ export function loadUserPatterns() {
 export function saveUserPatterns(config) {
     const file = getUserPatternsPath();
     mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+    writeFileSync(file, JSON.stringify(config, null, 2) + '\n', 'utf8');
 }
 export function userPatternsFileExists() {
     return existsSync(getUserPatternsPath());
@@ -48,11 +50,11 @@ export function userPatternsFileExists() {
 export function loadMergedPatterns() {
     const system = loadSystemPatterns().patterns.map((p) => ({
         ...p,
-        source: "system",
+        source: 'system',
     }));
     const user = loadUserPatterns().patterns.map((p) => ({
         ...p,
-        source: "user",
+        source: 'user',
     }));
     return [...system, ...user];
 }
@@ -91,7 +93,7 @@ export function validateNewPattern(input) {
     }
     const trimmedReason = reason.trim();
     if (trimmedReason.length === 0) {
-        throw new PatternValidationError("reason must not be empty");
+        throw new PatternValidationError('reason must not be empty');
     }
     return { id, regex, reason: trimmedReason };
 }

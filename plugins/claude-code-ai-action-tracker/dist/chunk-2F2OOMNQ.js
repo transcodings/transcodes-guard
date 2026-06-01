@@ -29,13 +29,12 @@ import {
   updateUserPattern,
   updateUserToolRule,
   writeVerified
-} from "./chunk-3J7XK5DB.js";
+} from "./chunk-JOKLDK4M.js";
 
 // ../../packages/mcp-server-core/dist/server.js
 import { spawn as childSpawn } from "child_process";
 import path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z as z9 } from "zod";
 
 // ../../private-packages/transcodes-mcp-tools/dist/audit.js
 import { z } from "zod";
@@ -884,6 +883,7 @@ function registerRbacTools(server) {
 }
 
 // ../../packages/mcp-server-core/dist/server.js
+import { z as z9 } from "zod";
 function formatPatternsMarkdown(patterns) {
   const lines = [
     "# Blocked Bash command patterns",

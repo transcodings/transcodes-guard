@@ -15,16 +15,16 @@
  * modern form — older Codex versions don't have hooks GA anyway, so
  * compatibility downgrades are unnecessary.
  */
-import { claudeCodeAdapter } from "./claude-code.js";
+import { claudeCodeAdapter } from './claude-code.js';
 import type {
   HookAdapter,
   PreToolUseDecision,
   PreToolUseInput,
   UserPromptSubmitInput,
-} from "./types.js";
+} from './types.js';
 
 export const codexAdapter: HookAdapter = {
-  host: "codex",
+  host: 'codex',
 
   // Stdin field names match Claude Code's snake_case schema verbatim, so
   // the parse logic is identical. Delegating preserves a single source of

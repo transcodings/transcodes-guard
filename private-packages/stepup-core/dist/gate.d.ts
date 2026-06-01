@@ -20,7 +20,7 @@ export type RequestResult = {
     launched: boolean;
 } | {
     ok: false;
-    reason: "no-token" | "create-failed" | "error";
+    reason: 'no-token' | 'create-failed' | 'error';
     detail?: string;
 };
 /**

@@ -7,19 +7,14 @@
  * load/validate/CRUD surface mirror danger-patterns.ts deliberately so the
  * mental model is single.
  */
-import {
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  existsSync,
-} from "node:fs";
-import path from "node:path";
-import { parse as parseJsonc } from "jsonc-parser";
-import { dataDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { dataDir, migrateLegacyFile } from '@transcodes-guard/plugin-paths';
+import { parse as parseJsonc } from 'jsonc-parser';
 // System rules embedded at build time — see the matching note in
 // danger-patterns.ts (bundlers inline this; a runtime path read breaks once the
 // plugin is bundled by tsup).
-import systemToolRulesData from "./data/tool-rules.json" with { type: "json" };
+import systemToolRulesData from './data/tool-rules.json' with { type: 'json' };
 
 export interface ToolRule {
   id: string;
@@ -42,13 +37,13 @@ export interface ToolRuleConfig {
   rules: ToolRule[];
 }
 
-export type ToolRuleSource = "system" | "user";
+export type ToolRuleSource = 'system' | 'user';
 
 export interface MergedToolRule extends ToolRule {
   source: ToolRuleSource;
 }
 
-const USER_TOOL_RULES_FILE = "user-tool-rules.json";
+const USER_TOOL_RULES_FILE = 'user-tool-rules.json';
 
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -63,9 +58,9 @@ export function loadSystemToolRules(): ToolRuleConfig {
 }
 
 export function loadUserToolRules(): ToolRuleConfig {
-  migrateLegacyFile(USER_TOOL_RULES_FILE, "data");
+  migrateLegacyFile(USER_TOOL_RULES_FILE, 'data');
   try {
-    const raw = readFileSync(getUserToolRulesPath(), "utf8");
+    const raw = readFileSync(getUserToolRulesPath(), 'utf8');
     // JSONC parse: see loadUserPatterns for rationale.
     const parsed = parseJsonc(raw) as ToolRuleConfig | undefined;
     if (parsed && Array.isArray(parsed.rules)) {
@@ -80,7 +75,7 @@ export function loadUserToolRules(): ToolRuleConfig {
 export function saveUserToolRules(config: ToolRuleConfig): void {
   const file = getUserToolRulesPath();
   mkdirSync(path.dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+  writeFileSync(file, JSON.stringify(config, null, 2) + '\n', 'utf8');
 }
 
 export function userToolRulesFileExists(): boolean {
@@ -91,12 +86,12 @@ export function loadMergedToolRules(): MergedToolRule[] {
   const system = loadSystemToolRules().rules.map((r) => ({
     ...r,
     consume_in_hook: r.consume_in_hook ?? false,
-    source: "system" as const,
+    source: 'system' as const,
   }));
   const user = loadUserToolRules().rules.map((r) => ({
     ...r,
     consume_in_hook: r.consume_in_hook ?? true,
-    source: "user" as const,
+    source: 'user' as const,
   }));
   return [...system, ...user];
 }
@@ -127,7 +122,14 @@ export interface ToolRuleInput {
 }
 
 export function validateNewToolRule(input: ToolRuleInput): ToolRule {
-  const { id, toolName, reason, stepupAction, stepupResource, consume_in_hook } = input;
+  const {
+    id,
+    toolName,
+    reason,
+    stepupAction,
+    stepupResource,
+    consume_in_hook,
+  } = input;
 
   if (!ID_REGEX.test(id)) {
     throw new ToolRuleValidationError(
@@ -144,22 +146,22 @@ export function validateNewToolRule(input: ToolRuleInput): ToolRule {
 
   const trimmedToolName = toolName.trim();
   if (!trimmedToolName) {
-    throw new ToolRuleValidationError("toolName must not be empty");
+    throw new ToolRuleValidationError('toolName must not be empty');
   }
 
   const trimmedReason = reason.trim();
   if (!trimmedReason) {
-    throw new ToolRuleValidationError("reason must not be empty");
+    throw new ToolRuleValidationError('reason must not be empty');
   }
 
   const trimmedAction = stepupAction.trim();
   if (!trimmedAction) {
-    throw new ToolRuleValidationError("stepupAction must not be empty");
+    throw new ToolRuleValidationError('stepupAction must not be empty');
   }
 
   const trimmedResource = stepupResource.trim();
   if (!trimmedResource) {
-    throw new ToolRuleValidationError("stepupResource must not be empty");
+    throw new ToolRuleValidationError('stepupResource must not be empty');
   }
 
   return {

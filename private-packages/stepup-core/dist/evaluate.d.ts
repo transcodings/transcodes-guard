@@ -1,5 +1,5 @@
-import { type RequestResult } from "./gate.js";
-import type { PendingState } from "./pending.js";
+import { type RequestResult } from './gate.js';
+import type { PendingState } from './pending.js';
 export interface ToolCallInput {
     toolName: string;
     toolInput: unknown;
@@ -14,22 +14,22 @@ export interface BlockResult {
     command: string;
 }
 export type GateDecision = {
-    kind: "pass";
+    kind: 'pass';
 } | {
-    kind: "allow";
+    kind: 'allow';
     block: BlockResult;
     consumeHere: boolean;
 } | {
-    kind: "deny-no-token";
+    kind: 'deny-no-token';
     block: BlockResult;
 } | {
-    kind: "deny-stepup-failure";
+    kind: 'deny-stepup-failure';
     block: BlockResult;
     failure: Extract<RequestResult, {
         ok: false;
     }>;
 } | {
-    kind: "deny-stepup-pending";
+    kind: 'deny-stepup-pending';
     block: BlockResult;
     sid: string;
     browserUrl: string;

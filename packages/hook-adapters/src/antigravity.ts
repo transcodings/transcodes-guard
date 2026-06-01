@@ -34,7 +34,7 @@
  * host branching beyond the additional toolName check it has for
  * `run_command`.
  */
-import { closeSync, openSync, readSync, statSync } from "node:fs";
+import { closeSync, openSync, readSync, statSync } from 'node:fs';
 import type {
   HookAdapter,
   InjectStep,
@@ -42,7 +42,7 @@ import type {
   PreToolUseDecision,
   PreToolUseInput,
   UserPromptSubmitInput,
-} from "./types.js";
+} from './types.js';
 
 interface RawAntigravityPreToolUsePayload {
   toolCall?: {
@@ -66,18 +66,18 @@ interface RawAntigravityPreInvocationPayload {
 }
 
 function readString(v: unknown): string | undefined {
-  return typeof v === "string" ? v : undefined;
+  return typeof v === 'string' ? v : undefined;
 }
 
 function readNumber(v: unknown): number | undefined {
-  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 }
 
 function readStringArray(v: unknown): string[] | undefined {
   if (!Array.isArray(v)) return undefined;
   const out: string[] = [];
   for (const item of v) {
-    if (typeof item === "string") out.push(item);
+    if (typeof item === 'string') out.push(item);
   }
   return out.length > 0 ? out : undefined;
 }
@@ -91,15 +91,15 @@ function readStringArray(v: unknown): string[] | undefined {
  */
 function normalizeToolInput(toolName: string, rawArgs: unknown): unknown {
   if (
-    toolName !== "run_command" ||
+    toolName !== 'run_command' ||
     rawArgs === null ||
-    typeof rawArgs !== "object"
+    typeof rawArgs !== 'object'
   ) {
     return rawArgs;
   }
   const args = rawArgs as { command?: unknown; CommandLine?: unknown };
-  if (typeof args.command === "string") return rawArgs;
-  if (typeof args.CommandLine !== "string") return rawArgs;
+  if (typeof args.command === 'string') return rawArgs;
+  if (typeof args.CommandLine !== 'string') return rawArgs;
   return {
     ...(rawArgs as Record<string, unknown>),
     command: args.CommandLine,
@@ -125,7 +125,7 @@ function tailJsonlLines(filePath: string, maxBytes = 32_768): unknown[] {
   const buf = Buffer.alloc(readSize);
 
   try {
-    const fd = openSync(filePath, "r");
+    const fd = openSync(filePath, 'r');
     try {
       readSync(fd, buf, 0, readSize, size - readSize);
     } finally {
@@ -135,8 +135,8 @@ function tailJsonlLines(filePath: string, maxBytes = 32_768): unknown[] {
     return [];
   }
 
-  const text = buf.toString("utf8");
-  const lines = text.split("\n").filter((line) => line.length > 0);
+  const text = buf.toString('utf8');
+  const lines = text.split('\n').filter((line) => line.length > 0);
   // If we started mid-line (size > readSize), drop the partial first line.
   if (size > readSize && lines.length > 1) lines.shift();
 
@@ -181,7 +181,7 @@ export function detectUserDoneFromTranscript(
   const entries = tailJsonlLines(transcriptPath);
   for (let i = entries.length - 1; i >= 0; i--) {
     const entry = entries[i];
-    if (entry === null || typeof entry !== "object") continue;
+    if (entry === null || typeof entry !== 'object') continue;
     const e = entry as {
       role?: unknown;
       type?: unknown;
@@ -190,7 +190,7 @@ export function detectUserDoneFromTranscript(
       message?: unknown;
     };
     const role = readString(e.role) ?? readString(e.type);
-    if (role !== "user" && role !== "user_message") continue;
+    if (role !== 'user' && role !== 'user_message') continue;
     const content =
       readString(e.content) ?? readString(e.text) ?? readString(e.message);
     if (!content) continue;
@@ -203,14 +203,14 @@ export function detectUserDoneFromTranscript(
 }
 
 export const antigravityAdapter: HookAdapter = {
-  host: "antigravity",
+  host: 'antigravity',
 
   parsePreToolUseStdin(raw: string): PreToolUseInput {
     const payload = JSON.parse(raw) as RawAntigravityPreToolUsePayload;
     const toolCall = payload.toolCall;
     const toolName = readString(toolCall?.name);
     if (!toolName) {
-      throw new Error("PreToolUse payload missing toolCall.name");
+      throw new Error('PreToolUse payload missing toolCall.name');
     }
     const workspacePaths = readStringArray(payload.workspacePaths);
     return {
@@ -218,7 +218,7 @@ export const antigravityAdapter: HookAdapter = {
       toolInput: normalizeToolInput(toolName, toolCall?.args),
       cwd: workspacePaths?.[0] ?? process.cwd(),
       sessionId: readString(payload.conversationId),
-      hookEventName: "PreToolUse",
+      hookEventName: 'PreToolUse',
     };
   },
 
@@ -229,7 +229,7 @@ export const antigravityAdapter: HookAdapter = {
     // satisfy the HookAdapter contract; reaching it indicates a wiring
     // bug in the calling hook entry script.
     throw new Error(
-      "Antigravity has no UserPromptSubmit hook event. Use PreInvocation + detectUserDoneFromTranscript().",
+      'Antigravity has no UserPromptSubmit hook event. Use PreInvocation + detectUserDoneFromTranscript().',
     );
   },
 
@@ -246,14 +246,14 @@ export const antigravityAdapter: HookAdapter = {
   },
 
   emitPreToolUse(decision: PreToolUseDecision): string {
-    if (decision.kind === "allow") {
+    if (decision.kind === 'allow') {
       // updatedInput from the host-neutral decision isn't directly
       // supported by antigravity's PreToolUse output schema (it has
       // permissionOverrides for scoped permits, not arbitrary arg
       // rewrite). If we ever need rewrite, emit it as a PostInvocation
       // injectSteps toolCall instead.
       return JSON.stringify({
-        decision: "allow",
+        decision: 'allow',
         reason: decision.reason,
       });
     }
@@ -262,7 +262,7 @@ export const antigravityAdapter: HookAdapter = {
     // applicable) the user. Prefer the longer `systemMessage` if the
     // gate populated one; otherwise fall back to the short `reason`.
     return JSON.stringify({
-      decision: "deny",
+      decision: 'deny',
       reason: decision.systemMessage ?? decision.reason,
     });
   },
@@ -272,19 +272,19 @@ export const antigravityAdapter: HookAdapter = {
     // path is folded into PreInvocation (invocationNum=1). Reaching this
     // stub indicates a wiring bug in the calling hook entry script.
     throw new Error(
-      "Antigravity has no SessionStart hook event. Use PreInvocation with invocationNum=1.",
+      'Antigravity has no SessionStart hook event. Use PreInvocation with invocationNum=1.',
     );
   },
 
   emitUserPromptSubmitContext(_additionalContext: string): string {
     // Antigravity has no UserPromptSubmit hook event. See parseUserPromptSubmitStdin.
     throw new Error(
-      "Antigravity has no UserPromptSubmit hook event. Use PreInvocation + detectUserDoneFromTranscript().",
+      'Antigravity has no UserPromptSubmit hook event. Use PreInvocation + detectUserDoneFromTranscript().',
     );
   },
 
   emitPreInvocation(injectSteps: InjectStep[]): string {
-    if (injectSteps.length === 0) return "{}";
+    if (injectSteps.length === 0) return '{}';
     return JSON.stringify({ injectSteps });
   },
 
@@ -296,7 +296,7 @@ export const antigravityAdapter: HookAdapter = {
     // the verb is inverted. If e2e finds the UX is poor (e.g. reason
     // isn't visible to the model), switch to silent reap by returning
     // "{}" unconditionally. Tracked in antigravity-e2e-findings.md #4.
-    if (!reason) return "{}";
-    return JSON.stringify({ decision: "continue", reason });
+    if (!reason) return '{}';
+    return JSON.stringify({ decision: 'continue', reason });
   },
 };

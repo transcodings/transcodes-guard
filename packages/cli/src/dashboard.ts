@@ -4,14 +4,16 @@
  * Binds to 127.0.0.1 only. Saves via the same writeTokenToFile / clearTokenFile
  * as `transcodes set` / `reset`.
  */
+
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   createServer,
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
-import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import {
+  isTrackerEnabled,
   parseMemberAccessToken,
   readTokenFromFile,
   readTokenList,
@@ -19,7 +21,6 @@ import {
   removeTokenFromFile,
   setActiveToken,
   setTokenLabel,
-  isTrackerEnabled,
   setTrackerEnabled,
   transcodesConfigFile,
   writeTokenToFile,
@@ -76,7 +77,7 @@ function buildStatus(): StatusPayload {
   const records = readTokenRecords();
   const active = readTokenFromFile();
   const envOverridesFile = Boolean(
-    process.env.TRANSCODES_TOKEN?.trim() && active
+    process.env.TRANSCODES_TOKEN?.trim() && active,
   );
 
   const tokens: TokenEntry[] = records.map(({ token, label }) => {
@@ -801,8 +802,8 @@ function openBrowser(url: string): void {
     process.platform === 'darwin'
       ? 'open'
       : process.platform === 'win32'
-      ? 'cmd'
-      : 'xdg-open';
+        ? 'cmd'
+        : 'xdg-open';
   const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
   try {
     const child = spawn(opener, args, { stdio: 'ignore', detached: true });
@@ -984,14 +985,14 @@ export async function runDashboard(options: {
     const last = preferred + 9;
     throw new Error(
       `could not find a free port in ${preferred}-${last} (all in use).\n` +
-        `  A previous dashboard is probably still running.\n` +
-        `  Tip: if you stopped one with Ctrl+Z it is only suspended (still alive) — use Ctrl+C to stop it.\n` +
-        `  Free the ports and retry:\n` +
+        '  A previous dashboard is probably still running.\n' +
+        '  Tip: if you stopped one with Ctrl+Z it is only suspended (still alive) — use Ctrl+C to stop it.\n' +
+        '  Free the ports and retry:\n' +
         `    macOS/Linux:  lsof -ti tcp:${preferred}-${last} | xargs kill -9\n` +
         `    any platform: npx kill-port ${preferred} ${
           preferred + 1
         }  # repeat per port\n` +
-        `  Or choose another port:  transcodes --port <N>`
+        '  Or choose another port:  transcodes --port <N>',
     );
   }
 
@@ -999,7 +1000,7 @@ export async function runDashboard(options: {
   process.stdout.write(
     `Transcodes dashboard running at ${url}\n` +
       `  Config file: ${transcodesConfigFile()}\n` +
-      `  Press Ctrl+C to stop\n`
+      '  Press Ctrl+C to stop\n',
   );
 
   if (options.open !== false) {

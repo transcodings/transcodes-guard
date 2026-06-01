@@ -13,10 +13,10 @@
  * A one-shot migration moves the legacy file the first time readVerified()
  * runs after the upgrade.
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import { cacheDir as pluginCacheDir, migrateLegacyFile, } from "@transcodes-guard/plugin-paths";
-import { STEPUP_TTL_MS } from "./config.js";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { migrateLegacyFile, cacheDir as pluginCacheDir, } from '@transcodes-guard/plugin-paths';
+import { STEPUP_TTL_MS } from './config.js';
 /**
  * Cache directory re-exported for backwards compatibility.
  *
@@ -29,16 +29,16 @@ import { STEPUP_TTL_MS } from "./config.js";
 export function cacheDir() {
     return pluginCacheDir();
 }
-const FILE_NAME = "stepup-verified.json";
+const FILE_NAME = 'stepup-verified.json';
 function storePath() {
     return path.join(cacheDir(), FILE_NAME);
 }
 export function readVerified() {
-    migrateLegacyFile(FILE_NAME, "cache");
+    migrateLegacyFile(FILE_NAME, 'cache');
     const file = storePath();
     let raw;
     try {
-        raw = readFileSync(file, "utf8");
+        raw = readFileSync(file, 'utf8');
     }
     catch {
         return null;
@@ -51,15 +51,13 @@ export function readVerified() {
         consumeVerified();
         return null;
     }
-    if (parsed === null ||
-        typeof parsed !== "object" ||
-        Array.isArray(parsed)) {
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
         consumeVerified();
         return null;
     }
     const obj = parsed;
-    const sid = typeof obj.sid === "string" ? obj.sid : null;
-    const verifiedAt = typeof obj.verifiedAt === "number" ? obj.verifiedAt : null;
+    const sid = typeof obj.sid === 'string' ? obj.sid : null;
+    const verifiedAt = typeof obj.verifiedAt === 'number' ? obj.verifiedAt : null;
     if (!sid || verifiedAt === null) {
         consumeVerified();
         return null;

@@ -6,31 +6,31 @@
  * adapter import. Codex accepts the same top-level `{ decision: "block",
  * reason }` payload as Claude Code for Stop hooks.
  */
-import "../host.js";
-import { codexAdapter } from "@transcodes-guard/hook-adapters";
+import '../host.js';
+import { codexAdapter } from '@transcodes-guard/hook-adapters';
 import {
   clearPending,
   consumeVerified,
   isExpired,
+  type PendingState,
   readPending,
   readVerified,
-  type PendingState,
-} from "@transcodes-guard-private/stepup-core";
+} from '@transcodes-guard-private/stepup-core';
 
 function reminderFor(pending: PendingState): string {
   return [
-    "transcodes-guard: a step-up MFA session is still PENDING. The Bash",
-    "command it gated was NOT executed. Resume the loop or report to the",
-    "user that authentication is still required.",
-    "",
+    'transcodes-guard: a step-up MFA session is still PENDING. The Bash',
+    'command it gated was NOT executed. Resume the loop or report to the',
+    'user that authentication is still required.',
+    '',
     `Session sid     : ${pending.sid}`,
     `Original command: ${pending.command}`,
     `Browser URL     : ${pending.browserUrl}`,
-    "",
-    "Next action:",
+    '',
+    'Next action:',
     `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${pending.sid}".`,
     '  - On `outcome: "verified"` retry the exact original Bash command.',
-  ].join("\n");
+  ].join('\n');
 }
 
 async function main(): Promise<void> {
@@ -45,12 +45,12 @@ async function main(): Promise<void> {
   const pending = readPending();
   const verified = readVerified();
 
-  if (verified && (!pending || pending.status !== "pending")) {
+  if (verified && (!pending || pending.status !== 'pending')) {
     consumeVerified();
     if (pending) clearPending();
     process.exit(0);
   }
-  if (pending && !verified && pending.status === "verified") {
+  if (pending && !verified && pending.status === 'verified') {
     clearPending();
     process.exit(0);
   }

@@ -13,13 +13,13 @@
  * A one-shot migration moves the legacy file the first time readVerified()
  * runs after the upgrade.
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import path from "node:path";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import {
-  cacheDir as pluginCacheDir,
   migrateLegacyFile,
-} from "@transcodes-guard/plugin-paths";
-import { STEPUP_TTL_MS } from "./config.js";
+  cacheDir as pluginCacheDir,
+} from '@transcodes-guard/plugin-paths';
+import { STEPUP_TTL_MS } from './config.js';
 
 /**
  * Cache directory re-exported for backwards compatibility.
@@ -39,18 +39,18 @@ export type VerifiedStepup = {
   verifiedAt: number;
 };
 
-const FILE_NAME = "stepup-verified.json";
+const FILE_NAME = 'stepup-verified.json';
 
 function storePath(): string {
   return path.join(cacheDir(), FILE_NAME);
 }
 
 export function readVerified(): VerifiedStepup | null {
-  migrateLegacyFile(FILE_NAME, "cache");
+  migrateLegacyFile(FILE_NAME, 'cache');
   const file = storePath();
   let raw: string;
   try {
-    raw = readFileSync(file, "utf8");
+    raw = readFileSync(file, 'utf8');
   } catch {
     return null;
   }
@@ -61,17 +61,13 @@ export function readVerified(): VerifiedStepup | null {
     consumeVerified();
     return null;
   }
-  if (
-    parsed === null ||
-    typeof parsed !== "object" ||
-    Array.isArray(parsed)
-  ) {
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     consumeVerified();
     return null;
   }
   const obj = parsed as Record<string, unknown>;
-  const sid = typeof obj.sid === "string" ? obj.sid : null;
-  const verifiedAt = typeof obj.verifiedAt === "number" ? obj.verifiedAt : null;
+  const sid = typeof obj.sid === 'string' ? obj.sid : null;
+  const verifiedAt = typeof obj.verifiedAt === 'number' ? obj.verifiedAt : null;
   if (!sid || verifiedAt === null) {
     consumeVerified();
     return null;

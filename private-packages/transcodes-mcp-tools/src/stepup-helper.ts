@@ -15,7 +15,7 @@ import {
   clearPending,
   consumeVerified,
   readVerified,
-} from "@transcodes-guard-private/stepup-core";
+} from '@transcodes-guard-private/stepup-core';
 
 export async function withStepupVerifiedSid<T>(
   toolName: string,

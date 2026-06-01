@@ -5,12 +5,12 @@
  * fetch so we avoid adding an axios dependency. Only the two step-up routes
  * are exercised: POST /v1/auth/temp-session/step-up/session and GET …/:sid.
  */
-import type { StepupConfig } from "./config.js";
+import type { StepupConfig } from './config.js';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
 export type RequestInput = {
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** Path after `/v1`, e.g. `/auth/temp-session/step-up/session`. */
   path: string;
   /**
@@ -51,29 +51,29 @@ export async function request(
   config: StepupConfig,
   input: RequestInput,
 ): Promise<Envelope> {
-  const path = input.path.startsWith("/") ? input.path : `/${input.path}`;
+  const path = input.path.startsWith('/') ? input.path : `/${input.path}`;
   const params = new URLSearchParams();
   if (input.query) {
     for (const [k, v] of Object.entries(input.query)) {
-      if (v !== undefined && v !== null && v !== "") {
+      if (v !== undefined && v !== null && v !== '') {
         params.append(k, String(v));
       }
     }
   }
   const qs = params.toString();
-  const url = `${config.apiBaseV1}${path}${qs ? `?${qs}` : ""}`;
+  const url = `${config.apiBaseV1}${path}${qs ? `?${qs}` : ''}`;
 
   const headers: Record<string, string> = {
-    "x-transcodes-token": config.token,
-    Accept: "application/json",
+    'x-transcodes-token': config.token,
+    Accept: 'application/json',
   };
   if (input.stepUpSid) {
-    headers["X-Step-Up-Session-Id"] = input.stepUpSid;
+    headers['X-Step-Up-Session-Id'] = input.stepUpSid;
   }
   let body: string | undefined;
-  const sendsBody = input.method !== "GET" && !input.omitBody;
+  const sendsBody = input.method !== 'GET' && !input.omitBody;
   if (sendsBody) {
-    headers["Content-Type"] = "application/json";
+    headers['Content-Type'] = 'application/json';
     body = JSON.stringify(input.body ?? {});
   }
 
@@ -102,15 +102,15 @@ export async function request(
   } catch (err) {
     const aborted =
       err instanceof Error &&
-      (err.name === "AbortError" || err.name === "TimeoutError");
+      (err.name === 'AbortError' || err.name === 'TimeoutError');
     return {
       ok: false,
       status: 0,
       data: {
-        error: "Network Request Failed",
+        error: 'Network Request Failed',
         message: aborted
-          ? "Request timed out"
-          : "Could not reach the backend. Check TRANSCODES_BACKEND_URL and network connectivity.",
+          ? 'Request timed out'
+          : 'Could not reach the backend. Check TRANSCODES_BACKEND_URL and network connectivity.',
       },
     };
   } finally {
