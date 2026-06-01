@@ -37,10 +37,10 @@ import path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z as z9 } from "zod";
 
-// ../../packages/mcp-server-core/dist/tools/audit.js
+// ../../private-packages/transcodes-mcp-tools/dist/audit.js
 import { z } from "zod";
 
-// ../../packages/mcp-server-core/dist/tools/transcodes-client.js
+// ../../private-packages/transcodes-mcp-tools/dist/transcodes-client.js
 var ENDPOINT_MAP = {
   // Project
   get_project: "/project",
@@ -108,7 +108,7 @@ function blockedResult(message) {
   };
 }
 
-// ../../packages/mcp-server-core/dist/tools/audit.js
+// ../../private-packages/transcodes-mcp-tools/dist/audit.js
 var textResult = (text, isError = false) => ({
   isError,
   content: [{ type: "text", text }]
@@ -141,7 +141,7 @@ function registerAuditTools(server) {
   });
 }
 
-// ../../packages/mcp-server-core/dist/tools/auth-devices.js
+// ../../private-packages/transcodes-mcp-tools/dist/auth-devices.js
 import { z as z2 } from "zod";
 var textResult2 = (text, isError = false) => ({
   isError,
@@ -192,7 +192,7 @@ function registerAuthDeviceTools(server) {
   });
 }
 
-// ../../packages/mcp-server-core/dist/tools/jwk.js
+// ../../private-packages/transcodes-mcp-tools/dist/jwk.js
 var MSG_JWK_BACKUP_CONSOLE = "JWK backup (encrypted download of member metadata, registered authentication methods, and audit logs) must be done in the Transcodes console. This MCP tool does not call the API.";
 function registerJwkTools(server) {
   server.registerTool("jwk_backup", {
@@ -202,10 +202,10 @@ function registerJwkTools(server) {
   }, async () => blockedResult(MSG_JWK_BACKUP_CONSOLE));
 }
 
-// ../../packages/mcp-server-core/dist/tools/members.js
+// ../../private-packages/transcodes-mcp-tools/dist/members.js
 import { z as z3 } from "zod";
 
-// ../../packages/mcp-server-core/dist/tools/stepup-helper.js
+// ../../private-packages/transcodes-mcp-tools/dist/stepup-helper.js
 async function withStepupVerifiedSid(toolName, fn) {
   const verified = readVerified();
   if (!verified) {
@@ -219,7 +219,7 @@ async function withStepupVerifiedSid(toolName, fn) {
   }
 }
 
-// ../../packages/mcp-server-core/dist/tools/members.js
+// ../../private-packages/transcodes-mcp-tools/dist/members.js
 var textResult3 = (text, isError = false) => ({
   isError,
   content: [{ type: "text", text }]
@@ -382,7 +382,7 @@ function registerMemberTools(server) {
   });
 }
 
-// ../../packages/mcp-server-core/dist/tools/membership.js
+// ../../private-packages/transcodes-mcp-tools/dist/membership.js
 import { z as z4 } from "zod";
 var textResult4 = (text, isError = false) => ({
   isError,
@@ -441,7 +441,7 @@ function registerMembershipTools(server) {
   });
 }
 
-// ../../packages/mcp-server-core/dist/tools/meta.js
+// ../../private-packages/transcodes-mcp-tools/dist/meta.js
 import { z as z5 } from "zod";
 var INSTRUCTIONS_URL = "https://transcodes.io/instructions";
 var textResult5 = (text, isError = false) => ({
@@ -535,7 +535,7 @@ function registerMetaTools(server) {
   });
 }
 
-// ../../packages/mcp-server-core/dist/tools/organization.js
+// ../../private-packages/transcodes-mcp-tools/dist/organization.js
 import { z as z6 } from "zod";
 var MSG_PLATFORM_CONSOLE = "User and organization management must be done in the Transcodes console. This MCP tool does not call the API.";
 var MSG_ORG_CONSOLE = "Organization settings, user invitations, and invitation management (send, update, cancel, accept, decline) must be done directly in the Transcodes console at https://transcodes.io. This MCP tool does not call the API.";
@@ -647,7 +647,7 @@ function registerOrganizationTools(server) {
   }, async () => blockedResult(MSG_MEMBER_TOKEN_CONSOLE));
 }
 
-// ../../packages/mcp-server-core/dist/tools/passcode.js
+// ../../private-packages/transcodes-mcp-tools/dist/passcode.js
 import { z as z7 } from "zod";
 var textResult6 = (text, isError = false) => ({
   isError,
@@ -671,7 +671,7 @@ function registerPasscodeTools(server) {
   });
 }
 
-// ../../packages/mcp-server-core/dist/tools/project.js
+// ../../private-packages/transcodes-mcp-tools/dist/project.js
 var textResult7 = (text, isError = false) => ({
   isError,
   content: [{ type: "text", text }]
@@ -694,7 +694,7 @@ function registerProjectTools(server) {
   }, async () => blockedResult(MSG_PROJECT_PWA_AUTH_CONSOLE));
 }
 
-// ../../packages/mcp-server-core/dist/tools/rbac.js
+// ../../private-packages/transcodes-mcp-tools/dist/rbac.js
 import { z as z8 } from "zod";
 var textResult8 = (text, isError = false) => ({
   isError,

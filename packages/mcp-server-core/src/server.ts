@@ -34,16 +34,18 @@ import {
   transcodesConfigFile,
   writeVerified,
 } from "@transcodes-guard-private/stepup-core";
-import { registerAuditTools } from "./tools/audit.js";
-import { registerAuthDeviceTools } from "./tools/auth-devices.js";
-import { registerJwkTools } from "./tools/jwk.js";
-import { registerMemberTools } from "./tools/members.js";
-import { registerMembershipTools } from "./tools/membership.js";
-import { registerMetaTools } from "./tools/meta.js";
-import { registerOrganizationTools } from "./tools/organization.js";
-import { registerPasscodeTools } from "./tools/passcode.js";
-import { registerProjectTools } from "./tools/project.js";
-import { registerRbacTools } from "./tools/rbac.js";
+import {
+  registerAuditTools,
+  registerAuthDeviceTools,
+  registerJwkTools,
+  registerMemberTools,
+  registerMembershipTools,
+  registerMetaTools,
+  registerOrganizationTools,
+  registerPasscodeTools,
+  registerProjectTools,
+  registerRbacTools,
+} from "@transcodes-guard-private/transcodes-mcp-tools";
 
 function formatPatternsMarkdown(patterns: MergedPattern[]): string {
   const lines: string[] = [

@@ -4,16 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { addUserPattern, addUserToolRule, findFirstMatch, findFirstToolRule, getUserPatternsPath, getUserToolRulesPath, loadMergedPatterns, loadMergedToolRules, PatternValidationError, removeUserPattern, removeUserToolRule, ToolRuleValidationError, updateUserPattern, updateUserToolRule, } from "@transcodes-guard/danger-patterns";
 import { createStepupSession, inspectStepupState, isTrackerEnabled, loadStepupConfig, markVerified, parseMemberAccessToken, pollStepupSession, pollStepupSessionWait, resolveToken, setTrackerEnabled, transcodesConfigFile, writeVerified, } from "@transcodes-guard-private/stepup-core";
-import { registerAuditTools } from "./tools/audit.js";
-import { registerAuthDeviceTools } from "./tools/auth-devices.js";
-import { registerJwkTools } from "./tools/jwk.js";
-import { registerMemberTools } from "./tools/members.js";
-import { registerMembershipTools } from "./tools/membership.js";
-import { registerMetaTools } from "./tools/meta.js";
-import { registerOrganizationTools } from "./tools/organization.js";
-import { registerPasscodeTools } from "./tools/passcode.js";
-import { registerProjectTools } from "./tools/project.js";
-import { registerRbacTools } from "./tools/rbac.js";
+import { registerAuditTools, registerAuthDeviceTools, registerJwkTools, registerMemberTools, registerMembershipTools, registerMetaTools, registerOrganizationTools, registerPasscodeTools, registerProjectTools, registerRbacTools, } from "@transcodes-guard-private/transcodes-mcp-tools";
 function formatPatternsMarkdown(patterns) {
     const lines = [
         "# Blocked Bash command patterns",
