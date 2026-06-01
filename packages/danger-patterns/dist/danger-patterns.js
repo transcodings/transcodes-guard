@@ -74,6 +74,21 @@ export class PatternValidationError extends Error {
 function isReservedId(id, systemIds) {
     return systemIds.has(id);
 }
+// Heuristic guard: a command pattern matches a Bash COMMAND STRING via regex.
+// An MCP tool name (e.g. `mcp__github__delete_repository` or `github:delete_page`)
+// pasted in as a "regex" is a mis-bucketed tool rule — it would never fire here
+// because the hook only regex-matches Bash command strings, not tool_names.
+// Reject it deterministically and redirect to `add_tool_rule`.
+function detectMcpToolName(regex) {
+    // Explicit MCP namespace marker — unambiguous across hosts.
+    if (/mcp__[A-Za-z0-9]/.test(regex))
+        return true;
+    // Bare `<server>__<tool>` / `<server>:<tool>` identifier with no regex
+    // metacharacters or whitespace (i.e. someone pasted a tool name verbatim).
+    if (/^[A-Za-z0-9_-]+(?:__|:)[A-Za-z0-9_.:-]+$/.test(regex))
+        return true;
+    return false;
+}
 export function validateNewPattern(input) {
     const { id, regex, reason } = input;
     if (!ID_REGEX.test(id)) {
@@ -82,6 +97,11 @@ export function validateNewPattern(input) {
     const systemIds = new Set(loadSystemPatterns().patterns.map((p) => p.id));
     if (isReservedId(id, systemIds)) {
         throw new PatternValidationError(`id "${id}" is reserved by a system pattern and cannot be overridden`);
+    }
+    if (detectMcpToolName(regex)) {
+        throw new PatternValidationError(`"${regex}" looks like an MCP tool name, not a Bash command pattern. ` +
+            `Bash Command only match Bash command strings via regex; they never ` +
+            `match MCP tool calls. Use add_tool_rule (exact tool_name match) instead.`);
     }
     try {
         new RegExp(regex);

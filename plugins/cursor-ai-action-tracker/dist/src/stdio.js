@@ -30,7 +30,7 @@ import {
   updateUserPattern,
   updateUserToolRule,
   writeVerified
-} from "../chunk-53XLFTXI.js";
+} from "../chunk-TQVHNCVV.js";
 
 // src/stdio.ts
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -944,7 +944,7 @@ function createServer() {
   }));
   server.registerTool("simulate_command", {
     title: "Simulate command against block patterns",
-    description: "Check whether a specific Bash command would be blocked by the PreToolUse hook's regex layer. Call this whenever the user mentions a concrete command and asks if it is dangerous, safe, blocked, intercepted, allowed, or whether the hook/danger-patterns would catch it \u2014 including Korean phrasings like '\uC774 \uBA85\uB839 \uCC28\uB2E8\uB420\uAE4C', '\uC774\uAC70 hook\uC5D0 \uAC78\uB824?', 'rm -rf src \uC2E4\uD589\uD574\uB3C4 \uB3FC?', '\uBBF8\uB9AC \uAC80\uC0AC\uD574\uC918'. Runs against the union of system and user patterns. Does NOT simulate the second-layer `rm -rf` git-tracked check (cwd-dependent), so the hook may still block commands this tool reports as allowed.",
+    description: "Check whether a specific Bash command would be blocked by the PreToolUse hook's regex layer. Call this whenever the user mentions a concrete command and asks if it is dangerous, safe, blocked, intercepted, allowed, or whether the hook/danger-patterns would catch it \u2014 including Korean phrasings like '\uC774 \uBA85\uB839 \uCC28\uB2E8\uB420\uAE4C', '\uC774\uAC70 hook\uC5D0 \uAC78\uB824?', 'rm -rf src \uC2E4\uD589\uD574\uB3C4 \uB3FC?', '\uBBF8\uB9AC \uAC80\uC0AC\uD574\uC918'. ALSO use this as the mandatory verification step (step 2) of the `add_user_pattern` natural-language \u2192 regex workflow: before saving a regex you inferred from a plain-language intent, simulate a should-match example and a should-NOT-match example to catch false positives. Runs against the union of system and user patterns. Does NOT simulate the second-layer `rm -rf` git-tracked check (cwd-dependent), so the hook may still block commands this tool reports as allowed.",
     inputSchema: { command: z9.string().min(1) }
   }, async ({ command }) => {
     const patterns = loadMergedPatterns();
@@ -970,7 +970,16 @@ function createServer() {
   });
   server.registerTool("add_user_pattern", {
     title: "Add user danger pattern",
-    description: `Register a new user-owned block pattern that the PreToolUse hook will enforce. Call when the user asks to add/register/block a new pattern, ban a command, or extend danger-patterns \u2014 e.g. '\uD328\uD134 \uCD94\uAC00\uD574\uC918', 'sudo \uB9C9\uC544\uC918', '\uC774\uB7F0 \uBA85\uB839\uB3C4 \uCC28\uB2E8\uB418\uAC8C \uD574\uC918'. id must be unique across both system and user patterns; regex must compile. Persisted to ${getUserPatternsPath()} (JSONC) and effective on the next hook invocation.`,
+    description: `Register a new user-owned block pattern that the PreToolUse hook will enforce. Call when the user asks to add/register/block a new pattern, ban a command, or extend danger-patterns \u2014 e.g. '\uD328\uD134 \uCD94\uAC00\uD574\uC918', 'sudo \uB9C9\uC544\uC918', '\uC774\uB7F0 \uBA85\uB839\uB3C4 \uCC28\uB2E8\uB418\uAC8C \uD574\uC918', or a natural-language intent like 'env \uD30C\uC77C \uC62E\uAE30\uB294 \uBA85\uB839 \uB9C9\uC544\uC918' / 'git pull \uD560 \uB54C \uD2B8\uB9AC\uAC70\uD574\uC918'.
+
+DISAMBIGUATION \u2014 this gate has two registries; pick by what is being matched: a free-form Bash COMMAND STRING (sudo, rm -rf, git push) \u2192 use this tool (regex matching); a specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) \u2192 use \`add_tool_rule\` instead (exact tool_name match). If the user just says "add a rule" without specifying, ask which they mean before calling either tool.
+
+NATURAL-LANGUAGE \u2192 REGEX WORKFLOW (follow in order; you are the translator \u2014 there is no separate conversion engine):
+  1. TRANSLATE the user's plain-language intent into a concrete regex yourself. Anchor on the command's intent (e.g. 'env \uC62E\uAE30\uAE30' \u2192 \\\\b(mv|cp|scp)\\\\b.*\\\\.env\\\\b), not a bare word that is also a common identifier.
+  2. VERIFY with the \`simulate_command\` tool BEFORE saving: run at least one example that SHOULD match and one that should NOT, to confirm the regex catches the intent without false positives.
+  3. CONFIRM with the user: show the proposed regex + reason verbatim and get explicit approval. Never silently save an inferred regex.
+  4. SAVE by calling this tool only after approval.
+id must be unique across both system and user patterns; regex must compile. Persisted to ${getUserPatternsPath()} (JSONC) and effective on the next hook invocation.`,
     inputSchema: {
       id: z9.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
       regex: z9.string().min(1),
@@ -1289,7 +1298,19 @@ reason: ${saved.reason}`);
   }));
   server.registerTool("add_tool_rule", {
     title: "Add user MCP tool-rule",
-    description: `Register a new user-owned tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. id must be unique across system and user rules; persisted to ${getUserToolRulesPath()} (JSONC).`,
+    description: `Register a new user-owned tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs \u2014 e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called", "block mcp__github__delete_repository".
+
+DISAMBIGUATION \u2014 this gate has two registries; pick by what is being matched:
+  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push, an env-file move) \u2192 use \`add_user_pattern\` (regex matching), NOT this tool.
+  - A specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) \u2192 use this tool (exact tool_name match).
+If the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.
+
+WORKFLOW (follow in order):
+  1. RESOLVE the exact tool name. Tool names are host-specific (e.g. mcp__github__delete_repository, or mcp__plugin_<plugin>_<server>__<tool> for plugin-provided servers). Do not guess \u2014 confirm the exact string with the user or read it from the host's available tools. Regex/wildcards are NOT supported; the match is exact.
+  2. VERIFY with \`simulate_tool_call\` before saving to confirm the rule will match the intended tool name.
+  3. DERIVE the audit identifiers from the tool name: for mcp__<server>__<tool>, set stepupAction to <tool> and stepupResource to "mcp:<server>". For names without that shape, use the raw tool name as stepupAction and "mcp:custom" as stepupResource.
+  4. CONFIRM the proposed id/toolName/reason/stepupAction/stepupResource with the user, then SAVE by calling this tool.
+id must be unique across both system and user rules; persisted to ${getUserToolRulesPath()} (JSONC) and effective on the next hook invocation.`,
     inputSchema: {
       id: z9.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
       toolName: z9.string().min(1),
@@ -1316,7 +1337,7 @@ consume_in_hook: ${saved.consume_in_hook ?? true}`);
   });
   server.registerTool("update_tool_rule", {
     title: "Update user MCP tool-rule",
-    description: "Modify fields of an existing user tool-rule. System rules cannot be modified.",
+    description: 'Modify fields of an existing user tool-rule by id. Call when the user asks to edit/change an MCP tool-rule \u2014 e.g. "change the reason of the github-delete rule", "point that tool rule at a different tool name". This is for MCP tool-rules (exact tool_name match); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified; attempts are rejected. Pass only the fields you want to change. When you change toolName, re-derive stepupAction/stepupResource from the new name (mcp__<server>__<tool> \u2192 action=<tool>, resource="mcp:<server>").',
     inputSchema: {
       id: z9.string().min(1),
       toolName: z9.string().min(1).optional(),
@@ -1352,7 +1373,7 @@ consume_in_hook: ${saved.consume_in_hook ?? true}`);
   });
   server.registerTool("remove_tool_rule", {
     title: "Remove user MCP tool-rule",
-    description: "Delete an existing user tool-rule by id. System rules cannot be removed.",
+    description: 'Delete an existing user tool-rule by id. Call when the user asks to remove/delete/cancel an MCP tool-rule \u2014 e.g. "delete the github-delete tool rule", "stop requiring auth for that tool". This is for MCP tool-rules; to delete a Bash command pattern (regex) use `remove_user_pattern` instead. System rules cannot be removed; attempts are rejected.',
     inputSchema: { id: z9.string().min(1) }
   }, async ({ id }) => {
     try {

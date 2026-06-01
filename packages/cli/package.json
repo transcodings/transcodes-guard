@@ -16,6 +16,7 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
+    "@transcodes-guard/danger-patterns": "*",
     "@transcodes-guard/stepup-core": "*",
     "@types/node": "^22.0.0",
     "tsup": "^8.0.0",

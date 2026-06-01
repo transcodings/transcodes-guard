@@ -126,6 +126,16 @@ export interface ToolRuleInput {
   consume_in_hook?: boolean;
 }
 
+// Heuristic guard: a tool rule matches a tool_name exactly. A Bash COMMAND
+// STRING (e.g. "rm -rf /", "git push") pasted in as a toolName is a mis-bucketed
+// command pattern — it would never fire here because the hook matches tool rules
+// against tool_name, not Bash commands. A valid MCP tool name is a single
+// identifier (alnum + `_` `.` `:` `-`, with `__`/`:` namespacing). Anything with
+// whitespace or shell metacharacters is a command, not a tool name.
+function detectShellCommand(toolName: string): boolean {
+  return /[\s|&;<>$*()`\\/]/.test(toolName);
+}
+
 export function validateNewToolRule(input: ToolRuleInput): ToolRule {
   const { id, toolName, reason, stepupAction, stepupResource, consume_in_hook } = input;
 
@@ -145,6 +155,14 @@ export function validateNewToolRule(input: ToolRuleInput): ToolRule {
   const trimmedToolName = toolName.trim();
   if (!trimmedToolName) {
     throw new ToolRuleValidationError("toolName must not be empty");
+  }
+
+  if (detectShellCommand(trimmedToolName)) {
+    throw new ToolRuleValidationError(
+      `"${trimmedToolName}" looks like a Bash command, not an MCP tool name. ` +
+        `Tool rules match a tool_name exactly (e.g. mcp__github__delete_repository); ` +
+        `they never match Bash commands. Use add_user_pattern (regex) instead.`,
+    );
   }
 
   const trimmedReason = reason.trim();
