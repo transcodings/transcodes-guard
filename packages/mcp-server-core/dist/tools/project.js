@@ -1,4 +1,4 @@
-import { loadStepupConfig } from "@transcodes-guard/stepup-core";
+import { loadStepupConfig } from "@transcodes-guard-private/stepup-core";
 import { blockedResult, req } from "./transcodes-client.js";
 const textResult = (text, isError = false) => ({
     isError,

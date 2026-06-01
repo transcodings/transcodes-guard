@@ -11,7 +11,7 @@
  * Consume runs in `finally` so a backend failure cannot leave the record
  * reusable.
  */
-import { clearPending, consumeVerified, readVerified, } from "@transcodes-guard/stepup-core";
+import { clearPending, consumeVerified, readVerified, } from "@transcodes-guard-private/stepup-core";
 export async function withStepupVerifiedSid(toolName, fn) {
     const verified = readVerified();
     if (!verified) {

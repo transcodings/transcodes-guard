@@ -23,7 +23,7 @@ import {
   setTrackerEnabled,
   transcodesConfigFile,
   writeTokenToFile,
-} from '@transcodes-guard/stepup-core';
+} from '@transcodes-guard-private/stepup-core';
 import { LOGO_DATA_URI } from './logo.js';
 
 const DEFAULT_PORT = 3847;

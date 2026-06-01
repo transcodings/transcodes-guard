@@ -16,7 +16,7 @@ import {
   readPending,
   readVerified,
   type PendingState,
-} from "@transcodes-guard/stepup-core";
+} from "@transcodes-guard-private/stepup-core";
 
 function reminderFor(pending: PendingState): string {
   return [

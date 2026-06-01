@@ -3,7 +3,7 @@
  * @transcodes-guard/plugin-paths. Every hook entry and transport entry
  * in this plugin must import this file BEFORE any module that calls
  * dataDir() / cacheDir() (in practice: before @transcodes-guard/hook-adapters
- * and @transcodes-guard/stepup-core / mcp-server-core).
+ * and @transcodes-guard-private/stepup-core / mcp-server-core).
  *
  * Why a separate file: hook-adapters' barrel re-exports all four adapters,
  * so setting TRANSCODES_GUARD_HOST inside an adapter file causes

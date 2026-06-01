@@ -5,7 +5,8 @@
   "description": "Monorepo orchestrator for transcodes-guard plugins + marketplace. Root is the release-please train coordinator (never published).",
   "workspaces": [
     "packages/*",
-    "plugins/*"
+    "plugins/*",
+    "private-packages/*"
   ],
   "scripts": {
     "build": "turbo run build",

@@ -3,7 +3,7 @@ import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { addUserPattern, addUserToolRule, findFirstMatch, findFirstToolRule, getUserPatternsPath, getUserToolRulesPath, loadMergedPatterns, loadMergedToolRules, PatternValidationError, removeUserPattern, removeUserToolRule, ToolRuleValidationError, updateUserPattern, updateUserToolRule, } from "@transcodes-guard/danger-patterns";
-import { createStepupSession, inspectStepupState, isTrackerEnabled, loadStepupConfig, markVerified, parseMemberAccessToken, pollStepupSession, pollStepupSessionWait, resolveToken, setTrackerEnabled, transcodesConfigFile, writeVerified, } from "@transcodes-guard/stepup-core";
+import { createStepupSession, inspectStepupState, isTrackerEnabled, loadStepupConfig, markVerified, parseMemberAccessToken, pollStepupSession, pollStepupSessionWait, resolveToken, setTrackerEnabled, transcodesConfigFile, writeVerified, } from "@transcodes-guard-private/stepup-core";
 import { registerAuditTools } from "./tools/audit.js";
 import { registerAuthDeviceTools } from "./tools/auth-devices.js";
 import { registerJwkTools } from "./tools/jwk.js";

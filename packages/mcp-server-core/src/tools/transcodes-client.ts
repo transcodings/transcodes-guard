@@ -13,7 +13,7 @@ import {
   request,
   type HttpRequestInput as RequestInput,
   type StepupConfig,
-} from "@transcodes-guard/stepup-core";
+} from "@transcodes-guard-private/stepup-core";
 
 /** Tool name → API path under `/v1`. Scoped to this plugin's ported toolset. */
 const ENDPOINT_MAP: Readonly<Record<string, string>> = {

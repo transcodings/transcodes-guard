@@ -15,7 +15,7 @@ import {
   isTrackerEnabled,
   readPending,
   resolveToken,
-} from "@transcodes-guard/stepup-core";
+} from "@transcodes-guard-private/stepup-core";
 
 function carryoverBlock(): string | null {
   const pending = readPending();

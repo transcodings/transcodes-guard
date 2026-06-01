@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createStepupSession, loadStepupConfig, } from "@transcodes-guard/stepup-core";
+import { createStepupSession, loadStepupConfig, } from "@transcodes-guard-private/stepup-core";
 import { req } from "./transcodes-client.js";
 const INSTRUCTIONS_URL = "https://transcodes.io/instructions";
 const textResult = (text, isError = false) => ({

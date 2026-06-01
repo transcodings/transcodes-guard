@@ -4,7 +4,7 @@
  */
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { loadStepupConfig } from "@transcodes-guard/stepup-core";
+import { loadStepupConfig } from "@transcodes-guard-private/stepup-core";
 import { req } from "./transcodes-client.js";
 
 const textResult = (text: string, isError = false) => ({

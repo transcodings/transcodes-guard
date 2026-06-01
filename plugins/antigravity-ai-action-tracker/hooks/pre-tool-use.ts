@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Antigravity 2.0 PreToolUse hook — thin entrypoint over @transcodes-guard/stepup-core.
+ * Antigravity 2.0 PreToolUse hook — thin entrypoint over @transcodes-guard-private/stepup-core.
  *
  * Unlike the Codex entry (which delegates to claudeCodeAdapter), this one
  * uses antigravityAdapter — a fully native wire-format adapter. The bytes
@@ -29,7 +29,7 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   writePending,
-} from "@transcodes-guard/stepup-core";
+} from "@transcodes-guard-private/stepup-core";
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, "utf8");

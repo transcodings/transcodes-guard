@@ -14,7 +14,7 @@ import {
   isTrackerEnabled,
   readPending,
   resolveToken,
-} from "@transcodes-guard/stepup-core";
+} from "@transcodes-guard-private/stepup-core";
 
 const PROTOCOL_PRIMER = [
   "transcodes-guard step-up MFA protocol:",

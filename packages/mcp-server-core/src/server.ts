@@ -33,7 +33,7 @@ import {
   setTrackerEnabled,
   transcodesConfigFile,
   writeVerified,
-} from "@transcodes-guard/stepup-core";
+} from "@transcodes-guard-private/stepup-core";
 import { registerAuditTools } from "./tools/audit.js";
 import { registerAuthDeviceTools } from "./tools/auth-devices.js";
 import { registerJwkTools } from "./tools/jwk.js";

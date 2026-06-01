@@ -1,5 +1,5 @@
 {
-  "name": "@transcodes-guard/stepup-core",
+  "name": "@transcodes-guard-private/stepup-core",
   "version": "0.1.0",
   "description": "Step-up MFA gate core — host-agnostic logic shared by transcodes-guard plugins.",
   "private": true,

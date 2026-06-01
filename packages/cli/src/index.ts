@@ -5,7 +5,7 @@
  * read the token via `resolveToken()` (env → ~/.transcodes/config.json).
  * This CLI is the safe way to populate that file: the token is pasted into
  * the terminal, never into the agent chat (which would leak it into the
- * transcript). All token logic lives in `@transcodes-guard/stepup-core`;
+ * transcript). All token logic lives in `@transcodes-guard-private/stepup-core`;
  * this file is just an argv front-end.
  *
  * Commands:
@@ -29,7 +29,7 @@ import {
   setTrackerEnabled,
   transcodesConfigFile,
   writeTokenToFile,
-} from "@transcodes-guard/stepup-core";
+} from "@transcodes-guard-private/stepup-core";
 
 const USAGE = `transcodes — transcodes-guard token manager
 

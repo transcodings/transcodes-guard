@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@transcodes-guard/danger-patterns": "*",
-    "@transcodes-guard/stepup-core": "*",
+    "@transcodes-guard-private/stepup-core": "*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23.0"
   },

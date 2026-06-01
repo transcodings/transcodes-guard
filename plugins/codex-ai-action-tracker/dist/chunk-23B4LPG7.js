@@ -1,7 +1,7 @@
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "antigravity";
+process.env.TRANSCODES_GUARD_HOST = "codex";
 
-// ../../packages/stepup-core/dist/token-store.js
+// ../../private-packages/stepup-core/dist/token-store.js
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import os from "os";
 import path from "path";
@@ -116,7 +116,7 @@ function resolveToken() {
   return { token: null, source: "none" };
 }
 
-// ../../packages/stepup-core/dist/store.js
+// ../../private-packages/stepup-core/dist/store.js
 import { mkdirSync as mkdirSync3, readFileSync as readFileSync2, rmSync as rmSync2, writeFileSync as writeFileSync2 } from "fs";
 import path3 from "path";
 
@@ -178,7 +178,7 @@ function migrateLegacyFile(name, kind) {
   }
 }
 
-// ../../packages/stepup-core/dist/jwt.js
+// ../../private-packages/stepup-core/dist/jwt.js
 var REQUIRED_AUDIENCE = "transcodes-mcp";
 function isPlainObject(v) {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -272,7 +272,7 @@ function parseMemberAccessToken(rawToken) {
   };
 }
 
-// ../../packages/stepup-core/dist/config.js
+// ../../private-packages/stepup-core/dist/config.js
 var DEFAULT_BACKEND_URL = "https://api.transcodesapis.com";
 var STEPUP_TTL_MS = 10 * 60 * 1e3;
 function loadStepupConfig() {
@@ -302,7 +302,7 @@ function loadStepupConfig() {
   };
 }
 
-// ../../packages/stepup-core/dist/store.js
+// ../../private-packages/stepup-core/dist/store.js
 function cacheDir2() {
   return cacheDir();
 }
@@ -358,7 +358,7 @@ function consumeVerified() {
   }
 }
 
-// ../../packages/stepup-core/dist/pending.js
+// ../../private-packages/stepup-core/dist/pending.js
 import { mkdirSync as mkdirSync4, readFileSync as readFileSync3, rmSync as rmSync3, writeFileSync as writeFileSync3 } from "fs";
 import path4 from "path";
 import { z } from "zod";
@@ -411,7 +411,7 @@ function isExpired(state, now = Date.now()) {
   return now - state.createdAt > STEPUP_TTL_MS;
 }
 
-// ../../packages/stepup-core/dist/evaluate.js
+// ../../private-packages/stepup-core/dist/evaluate.js
 import { execFileSync } from "child_process";
 import path8 from "path";
 
@@ -1644,13 +1644,13 @@ function removeUserToolRule(id) {
   saveUserToolRules(current);
 }
 
-// ../../packages/stepup-core/dist/gate.js
+// ../../private-packages/stepup-core/dist/gate.js
 import { spawn } from "child_process";
 import { createHash } from "crypto";
 import { mkdirSync as mkdirSync7, readFileSync as readFileSync6, writeFileSync as writeFileSync6 } from "fs";
 import path7 from "path";
 
-// ../../packages/stepup-core/dist/client.js
+// ../../private-packages/stepup-core/dist/client.js
 var REQUEST_TIMEOUT_MS = 3e4;
 async function request(config, input) {
   const path10 = input.path.startsWith("/") ? input.path : `/${input.path}`;
@@ -1713,7 +1713,7 @@ async function request(config, input) {
   }
 }
 
-// ../../packages/stepup-core/dist/session.js
+// ../../private-packages/stepup-core/dist/session.js
 var STEPUP_PATH = "/auth/temp-session/step-up/session";
 function readStepupPayload(envelope) {
   const data = envelope.data;
@@ -1809,7 +1809,7 @@ async function pollStepupSessionWait(config, sid, options = {}) {
   }
 }
 
-// ../../packages/stepup-core/dist/gate.js
+// ../../private-packages/stepup-core/dist/gate.js
 var BROWSER_LOCK_TTL_MS = 15e3;
 var BROWSER_LOCK_FILE = "stepup-browser-lock.json";
 function fingerprintOf(key) {
@@ -1901,7 +1901,7 @@ async function requestStepup(input) {
   };
 }
 
-// ../../packages/stepup-core/dist/evaluate.js
+// ../../private-packages/stepup-core/dist/evaluate.js
 function checkPatternMatch(command) {
   const hit = findFirstMatch(command, loadMergedPatterns());
   if (!hit)
@@ -2077,7 +2077,7 @@ async function evaluatePreToolUse(input) {
   };
 }
 
-// ../../packages/stepup-core/dist/messages.js
+// ../../private-packages/stepup-core/dist/messages.js
 function formatNoTokenSessionNotice() {
   return [
     "transcodes-guard: no Transcodes token is configured.",
@@ -2168,7 +2168,7 @@ function formatStderrTag(decision) {
   }
 }
 
-// ../../packages/stepup-core/dist/inspector.js
+// ../../private-packages/stepup-core/dist/inspector.js
 import { readFileSync as readFileSync7 } from "fs";
 import path9 from "path";
 var VERIFIED_FILE = "stepup-verified.json";

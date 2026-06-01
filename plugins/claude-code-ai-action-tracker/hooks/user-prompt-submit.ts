@@ -13,7 +13,7 @@ import {
   isExpired,
   readPending,
   type PendingState,
-} from "@transcodes-guard/stepup-core";
+} from "@transcodes-guard-private/stepup-core";
 
 // Loose matcher — false positives only matter when a pending record exists,
 // in which case the worst case is one unnecessary poll call.

@@ -39,7 +39,7 @@ import {
   readPending,
   resolveToken,
   type PendingState,
-} from "@transcodes-guard/stepup-core";
+} from "@transcodes-guard-private/stepup-core";
 
 function primerMessage(pending: PendingState | null): string {
   const base = [

@@ -30,7 +30,7 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   writePending,
-} from "@transcodes-guard/stepup-core";
+} from "@transcodes-guard-private/stepup-core";
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, "utf8");

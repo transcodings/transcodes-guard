@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Claude Code PreToolUse hook — thin entrypoint over @transcodes-guard/stepup-core.
+ * Claude Code PreToolUse hook — thin entrypoint over @transcodes-guard-private/stepup-core.
  *
  * All real logic (regex match, git ls-files semantic check, MCP tool-rule
  * lookup, fast-path verified consume, step-up MFA session creation) lives in
@@ -32,7 +32,7 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   writePending,
-} from "@transcodes-guard/stepup-core";
+} from "@transcodes-guard-private/stepup-core";
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, "utf8");
