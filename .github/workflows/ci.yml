@@ -52,6 +52,46 @@ jobs:
       - name: Verify cursor plugin dist is committed and in sync
         run: git diff --exit-code -- plugins/cursor-ai-action-tracker/dist/
 
+      - name: Verify private-packages dist is committed and in sync
+        run: git diff --exit-code -- 'private-packages/*/dist/'
+
+      # ─────────────────────────────────────────────────────────
+      # Biome lint + format check (no --write).
+      # Fails if any source file deviates from biome.json conventions or
+      # contains lint errors. Warnings (incl. noRestrictedImports for the
+      # public→private boundary) do not fail the build in phase 1.
+      - name: Biome check
+        run: npx biome check --reporter=github
+
+      # ─────────────────────────────────────────────────────────
+      # Publish-surface verification.
+      # Confirms each private-packages/* member is marked `"private": true`
+      # AND that running `npm publish --dry-run` inside its directory emits
+      # the "Skipping workspace ... marked as private" notice (the same
+      # gate that protects real publishing). If a future commit drops the
+      # private flag on any member, this step fails loudly.
+      - name: Publish surface — private packages must be blocked
+        run: |
+          MISSING=0
+          for dir in private-packages/*/; do
+            pkg=$(node -p "require('./${dir}package.json').name")
+            is_private=$(node -p "require('./${dir}package.json').private === true")
+            if [ "$is_private" != "true" ]; then
+              echo "::error::${pkg} (${dir}) is missing \"private\": true"
+              MISSING=1
+              continue
+            fi
+            out=$(cd "$dir" && npm publish --dry-run 2>&1 || true)
+            if ! echo "$out" | grep -q "Skipping workspace ${pkg}, marked as private"; then
+              echo "::error::${pkg} dry-run did not emit the skip notice"
+              echo "$out"
+              MISSING=1
+            else
+              echo "OK: ${pkg} refused publish (private)"
+            fi
+          done
+          exit $MISSING
+
       # ─────────────────────────────────────────────────────────
       # Claude Code plugin smoke tests (9 scenarios — 7 preserved verbatim
       # from pre-monorepo CI, plus the gate-disabled kill-switch check and the
