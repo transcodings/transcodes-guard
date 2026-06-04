@@ -19,8 +19,6 @@ import {
   removeTokenFromFile,
   setActiveToken,
   setTokenLabel,
-  isTrackerEnabled,
-  setTrackerEnabled,
   transcodesConfigFile,
   writeTokenToFile,
 } from '@transcodes-guard/stepup-core';
@@ -35,7 +33,11 @@ import {
   updateUserToolRule,
   ToolRuleValidationError,
   type MergedToolRule,
+  DEFAULT_RBAC_ACTION,
+  DEFAULT_RBAC_RESOURCE,
+  type RbacAction,
 } from '@transcodes-guard/danger-patterns';
+import { buildAdminToolsPayload } from '@transcodes-guard/mcp-server-core/tool-catalog';
 import { LOGO_DATA_URI } from './logo.js';
 
 const DEFAULT_PORT = 3847;
@@ -145,38 +147,41 @@ function buildToolRulesPayload(): ToolRulesPayload {
   };
 }
 
-/**
- * Auto-derive the backend audit identifiers from an MCP tool name when a
- * tool-rule is edited (the tool name can change). Claude-style names
- * are `mcp__<server>__<tool>`: the server becomes the resource namespace and
- * the tool segment becomes the action. Names without the prefix fall back to a
- * `mcp:custom` resource and the raw name as the action.
- */
-function deriveStepup(toolName: string): {
-  stepupAction: string;
-  stepupResource: string;
-} {
-  const t = toolName.trim();
-  let server = 'custom';
-  let action = t;
-  if (t.startsWith('mcp__')) {
-    const rest = t.slice(5);
-    const sep = rest.indexOf('__');
-    if (sep >= 0) {
-      server = rest.slice(0, sep) || 'custom';
-      action = rest.slice(sep + 2) || rest;
-    } else {
-      server = rest || 'custom';
-      action = rest || t;
-    }
-  }
-  return { stepupAction: action || t, stepupResource: `mcp:${server}` };
+/** Display-only CRUD hint for catalog tools not in tool-rules.json. */
+function inferCatalogRbacAction(toolName: string): RbacAction {
+  if (toolName.startsWith('get_') || toolName.startsWith('list_')) return 'read';
+  if (toolName.startsWith('create_') || toolName.endsWith('_create')) return 'create';
+  if (toolName.startsWith('retire_') || toolName.startsWith('remove_')) return 'delete';
+  return DEFAULT_RBAC_ACTION;
+}
+
+/** Admin MCP catalog enriched with RBAC coordinates from tool-rules (when gated). */
+function buildAdminToolsPayloadEnriched() {
+  const payload = buildAdminToolsPayload();
+  const ruleByToolName = new Map(
+    loadMergedToolRules().map((r) => [r.toolName, r]),
+  );
+  const tools = payload.tools.map((t) => {
+    const rule = ruleByToolName.get(t.mcpToolName);
+    return {
+      ...t,
+      rbacGated: !!rule,
+      rbacResource: rule?.stepupResource ?? DEFAULT_RBAC_RESOURCE,
+      rbacAction: rule?.stepupAction ?? inferCatalogRbacAction(t.name),
+    };
+  });
+  tools.sort((a, b) => {
+    if (a.rbacGated !== b.rbacGated) return a.rbacGated ? -1 : 1;
+    return a.title.localeCompare(b.title);
+  });
+  return { ...payload, tools };
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    Connection: 'close',
   });
   res.end(JSON.stringify(body));
 }
@@ -426,6 +431,29 @@ function dashboardHtml(): string {
     }
     .token-row.active .token-info .field code { background: #fff; }
     .token-info .warn { font-size: var(--text-xs); color: #c0392f; margin-top: 2px; }
+    .token-info .tool-desc {
+      font-size: var(--text-sm);
+      color: #5a5a64;
+      margin: 6px 0 8px;
+      line-height: 1.45;
+    }
+    .tool-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+    .tool-badge {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #5a5a64;
+    }
+    .tool-badge.rbac-gated { color: #8a3ffc; border-color: #d4b8ff; background: #f6f0ff; }
+    .admin-tools-count {
+      font-size: var(--text-sm);
+      color: var(--muted);
+      margin: 0 0 14px;
+    }
     .token-actions {
       display: flex;
       gap: 8px;
@@ -549,60 +577,25 @@ function dashboardHtml(): string {
       color: var(--muted);
       line-height: 1.5;
     }
-    .settings-list { display: flex; flex-direction: column; gap: 10px; }
-    .setting-row {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
+    .guide-list { display: flex; flex-direction: column; gap: 10px; }
+    .guide-item {
       padding: 14px 16px;
       background: #fbfbfc;
       border: 1px solid var(--line);
       border-radius: 14px;
     }
-    .setting-info { flex: 1; min-width: 0; }
-    .setting-label {
-      display: block;
+    .guide-item .guide-tab {
       font-size: var(--text-base);
-      font-weight: 600;
+      font-weight: 700;
       color: var(--ink);
-      letter-spacing: -0.01em;
+      margin-bottom: 6px;
     }
-    .setting-desc {
-      margin: 8px 0 0;
+    .guide-item .guide-desc {
       font-size: var(--text-sm);
       color: var(--muted);
       line-height: 1.5;
+      margin: 0;
     }
-    .toggle {
-      position: relative;
-      width: 44px;
-      height: 26px;
-      flex: none;
-      flex-shrink: 0;
-      margin-top: 2px;
-      border: none;
-      border-radius: 999px;
-      background: #d8d8de;
-      cursor: pointer;
-      padding: 0;
-      transition: background 0.2s;
-    }
-    .toggle::after {
-      content: "";
-      position: absolute;
-      top: 3px;
-      left: 3px;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #fff;
-      box-shadow: 0 1px 3px rgba(16, 16, 26, 0.18);
-      transition: transform 0.2s;
-    }
-    .toggle.on { background: var(--accent); }
-    .toggle.on::after { transform: translateX(18px); }
-    .toggle:disabled { opacity: 0.5; cursor: not-allowed; }
     .toast {
       margin-top: 14px;
       padding: 12px 16px;
@@ -640,10 +633,10 @@ function dashboardHtml(): string {
       </div>
     </div>
     <div class="tabs">
-      <button type="button" class="tab active" data-tab="tokens">Tokens</button>
+      <button type="button" class="tab active" data-tab="guideline">Guideline</button>
+      <button type="button" class="tab" data-tab="tokens">Tokens</button>
       <button type="button" class="tab" data-tab="patterns">Policies</button>
-      <button type="button" class="tab" data-tab="settings">Settings</button>
-      <button type="button" class="tab" data-tab="cli">CLI</button>
+      <button type="button" class="tab" data-tab="manual">Manual</button>
     </div>
 
     <div class="panel active" id="panel-tokens">
@@ -661,31 +654,47 @@ function dashboardHtml(): string {
       <p class="hint">Saved to <code>{{HOME_DIR}}/.transcodes/config.json</code><br />Press Ctrl+C in the terminal to stop</p>
     </div>
 
-    <div class="panel" id="panel-cli">
-      <p class="section-title"></p>
-      <p class="section-sub">Run these from your terminal — the dashboard wraps the same actions</p>
-      <div class="cmd-list">
-        <div class="cmd"><code>transcodes</code><span class="cmd-desc">Open this dashboard (default, same as transcodes dashboard)</span></div>
-        <div class="cmd"><code>transcodes set &lt;token&gt; -l &lt;label&gt;</code><span class="cmd-desc">Validate and save a token with a label, then make it active</span></div>
-        <div class="cmd"><code>transcodes tokens</code><span class="cmd-desc">List all saved tokens (active one marked with *)</span></div>
-        <div class="cmd"><code>transcodes reset</code><span class="cmd-desc">Remove all saved tokens</span></div>
-        <div class="cmd"><code>transcodes help</code><span class="cmd-desc">Show the full command list and how to use each one</span></div>
+    <div class="panel" id="panel-guideline">
+      <p class="section-title">Guideline</p>
+      <p class="section-sub">A quick overview of each section in this dashboard.</p>
+      <div class="guide-list">
+        <div class="guide-item">
+          <div class="guide-tab">Tokens</div>
+          <p class="guide-desc">Register and manage MCP agent tokens (TRANSCODES_TOKEN). Paste a token from the Transcodes console, label it, and choose which one is active. Required before step-up policies and Admin MCP tools can talk to the backend.</p>
+        </div>
+        <div class="guide-item">
+          <div class="guide-tab">Policies</div>
+          <p class="guide-desc">Configure when step-up MFA is triggered. <strong>Bash Command</strong> lists regex patterns for shell commands; <strong>MCP tools</strong> lists your custom tool-name rules. Adding rules is done through your coding agent — review and edit saved rules here.</p>
+        </div>
+        <div class="guide-item">
+          <div class="guide-tab">Manual</div>
+          <p class="guide-desc"><strong>Transcodes Admin MCP</strong> is a read-only catalog of backend API tools the plugin exposes. <strong>RBAC gated</strong> tools are intercepted by the PreToolUse hook; the permission matrix (0/1/2) decides deny, allow, or step-up at call time. <strong>Commands</strong> lists terminal shortcuts such as <code>transcodes set</code> and <code>transcodes tokens</code>.</p>
+        </div>
       </div>
     </div>
 
-    <div class="panel" id="panel-settings">
-      <p class="section-title">Settings</p>
-      <p class="section-sub">Manage your local MCP Agent settings</p>
-      <div class="settings-list">
-        <div class="setting-row">
-          <div class="setting-info">
-            <span class="setting-label">Step-up Authentication</span>
-            <p class="setting-desc">When off, all features except Transcodes essentials are skipped</p>
-          </div>
-          <button type="button" class="toggle" id="stepup-toggle" aria-label="Step-up Authentication"></button>
+    <div class="panel" id="panel-manual">
+      <div class="tabs sub-tabs" role="tablist" aria-label="Manual">
+        <button type="button" class="tab active" data-manual="admin" role="tab">Transcodes Admin MCP</button>
+        <button type="button" class="tab" data-manual="commands" role="tab">Commands</button>
+      </div>
+      <div class="policy-pane active" id="manual-pane-admin">
+        <p class="section-title">Transcodes Admin MCP</p>
+        <p class="section-sub">Transcodes backend API tools exposed via MCP. Read-only reference — agents call these through the transcodes-guard plugin. Tools marked <strong>RBAC gated</strong> are intercepted by the PreToolUse hook; your role's permission matrix (0 = deny, 1 = allow, 2 = step-up) decides the outcome at call time — not a fixed MFA requirement.</p>
+        <p class="admin-tools-count" id="admin-tools-count"></p>
+        <div class="token-list" id="admin-tools-list"></div>
+      </div>
+      <div class="policy-pane" id="manual-pane-commands">
+        <p class="section-title">Commands</p>
+        <p class="section-sub">Run these from your terminal — the dashboard wraps the same actions</p>
+        <div class="cmd-list">
+          <div class="cmd"><code>transcodes</code><span class="cmd-desc">Open this dashboard (default, same as transcodes dashboard)</span></div>
+          <div class="cmd"><code>transcodes set &lt;token&gt; -l &lt;label&gt;</code><span class="cmd-desc">Validate and save a token with a label, then make it active</span></div>
+          <div class="cmd"><code>transcodes tokens</code><span class="cmd-desc">List all saved tokens (active one marked with *)</span></div>
+          <div class="cmd"><code>transcodes reset</code><span class="cmd-desc">Remove all saved tokens</span></div>
+          <div class="cmd"><code>transcodes help</code><span class="cmd-desc">Show the full command list and how to use each one</span></div>
         </div>
       </div>
-      <div id="settings-toast" class="toast"></div>
     </div>
 
     <div class="panel" id="panel-patterns">
@@ -760,7 +769,7 @@ function dashboardHtml(): string {
           t.classList.toggle("active", t === tab));
         document.querySelectorAll(".panel").forEach((p) =>
           p.classList.toggle("active", p.id === "panel-" + name));
-        if (name === "settings") loadSettings();
+        if (name === "manual") loadAdminTools();
         if (name === "patterns") {
           updatePolicyTokenWarning();
           loadPatterns();
@@ -769,12 +778,23 @@ function dashboardHtml(): string {
       });
     });
 
+    document.querySelectorAll("#panel-manual .tab[data-manual]").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const name = tab.getAttribute("data-manual");
+        document.querySelectorAll("#panel-manual .tab[data-manual]").forEach((t) =>
+          t.classList.toggle("active", t === tab));
+        document.querySelectorAll("#panel-manual .policy-pane").forEach((p) =>
+          p.classList.toggle("active", p.id === "manual-pane-" + name));
+        if (name === "admin") loadAdminTools();
+      });
+    });
+
     document.querySelectorAll("#panel-patterns .tab[data-policy]").forEach((tab) => {
       tab.addEventListener("click", () => {
         const name = tab.getAttribute("data-policy");
         document.querySelectorAll("#panel-patterns .tab[data-policy]").forEach((t) =>
           t.classList.toggle("active", t === tab));
-        document.querySelectorAll(".policy-pane").forEach((p) =>
+        document.querySelectorAll("#panel-patterns .policy-pane").forEach((p) =>
           p.classList.toggle("active", p.id === "policy-pane-" + name));
         if (name === "bash") loadPatterns();
         if (name === "mcp") loadToolRules();
@@ -963,49 +983,6 @@ function dashboardHtml(): string {
       tokenEl.focus();
     });
 
-    const stepupToggleEl = document.getElementById("stepup-toggle");
-    const settingsToastEl = document.getElementById("settings-toast");
-
-    function showSettingsToast(msg, kind) {
-      settingsToastEl.textContent = msg;
-      settingsToastEl.className = "toast show " + (kind || "success");
-      setTimeout(() => settingsToastEl.classList.remove("show"), 4000);
-    }
-
-    function renderStepupToggle(enabled) {
-      stepupToggleEl.classList.toggle("on", enabled);
-      stepupToggleEl.setAttribute("aria-checked", enabled ? "true" : "false");
-    }
-
-    async function loadSettings() {
-      const res = await fetch("/api/settings");
-      const s = await res.json();
-      renderStepupToggle(s.enabled !== false);
-    }
-
-    stepupToggleEl.addEventListener("click", async () => {
-      const next = !stepupToggleEl.classList.contains("on");
-      stepupToggleEl.disabled = true;
-      try {
-        const res = await fetch("/api/settings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled: next }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Save failed");
-        renderStepupToggle(next);
-        showSettingsToast(
-          next ? "Step-up Authentication enabled" : "Step-up Authentication disabled",
-          "success"
-        );
-      } catch (e) {
-        showSettingsToast(e.message || "Save failed", "error");
-      } finally {
-        stepupToggleEl.disabled = false;
-      }
-    });
-
     const patternToastEl = document.getElementById("pattern-toast");
     const patternUserListEl = document.getElementById("pattern-user-list");
     const patternSystemListEl = document.getElementById("pattern-system-list");
@@ -1053,6 +1030,12 @@ function dashboardHtml(): string {
       const regex =
         '<div class="field"><span class="k">pattern</span> <code>' +
         esc(p.regex) + '</code></div>';
+      const action =
+        '<div class="field"><span class="k">action</span> <code>' +
+        esc(p.stepupAction || 'update') + '</code></div>';
+      const resource =
+        '<div class="field"><span class="k">resource</span> <code>' +
+        esc(p.stepupResource || 'system') + '</code></div>';
       const actions = readonly
         ? ''
         : '<div class="token-actions">' +
@@ -1064,7 +1047,7 @@ function dashboardHtml(): string {
       return (
         '<div class="token-row">' +
           '<div class="token-top">' +
-            '<div class="token-info">' + reason + idField + regex + '</div>' +
+            '<div class="token-info">' + reason + idField + regex + action + resource + '</div>' +
           '</div>' + actions +
         '</div>'
       );
@@ -1152,6 +1135,45 @@ function dashboardHtml(): string {
     const toolToastEl = document.getElementById("tool-toast");
     const toolUserListEl = document.getElementById("tool-user-list");
     const toolSystemListEl = document.getElementById("tool-system-list");
+    const adminToolsListEl = document.getElementById("admin-tools-list");
+    const adminToolsCountEl = document.getElementById("admin-tools-count");
+
+    function adminToolRow(t) {
+      const badgeHtml = t.rbacGated
+        ? '<div class="tool-badges"><span class="tool-badge rbac-gated">RBAC gated</span></div>'
+        : '';
+      const action =
+        '<div class="field"><span class="k">action</span> <code>' +
+        esc(t.rbacAction || 'update') + '</code></div>';
+      const resource =
+        '<div class="field"><span class="k">resource</span> <code>' +
+        esc(t.rbacResource || 'system') + '</code></div>';
+      return (
+        '<div class="token-row">' +
+          '<div class="token-top">' +
+            '<div class="token-info">' +
+              '<div class="label">' + esc(t.title) + '</div>' +
+              badgeHtml +
+              '<p class="tool-desc">' + esc(t.description) + '</p>' +
+              action + resource +
+              '<div class="field"><span class="k">name</span> <code>' + esc(t.name) + '</code></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    function renderAdminTools(payload) {
+      adminToolsCountEl.textContent = payload.total + " tools registered";
+      adminToolsListEl.innerHTML = (payload.tools || [])
+        .map((t) => adminToolRow(t))
+        .join("");
+    }
+
+    async function loadAdminTools() {
+      const res = await fetch("/api/admin-tools");
+      renderAdminTools(await res.json());
+    }
 
     function showToolToast(msg, kind) {
       toolToastEl.textContent = msg;
@@ -1223,9 +1245,10 @@ function dashboardHtml(): string {
         s.user && s.user.length
           ? s.user.map((r) => toolRuleRow(r, false)).join("")
           : '<div class="token-empty">No custom tool rules yet — ask your agent to add one</div>';
-      toolSystemListEl.innerHTML = (s.system || [])
-        .map((r) => toolRuleRow(r, true))
-        .join("");
+      toolSystemListEl.innerHTML =
+        s.system && s.system.length
+          ? s.system.map((r) => toolRuleRow(r, true)).join("")
+          : '<div class="token-empty">No system tool rules</div>';
       if (toolEditingId) {
         const el = toolUserListEl.querySelector(
           '[data-edit-treason="' + toolEditingId + '"]');
@@ -1297,7 +1320,6 @@ function dashboardHtml(): string {
     });
 
     refresh();
-    loadSettings();
   </script>
 </body>
 </html>`;
@@ -1342,6 +1364,7 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
           res.writeHead(200, {
             'Content-Type': 'text/html; charset=utf-8',
             'Cache-Control': 'no-store',
+            Connection: 'close',
           });
           res.end(dashboardHtml());
           return;
@@ -1486,6 +1509,11 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
           return;
         }
 
+        if (method === 'GET' && url === '/api/admin-tools') {
+          sendJson(res, 200, buildAdminToolsPayloadEnriched());
+          return;
+        }
+
         if (method === 'GET' && url === '/api/tool-rules') {
           sendJson(res, 200, buildToolRulesPayload());
           return;
@@ -1515,19 +1543,16 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
             return;
           }
           try {
-            // When the tool name changes, re-derive the audit identifiers so
-            // the simple form never has to surface them.
+            // toolName/reason are the only fields editable from the dashboard.
+            // The RBAC coordinate (stepupResource/stepupAction) is set when the
+            // rule is added via the agent (validated against the backend) and
+            // left untouched here.
             const changes: {
               toolName?: string;
               reason?: string;
-              stepupAction?: string;
-              stepupResource?: string;
             } = { reason };
             if (toolName !== undefined) {
-              const derived = deriveStepup(toolName);
               changes.toolName = toolName;
-              changes.stepupAction = derived.stepupAction;
-              changes.stepupResource = derived.stepupResource;
             }
             const saved = updateUserToolRule(id, changes);
             sendJson(res, 200, { ok: true, saved, ...buildToolRulesPayload() });
@@ -1561,31 +1586,6 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
           return;
         }
 
-        if (method === 'GET' && url === '/api/settings') {
-          sendJson(res, 200, {
-            enabled: isTrackerEnabled(),
-          });
-          return;
-        }
-
-        if (method === 'POST' && url === '/api/settings') {
-          const body = (await readJsonBody(req)) as {
-            enabled?: unknown;
-          };
-          if (typeof body.enabled !== 'boolean') {
-            sendJson(res, 400, {
-              error: 'enabled must be a boolean',
-            });
-            return;
-          }
-          setTrackerEnabled(body.enabled);
-          sendJson(res, 200, {
-            ok: true,
-            enabled: isTrackerEnabled(),
-          });
-          return;
-        }
-
         sendJson(res, 404, { error: 'not found' });
       } catch (err) {
         sendJson(res, 500, {
@@ -1596,6 +1596,59 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
 
     server.on('error', reject);
     server.listen(port, HOST, () => resolve(server));
+  });
+}
+
+/** Wait for Ctrl+C / SIGTERM; force-exit on a second signal or after a timeout. */
+function waitForDashboardShutdown(
+  server: ReturnType<typeof createServer>,
+): Promise<void> {
+  return new Promise((resolve) => {
+    let shuttingDown = false;
+    let forceTimer: NodeJS.Timeout | undefined;
+
+    const cleanup = () => {
+      if (forceTimer) clearTimeout(forceTimer);
+      process.removeListener('SIGINT', onSignal);
+      process.removeListener('SIGTERM', onSignal);
+    };
+
+    const finish = () => {
+      cleanup();
+      resolve();
+    };
+
+    const forceExit = () => {
+      cleanup();
+      process.stderr.write('\nForce stopping dashboard.\n');
+      process.exit(0);
+    };
+
+    const onSignal = () => {
+      if (shuttingDown) {
+        forceExit();
+        return;
+      }
+      shuttingDown = true;
+      process.stderr.write('\nStopping dashboard…\n');
+
+      forceTimer = setTimeout(forceExit, 1500);
+      forceTimer.unref();
+
+      // Idle keep-alive tabs can otherwise leave close() pending forever.
+      server.closeAllConnections?.();
+      server.close((err) => {
+        if (err) {
+          process.stderr.write(
+            `Shutdown error: ${err instanceof Error ? err.message : String(err)}\n`,
+          );
+        }
+        finish();
+      });
+    };
+
+    process.on('SIGINT', onSignal);
+    process.on('SIGTERM', onSignal);
   });
 }
 
@@ -1626,7 +1679,7 @@ export async function runDashboard(options: {
     throw new Error(
       `could not find a free port in ${preferred}-${last} (all in use).\n` +
         `  A previous dashboard is probably still running.\n` +
-        `  Tip: if you stopped one with Ctrl+Z it is only suspended (still alive) — use Ctrl+C to stop it.\n` +
+        `  Tip: Ctrl+Z only suspends the process (port stays taken) — run \`kill %1\` or \`fg\` then Ctrl+C.\n` +
         `  Free the ports and retry:\n` +
         `    macOS/Linux:  lsof -ti tcp:${preferred}-${last} | xargs kill -9\n` +
         `    any platform: npx kill-port ${preferred} ${
@@ -1647,11 +1700,5 @@ export async function runDashboard(options: {
     openBrowser(url);
   }
 
-  await new Promise<void>((resolve) => {
-    const onSignal = () => {
-      server!.close(() => resolve());
-    };
-    process.on('SIGINT', onSignal);
-    process.on('SIGTERM', onSignal);
-  });
+  await waitForDashboardShutdown(server);
 }

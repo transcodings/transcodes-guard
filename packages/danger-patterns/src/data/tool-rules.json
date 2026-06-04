@@ -4,57 +4,57 @@
       "id": "tc-retire-member",
       "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__retire_member",
       "reason": "Permanent member deletion",
-      "stepupAction": "retire_member",
-      "stepupResource": "transcodes-guard:mcp:members"
+      "stepupAction": "delete",
+      "stepupResource": "system"
     },
     {
       "id": "tc-suspend-member",
       "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__suspend_member",
       "reason": "Member login suspension",
-      "stepupAction": "suspend_member",
-      "stepupResource": "transcodes-guard:mcp:members"
+      "stepupAction": "update",
+      "stepupResource": "system"
     },
     {
       "id": "tc-unsuspend-member",
       "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__unsuspend_member",
       "reason": "Member suspension removal",
-      "stepupAction": "unsuspend_member",
-      "stepupResource": "transcodes-guard:mcp:members"
+      "stepupAction": "update",
+      "stepupResource": "system"
     },
     {
       "id": "tc-retire-role",
       "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__retire_role",
       "reason": "Permanent role deletion",
-      "stepupAction": "retire_role",
-      "stepupResource": "transcodes-guard:mcp:rbac"
+      "stepupAction": "delete",
+      "stepupResource": "system"
     },
     {
       "id": "tc-set-role-permissions",
       "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__set_role_permissions",
       "reason": "Role permissions matrix reset",
-      "stepupAction": "set_role_permissions",
-      "stepupResource": "transcodes-guard:mcp:rbac"
+      "stepupAction": "update",
+      "stepupResource": "system"
     },
     {
       "id": "tc-update-member-role",
       "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__update_member_role",
       "reason": "Member role reassignment",
-      "stepupAction": "update_member_role",
-      "stepupResource": "transcodes-guard:mcp:rbac"
+      "stepupAction": "update",
+      "stepupResource": "system"
     },
     {
       "id": "tc-retire-resource",
       "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__retire_resource",
       "reason": "Permanent RBAC resource deletion",
-      "stepupAction": "retire_resource",
-      "stepupResource": "transcodes-guard:mcp:rbac"
+      "stepupAction": "delete",
+      "stepupResource": "system"
     },
     {
       "id": "tc-passcode-create",
       "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__passcode_create",
       "reason": "Recovery passcode generation",
-      "stepupAction": "passcode_create",
-      "stepupResource": "transcodes-guard:mcp:passcode"
+      "stepupAction": "create",
+      "stepupResource": "system"
     }
   ]
 }

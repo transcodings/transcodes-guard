@@ -11,17 +11,14 @@
 import "../host.js";
 import { codexAdapter } from "@transcodes-guard/hook-adapters";
 import {
+  firstActivePending,
   formatNoTokenSessionNotice,
-  isExpired,
-  isTrackerEnabled,
-  readPending,
   resolveToken,
 } from "@transcodes-guard/stepup-core";
 
 function carryoverBlock(): string | null {
-  const pending = readPending();
+  const pending = firstActivePending();
   if (!pending) return null;
-  if (isExpired(pending)) return null;
   const statusNote =
     pending.status === "verified"
       ? "VERIFIED but not yet consumed — retry the original command to release it."
@@ -37,9 +34,6 @@ function carryoverBlock(): string | null {
 }
 
 function main(): void {
-  // Gate disabled: stay silent (no carry-over, no token nag).
-  if (!isTrackerEnabled()) process.exit(0);
-
   const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
   const parts = [carryoverBlock(), tokenNotice].filter(
     (s): s is string => Boolean(s),

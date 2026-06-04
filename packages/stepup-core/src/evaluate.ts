@@ -15,17 +15,21 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import {
+  DEFAULT_RBAC_RESOURCE,
   findFirstMatch,
   findFirstToolRule,
   loadMergedPatterns,
   loadMergedToolRules,
   type MergedToolRule,
+  type RbacAction,
 } from "@transcodes-guard/danger-patterns";
-import { requestStepup, type RequestResult } from "./gate.js";
-import type { PendingState } from "./pending.js";
-import { readVerified } from "./store.js";
+import { loadStepupConfig } from "./config.js";
+import { fingerprintOf, requestStepup, type RequestResult } from "./gate.js";
+import { clearPending, type PendingState } from "./pending.js";
+import { checkRbacPermission, type RbacLevel } from "./rbac-check.js";
+import { pollStepupSession } from "./session.js";
+import { consumeVerified, readVerified } from "./store.js";
 import {
-  isTrackerEnabled,
   resolveToken,
 } from "./token-store.js";
 
@@ -42,12 +46,37 @@ export interface BlockResult {
   details?: string[];
   /** Command / tool-call summary used in stderr logs and the pending file. */
   command: string;
+  /** RBAC step-up coordinate of the matched rule. Always resolved by the
+   * producer (pattern/tool-rule are coerced on load; the git-tracked check
+   * hard-codes system/delete) so the gate can consult the matrix directly. */
+  stepupResource: string;
+  stepupAction: RbacAction;
 }
 
 export type GateDecision =
   | { kind: "pass" }
-  | { kind: "allow"; block: BlockResult; consumeHere: boolean }
+  | {
+      kind: "allow";
+      block: BlockResult;
+      /** True → the hook itself consumes the verified record (Bash + user
+       * tool-rules). False → consume is deferred to the tool handler
+       * (`withStepupVerifiedSid`) for MCP system rules. */
+      consumeHere: boolean;
+      /** Command fingerprint of the verified record to consume. Present
+       * (and meaningful) only when `consumeHere` is true — that path uses
+       * the FP-KEYED store. Omitted for the deferred MCP system path
+       * (GLOBAL store). */
+      fp?: string;
+    }
   | { kind: "deny-no-token"; block: BlockResult }
+  | {
+      /** RBAC matrix returned permission 0 (deny) for this resource+action.
+       * Step-up cannot help — the member's role has no access. Hard block. */
+      kind: "deny-rbac-denied";
+      block: BlockResult;
+      resource: string;
+      action: string;
+    }
   | {
       kind: "deny-stepup-failure";
       block: BlockResult;
@@ -65,10 +94,12 @@ export type GateDecision =
 function checkPatternMatch(command: string): BlockResult | null {
   const hit = findFirstMatch(command, loadMergedPatterns());
   if (!hit) return null;
-  const { source, id, reason } = hit.matched;
+  const { source, id, reason, stepupResource, stepupAction } = hit.matched;
   return {
     reason: `matched ${source} pattern \`${id}\` — ${reason}`,
     command,
+    stepupResource,
+    stepupAction,
   };
 }
 
@@ -171,6 +202,8 @@ function checkRmGitTracked(
       return `${h.target} — ${h.trackedCount} tracked file(s): ${h.samples.join(", ")}${more}`;
     }),
     command,
+    stepupResource: DEFAULT_RBAC_RESOURCE,
+    stepupAction: "delete",
   };
 }
 
@@ -193,6 +226,54 @@ type Classified =
       toolInput: unknown;
       rule: MergedToolRule;
     };
+
+/**
+ * C-plan (backend-as-truth): re-confirm a locally-cached verified record with
+ * the backend before the fast-path trusts it.
+ *
+ * Without this, the fast-path allows on the mere presence of
+ * `stepup-verified.<fp>.json`, so a process that fabricates that file with a
+ * made-up sid bypasses MFA. The sid the file carries was issued by the backend
+ * (the poll tool wrote it), so re-polling it is a forgery test: a fabricated
+ * sid was never issued → backend answers "not verified" → we force a fresh
+ * step-up.
+ *
+ * Called only on the FP path (Bash + user rules); the MCP system path relies
+ * on its handler's X-Step-Up-Session-Id backend backstop instead.
+ *
+ * Decisions:
+ *   - no token / config load fails → "trust": step-up is inert without a token
+ *     and we cannot poll. Preserves pre-C-plan behaviour (and keeps the
+ *     token-less CI fast-path tests green).
+ *   - backend authoritative (2xx) + status "verified" → "trust".
+ *   - backend authoritative (2xx non-verified, or 404 unknown sid) → "reauth":
+ *     the record is forged, expired, or revoked at the backend.
+ *   - cannot confirm (network failure status 0, 5xx, 401/403) → "trust":
+ *     availability fallback. A transient blip must not lock out a user who
+ *     legitimately authenticated; the realistic forgery threat (a rogue local
+ *     process) does not control backend reachability. Note `request()` reports
+ *     network failures as an envelope with `status: 0` rather than throwing.
+ */
+async function recheckVerifiedSid(sid: string): Promise<"trust" | "reauth"> {
+  if (!resolveToken().token) return "trust";
+  let config;
+  try {
+    config = loadStepupConfig();
+  } catch {
+    return "trust";
+  }
+  try {
+    const { envelope, status } = await pollStepupSession(config, sid);
+    if (status === "verified") return "trust";
+    // Authoritative "not verified": reachable 2xx with a non-verified status,
+    // or 404 meaning the backend never issued this sid (fabricated).
+    if (envelope.ok || envelope.status === 404) return "reauth";
+    // status 0 (network) / 5xx / 401 / 403 → cannot confirm → availability.
+    return "trust";
+  } catch {
+    return "trust";
+  }
+}
 
 function classifyToolCall(input: ToolCallInput): Classified | null {
   // Host-specific shell tool names map to the same internal `bash` kind.
@@ -237,10 +318,6 @@ function classifyToolCall(input: ToolCallInput): Classified | null {
 export async function evaluatePreToolUse(
   input: ToolCallInput,
 ): Promise<GateDecision> {
-  if (!isTrackerEnabled()) {
-    return { kind: "pass" };
-  }
-
   let classified: Classified | null;
   try {
     classified = classifyToolCall(input);
@@ -256,36 +333,81 @@ export async function evaluatePreToolUse(
       : {
           reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` — ${classified.rule.reason}`,
           command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
+          stepupResource: classified.rule.stepupResource,
+          stepupAction: classified.rule.stepupAction,
         };
 
   if (!block) return { kind: "pass" };
 
-  if (readVerified()) {
-    const consumeHere =
-      classified.kind === "bash" || classified.rule.consume_in_hook === true;
-    return { kind: "allow", block, consumeHere };
+  // consume_in_hook decides the storage flavour:
+  //   true  (Bash + user tool-rules) → FP-KEYED store, content-addressed by
+  //          this command's fingerprint, so parallel sub-agents never pick up
+  //          one another's verified record.
+  //   false (MCP system rules)       → GLOBAL store; the tool handler consumes
+  //          later via withStepupVerifiedSid and cannot recompute the fp.
+  const consumeHere =
+    classified.kind === "bash" || classified.rule.consume_in_hook === true;
+  const fingerprintKey =
+    classified.kind === "bash"
+      ? classified.command
+      : `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
+  const fp = consumeHere ? fingerprintOf(fingerprintKey) : undefined;
+
+  const verified = readVerified(fp);
+  if (verified) {
+    // Only the FP path (Bash + user rules) needs the backend re-check: it has
+    // no other backstop, so a forged local record would otherwise pass. The
+    // MCP system (GLOBAL) path skips it — its handler re-validates the sid via
+    // the X-Step-Up-Session-Id header, so a forged record there just yields a
+    // failed backend call, not an unauthorized action.
+    if (!consumeHere || (await recheckVerifiedSid(verified.sid)) === "trust") {
+      return { kind: "allow", block, consumeHere, fp };
+    }
+    // Backend says this record is no longer (or never was) verified — discard
+    // the stale/forged record and fall through to a fresh step-up below.
+    consumeVerified(fp);
+    clearPending(fp);
   }
 
   if (!resolveToken().token) {
     return { kind: "deny-no-token", block };
   }
 
-  const gateInput =
-    classified.kind === "bash"
-      ? {
-          reason: block.reason,
-          action: "bash_exec",
-          resource: "transcodes-guard:pre-tool-use",
-          fingerprintKey: classified.command,
-          comment: `Confirm danger command: ${block.reason}`,
-        }
-      : {
-          reason: block.reason,
-          action: classified.rule.stepupAction,
-          resource: classified.rule.stepupResource,
-          fingerprintKey: `${classified.toolName}:${JSON.stringify(classified.toolInput)}`,
-          comment: `Confirm ${classified.rule.id}: ${classified.rule.reason}`,
-        };
+  // The matched rule only maps this command/tool onto an RBAC coordinate; the
+  // backend permission matrix is the authority for the decision. The coordinate
+  // is already resolved on `block` (both producers fill it), so ask the matrix
+  // directly: 0=deny, 1=allow (no step-up), 2=allow+step-up.
+  const { stepupResource: resource, stepupAction: action } = block;
+
+  // Fail-closed: any failure to determine the level (network/parse/config) is
+  // treated as step-up required (2) — never silently allowed.
+  let level: RbacLevel = 2;
+  try {
+    const config = loadStepupConfig();
+    level = (await checkRbacPermission(config, resource, action)) ?? 2;
+  } catch {
+    level = 2;
+  }
+
+  if (level === 0) {
+    return { kind: "deny-rbac-denied", block, resource, action };
+  }
+  if (level === 1) {
+    // RBAC grants this without step-up → let the command through. The local
+    // rule is a classifier, not an independent floor.
+    return { kind: "pass" };
+  }
+
+  const gateInput = {
+    reason: block.reason,
+    action,
+    resource,
+    fingerprintKey,
+    comment:
+      classified.kind === "bash"
+        ? `Confirm danger command: ${block.reason}`
+        : `Confirm ${classified.rule.id}: ${classified.rule.reason}`,
+  };
 
   const req = await requestStepup(gateInput);
   if (!req.ok) {
@@ -300,6 +422,8 @@ export async function evaluatePreToolUse(
     createdAt: Date.now(),
     expiresAt: req.expiresAt,
     status: "pending",
+    // FP-KEYED record for the hook-consume path; GLOBAL (no fp) otherwise.
+    ...(fp ? { fp } : {}),
   };
 
   return {

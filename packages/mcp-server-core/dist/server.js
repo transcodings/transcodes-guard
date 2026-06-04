@@ -1,9 +1,10 @@
 import { spawn as childSpawn } from "node:child_process";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { PLUGIN_VERSION } from "./build-info.js";
 import { z } from "zod";
 import { addUserPattern, addUserToolRule, findFirstMatch, findFirstToolRule, getUserPatternsPath, getUserToolRulesPath, loadMergedPatterns, loadMergedToolRules, PatternValidationError, removeUserPattern, removeUserToolRule, ToolRuleValidationError, updateUserPattern, updateUserToolRule, } from "@transcodes-guard/danger-patterns";
-import { createStepupSession, inspectStepupState, isTrackerEnabled, loadStepupConfig, markVerified, parseMemberAccessToken, pollStepupSession, pollStepupSessionWait, resolveToken, setTrackerEnabled, transcodesConfigFile, writeVerified, } from "@transcodes-guard/stepup-core";
+import { createStepupSession, inspectStepupState, findPendingBySid, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, writeVerified, } from "@transcodes-guard/stepup-core";
 import { registerAuditTools } from "./tools/audit.js";
 import { registerAuthDeviceTools } from "./tools/auth-devices.js";
 import { registerJwkTools } from "./tools/jwk.js";
@@ -14,6 +15,8 @@ import { registerOrganizationTools } from "./tools/organization.js";
 import { registerPasscodeTools } from "./tools/passcode.js";
 import { registerProjectTools } from "./tools/project.js";
 import { registerRbacTools } from "./tools/rbac.js";
+import { assertRbacCoordinate, RbacCoordinateError, } from "./tools/rbac-validate.js";
+const RBAC_ACTION_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first to fetch valid resource keys, then pass `stepupResource` (must match one of those keys; validated against the backend) and `stepupAction` (CRUD). System rules use resource `system`. This maps the rule onto the project's RBAC permission matrix and audit log.";
 function formatPatternsMarkdown(patterns) {
     const lines = [
         "# Blocked Bash command patterns",
@@ -53,8 +56,21 @@ function textResult(text, isError = false) {
 export function createServer() {
     const server = new McpServer({
         name: "transcodes-guard-mcp",
-        version: "0.1.0",
+        version: PLUGIN_VERSION,
     });
+    server.registerResource("version-info", "version://info", {
+        title: "Plugin version",
+        description: "Returns the running plugin version. Use this to confirm which build is currently loaded after an update.",
+        mimeType: "application/json",
+    }, async (uri) => ({
+        contents: [
+            {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({ version: PLUGIN_VERSION }, null, 2),
+            },
+        ],
+    }));
     server.registerResource("danger-patterns", "danger-patterns://list", {
         title: "Blocked Bash patterns",
         description: `Regex patterns the PreToolUse hook uses to block dangerous Bash commands. Merges immutable system patterns (hooks/danger-patterns.json) with user patterns (${getUserPatternsPath()}, JSONC — comments allowed for hand-edits), read fresh at every request.`,
@@ -105,21 +121,27 @@ export function createServer() {
     });
     server.registerTool("add_user_pattern", {
         title: "Add user danger pattern",
-        description: `Register a new user-owned block pattern that the PreToolUse hook will enforce. Call when the user asks to add/register/block a new pattern, ban a command, or extend danger-patterns — e.g. '패턴 추가해줘', 'sudo 막아줘', '이런 명령도 차단되게 해줘', or a natural-language intent like 'env 파일 옮기는 명령 막아줘' / 'git pull 할 때 트리거해줘'.\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched: a free-form Bash COMMAND STRING (sudo, rm -rf, git push) → use this tool (regex matching); a specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) → use \`add_tool_rule\` instead (exact tool_name match). If the user just says "add a rule" without specifying, ask which they mean before calling either tool.\n\nNATURAL-LANGUAGE → REGEX WORKFLOW (follow in order; you are the translator — there is no separate conversion engine):\n  1. TRANSLATE the user's plain-language intent into a concrete regex yourself. Anchor on the command's intent (e.g. 'env 옮기기' → \\\\b(mv|cp|scp)\\\\b.*\\\\.env\\\\b), not a bare word that is also a common identifier.\n  2. VERIFY with the \`simulate_command\` tool BEFORE saving: run at least one example that SHOULD match and one that should NOT, to confirm the regex catches the intent without false positives.\n  3. CONFIRM with the user: show the proposed regex + reason verbatim and get explicit approval. Never silently save an inferred regex.\n  4. SAVE by calling this tool only after approval.\nid must be unique across both system and user patterns; regex must compile. Persisted to ${getUserPatternsPath()} (JSONC) and effective on the next hook invocation.`,
+        description: `Register a new user-owned block pattern that the PreToolUse hook will enforce. Call when the user asks to add/register/block a new pattern, ban a command, or extend danger-patterns — e.g. '패턴 추가해줘', 'sudo 막아줘', '이런 명령도 차단되게 해줘', or a natural-language intent like 'env 파일 옮기는 명령 막아줘' / 'git pull 할 때 트리거해줘'.\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched: a free-form Bash COMMAND STRING (sudo, rm -rf, git push) → use this tool (regex matching); a specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) → use \`add_tool_rule\` instead (exact tool_name match). If the user just says "add a rule" without specifying, ask which they mean before calling either tool.\n\nNATURAL-LANGUAGE → REGEX WORKFLOW (follow in order; you are the translator — there is no separate conversion engine):\n  1. TRANSLATE the user's plain-language intent into a concrete regex yourself. Anchor on the command's intent (e.g. 'env 옮기기' → \\\\b(mv|cp|scp)\\\\b.*\\\\.env\\\\b), not a bare word that is also a common identifier.\n  2. VERIFY with the \`simulate_command\` tool BEFORE saving: run at least one example that SHOULD match and one that should NOT, to confirm the regex catches the intent without false positives.\n  3. CONFIRM with the user: show the proposed regex + reason verbatim and get explicit approval. Never silently save an inferred regex.\n  4. RESOLVE the RBAC coordinate: call \`get_resources\` to fetch valid resource keys, then set \`stepupResource\` (one of those keys) and \`stepupAction\` (create|read|update|delete). The resource is validated against the backend on save.\n  5. SAVE by calling this tool only after approval.\nid must be unique across both system and user patterns; regex must compile. Persisted to ${getUserPatternsPath()} (JSONC) and effective on the next hook invocation.`,
         inputSchema: {
             id: z
                 .string()
                 .regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
             regex: z.string().min(1),
             reason: z.string().min(1),
+            stepupResource: z.string().min(1).describe(RBAC_ACTION_GUIDANCE),
+            stepupAction: z
+                .enum(["create", "read", "update", "delete"])
+                .describe("RBAC CRUD action this pattern maps onto."),
         },
     }, async (input) => {
         try {
+            await assertRbacCoordinate(loadStepupConfig(), input.stepupResource, input.stepupAction);
             const saved = addUserPattern(input);
-            return textResult(`Added user pattern \`${saved.id}\`.\nregex: ${saved.regex}\nreason: ${saved.reason}`);
+            return textResult(`Added user pattern \`${saved.id}\`.\nregex: ${saved.regex}\nreason: ${saved.reason}\nresource: ${saved.stepupResource}\naction: ${saved.stepupAction}`);
         }
         catch (e) {
-            if (e instanceof PatternValidationError) {
+            if (e instanceof PatternValidationError ||
+                e instanceof RbacCoordinateError) {
                 return textResult(`Rejected: ${e.message}`, true);
             }
             throw e;
@@ -127,22 +149,42 @@ export function createServer() {
     });
     server.registerTool("update_user_pattern", {
         title: "Update user danger pattern",
-        description: "Modify regex or reason of an existing user pattern. Call when the user asks to edit/change/수정 a pattern by id — e.g. 'no-sudo 패턴 reason 바꿔줘', 'regex 수정해줘'. System patterns cannot be modified; attempts are rejected. Pass only the fields you want to change.",
+        description: "Modify regex, reason, or the RBAC step-up coordinate (stepupResource/stepupAction) of an existing user pattern. Call when the user asks to edit/change/수정 a pattern by id — e.g. 'no-sudo 패턴 reason 바꿔줘', 'regex 수정해줘'. When changing stepupResource, call `get_resources` first — the new resource is validated against the backend. System patterns cannot be modified; attempts are rejected. Pass only the fields you want to change.",
         inputSchema: {
             id: z.string().min(1),
             regex: z.string().min(1).optional(),
             reason: z.string().min(1).optional(),
+            stepupResource: z.string().min(1).optional().describe(RBAC_ACTION_GUIDANCE),
+            stepupAction: z
+                .enum(["create", "read", "update", "delete"])
+                .optional()
+                .describe("RBAC CRUD action this pattern maps onto."),
         },
-    }, async ({ id, regex, reason }) => {
-        if (regex === undefined && reason === undefined) {
-            return textResult("Rejected: provide at least one of `regex` or `reason` to update.", true);
+    }, async ({ id, regex, reason, stepupResource, stepupAction }) => {
+        if (regex === undefined &&
+            reason === undefined &&
+            stepupResource === undefined &&
+            stepupAction === undefined) {
+            return textResult("Rejected: provide at least one of `regex`, `reason`, `stepupResource`, or `stepupAction` to update.", true);
         }
         try {
-            const saved = updateUserPattern(id, { regex, reason });
-            return textResult(`Updated user pattern \`${saved.id}\`.\nregex: ${saved.regex}\nreason: ${saved.reason}`);
+            // Validate the resource against the backend only when it actually
+            // changes — an existing resource was already validated on add. The
+            // action is enum-checked by zod, so it needs no backend round-trip.
+            if (stepupResource !== undefined) {
+                await assertRbacCoordinate(loadStepupConfig(), stepupResource, stepupAction ?? "update");
+            }
+            const saved = updateUserPattern(id, {
+                regex,
+                reason,
+                stepupResource,
+                stepupAction,
+            });
+            return textResult(`Updated user pattern \`${saved.id}\`.\nregex: ${saved.regex}\nreason: ${saved.reason}\nresource: ${saved.stepupResource}\naction: ${saved.stepupAction}`);
         }
         catch (e) {
-            if (e instanceof PatternValidationError) {
+            if (e instanceof PatternValidationError ||
+                e instanceof RbacCoordinateError) {
                 return textResult(`Rejected: ${e.message}`, true);
             }
             throw e;
@@ -229,7 +271,13 @@ export function createServer() {
         const config = loadStepupConfig();
         const result = await pollStepupSession(config, sid);
         if (result.status === "verified") {
-            writeVerified({ sid, verifiedAt: Date.now() });
+            // Route the verified record to the right store: the pending record
+            // carries the fp for the hook-consume (Bash/user) path; absent fp
+            // → GLOBAL store (MCP system path). Recomputing fp here is impossible
+            // (we only have the sid), so the gate-time fp is read back via the
+            // pending record it created.
+            const fp = findPendingBySid(sid)?.fp;
+            writeVerified({ sid, verifiedAt: Date.now() }, fp);
             markVerified(sid);
         }
         return {
@@ -283,7 +331,8 @@ export function createServer() {
             intervalMs: interval_ms,
         });
         if (result.outcome === "verified") {
-            writeVerified({ sid, verifiedAt: Date.now() });
+            const fp = findPendingBySid(sid)?.fp;
+            writeVerified({ sid, verifiedAt: Date.now() }, fp);
             markVerified(sid);
         }
         return {
@@ -322,67 +371,6 @@ export function createServer() {
                 },
             ],
         };
-    });
-    server.registerTool("get_tracker_status", {
-        title: "Get transcodes-guard gate status",
-        description: "Report whether the transcodes-guard step-up gate is currently " +
-            "enabled, plus the active token source and its expiry. Read-only. " +
-            "Call when the user asks if the tracker/hook/protection is on or off " +
-            "— e.g. '트래커 켜져 있어?', 'hook 활성화 상태야?', 'is the gate enabled?'. " +
-            "The enabled flag lives in the same file as the token " +
-            `(${transcodesConfigFile()}); a missing flag means enabled.`,
-        inputSchema: {},
-    }, async () => {
-        const enabled = isTrackerEnabled();
-        const { token, source } = resolveToken();
-        let tokenSummary = null;
-        if (token) {
-            try {
-                const parsed = parseMemberAccessToken(token);
-                tokenSummary = `member=${parsed.claims.memberId} project=${parsed.claims.projectId} expires=${new Date(parsed.claims.exp * 1000).toISOString()}`;
-            }
-            catch {
-                tokenSummary = "present but undecodable";
-            }
-        }
-        return textResult(JSON.stringify({
-            enabled,
-            config_file: transcodesConfigFile(),
-            token_source: source,
-            token: tokenSummary,
-        }, null, 2));
-    });
-    server.registerTool("set_tracker_enabled", {
-        title: "Re-enable the transcodes-guard gate",
-        description: "Re-ENABLE the transcodes-guard step-up gate across all hosts. " +
-            "This tool can only turn protection ON — it deliberately REFUSES " +
-            "`enabled=false`. Disabling the gate is a privilege reduction that " +
-            "must be a human, out-of-band action (the agent could otherwise " +
-            "disable its own guardrails via prompt injection), so disabling is " +
-            "only possible by running `transcodes disable` in a terminal. Call " +
-            "this when the user asks to turn the tracker/hook/protection back " +
-            "ON — e.g. '트래커 다시 켜줘', 'enable the gate', 'turn protection " +
-            `back on'. Persists to ${transcodesConfigFile()}; effective on the ` +
-            "next hook invocation (no restart needed).",
-        inputSchema: {
-            enabled: z
-                .boolean()
-                .describe("Must be true. This tool only re-enables the gate; pass true to turn protection on. false is refused — disable via `transcodes disable` in a terminal."),
-        },
-    }, async ({ enabled }) => {
-        if (!enabled) {
-            return textResult("Refused: the gate cannot be disabled through an MCP tool — that " +
-                "would let an agent switch off its own step-up protection. To " +
-                "disable, the human operator must run `transcodes disable` in a " +
-                "terminal (out-of-band from this agent).", true);
-        }
-        try {
-            setTrackerEnabled(true);
-        }
-        catch (e) {
-            return textResult(`Failed to enable gate: ${e instanceof Error ? e.message : String(e)}`, true);
-        }
-        return textResult("transcodes-guard gate ENABLED. Danger commands and protected MCP tools will require step-up MFA again.");
     });
     server.registerTool("simulate_hook_invocation", {
         title: "Invoke PreToolUse hook in a controlled subprocess",
@@ -544,15 +532,17 @@ export function createServer() {
     }));
     server.registerTool("add_tool_rule", {
         title: "Add user MCP tool-rule",
-        description: `Register a new user-owned tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called", "block mcp__github__delete_repository".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push, an env-file move) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) → use this tool (exact tool_name match).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. RESOLVE the exact tool name. Tool names are host-specific (e.g. mcp__github__delete_repository, or mcp__plugin_<plugin>_<server>__<tool> for plugin-provided servers). Do not guess — confirm the exact string with the user or read it from the host's available tools. Regex/wildcards are NOT supported; the match is exact.\n  2. VERIFY with \`simulate_tool_call\` before saving to confirm the rule will match the intended tool name.\n  3. DERIVE the audit identifiers from the tool name: for mcp__<server>__<tool>, set stepupAction to <tool> and stepupResource to "mcp:<server>". For names without that shape, use the raw tool name as stepupAction and "mcp:custom" as stepupResource.\n  4. CONFIRM the proposed id/toolName/reason/stepupAction/stepupResource with the user, then SAVE by calling this tool.\nid must be unique across both system and user rules; persisted to ${getUserToolRulesPath()} (JSONC) and effective on the next hook invocation.`,
+        description: `Register a new user-owned tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called", "block mcp__github__delete_repository".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push, an env-file move) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) → use this tool (exact tool_name match).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. RESOLVE the exact tool name. Tool names are host-specific (e.g. mcp__github__delete_repository, or mcp__plugin_<plugin>_<server>__<tool> for plugin-provided servers). Do not guess — confirm the exact string with the user or read it from the host's available tools. Regex/wildcards are NOT supported; the match is exact.\n  2. VERIFY with \`simulate_tool_call\` before saving to confirm the rule will match the intended tool name.\n  3. RESOLVE the RBAC coordinate: call \`get_resources\` to fetch valid resource keys, then set \`stepupResource\` (one of those keys — validated against the backend on save) and \`stepupAction\` (create|read|update|delete, matching what the tool does). Most rules use resource \`system\`.\n  4. CONFIRM the proposed id/toolName/reason/stepupResource/stepupAction with the user, then SAVE by calling this tool.\nid must be unique across both system and user rules; persisted to ${getUserToolRulesPath()} (JSONC) and effective on the next hook invocation.`,
         inputSchema: {
             id: z
                 .string()
                 .regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
             toolName: z.string().min(1),
             reason: z.string().min(1),
-            stepupAction: z.string().min(1),
-            stepupResource: z.string().min(1),
+            stepupResource: z.string().min(1).describe(RBAC_ACTION_GUIDANCE),
+            stepupAction: z
+                .enum(["create", "read", "update", "delete"])
+                .describe("RBAC CRUD action this tool maps onto."),
             consume_in_hook: z
                 .boolean()
                 .optional()
@@ -560,11 +550,13 @@ export function createServer() {
         },
     }, async (input) => {
         try {
+            await assertRbacCoordinate(loadStepupConfig(), input.stepupResource, input.stepupAction);
             const saved = addUserToolRule(input);
-            return textResult(`Added user tool-rule \`${saved.id}\`.\ntoolName: ${saved.toolName}\nreason: ${saved.reason}\naction: ${saved.stepupAction}\nresource: ${saved.stepupResource}\nconsume_in_hook: ${saved.consume_in_hook ?? true}`);
+            return textResult(`Added user tool-rule \`${saved.id}\`.\ntoolName: ${saved.toolName}\nreason: ${saved.reason}\nresource: ${saved.stepupResource}\naction: ${saved.stepupAction}\nconsume_in_hook: ${saved.consume_in_hook ?? true}`);
         }
         catch (e) {
-            if (e instanceof ToolRuleValidationError) {
+            if (e instanceof ToolRuleValidationError ||
+                e instanceof RbacCoordinateError) {
                 return textResult(`Rejected: ${e.message}`, true);
             }
             throw e;
@@ -572,13 +564,16 @@ export function createServer() {
     });
     server.registerTool("update_tool_rule", {
         title: "Update user MCP tool-rule",
-        description: 'Modify fields of an existing user tool-rule by id. Call when the user asks to edit/change an MCP tool-rule — e.g. "change the reason of the github-delete rule", "point that tool rule at a different tool name". This is for MCP tool-rules (exact tool_name match); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified; attempts are rejected. Pass only the fields you want to change. When you change toolName, re-derive stepupAction/stepupResource from the new name (mcp__<server>__<tool> → action=<tool>, resource="mcp:<server>").',
+        description: 'Modify fields of an existing user tool-rule by id. Call when the user asks to edit/change an MCP tool-rule — e.g. "change the reason of the github-delete rule", "point that tool rule at a different tool name". This is for MCP tool-rules (exact tool_name match); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified; attempts are rejected. Pass only the fields you want to change. When changing stepupResource, call `get_resources` first — the new resource is validated against the backend. stepupAction must be a CRUD action (create|read|update|delete).',
         inputSchema: {
             id: z.string().min(1),
             toolName: z.string().min(1).optional(),
             reason: z.string().min(1).optional(),
-            stepupAction: z.string().min(1).optional(),
-            stepupResource: z.string().min(1).optional(),
+            stepupResource: z.string().min(1).optional().describe(RBAC_ACTION_GUIDANCE),
+            stepupAction: z
+                .enum(["create", "read", "update", "delete"])
+                .optional()
+                .describe("RBAC CRUD action this tool maps onto."),
             consume_in_hook: z
                 .boolean()
                 .optional()
@@ -593,6 +588,9 @@ export function createServer() {
             return textResult("Rejected: provide at least one of `toolName`, `reason`, `stepupAction`, `stepupResource`, or `consume_in_hook` to update.", true);
         }
         try {
+            if (stepupResource !== undefined) {
+                await assertRbacCoordinate(loadStepupConfig(), stepupResource, stepupAction ?? "update");
+            }
             const saved = updateUserToolRule(id, {
                 toolName,
                 reason,
@@ -600,10 +598,11 @@ export function createServer() {
                 stepupResource,
                 consume_in_hook,
             });
-            return textResult(`Updated user tool-rule \`${saved.id}\`.\ntoolName: ${saved.toolName}\nreason: ${saved.reason}\naction: ${saved.stepupAction}\nresource: ${saved.stepupResource}\nconsume_in_hook: ${saved.consume_in_hook ?? true}`);
+            return textResult(`Updated user tool-rule \`${saved.id}\`.\ntoolName: ${saved.toolName}\nreason: ${saved.reason}\nresource: ${saved.stepupResource}\naction: ${saved.stepupAction}\nconsume_in_hook: ${saved.consume_in_hook ?? true}`);
         }
         catch (e) {
-            if (e instanceof ToolRuleValidationError) {
+            if (e instanceof ToolRuleValidationError ||
+                e instanceof RbacCoordinateError) {
                 return textResult(`Rejected: ${e.message}`, true);
             }
             throw e;

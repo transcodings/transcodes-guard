@@ -15,6 +15,7 @@ import { dataDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
 // danger-patterns.ts (bundlers inline this; a runtime path read breaks once the
 // plugin is bundled by tsup).
 import systemToolRulesData from "./data/tool-rules.json" with { type: "json" };
+import { coerceRbacAction, coerceRbacResource, isRbacAction, } from "./rbac.js";
 const USER_TOOL_RULES_FILE = "user-tool-rules.json";
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 export function getUserToolRulesPath() {
@@ -49,13 +50,19 @@ export function userToolRulesFileExists() {
     return existsSync(getUserToolRulesPath());
 }
 export function loadMergedToolRules() {
+    // Coerce action/resource on load so the gate always sees a valid RBAC
+    // coordinate even for rows written before these fields existed.
     const system = loadSystemToolRules().rules.map((r) => ({
         ...r,
+        stepupAction: coerceRbacAction(r.stepupAction),
+        stepupResource: coerceRbacResource(r.stepupResource),
         consume_in_hook: r.consume_in_hook ?? false,
         source: "system",
     }));
     const user = loadUserToolRules().rules.map((r) => ({
         ...r,
+        stepupAction: coerceRbacAction(r.stepupAction),
+        stepupResource: coerceRbacResource(r.stepupResource),
         consume_in_hook: r.consume_in_hook ?? true,
         source: "user",
     }));
@@ -102,8 +109,8 @@ export function validateNewToolRule(input) {
         throw new ToolRuleValidationError("reason must not be empty");
     }
     const trimmedAction = stepupAction.trim();
-    if (!trimmedAction) {
-        throw new ToolRuleValidationError("stepupAction must not be empty");
+    if (!isRbacAction(trimmedAction)) {
+        throw new ToolRuleValidationError(`stepupAction must be one of create|read|update|delete (got: "${stepupAction}")`);
     }
     const trimmedResource = stepupResource.trim();
     if (!trimmedResource) {
@@ -142,8 +149,10 @@ export function updateUserToolRule(id, changes) {
         id,
         toolName: changes.toolName ?? existing.toolName,
         reason: changes.reason ?? existing.reason,
-        stepupAction: changes.stepupAction ?? existing.stepupAction,
-        stepupResource: changes.stepupResource ?? existing.stepupResource,
+        // Coerce existing values that predate the CRUD constraint so an unrelated
+        // edit (e.g. reason only) of a legacy rule doesn't fail validation.
+        stepupAction: changes.stepupAction ?? coerceRbacAction(existing.stepupAction),
+        stepupResource: changes.stepupResource ?? coerceRbacResource(existing.stepupResource),
         consume_in_hook: changes.consume_in_hook ?? existing.consume_in_hook,
     };
     const validated = validateNewToolRule(merged);

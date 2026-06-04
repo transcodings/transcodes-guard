@@ -41,29 +41,14 @@ export declare function setTokenLabel(token: string, label: string): void;
 /**
  * Remove a token from the pool. If it was the active token, the first
  * remaining token becomes active (or none). Deletes the file entirely when
- * the pool becomes empty (preserving an explicit `enabled` flag). Best-effort.
+ * the pool becomes empty. Deletes the file entirely. Best-effort.
  */
 export declare function removeTokenFromFile(token: string): void;
 /**
- * Remove all saved tokens (CLI `reset`). If the file carries an explicit
- * `enabled` flag, rewrite without tokens so the disable state survives;
- * otherwise delete the file entirely. Best-effort.
+ * Remove all saved tokens (CLI `reset`). Deletes the config file entirely.
+ * Best-effort.
  */
 export declare function clearTokenFile(): void;
-/**
- * Whether the transcodes-guard gate is enabled. Reads the `enabled` flag
- * from `~/.transcodes/config.json`. Default is `true`: a missing flag,
- * absent file, or corrupt file all resolve to enabled so the security gate
- * is never silently switched off. Only an explicit `"enabled": false`
- * disables it. Never throws.
- */
-export declare function isTrackerEnabled(): boolean;
-/**
- * Toggle the gate. Read-modify-write preserving tokens and labels. Used by
- * the CLI, dashboard, and the `set_tracker_enabled` MCP tool. Throws on I/O
- * failure.
- */
-export declare function setTrackerEnabled(enabled: boolean): void;
 export type TokenSource = "env" | "file" | "none";
 export type ResolvedToken = {
     token: string | null;

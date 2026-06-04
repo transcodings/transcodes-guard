@@ -28,10 +28,6 @@ System rule ids are reserved: user rules cannot override, modify, or remove them
 
 This breadth is why a regex must match the *command's intent*, not just a word's appearance. A pattern keyed on a bare word that is also a common identifier in this repo (the repo dir, the `transcodes-guard` package name, the `transcodes` CLI) will false-positive pervasively — prefer command-start anchors over enumerating excluded lead characters in a lookbehind.
 
-## Self-gate caveat when working here
-
-This repo's own PreToolUse gate is active during development, and its working directory path contains `transcodes`. The `tracker-self-disable` pattern (`\btranscodes\b[^\n]*\bdisable\b`) can false-match your own Bash commands (e.g. a commit message or branch name containing both words). Avoid putting `transcodes … disable` literals on one command line; use `git commit -F <file>` and investigate code with Read/Glob/Grep rather than `grep` shell commands. See the user-memory note for the full workaround.
-
 ## Validation rules
 
 - `id` must match `/^[a-z0-9][a-z0-9-]*$/`.

@@ -1,3 +1,12 @@
+/**
+ * Stable 16-hex fingerprint of a command/tool-call key. Shared by:
+ *   - browser-launch dedup (this file), and
+ *   - content-addressed verified/pending files (evaluate.ts + store.ts),
+ * so the same danger command always resolves to the same fp across the
+ * gate → poll → retry round-trip. 16 hex chars (64 bits) is collision-safe
+ * for the per-session set of in-flight danger commands.
+ */
+export declare function fingerprintOf(key: string): string;
 export type RequestInput = {
     /** One-line human-readable summary surfaced in the deny JSON. */
     reason: string;

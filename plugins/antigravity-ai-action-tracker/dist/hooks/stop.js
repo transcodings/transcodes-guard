@@ -5,10 +5,12 @@ import {
 import {
   clearPending,
   consumeVerified,
+  firstInFlightFpPending,
   isExpired,
   readPending,
-  readVerified
-} from "../chunk-2V4ZE5OP.js";
+  readVerified,
+  sweepStepup
+} from "../chunk-W5236A66.js";
 
 // hooks/stop.ts
 function reminderFor(pending) {
@@ -32,6 +34,7 @@ async function main() {
     }
   } catch {
   }
+  sweepStepup();
   const pending = readPending();
   const verified = readVerified();
   if (verified && (!pending || pending.status !== "pending")) {
@@ -43,8 +46,9 @@ async function main() {
     clearPending();
     process.exit(0);
   }
-  if (!pending || isExpired(pending)) process.exit(0);
-  process.stdout.write(antigravityAdapter.emitStop(reminderFor(pending)));
+  const reminder = pending && !isExpired(pending) ? pending : firstInFlightFpPending();
+  if (!reminder) process.exit(0);
+  process.stdout.write(antigravityAdapter.emitStop(reminderFor(reminder)));
   process.exit(0);
 }
 main().catch((err) => {

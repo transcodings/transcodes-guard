@@ -10,8 +10,7 @@ import "../host.js";
 import { readFileSync } from "node:fs";
 import { claudeCodeAdapter } from "@transcodes-guard/hook-adapters";
 import {
-  isExpired,
-  readPending,
+  firstActivePending,
   type PendingState,
 } from "@transcodes-guard/stepup-core";
 
@@ -51,8 +50,8 @@ function main(): void {
 
   if (!parsed.prompt) process.exit(0);
 
-  const pending = readPending();
-  if (!pending || isExpired(pending)) process.exit(0);
+  const pending = firstActivePending();
+  if (!pending) process.exit(0);
 
   const additionalContext = buildContext(parsed.prompt, pending);
   if (!additionalContext) process.exit(0);

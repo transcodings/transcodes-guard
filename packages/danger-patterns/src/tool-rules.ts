@@ -20,6 +20,12 @@ import { dataDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
 // danger-patterns.ts (bundlers inline this; a runtime path read breaks once the
 // plugin is bundled by tsup).
 import systemToolRulesData from "./data/tool-rules.json" with { type: "json" };
+import {
+  type RbacAction,
+  coerceRbacAction,
+  coerceRbacResource,
+  isRbacAction,
+} from "./rbac.js";
 
 export interface ToolRule {
   id: string;
@@ -27,9 +33,12 @@ export interface ToolRule {
    * gate's scope explicit and auditable. */
   toolName: string;
   reason: string;
-  /** Backend audit-log action identifier (e.g. "retire_member"). */
-  stepupAction: string;
-  /** Backend audit-log resource identifier (e.g. "transcodes-guard:mcp:members"). */
+  /** RBAC CRUD action this rule maps onto (create/read/update/delete). Feeds
+   * `createStepupSession({ action })` so the step-up audit log + the project's
+   * RBAC permission matrix share coordinates. */
+  stepupAction: RbacAction;
+  /** RBAC resource key (e.g. "system"), validated against the live backend at
+   * add time. Feeds `createStepupSession({ resource })`. */
   stepupResource: string;
   /** When true, the PreToolUse hook consumes the verified record itself on the
    * fast-path (Bash-like). When false, consume is deferred to the tool handler
@@ -88,13 +97,19 @@ export function userToolRulesFileExists(): boolean {
 }
 
 export function loadMergedToolRules(): MergedToolRule[] {
+  // Coerce action/resource on load so the gate always sees a valid RBAC
+  // coordinate even for rows written before these fields existed.
   const system = loadSystemToolRules().rules.map((r) => ({
     ...r,
+    stepupAction: coerceRbacAction(r.stepupAction),
+    stepupResource: coerceRbacResource(r.stepupResource),
     consume_in_hook: r.consume_in_hook ?? false,
     source: "system" as const,
   }));
   const user = loadUserToolRules().rules.map((r) => ({
     ...r,
+    stepupAction: coerceRbacAction(r.stepupAction),
+    stepupResource: coerceRbacResource(r.stepupResource),
     consume_in_hook: r.consume_in_hook ?? true,
     source: "user" as const,
   }));
@@ -121,7 +136,10 @@ export interface ToolRuleInput {
   id: string;
   toolName: string;
   reason: string;
+  /** Must be a CRUD action (create/read/update/delete). */
   stepupAction: string;
+  /** RBAC resource key. Backend existence is validated by the caller (MCP
+   * handler) before this runs — this layer only enforces non-empty. */
   stepupResource: string;
   consume_in_hook?: boolean;
 }
@@ -171,8 +189,10 @@ export function validateNewToolRule(input: ToolRuleInput): ToolRule {
   }
 
   const trimmedAction = stepupAction.trim();
-  if (!trimmedAction) {
-    throw new ToolRuleValidationError("stepupAction must not be empty");
+  if (!isRbacAction(trimmedAction)) {
+    throw new ToolRuleValidationError(
+      `stepupAction must be one of create|read|update|delete (got: "${stepupAction}")`,
+    );
   }
 
   const trimmedResource = stepupResource.trim();
@@ -230,8 +250,11 @@ export function updateUserToolRule(
     id,
     toolName: changes.toolName ?? existing.toolName,
     reason: changes.reason ?? existing.reason,
-    stepupAction: changes.stepupAction ?? existing.stepupAction,
-    stepupResource: changes.stepupResource ?? existing.stepupResource,
+    // Coerce existing values that predate the CRUD constraint so an unrelated
+    // edit (e.g. reason only) of a legacy rule doesn't fail validation.
+    stepupAction: changes.stepupAction ?? coerceRbacAction(existing.stepupAction),
+    stepupResource:
+      changes.stepupResource ?? coerceRbacResource(existing.stepupResource),
     consume_in_hook: changes.consume_in_hook ?? existing.consume_in_hook,
   };
   const validated = validateNewToolRule(merged);

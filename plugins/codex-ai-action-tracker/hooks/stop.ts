@@ -11,9 +11,11 @@ import { codexAdapter } from "@transcodes-guard/hook-adapters";
 import {
   clearPending,
   consumeVerified,
+  firstInFlightFpPending,
   isExpired,
   readPending,
   readVerified,
+  sweepStepup,
   type PendingState,
 } from "@transcodes-guard/stepup-core";
 
@@ -42,6 +44,8 @@ async function main(): Promise<void> {
     // ignore
   }
 
+  sweepStepup();
+
   const pending = readPending();
   const verified = readVerified();
 
@@ -55,9 +59,11 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  if (!pending || isExpired(pending)) process.exit(0);
+  const reminder =
+    pending && !isExpired(pending) ? pending : firstInFlightFpPending();
+  if (!reminder) process.exit(0);
 
-  process.stdout.write(codexAdapter.emitStop(reminderFor(pending)));
+  process.stdout.write(codexAdapter.emitStop(reminderFor(reminder)));
   process.exit(0);
 }
 

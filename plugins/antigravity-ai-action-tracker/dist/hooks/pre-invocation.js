@@ -4,12 +4,10 @@ import {
   detectUserDoneFromTranscript
 } from "../chunk-DVNHC35J.js";
 import {
+  firstActivePending,
   formatNoTokenSessionNotice,
-  isExpired,
-  isTrackerEnabled,
-  readPending,
   resolveToken
-} from "../chunk-2V4ZE5OP.js";
+} from "../chunk-W5236A66.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";
@@ -34,7 +32,7 @@ function primerMessage(pending) {
     "Never assume the blocked command ran. Never invent an alternative",
     "command. Always resume from the pending sid the hook reported."
   ];
-  if (pending && !isExpired(pending)) {
+  if (pending) {
     base.push(
       "",
       "Carried-over step-up state from a previous turn:",
@@ -62,7 +60,6 @@ function userDoneNotice(pending, matchedContent) {
   ].join("\n");
 }
 function main() {
-  if (!isTrackerEnabled()) process.exit(0);
   if (!antigravityAdapter.parsePreInvocationStdin || !antigravityAdapter.emitPreInvocation) {
     process.exit(0);
   }
@@ -73,7 +70,7 @@ function main() {
   } catch {
     process.exit(0);
   }
-  const pending = readPending();
+  const pending = firstActivePending();
   const injectSteps = [];
   if (input.invocationNum <= 1) {
     injectSteps.push({ ephemeralMessage: primerMessage(pending) });
@@ -81,7 +78,7 @@ function main() {
       injectSteps.push({ ephemeralMessage: formatNoTokenSessionNotice() });
     }
   }
-  if (pending && !isExpired(pending)) {
+  if (pending) {
     const matched = detectUserDoneFromTranscript(input.transcriptPath);
     if (matched) {
       injectSteps.push({

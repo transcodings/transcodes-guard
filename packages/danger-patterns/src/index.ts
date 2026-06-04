@@ -13,6 +13,16 @@
  */
 
 export {
+  type RbacAction,
+  RBAC_ACTIONS,
+  DEFAULT_RBAC_RESOURCE,
+  DEFAULT_RBAC_ACTION,
+  isRbacAction,
+  coerceRbacAction,
+  coerceRbacResource,
+} from "./rbac.js";
+
+export {
   type DangerPattern,
   type DangerConfig,
   type PatternSource,

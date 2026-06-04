@@ -3,12 +3,13 @@ import {
   claudeCodeAdapter
 } from "../chunk-RNXEHGBK.js";
 import {
+  firstActivePending,
   formatNoTokenSessionNotice,
-  isExpired,
-  isTrackerEnabled,
-  readPending,
   resolveToken
-} from "../chunk-LJWTVP7J.js";
+} from "../chunk-77UEAGY3.js";
+
+// src/version.ts
+var PLUGIN_VERSION = "0.3.0";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
@@ -35,9 +36,8 @@ var PROTOCOL_PRIMER = [
   "command. Always resume from the pending sid the hook reported."
 ].join("\n");
 function carryoverBlock() {
-  const pending = readPending();
+  const pending = firstActivePending();
   if (!pending) return null;
-  if (isExpired(pending)) return null;
   const statusNote = pending.status === "verified" ? "VERIFIED but not yet consumed \u2014 retry the original command to release it." : "PENDING \u2014 resume polling.";
   return [
     "",
@@ -50,10 +50,12 @@ function carryoverBlock() {
   ].join("\n");
 }
 function main() {
-  if (!isTrackerEnabled()) process.exit(0);
+  process.stderr.write(`[transcodes-guard] v${PLUGIN_VERSION}
+`);
   const carry = carryoverBlock();
   const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
-  const additionalContext = [PROTOCOL_PRIMER, carry, tokenNotice].filter((s) => Boolean(s)).join("\n");
+  const versionLine = `transcodes-guard v${PLUGIN_VERSION}`;
+  const additionalContext = [versionLine, PROTOCOL_PRIMER, carry, tokenNotice].filter((s) => Boolean(s)).join("\n");
   process.stdout.write(claudeCodeAdapter.emitSessionStartContext(additionalContext));
   process.exit(0);
 }

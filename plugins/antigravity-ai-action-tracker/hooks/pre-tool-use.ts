@@ -23,6 +23,8 @@ import {
   formatAllowReason,
   formatNoTokenReason,
   formatNoTokenSystemMessage,
+  formatRbacDeniedReason,
+  formatRbacDeniedSystemMessage,
   formatStderrTag,
   formatStepupFailureReason,
   formatStepupFailureSystemMessage,
@@ -55,8 +57,8 @@ async function main(): Promise<void> {
         }),
       );
       if (decision.consumeHere) {
-        consumeVerified();
-        clearPending();
+        consumeVerified(decision.fp);
+        clearPending(decision.fp);
       }
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       process.exit(0);
@@ -67,6 +69,17 @@ async function main(): Promise<void> {
           kind: "deny",
           reason: formatNoTokenReason(decision.block),
           systemMessage: formatNoTokenSystemMessage(decision.block),
+        }),
+      );
+      process.stderr.write(`${formatStderrTag(decision)}\n`);
+      process.exit(0);
+
+    case "deny-rbac-denied":
+      process.stdout.write(
+        antigravityAdapter.emitPreToolUse({
+          kind: "deny",
+          reason: formatRbacDeniedReason(decision),
+          systemMessage: formatRbacDeniedSystemMessage(decision),
         }),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);

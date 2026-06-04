@@ -59,15 +59,7 @@ The PreToolUse hook gates **only `run_command`** (shell execution). File-edit to
 
 ## Enabling / disabling
 
-Antigravity has no single command that unloads hooks and the MCP server together, so use the runtime kill-switch — it works the same across every host:
-
-```
-transcodes disable     # gate OFF — run_command passes without step-up
-transcodes enable      # gate ON
-transcodes status      # show gate state + token
-```
-
-Disabling is intentionally a human, out-of-band action — an agent must not be able to switch off its own guardrails. So the MCP tool `set_tracker_enabled` can only **re-enable** the gate (it refuses `enabled=false`), and an agent that tries to run `transcodes disable` via the shell is itself step-up-gated by the `tracker-self-disable` pattern. `get_tracker_status` is read-only. The flag lives in `~/.transcodes/config.json`; a missing flag means enabled.
+There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via Antigravity's native mechanism (`agy plugin uninstall` or equivalent).
 
 ## Environment
 

@@ -10,15 +10,16 @@
  * here so consumers can `import { RequestInput, HttpRequestInput }`
  * without collision.
  */
-export { requestStepup, } from "./gate.js";
+export { requestStepup, fingerprintOf, } from "./gate.js";
 export { createStepupSession, pollStepupSession, pollStepupSessionWait, } from "./session.js";
-export { readVerified, writeVerified, consumeVerified, cacheDir, } from "./store.js";
-export { readPending, writePending, clearPending, markVerified, isExpired, } from "./pending.js";
+export { readVerified, writeVerified, consumeVerified, listVerifiedFingerprints, cacheDir, } from "./store.js";
+export { readPending, writePending, clearPending, markVerified, isExpired, findPendingBySid, listFpPendings, firstInFlightFpPending, firstActivePending, sweepStepup, } from "./pending.js";
 export { request, } from "./client.js";
+export { checkRbacPermission } from "./rbac-check.js";
 export { loadStepupConfig, DEFAULT_BACKEND_URL, STEPUP_TTL_MS, } from "./config.js";
-export { resolveToken, readTokenFromFile, readTokenList, readTokenRecords, writeTokenToFile, setActiveToken, setTokenLabel, removeTokenFromFile, clearTokenFile, isTrackerEnabled, setTrackerEnabled, transcodesConfigDir, transcodesConfigFile, } from "./token-store.js";
+export { resolveToken, readTokenFromFile, readTokenList, readTokenRecords, writeTokenToFile, setActiveToken, setTokenLabel, removeTokenFromFile, clearTokenFile, transcodesConfigDir, transcodesConfigFile, } from "./token-store.js";
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from "./jwt.js";
 export { inspectStepupState, } from "./inspector.js";
 export { evaluatePreToolUse, } from "./evaluate.js";
-export { formatBlockedSummary, formatNoTokenSessionNotice, formatAllowReason, formatNoTokenReason, formatNoTokenSystemMessage, formatStepupFailureDetail, formatStepupFailureReason, formatStepupFailureSystemMessage, formatStepupPendingReason, formatStepupPendingSystemMessage, formatStderrTag, } from "./messages.js";
+export { formatBlockedSummary, formatNoTokenSessionNotice, formatAllowReason, formatNoTokenReason, formatNoTokenSystemMessage, formatRbacDeniedReason, formatRbacDeniedSystemMessage, formatStepupFailureDetail, formatStepupFailureReason, formatStepupFailureSystemMessage, formatStepupPendingReason, formatStepupPendingSystemMessage, formatStderrTag, } from "./messages.js";
 //# sourceMappingURL=index.js.map

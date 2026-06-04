@@ -15,9 +15,11 @@ import { antigravityAdapter } from "@transcodes-guard/hook-adapters";
 import {
   clearPending,
   consumeVerified,
+  firstInFlightFpPending,
   isExpired,
   readPending,
   readVerified,
+  sweepStepup,
   type PendingState,
 } from "@transcodes-guard/stepup-core";
 
@@ -48,10 +50,13 @@ async function main(): Promise<void> {
     // ignore
   }
 
+  // Silent housekeeping for FP-KEYED files (reap orphans + sweep expired).
+  sweepStepup();
+
   const pending = readPending();
   const verified = readVerified();
 
-  // Orphan reap: verified record exists without an in-flight pending →
+  // Orphan reap: GLOBAL verified record exists without an in-flight pending →
   // silently consume (the gate's fast-path didn't get a chance to). This
   // is the same backstop as the Claude Code / Codex Stop hooks.
   if (verified && (!pending || pending.status !== "pending")) {
@@ -64,9 +69,11 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  if (!pending || isExpired(pending)) process.exit(0);
+  const reminder =
+    pending && !isExpired(pending) ? pending : firstInFlightFpPending();
+  if (!reminder) process.exit(0);
 
-  process.stdout.write(antigravityAdapter.emitStop(reminderFor(pending)));
+  process.stdout.write(antigravityAdapter.emitStop(reminderFor(reminder)));
   process.exit(0);
 }
 

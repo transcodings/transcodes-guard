@@ -33,10 +33,8 @@ import {
   type InjectStep,
 } from "@transcodes-guard/hook-adapters";
 import {
+  firstActivePending,
   formatNoTokenSessionNotice,
-  isExpired,
-  isTrackerEnabled,
-  readPending,
   resolveToken,
   type PendingState,
 } from "@transcodes-guard/stepup-core";
@@ -62,7 +60,7 @@ function primerMessage(pending: PendingState | null): string {
     "Never assume the blocked command ran. Never invent an alternative",
     "command. Always resume from the pending sid the hook reported.",
   ];
-  if (pending && !isExpired(pending)) {
+  if (pending) {
     base.push(
       "",
       "Carried-over step-up state from a previous turn:",
@@ -98,10 +96,6 @@ function userDoneNotice(pending: PendingState, matchedContent: string): string {
 }
 
 function main(): void {
-  // Gate disabled (transcodes disable / set_tracker_enabled): inject nothing —
-  // no primer, no carry-over, no user-done detection. exit 0 with no payload.
-  if (!isTrackerEnabled()) process.exit(0);
-
   if (
     !antigravityAdapter.parsePreInvocationStdin ||
     !antigravityAdapter.emitPreInvocation
@@ -120,7 +114,7 @@ function main(): void {
     process.exit(0);
   }
 
-  const pending = readPending();
+  const pending = firstActivePending();
   const injectSteps: InjectStep[] = [];
 
   // SessionStart-equivalent: primer + carry-over on first invocation only.
@@ -134,7 +128,7 @@ function main(): void {
   // UserPromptSubmit-equivalent: surface pending sid when the user's last
   // message reports completion. Skipped when no pending session is in
   // flight (nothing to resume).
-  if (pending && !isExpired(pending)) {
+  if (pending) {
     const matched = detectUserDoneFromTranscript(input.transcriptPath);
     if (matched) {
       injectSteps.push({

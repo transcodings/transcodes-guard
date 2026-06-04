@@ -21,8 +21,7 @@
  *     "token_list": [                            // pool the user can switch between
  *       { "token": "<t1>", "label": "prod" },
  *       { "token": "<t2>" }
- *     ],
- *     "enabled": false                           // optional kill-switch; default true
+ *     ]
  *   }
  * The active `token` is always kept inside `token_list`. Legacy files are
  * upgraded in-memory: a `token`-only file becomes a one-item list, and a
@@ -64,7 +63,6 @@ type StoredConfig = {
 type RawConfig = {
   token?: unknown;
   token_list?: unknown;
-  enabled?: unknown;
 };
 
 /**
@@ -254,7 +252,7 @@ export function setTokenLabel(token: string, label: string): void {
 /**
  * Remove a token from the pool. If it was the active token, the first
  * remaining token becomes active (or none). Deletes the file entirely when
- * the pool becomes empty (preserving an explicit `enabled` flag). Best-effort.
+ * the pool becomes empty. Deletes the file entirely. Best-effort.
  */
 export function removeTokenFromFile(token: string): void {
   const trimmed = token.trim();
@@ -272,42 +270,15 @@ export function removeTokenFromFile(token: string): void {
 }
 
 /**
- * Remove all saved tokens (CLI `reset`). If the file carries an explicit
- * `enabled` flag, rewrite without tokens so the disable state survives;
- * otherwise delete the file entirely. Best-effort.
+ * Remove all saved tokens (CLI `reset`). Deletes the config file entirely.
+ * Best-effort.
  */
 export function clearTokenFile(): void {
-  const existing = readRawConfig();
   try {
-    if (existing && existing.enabled !== undefined) {
-      const { token: _token, token_list: _list, ...rest } = existing;
-      writeRawConfig(rest);
-      return;
-    }
     rmSync(transcodesConfigFile(), { force: true });
   } catch {
     // best-effort cleanup
   }
-}
-
-/**
- * Whether the transcodes-guard gate is enabled. Reads the `enabled` flag
- * from `~/.transcodes/config.json`. Default is `true`: a missing flag,
- * absent file, or corrupt file all resolve to enabled so the security gate
- * is never silently switched off. Only an explicit `"enabled": false`
- * disables it. Never throws.
- */
-export function isTrackerEnabled(): boolean {
-  return readRawConfig()?.enabled !== false;
-}
-
-/**
- * Toggle the gate. Read-modify-write preserving tokens and labels. Used by
- * the CLI, dashboard, and the `set_tracker_enabled` MCP tool. Throws on I/O
- * failure.
- */
-export function setTrackerEnabled(enabled: boolean): void {
-  writeRawConfig({ ...(readRawConfig() ?? {}), enabled });
 }
 
 export type TokenSource = "env" | "file" | "none";

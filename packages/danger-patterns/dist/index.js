@@ -11,6 +11,7 @@
  * Hooks and the MCP server import from here; system data files live next
  * to this package under data/.
  */
+export { RBAC_ACTIONS, DEFAULT_RBAC_RESOURCE, DEFAULT_RBAC_ACTION, isRbacAction, coerceRbacAction, coerceRbacResource, } from "./rbac.js";
 export { PatternValidationError, getUserPatternsPath, loadSystemPatterns, loadUserPatterns, saveUserPatterns, userPatternsFileExists, loadMergedPatterns, findFirstMatch, validateNewPattern, addUserPattern, updateUserPattern, removeUserPattern, } from "./danger-patterns.js";
 export { ToolRuleValidationError, getUserToolRulesPath, loadSystemToolRules, loadUserToolRules, saveUserToolRules, userToolRulesFileExists, loadMergedToolRules, findFirstToolRule, validateNewToolRule, addUserToolRule, updateUserToolRule, removeUserToolRule, } from "./tool-rules.js";
 //# sourceMappingURL=index.js.map

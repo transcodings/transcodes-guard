@@ -13,6 +13,7 @@
 
 export {
   requestStepup,
+  fingerprintOf,
   type RequestInput,
   type RequestResult,
 } from "./gate.js";
@@ -31,6 +32,7 @@ export {
   readVerified,
   writeVerified,
   consumeVerified,
+  listVerifiedFingerprints,
   cacheDir,
   type VerifiedStepup,
 } from "./store.js";
@@ -41,6 +43,11 @@ export {
   clearPending,
   markVerified,
   isExpired,
+  findPendingBySid,
+  listFpPendings,
+  firstInFlightFpPending,
+  firstActivePending,
+  sweepStepup,
   type PendingState,
 } from "./pending.js";
 
@@ -49,6 +56,8 @@ export {
   type Envelope,
   type RequestInput as HttpRequestInput,
 } from "./client.js";
+
+export { checkRbacPermission, type RbacLevel } from "./rbac-check.js";
 
 export {
   loadStepupConfig,
@@ -67,8 +76,6 @@ export {
   setTokenLabel,
   removeTokenFromFile,
   clearTokenFile,
-  isTrackerEnabled,
-  setTrackerEnabled,
   transcodesConfigDir,
   transcodesConfigFile,
   type TokenSource,
@@ -104,6 +111,8 @@ export {
   formatAllowReason,
   formatNoTokenReason,
   formatNoTokenSystemMessage,
+  formatRbacDeniedReason,
+  formatRbacDeniedSystemMessage,
   formatStepupFailureDetail,
   formatStepupFailureReason,
   formatStepupFailureSystemMessage,

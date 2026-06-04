@@ -3,9 +3,8 @@ import {
   codexAdapter
 } from "../chunk-F23VFFYP.js";
 import {
-  isExpired,
-  readPending
-} from "../chunk-PGK7R37J.js";
+  firstActivePending
+} from "../chunk-MI5KXR2K.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";
@@ -34,8 +33,8 @@ function main() {
     process.exit(0);
   }
   if (!parsed.prompt) process.exit(0);
-  const pending = readPending();
-  if (!pending || isExpired(pending)) process.exit(0);
+  const pending = firstActivePending();
+  if (!pending) process.exit(0);
   const additionalContext = buildContext(parsed.prompt, pending);
   if (!additionalContext) process.exit(0);
   process.stdout.write(

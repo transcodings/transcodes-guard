@@ -1,9 +1,12 @@
 import { defineConfig } from "tsup";
 
-// Self-contained npm package: bundle internal @transcodes-guard/* (never
-// published), keep @modelcontextprotocol/sdk + zod external. Entry keys
-// preserve the dist layout the manifests reference. host.ts is bundled in via
-// the first `import "../host.js"` of each entry. No `banner` — esbuild keeps the
+// Fully self-contained bundle: the committed dist/ is run directly from a git
+// clone (`agy plugin install <git-url>`; no `npm install`, no node_modules), so
+// internal @transcodes-guard/* AND runtime deps (@modelcontextprotocol/sdk,
+// zod) must all be bundled (noExternal). Externalising zod/the SDK crashes
+// every hook with ERR_MODULE_NOT_FOUND in a real install. Entry keys preserve
+// the dist layout the manifests reference. host.ts is bundled in via the first
+// `import "../host.js"` of each entry. No `banner` — esbuild keeps the
 // per-entry source shebang so split chunks stay shebang-free.
 // Antigravity uses 3 hooks: PreInvocation merges SessionStart + UserPromptSubmit.
 export default defineConfig({
@@ -17,7 +20,7 @@ export default defineConfig({
   target: "node20",
   platform: "node",
   bundle: true,
-  noExternal: [/^@transcodes-guard\//],
+  noExternal: [/^@transcodes-guard\//, "zod", /^@modelcontextprotocol\/sdk/],
   splitting: true,
   clean: true,
   sourcemap: false,

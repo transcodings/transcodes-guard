@@ -1,7 +1,7 @@
 {
   "name": "transcodes-guard-monorepo",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Monorepo orchestrator for transcodes-guard plugins + marketplace. Root is the release-please train coordinator (never published).",
   "workspaces": [
     "packages/*",
@@ -9,11 +9,13 @@
   ],
   "scripts": {
     "build": "turbo run build",
+    "prebuild:plugin": "node scripts/stamp-build-info.mjs",
     "build:plugin": "turbo run build:plugin",
     "dev:stdio": "npm run dev:stdio -w plugins/claude-code-ai-action-tracker",
     "dev:http": "npm run dev:http -w plugins/claude-code-ai-action-tracker",
     "dev:hook": "npm run dev:hook -w plugins/claude-code-ai-action-tracker",
-    "inspect": "npm run inspect -w plugins/claude-code-ai-action-tracker"
+    "inspect": "npm run inspect -w plugins/claude-code-ai-action-tracker",
+    "version:bump": "node scripts/version-bump.mjs"
   },
   "devDependencies": {
     "turbo": "^2.0.0"

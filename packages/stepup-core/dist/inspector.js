@@ -12,12 +12,12 @@
  * its state without side effects.
  */
 import { readFileSync } from "node:fs";
-import path from "node:path";
 import { cacheDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
 import { STEPUP_TTL_MS } from "./config.js";
-const VERIFIED_FILE = "stepup-verified.json";
-const PENDING_FILE = "stepup-pending.json";
-const BROWSER_LOCK_FILE = "stepup-browser-lock.json";
+import { isExpiredAt, listFingerprints, stepupFileName, stepupFilePath, } from "./stepup-files.js";
+const VERIFIED_BASE = "stepup-verified";
+const PENDING_BASE = "stepup-pending";
+const BROWSER_LOCK_BASE = "stepup-browser-lock";
 const BROWSER_LOCK_TTL_MS = 15_000;
 const COMMAND_PREVIEW_LIMIT = 120;
 function readJsonFile(file) {
@@ -38,8 +38,7 @@ function previewCommand(command) {
         return command;
     return `${command.slice(0, COMMAND_PREVIEW_LIMIT)}…`;
 }
-function inspectVerified(now) {
-    const file = path.join(cacheDir(), VERIFIED_FILE);
+function inspectVerifiedFile(file, now, fp) {
     const data = readJsonFile(file);
     if (!data)
         return { exists: false };
@@ -53,12 +52,15 @@ function inspectVerified(now) {
         sid,
         verified_at_ms: verifiedAt,
         age_ms: ageMs,
-        expired: ageMs > STEPUP_TTL_MS,
+        expired: isExpiredAt(verifiedAt, undefined, now),
         ttl_ms: STEPUP_TTL_MS,
+        ...(fp ? { fp } : {}),
     };
 }
-function inspectPending(now) {
-    const file = path.join(cacheDir(), PENDING_FILE);
+function inspectVerified(now) {
+    return inspectVerifiedFile(stepupFilePath(VERIFIED_BASE), now);
+}
+function inspectPendingFile(file, now, fp) {
     const data = readJsonFile(file);
     if (!data)
         return { exists: false };
@@ -72,12 +74,7 @@ function inspectPending(now) {
     }
     const ageMs = now - createdAt;
     const expiresAt = typeof data.expiresAt === "string" ? data.expiresAt : undefined;
-    let expired = ageMs > STEPUP_TTL_MS;
-    if (expiresAt) {
-        const t = Date.parse(expiresAt);
-        if (Number.isFinite(t))
-            expired = now >= t;
-    }
+    const expired = isExpiredAt(createdAt, expiresAt, now);
     return {
         exists: true,
         sid,
@@ -88,10 +85,14 @@ function inspectPending(now) {
         age_ms: ageMs,
         expired,
         expires_at: expiresAt,
+        ...(fp ? { fp } : {}),
     };
 }
+function inspectPending(now) {
+    return inspectPendingFile(stepupFilePath(PENDING_BASE), now);
+}
 function inspectBrowserLock(now) {
-    const file = path.join(cacheDir(), BROWSER_LOCK_FILE);
+    const file = stepupFilePath(BROWSER_LOCK_BASE);
     const data = readJsonFile(file);
     if (!data)
         return { exists: false };
@@ -105,19 +106,25 @@ function inspectBrowserLock(now) {
         fingerprint,
         opened_at_ms: openedAt,
         age_ms: ageMs,
-        expired: ageMs > BROWSER_LOCK_TTL_MS,
+        expired: isExpiredAt(openedAt, undefined, now, BROWSER_LOCK_TTL_MS),
         ttl_ms: BROWSER_LOCK_TTL_MS,
     };
 }
 export function inspectStepupState(now = Date.now()) {
-    migrateLegacyFile(VERIFIED_FILE, "cache");
-    migrateLegacyFile(PENDING_FILE, "cache");
-    migrateLegacyFile(BROWSER_LOCK_FILE, "cache");
+    migrateLegacyFile(stepupFileName(VERIFIED_BASE), "cache");
+    migrateLegacyFile(stepupFileName(PENDING_BASE), "cache");
+    migrateLegacyFile(stepupFileName(BROWSER_LOCK_BASE), "cache");
     return {
         cache_dir: cacheDir(),
         now_ms: now,
         verified: inspectVerified(now),
         pending: inspectPending(now),
+        verified_fp: listFingerprints(VERIFIED_BASE)
+            .map((fp) => inspectVerifiedFile(stepupFilePath(VERIFIED_BASE, fp), now, fp))
+            .filter((v) => v.exists),
+        pending_fp: listFingerprints(PENDING_BASE)
+            .map((fp) => inspectPendingFile(stepupFilePath(PENDING_BASE, fp), now, fp))
+            .filter((p) => p.exists),
         browser_lock: inspectBrowserLock(now),
     };
 }

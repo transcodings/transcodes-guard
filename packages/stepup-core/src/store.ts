@@ -1,25 +1,46 @@
 /**
- * Cross-process verified-stepup state file.
+ * Cross-process verified-stepup state file(s).
  *
  * Single-shot policy: every danger command requires a fresh MFA. The hook
  * writes a record on verify, the consumer (the hook itself, immediately
  * after) deletes it. TTL (`STEPUP_TTL_MS`) is enforced on read as a
  * defence against stale files left behind by abnormal exits.
  *
+ * Two storage flavours (see `.claude/rules/stepup-gate.md`):
+ *   - GLOBAL  `stepup-verified.json`            — the legacy single-record
+ *     file. Used by the MCP **system-rule** path where the tool handler (a
+ *     separate process from the hook) consumes via `withStepupVerifiedSid`
+ *     and cannot reconstruct the command fingerprint. Backend replay
+ *     protection is the backstop against parallel reuse here.
+ *   - FP-KEYED `stepup-verified.<fp>.json`      — content-addressed by the
+ *     command fingerprint. Used by the **hook-consume** path (Bash + user
+ *     tool-rules, `consume_in_hook=true`). Each danger command gets its own
+ *     pass token so parallel sub-agents cannot pick up each other's verified
+ *     record (no ambient authority, no cross-contamination).
+ *
+ * `fp` arg convention across this module: `undefined` → GLOBAL file;
+ * a 16-hex string → that fp's FP-KEYED file.
+ *
  * Storage location is host-aware (see @transcodes-guard/plugin-paths):
  *   claude-code + CLAUDE_PLUGIN_DATA set → $CLAUDE_PLUGIN_DATA/
  *   any other host or env unset          → ~/.cache/ai-action-tracker/
  *
- * A one-shot migration moves the legacy file the first time readVerified()
- * runs after the upgrade.
+ * A one-shot migration moves the legacy GLOBAL file the first time
+ * readVerified() runs after the upgrade. FP-KEYED files are new and need no
+ * migration.
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import {
   cacheDir as pluginCacheDir,
   migrateLegacyFile,
 } from "@transcodes-guard/plugin-paths";
 import { STEPUP_TTL_MS } from "./config.js";
+import {
+  listFingerprints,
+  stepupDir,
+  stepupFileName,
+  stepupFilePath,
+} from "./stepup-files.js";
 
 /**
  * Cache directory re-exported for backwards compatibility.
@@ -39,15 +60,23 @@ export type VerifiedStepup = {
   verifiedAt: number;
 };
 
-const FILE_NAME = "stepup-verified.json";
+/** File-name stem for verified records; the GLOBAL/FP-KEYED naming, scan, and
+ * path mechanics live in stepup-files.ts. */
+const FILE_BASE = "stepup-verified";
 
-function storePath(): string {
-  return path.join(cacheDir(), FILE_NAME);
+function storePath(fp?: string): string {
+  return stepupFilePath(FILE_BASE, fp);
 }
 
-export function readVerified(): VerifiedStepup | null {
-  migrateLegacyFile(FILE_NAME, "cache");
-  const file = storePath();
+/**
+ * Read the verified record for `fp` (or the GLOBAL file when fp is omitted).
+ * Self-healing: a corrupt, malformed, or expired record is consumed on read
+ * and reported as absent.
+ */
+export function readVerified(fp?: string): VerifiedStepup | null {
+  // Only the GLOBAL file has a legacy location to migrate from.
+  if (!fp) migrateLegacyFile(stepupFileName(FILE_BASE), "cache");
+  const file = storePath(fp);
   let raw: string;
   try {
     raw = readFileSync(file, "utf8");
@@ -58,7 +87,7 @@ export function readVerified(): VerifiedStepup | null {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    consumeVerified();
+    consumeVerified(fp);
     return null;
   }
   if (
@@ -66,14 +95,14 @@ export function readVerified(): VerifiedStepup | null {
     typeof parsed !== "object" ||
     Array.isArray(parsed)
   ) {
-    consumeVerified();
+    consumeVerified(fp);
     return null;
   }
   const obj = parsed as Record<string, unknown>;
   const sid = typeof obj.sid === "string" ? obj.sid : null;
   const verifiedAt = typeof obj.verifiedAt === "number" ? obj.verifiedAt : null;
   if (!sid || verifiedAt === null) {
-    consumeVerified();
+    consumeVerified(fp);
     return null;
   }
   const ageMs = Date.now() - verifiedAt;
@@ -83,24 +112,33 @@ export function readVerified(): VerifiedStepup | null {
     // appears identical to a never-verified deny and root-cause analysis
     // requires reading timestamps off disk.
     process.stderr.write(
-      `transcodes-guard: verified record EXPIRED (sid=${sid}, age=${ageMs}ms, ttl=${STEPUP_TTL_MS}ms) — starting a new step-up.\n`,
+      `transcodes-guard: verified record EXPIRED (sid=${sid}, age=${ageMs}ms, ttl=${STEPUP_TTL_MS}ms${fp ? `, fp=${fp}` : ""}) — starting a new step-up.\n`,
     );
-    consumeVerified();
+    consumeVerified(fp);
     return null;
   }
   return { sid, verifiedAt };
 }
 
-export function writeVerified(v: VerifiedStepup): void {
-  const file = storePath();
-  mkdirSync(path.dirname(file), { recursive: true });
+export function writeVerified(v: VerifiedStepup, fp?: string): void {
+  const file = storePath(fp);
+  mkdirSync(stepupDir(), { recursive: true });
   writeFileSync(file, JSON.stringify(v), { mode: 0o600 });
 }
 
-export function consumeVerified(): void {
+export function consumeVerified(fp?: string): void {
   try {
-    rmSync(storePath(), { force: true });
+    rmSync(storePath(fp), { force: true });
   } catch {
     // best-effort cleanup
   }
+}
+
+/**
+ * List every FP-KEYED verified file currently on disk (excludes the GLOBAL
+ * file). Best-effort: an unreadable cache dir yields an empty list so callers
+ * (sweeps) never throw.
+ */
+export function listVerifiedFingerprints(): string[] {
+  return listFingerprints(FILE_BASE);
 }

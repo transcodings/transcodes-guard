@@ -9,6 +9,7 @@ import { dataDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
 // tsconfig `rootDir`; the package build copies it to dist/data/ so esbuild can
 // inline it when bundling the compiled dist.
 import systemPatternsData from "./data/danger-patterns.json" with { type: "json" };
+import { coerceRbacAction, coerceRbacResource, isRbacAction, } from "./rbac.js";
 const USER_PATTERNS_FILE = "user-patterns.json";
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 export function getUserPatternsPath() {
@@ -48,10 +49,14 @@ export function userPatternsFileExists() {
 export function loadMergedPatterns() {
     const system = loadSystemPatterns().patterns.map((p) => ({
         ...p,
+        stepupResource: coerceRbacResource(p.stepupResource),
+        stepupAction: coerceRbacAction(p.stepupAction),
         source: "system",
     }));
     const user = loadUserPatterns().patterns.map((p) => ({
         ...p,
+        stepupResource: coerceRbacResource(p.stepupResource),
+        stepupAction: coerceRbacAction(p.stepupAction),
         source: "user",
     }));
     return [...system, ...user];
@@ -90,7 +95,7 @@ function detectMcpToolName(regex) {
     return false;
 }
 export function validateNewPattern(input) {
-    const { id, regex, reason } = input;
+    const { id, regex, reason, stepupAction, stepupResource } = input;
     if (!ID_REGEX.test(id)) {
         throw new PatternValidationError(`id must match /^[a-z0-9][a-z0-9-]*$/ (got: "${id}")`);
     }
@@ -113,7 +118,21 @@ export function validateNewPattern(input) {
     if (trimmedReason.length === 0) {
         throw new PatternValidationError("reason must not be empty");
     }
-    return { id, regex, reason: trimmedReason };
+    const trimmedAction = stepupAction.trim();
+    if (!isRbacAction(trimmedAction)) {
+        throw new PatternValidationError(`stepupAction must be one of create|read|update|delete (got: "${stepupAction}")`);
+    }
+    const trimmedResource = stepupResource.trim();
+    if (!trimmedResource) {
+        throw new PatternValidationError("stepupResource must not be empty");
+    }
+    return {
+        id,
+        regex,
+        reason: trimmedReason,
+        stepupAction: trimmedAction,
+        stepupResource: trimmedResource,
+    };
 }
 export function addUserPattern(input) {
     const pattern = validateNewPattern(input);
@@ -139,6 +158,10 @@ export function updateUserPattern(id, changes) {
         id,
         regex: changes.regex ?? existing.regex,
         reason: changes.reason ?? existing.reason,
+        // Coerce legacy rows missing the RBAC fields so an unrelated edit doesn't
+        // fail validation.
+        stepupAction: changes.stepupAction ?? coerceRbacAction(existing.stepupAction),
+        stepupResource: changes.stepupResource ?? coerceRbacResource(existing.stepupResource),
     };
     // Re-validate the full pattern (regex compile, reason non-empty).
     // id check is redundant but cheap and keeps a single validation path.
