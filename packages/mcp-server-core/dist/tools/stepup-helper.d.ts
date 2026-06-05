@@ -1,1 +1,7 @@
-export declare function withStepupVerifiedSid<T>(toolName: string, fn: (sid: string) => Promise<T>): Promise<T>;
+export declare function execProtectedTool(toolName: string, run: (sid: string | undefined) => Promise<string>): Promise<{
+    isError: boolean;
+    content: {
+        type: 'text';
+        text: string;
+    }[];
+}>;

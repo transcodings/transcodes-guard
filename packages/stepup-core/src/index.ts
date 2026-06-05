@@ -16,7 +16,7 @@ export {
   fingerprintOf,
   type RequestInput,
   type RequestResult,
-} from "./gate.js";
+} from './gate.js';
 
 export {
   createStepupSession,
@@ -26,7 +26,7 @@ export {
   type CreatedStepupSession,
   type PollStepupResult,
   type WaitStepupResult,
-} from "./session.js";
+} from './session.js';
 
 export {
   readVerified,
@@ -35,7 +35,7 @@ export {
   listVerifiedFingerprints,
   cacheDir,
   type VerifiedStepup,
-} from "./store.js";
+} from './store.js';
 
 export {
   readPending,
@@ -49,22 +49,22 @@ export {
   firstActivePending,
   sweepStepup,
   type PendingState,
-} from "./pending.js";
+} from './pending.js';
 
 export {
   request,
   type Envelope,
   type RequestInput as HttpRequestInput,
-} from "./client.js";
+} from './client.js';
 
-export { checkRbacPermission, type RbacLevel } from "./rbac-check.js";
+export { checkRbacPermission, type RbacLevel } from './rbac-check.js';
 
 export {
   loadStepupConfig,
   type StepupConfig,
   DEFAULT_BACKEND_URL,
   STEPUP_TTL_MS,
-} from "./config.js";
+} from './config.js';
 
 export {
   resolveToken,
@@ -81,14 +81,14 @@ export {
   type TokenSource,
   type ResolvedToken,
   type TokenRecord,
-} from "./token-store.js";
+} from './token-store.js';
 
 export {
   parseMemberAccessToken,
   REQUIRED_AUDIENCE,
   type MemberTokenClaims,
   type ParsedMemberToken,
-} from "./jwt.js";
+} from './jwt.js';
 
 export {
   inspectStepupState,
@@ -96,14 +96,14 @@ export {
   type PendingInspection,
   type BrowserLockInspection,
   type StepupStateInspection,
-} from "./inspector.js";
+} from './inspector.js';
 
 export {
   evaluatePreToolUse,
   type BlockResult,
   type GateDecision,
   type ToolCallInput,
-} from "./evaluate.js";
+} from './evaluate.js';
 
 export {
   formatBlockedSummary,
@@ -119,4 +119,4 @@ export {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   formatStderrTag,
-} from "./messages.js";
+} from './messages.js';

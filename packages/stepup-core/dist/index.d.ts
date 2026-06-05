@@ -10,15 +10,15 @@
  * here so consumers can `import { RequestInput, HttpRequestInput }`
  * without collision.
  */
-export { requestStepup, fingerprintOf, type RequestInput, type RequestResult, } from "./gate.js";
-export { createStepupSession, pollStepupSession, pollStepupSessionWait, type CreateStepupArgs, type CreatedStepupSession, type PollStepupResult, type WaitStepupResult, } from "./session.js";
-export { readVerified, writeVerified, consumeVerified, listVerifiedFingerprints, cacheDir, type VerifiedStepup, } from "./store.js";
-export { readPending, writePending, clearPending, markVerified, isExpired, findPendingBySid, listFpPendings, firstInFlightFpPending, firstActivePending, sweepStepup, type PendingState, } from "./pending.js";
-export { request, type Envelope, type RequestInput as HttpRequestInput, } from "./client.js";
-export { checkRbacPermission, type RbacLevel } from "./rbac-check.js";
-export { loadStepupConfig, type StepupConfig, DEFAULT_BACKEND_URL, STEPUP_TTL_MS, } from "./config.js";
-export { resolveToken, readTokenFromFile, readTokenList, readTokenRecords, writeTokenToFile, setActiveToken, setTokenLabel, removeTokenFromFile, clearTokenFile, transcodesConfigDir, transcodesConfigFile, type TokenSource, type ResolvedToken, type TokenRecord, } from "./token-store.js";
-export { parseMemberAccessToken, REQUIRED_AUDIENCE, type MemberTokenClaims, type ParsedMemberToken, } from "./jwt.js";
-export { inspectStepupState, type VerifiedInspection, type PendingInspection, type BrowserLockInspection, type StepupStateInspection, } from "./inspector.js";
-export { evaluatePreToolUse, type BlockResult, type GateDecision, type ToolCallInput, } from "./evaluate.js";
-export { formatBlockedSummary, formatNoTokenSessionNotice, formatAllowReason, formatNoTokenReason, formatNoTokenSystemMessage, formatRbacDeniedReason, formatRbacDeniedSystemMessage, formatStepupFailureDetail, formatStepupFailureReason, formatStepupFailureSystemMessage, formatStepupPendingReason, formatStepupPendingSystemMessage, formatStderrTag, } from "./messages.js";
+export { requestStepup, fingerprintOf, type RequestInput, type RequestResult, } from './gate.js';
+export { createStepupSession, pollStepupSession, pollStepupSessionWait, type CreateStepupArgs, type CreatedStepupSession, type PollStepupResult, type WaitStepupResult, } from './session.js';
+export { readVerified, writeVerified, consumeVerified, listVerifiedFingerprints, cacheDir, type VerifiedStepup, } from './store.js';
+export { readPending, writePending, clearPending, markVerified, isExpired, findPendingBySid, listFpPendings, firstInFlightFpPending, firstActivePending, sweepStepup, type PendingState, } from './pending.js';
+export { request, type Envelope, type RequestInput as HttpRequestInput, } from './client.js';
+export { checkRbacPermission, type RbacLevel } from './rbac-check.js';
+export { loadStepupConfig, type StepupConfig, DEFAULT_BACKEND_URL, STEPUP_TTL_MS, } from './config.js';
+export { resolveToken, readTokenFromFile, readTokenList, readTokenRecords, writeTokenToFile, setActiveToken, setTokenLabel, removeTokenFromFile, clearTokenFile, transcodesConfigDir, transcodesConfigFile, type TokenSource, type ResolvedToken, type TokenRecord, } from './token-store.js';
+export { parseMemberAccessToken, REQUIRED_AUDIENCE, type MemberTokenClaims, type ParsedMemberToken, } from './jwt.js';
+export { inspectStepupState, type VerifiedInspection, type PendingInspection, type BrowserLockInspection, type StepupStateInspection, } from './inspector.js';
+export { evaluatePreToolUse, type BlockResult, type GateDecision, type ToolCallInput, } from './evaluate.js';
+export { formatBlockedSummary, formatNoTokenSessionNotice, formatAllowReason, formatNoTokenReason, formatNoTokenSystemMessage, formatRbacDeniedReason, formatRbacDeniedSystemMessage, formatStepupFailureDetail, formatStepupFailureReason, formatStepupFailureSystemMessage, formatStepupPendingReason, formatStepupPendingSystemMessage, formatStderrTag, } from './messages.js';

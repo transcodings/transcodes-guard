@@ -5,9 +5,9 @@
  * fetch so we avoid adding an axios dependency. Only the two step-up routes
  * are exercised: POST /v1/auth/temp-session/step-up/session and GET …/:sid.
  */
-import type { StepupConfig } from "./config.js";
+import type { StepupConfig } from './config.js';
 export type RequestInput = {
-    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     /** Path after `/v1`, e.g. `/auth/temp-session/step-up/session`. */
     path: string;
     /**

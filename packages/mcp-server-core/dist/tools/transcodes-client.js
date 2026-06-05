@@ -9,50 +9,50 @@
  * through `withStepupVerifiedSid` so `request()` can attach the
  * `X-Step-Up-Session-Id` header.
  */
-import { request, } from "@transcodes-guard/stepup-core";
+import { request, } from '@transcodes-guard/stepup-core';
 /** Tool name → API path under `/v1`. Scoped to this plugin's ported toolset. */
 const ENDPOINT_MAP = {
     // Project
-    get_project: "/project",
+    get_project: '/project',
     // Audit
-    get_security_logs: "/audit/logs",
+    get_security_logs: '/audit/logs',
     // Members
-    get_member: "/auth/member",
-    list_members_paginated: "/auth/members/list",
-    list_member_devices: "/auth/members/devices",
-    create_member: "/auth/member",
-    update_member: "/auth/member",
-    get_member_suspension: "/auth/member/revocation",
-    retire_member: "/auth/member",
-    suspend_member: "/auth/member/revocation",
-    unsuspend_member: "/auth/member/revocation",
+    get_member: '/auth/member',
+    list_members_paginated: '/auth/members/list',
+    list_member_devices: '/auth/members/devices',
+    create_member: '/auth/member',
+    update_member: '/auth/member',
+    get_member_suspension: '/auth/member/revocation',
+    retire_member: '/auth/member',
+    suspend_member: '/auth/member/revocation',
+    unsuspend_member: '/auth/member/revocation',
     // Auth devices — authenticators
-    list_authenticators: "/auth/authenticators",
+    list_authenticators: '/auth/authenticators',
     // Auth devices — passkeys
-    list_passkeys: "/auth/passkeys",
+    list_passkeys: '/auth/passkeys',
     // Auth devices — TOTP
-    list_totps: "/auth/totps",
+    list_totps: '/auth/totps',
     // RBAC — roles
-    get_roles: "/auth/roles",
-    create_role: "/auth/role",
-    update_role: "/auth/role",
-    check_rbac_permission: "/auth/role/check-permission",
-    retire_role: "/auth/role",
-    set_role_permissions: "/auth/role",
-    update_member_role: "/auth/member/role",
+    get_roles: '/auth/roles',
+    create_role: '/auth/role',
+    update_role: '/auth/role',
+    check_rbac_permission: '/auth/role/check-permission',
+    retire_role: '/auth/role',
+    set_role_permissions: '/auth/role',
+    update_member_role: '/auth/member/role',
     // RBAC — resources
-    get_resources: "/auth/resources",
-    create_resource: "/auth/resources",
-    update_resource: "/auth/resources",
-    retire_resource: "/auth/resources",
+    get_resources: '/auth/resources',
+    create_resource: '/auth/resources',
+    update_resource: '/auth/resources',
+    retire_resource: '/auth/resources',
     // Membership / billing
-    membership_plans: "/membership/plans",
-    membership_plans_limits: "/membership/plans/limits",
-    membership_customer_status_by_project: "/membership/customer/status/project",
-    membership_customer_status_by_organization: "/membership/customer/status/organization",
-    membership_create_checkout_session: "/membership/mcp/session",
+    membership_plans: '/membership/plans',
+    membership_plans_limits: '/membership/plans/limits',
+    membership_customer_status_by_project: '/membership/customer/status/project',
+    membership_customer_status_by_organization: '/membership/customer/status/organization',
+    membership_create_checkout_session: '/membership/mcp/session',
     // Passcode
-    passcode_create: "/auth/passcode/create",
+    passcode_create: '/auth/passcode/create',
 };
 /**
  * Resolve the tool's base path from ENDPOINT_MAP + optional `pathSuffix`
@@ -83,14 +83,14 @@ export function blockedResult(message) {
     return {
         content: [
             {
-                type: "text",
+                type: 'text',
                 text: JSON.stringify({ ok: false, blocked: true, message }, null, 2),
             },
         ],
     };
 }
 function isPlainRecord(v) {
-    return v !== null && typeof v === "object" && !Array.isArray(v);
+    return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 /** Arg-parse helpers — kept thin since zod already validates each schema. */
 export const parse = {

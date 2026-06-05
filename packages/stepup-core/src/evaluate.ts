@@ -12,8 +12,8 @@
  *  - After a danger pattern match (verified read, step-up create) →
  *    surface as a `deny-*` decision so callers can fail-safe.
  */
-import { execFileSync } from "node:child_process";
-import path from "node:path";
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 import {
   DEFAULT_RBAC_RESOURCE,
   findFirstMatch,
@@ -22,16 +22,14 @@ import {
   loadMergedToolRules,
   type MergedToolRule,
   type RbacAction,
-} from "@transcodes-guard/danger-patterns";
-import { loadStepupConfig } from "./config.js";
-import { fingerprintOf, requestStepup, type RequestResult } from "./gate.js";
-import { clearPending, type PendingState } from "./pending.js";
-import { checkRbacPermission, type RbacLevel } from "./rbac-check.js";
-import { pollStepupSession } from "./session.js";
-import { consumeVerified, readVerified } from "./store.js";
-import {
-  resolveToken,
-} from "./token-store.js";
+} from '@transcodes-guard/danger-patterns';
+import { loadStepupConfig } from './config.js';
+import { fingerprintOf, requestStepup, type RequestResult } from './gate.js';
+import { clearPending, type PendingState } from './pending.js';
+import { checkRbacPermission, type RbacLevel } from './rbac-check.js';
+import { pollStepupSession } from './session.js';
+import { consumeVerified, readVerified } from './store.js';
+import { resolveToken } from './token-store.js';
 
 export interface ToolCallInput {
   toolName: string;
@@ -54,9 +52,9 @@ export interface BlockResult {
 }
 
 export type GateDecision =
-  | { kind: "pass" }
+  | { kind: 'pass' }
   | {
-      kind: "allow";
+      kind: 'allow';
       block: BlockResult;
       /** True → the hook itself consumes the verified record (Bash + user
        * tool-rules). False → consume is deferred to the tool handler
@@ -68,22 +66,22 @@ export type GateDecision =
        * (GLOBAL store). */
       fp?: string;
     }
-  | { kind: "deny-no-token"; block: BlockResult }
+  | { kind: 'deny-no-token'; block: BlockResult }
   | {
       /** RBAC matrix returned permission 0 (deny) for this resource+action.
        * Step-up cannot help — the member's role has no access. Hard block. */
-      kind: "deny-rbac-denied";
+      kind: 'deny-rbac-denied';
       block: BlockResult;
       resource: string;
       action: string;
     }
   | {
-      kind: "deny-stepup-failure";
+      kind: 'deny-stepup-failure';
       block: BlockResult;
       failure: Extract<RequestResult, { ok: false }>;
     }
   | {
-      kind: "deny-stepup-pending";
+      kind: 'deny-stepup-pending';
       block: BlockResult;
       sid: string;
       browserUrl: string;
@@ -105,18 +103,18 @@ function checkPatternMatch(command: string): BlockResult | null {
 
 function extractRmTargets(command: string): string[] | null {
   const tokens = command.trim().split(/\s+/);
-  const rmIdx = tokens.indexOf("rm");
+  const rmIdx = tokens.indexOf('rm');
   if (rmIdx === -1) return null;
 
   let i = rmIdx + 1;
   let recursive = false;
   while (i < tokens.length) {
     const t = tokens[i];
-    if (t === "--") {
+    if (t === '--') {
       i++;
       break;
     }
-    if (t.startsWith("-") && /^-[a-zA-Z]+$/.test(t)) {
+    if (t.startsWith('-') && /^-[a-zA-Z]+$/.test(t)) {
       if (/[rR]/.test(t)) recursive = true;
       i++;
       continue;
@@ -125,7 +123,7 @@ function extractRmTargets(command: string): string[] | null {
   }
   if (!recursive) return null;
 
-  const targets = tokens.slice(i).filter((t) => !t.startsWith("-"));
+  const targets = tokens.slice(i).filter((t) => !t.startsWith('-'));
   return targets.length > 0 ? targets : null;
 }
 
@@ -137,7 +135,7 @@ interface TargetCheck {
 
 function checkTargetGitTracked(
   target: string,
-  cwd: string,
+  cwd: string
 ): TargetCheck | null {
   if (/[*?{[]/.test(target)) return null;
 
@@ -146,25 +144,25 @@ function checkTargetGitTracked(
   let toplevel: string;
   try {
     toplevel = execFileSync(
-      "git",
-      ["-C", cwd, "rev-parse", "--show-toplevel"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+      'git',
+      ['-C', cwd, 'rev-parse', '--show-toplevel'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
     ).trim();
   } catch {
     return null;
   }
 
   const rel = path.relative(toplevel, abs);
-  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
 
   let tracked: string[];
   try {
     const out = execFileSync(
-      "git",
-      ["-C", toplevel, "ls-files", "--", rel || "."],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+      'git',
+      ['-C', toplevel, 'ls-files', '--', rel || '.'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
     );
-    tracked = out.split("\n").filter(Boolean);
+    tracked = out.split('\n').filter(Boolean);
   } catch {
     return null;
   }
@@ -177,10 +175,7 @@ function checkTargetGitTracked(
   };
 }
 
-function checkRmGitTracked(
-  command: string,
-  cwd: string,
-): BlockResult | null {
+function checkRmGitTracked(command: string, cwd: string): BlockResult | null {
   const targets = extractRmTargets(command);
   if (!targets) return null;
 
@@ -198,12 +193,14 @@ function checkRmGitTracked(
       const more =
         h.trackedCount > h.samples.length
           ? `, +${h.trackedCount - h.samples.length} more`
-          : "";
-      return `${h.target} — ${h.trackedCount} tracked file(s): ${h.samples.join(", ")}${more}`;
+          : '';
+      return `${h.target} — ${h.trackedCount} tracked file(s): ${h.samples.join(
+        ', '
+      )}${more}`;
     }),
     command,
     stepupResource: DEFAULT_RBAC_RESOURCE,
-    stepupAction: "delete",
+    stepupAction: 'delete',
   };
 }
 
@@ -211,17 +208,17 @@ function checkRmGitTracked(
 function stringifyToolInput(input: unknown): string {
   try {
     const s = JSON.stringify(input);
-    if (s === undefined) return "[unserializable]";
-    return s.length > 200 ? s.slice(0, 197) + "..." : s;
+    if (s === undefined) return '[unserializable]';
+    return s.length > 200 ? s.slice(0, 197) + '...' : s;
   } catch {
-    return "[unserializable]";
+    return '[unserializable]';
   }
 }
 
 type Classified =
-  | { kind: "bash"; command: string; cwd: string }
+  | { kind: 'bash'; command: string; cwd: string }
   | {
-      kind: "mcp";
+      kind: 'mcp';
       toolName: string;
       toolInput: unknown;
       rule: MergedToolRule;
@@ -254,24 +251,24 @@ type Classified =
  *     process) does not control backend reachability. Note `request()` reports
  *     network failures as an envelope with `status: 0` rather than throwing.
  */
-async function recheckVerifiedSid(sid: string): Promise<"trust" | "reauth"> {
-  if (!resolveToken().token) return "trust";
+async function recheckVerifiedSid(sid: string): Promise<'trust' | 'reauth'> {
+  if (!resolveToken().token) return 'trust';
   let config;
   try {
     config = loadStepupConfig();
   } catch {
-    return "trust";
+    return 'trust';
   }
   try {
     const { envelope, status } = await pollStepupSession(config, sid);
-    if (status === "verified") return "trust";
+    if (status === 'verified') return 'trust';
     // Authoritative "not verified": reachable 2xx with a non-verified status,
     // or 404 meaning the backend never issued this sid (fabricated).
-    if (envelope.ok || envelope.status === 404) return "reauth";
+    if (envelope.ok || envelope.status === 404) return 'reauth';
     // status 0 (network) / 5xx / 401 / 403 → cannot confirm → availability.
-    return "trust";
+    return 'trust';
   } catch {
-    return "trust";
+    return 'trust';
   }
 }
 
@@ -282,19 +279,19 @@ function classifyToolCall(input: ToolCallInput): Classified | null {
   // antigravity adapter rewrites `args.CommandLine` → `args.command`
   // before the classifier sees it, so the body below is host-neutral.
   if (
-    input.toolName === "Bash" ||
-    input.toolName === "run_command" ||
-    input.toolName === "Shell"
+    input.toolName === 'Bash' ||
+    input.toolName === 'run_command' ||
+    input.toolName === 'Shell'
   ) {
     const cmd = (input.toolInput as { command?: unknown } | undefined)?.command;
-    if (typeof cmd !== "string") return null;
-    return { kind: "bash", command: cmd, cwd: input.cwd };
+    if (typeof cmd !== 'string') return null;
+    return { kind: 'bash', command: cmd, cwd: input.cwd };
   }
   const rules = loadMergedToolRules();
   const match = findFirstToolRule(input.toolName, rules);
   if (!match) return null;
   return {
-    kind: "mcp",
+    kind: 'mcp',
     toolName: input.toolName,
     toolInput: input.toolInput,
     rule: match.matched,
@@ -316,28 +313,30 @@ function classifyToolCall(input: ToolCallInput): Classified | null {
  *    `decision.consumeHere`.
  */
 export async function evaluatePreToolUse(
-  input: ToolCallInput,
+  input: ToolCallInput
 ): Promise<GateDecision> {
   let classified: Classified | null;
   try {
     classified = classifyToolCall(input);
   } catch {
-    return { kind: "pass" };
+    return { kind: 'pass' };
   }
-  if (!classified) return { kind: "pass" };
+  if (!classified) return { kind: 'pass' };
 
   const block: BlockResult | null =
-    classified.kind === "bash"
-      ? (checkPatternMatch(classified.command) ??
-        checkRmGitTracked(classified.command, classified.cwd))
+    classified.kind === 'bash'
+      ? checkPatternMatch(classified.command) ??
+        checkRmGitTracked(classified.command, classified.cwd)
       : {
           reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` — ${classified.rule.reason}`,
-          command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
+          command: `${classified.toolName} ${stringifyToolInput(
+            classified.toolInput
+          )}`,
           stepupResource: classified.rule.stepupResource,
           stepupAction: classified.rule.stepupAction,
         };
 
-  if (!block) return { kind: "pass" };
+  if (!block) return { kind: 'pass' };
 
   // consume_in_hook decides the storage flavour:
   //   true  (Bash + user tool-rules) → FP-KEYED store, content-addressed by
@@ -346,9 +345,9 @@ export async function evaluatePreToolUse(
   //   false (MCP system rules)       → GLOBAL store; the tool handler consumes
   //          later via withStepupVerifiedSid and cannot recompute the fp.
   const consumeHere =
-    classified.kind === "bash" || classified.rule.consume_in_hook === true;
+    classified.kind === 'bash' || classified.rule.consume_in_hook === true;
   const fingerprintKey =
-    classified.kind === "bash"
+    classified.kind === 'bash'
       ? classified.command
       : `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
   const fp = consumeHere ? fingerprintOf(fingerprintKey) : undefined;
@@ -360,8 +359,8 @@ export async function evaluatePreToolUse(
     // MCP system (GLOBAL) path skips it — its handler re-validates the sid via
     // the X-Step-Up-Session-Id header, so a forged record there just yields a
     // failed backend call, not an unauthorized action.
-    if (!consumeHere || (await recheckVerifiedSid(verified.sid)) === "trust") {
-      return { kind: "allow", block, consumeHere, fp };
+    if (!consumeHere || (await recheckVerifiedSid(verified.sid)) === 'trust') {
+      return { kind: 'allow', block, consumeHere, fp };
     }
     // Backend says this record is no longer (or never was) verified — discard
     // the stale/forged record and fall through to a fresh step-up below.
@@ -370,7 +369,7 @@ export async function evaluatePreToolUse(
   }
 
   if (!resolveToken().token) {
-    return { kind: "deny-no-token", block };
+    return { kind: 'deny-no-token', block };
   }
 
   // The matched rule only maps this command/tool onto an RBAC coordinate; the
@@ -390,12 +389,12 @@ export async function evaluatePreToolUse(
   }
 
   if (level === 0) {
-    return { kind: "deny-rbac-denied", block, resource, action };
+    return { kind: 'deny-rbac-denied', block, resource, action };
   }
   if (level === 1) {
     // RBAC grants this without step-up → let the command through. The local
     // rule is a classifier, not an independent floor.
-    return { kind: "pass" };
+    return { kind: 'pass' };
   }
 
   const gateInput = {
@@ -404,14 +403,14 @@ export async function evaluatePreToolUse(
     resource,
     fingerprintKey,
     comment:
-      classified.kind === "bash"
+      classified.kind === 'bash'
         ? `Confirm danger command: ${block.reason}`
         : `Confirm ${classified.rule.id}: ${classified.rule.reason}`,
   };
 
   const req = await requestStepup(gateInput);
   if (!req.ok) {
-    return { kind: "deny-stepup-failure", block, failure: req };
+    return { kind: 'deny-stepup-failure', block, failure: req };
   }
 
   const pending: PendingState = {
@@ -421,13 +420,13 @@ export async function evaluatePreToolUse(
     browserUrl: req.browserUrl,
     createdAt: Date.now(),
     expiresAt: req.expiresAt,
-    status: "pending",
+    status: 'pending',
     // FP-KEYED record for the hook-consume path; GLOBAL (no fp) otherwise.
     ...(fp ? { fp } : {}),
   };
 
   return {
-    kind: "deny-stepup-pending",
+    kind: 'deny-stepup-pending',
     block,
     sid: req.sid,
     browserUrl: req.browserUrl,

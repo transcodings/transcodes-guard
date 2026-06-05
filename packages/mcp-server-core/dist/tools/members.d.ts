@@ -8,5 +8,5 @@
  * PreToolUse hook via tool-rules; here they only thread the verified sid
  * via `withStepupVerifiedSid` so the backend can validate.
  */
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 export declare function registerMemberTools(server: McpServer): void;

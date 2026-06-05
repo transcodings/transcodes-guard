@@ -55,6 +55,55 @@
       "reason": "Recovery passcode generation",
       "stepupAction": "create",
       "stepupResource": "system"
+    },
+    {
+      "id": "tc-create-member",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__create_member",
+      "reason": "New member provisioning",
+      "stepupAction": "create",
+      "stepupResource": "system"
+    },
+    {
+      "id": "tc-update-member",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__update_member",
+      "reason": "Member profile update",
+      "stepupAction": "update",
+      "stepupResource": "system"
+    },
+    {
+      "id": "tc-create-role",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__create_role",
+      "reason": "New RBAC role creation",
+      "stepupAction": "create",
+      "stepupResource": "system"
+    },
+    {
+      "id": "tc-update-role",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__update_role",
+      "reason": "RBAC role metadata update",
+      "stepupAction": "update",
+      "stepupResource": "system"
+    },
+    {
+      "id": "tc-create-resource",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__create_resource",
+      "reason": "New RBAC resource creation",
+      "stepupAction": "create",
+      "stepupResource": "system"
+    },
+    {
+      "id": "tc-update-resource",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__update_resource",
+      "reason": "RBAC resource metadata update",
+      "stepupAction": "update",
+      "stepupResource": "system"
+    },
+    {
+      "id": "tc-get-security-logs",
+      "toolName": "mcp__plugin_transcodes-guard_transcodes-guard__get_security_logs",
+      "reason": "Project audit log access",
+      "stepupAction": "read",
+      "stepupResource": "system"
     }
   ]
 }

@@ -9,8 +9,8 @@
  * through `withStepupVerifiedSid` so `request()` can attach the
  * `X-Step-Up-Session-Id` header.
  */
-import { type HttpRequestInput as RequestInput, type StepupConfig } from "@transcodes-guard/stepup-core";
-export type ReqInput = Omit<RequestInput, "path">;
+import { type HttpRequestInput as RequestInput, type StepupConfig } from '@transcodes-guard/stepup-core';
+export type ReqInput = Omit<RequestInput, 'path'>;
 /**
  * Resolve the tool's base path from ENDPOINT_MAP + optional `pathSuffix`
  * and call the backend. Returns a JSON-stringified envelope so the model

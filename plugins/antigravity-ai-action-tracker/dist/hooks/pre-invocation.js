@@ -7,7 +7,7 @@ import {
   firstActivePending,
   formatNoTokenSessionNotice,
   resolveToken
-} from "../chunk-W5236A66.js";
+} from "../chunk-J2GW7Z34.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";
@@ -92,9 +92,7 @@ function main() {
 try {
   main();
 } catch (err) {
-  process.stderr.write(
-    `transcodes-guard pre-invocation hook error: ${err}
-`
-  );
+  process.stderr.write(`transcodes-guard pre-invocation hook error: ${err}
+`);
   process.exit(0);
 }

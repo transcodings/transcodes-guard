@@ -1,6 +1,6 @@
 {
   "name": "@transcodes-guard/mcp-server-core",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "MCP server core for transcodes-guard — createServer() + all tools/resources/prompts. Plugins import this and wire it to a transport.",
   "private": true,
   "type": "module",

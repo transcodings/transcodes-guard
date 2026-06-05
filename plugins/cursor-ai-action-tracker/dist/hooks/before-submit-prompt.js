@@ -7,7 +7,7 @@ import {
   consumeVerified,
   firstActivePending,
   readVerified
-} from "../chunk-MAXDKOW3.js";
+} from "../chunk-VD5GUIPU.js";
 
 // hooks/before-submit-prompt.ts
 import { readFileSync } from "fs";

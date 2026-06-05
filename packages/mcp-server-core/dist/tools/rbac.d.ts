@@ -9,5 +9,5 @@
  * the in-memory `requireStepup` pattern is gone — the PreToolUse hook
  * now enforces via `hooks/tool-rules.json`.
  */
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 export declare function registerRbacTools(server: McpServer): void;

@@ -1,6 +1,6 @@
-import { type RbacAction } from "@transcodes-guard/danger-patterns";
-import { type RequestResult } from "./gate.js";
-import { type PendingState } from "./pending.js";
+import { type RbacAction } from '@transcodes-guard/danger-patterns';
+import { type RequestResult } from './gate.js';
+import { type PendingState } from './pending.js';
 export interface ToolCallInput {
     toolName: string;
     toolInput: unknown;
@@ -20,9 +20,9 @@ export interface BlockResult {
     stepupAction: RbacAction;
 }
 export type GateDecision = {
-    kind: "pass";
+    kind: 'pass';
 } | {
-    kind: "allow";
+    kind: 'allow';
     block: BlockResult;
     /** True → the hook itself consumes the verified record (Bash + user
      * tool-rules). False → consume is deferred to the tool handler
@@ -34,23 +34,23 @@ export type GateDecision = {
      * (GLOBAL store). */
     fp?: string;
 } | {
-    kind: "deny-no-token";
+    kind: 'deny-no-token';
     block: BlockResult;
 } | {
     /** RBAC matrix returned permission 0 (deny) for this resource+action.
      * Step-up cannot help — the member's role has no access. Hard block. */
-    kind: "deny-rbac-denied";
+    kind: 'deny-rbac-denied';
     block: BlockResult;
     resource: string;
     action: string;
 } | {
-    kind: "deny-stepup-failure";
+    kind: 'deny-stepup-failure';
     block: BlockResult;
     failure: Extract<RequestResult, {
         ok: false;
     }>;
 } | {
-    kind: "deny-stepup-pending";
+    kind: 'deny-stepup-pending';
     block: BlockResult;
     sid: string;
     browserUrl: string;

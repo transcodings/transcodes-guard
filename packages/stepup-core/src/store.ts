@@ -29,18 +29,18 @@
  * readVerified() runs after the upgrade. FP-KEYED files are new and need no
  * migration.
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import {
   cacheDir as pluginCacheDir,
   migrateLegacyFile,
-} from "@transcodes-guard/plugin-paths";
-import { STEPUP_TTL_MS } from "./config.js";
+} from '@transcodes-guard/plugin-paths';
+import { STEPUP_TTL_MS } from './config.js';
 import {
   listFingerprints,
   stepupDir,
   stepupFileName,
   stepupFilePath,
-} from "./stepup-files.js";
+} from './stepup-files.js';
 
 /**
  * Cache directory re-exported for backwards compatibility.
@@ -62,7 +62,7 @@ export type VerifiedStepup = {
 
 /** File-name stem for verified records; the GLOBAL/FP-KEYED naming, scan, and
  * path mechanics live in stepup-files.ts. */
-const FILE_BASE = "stepup-verified";
+const FILE_BASE = 'stepup-verified';
 
 function storePath(fp?: string): string {
   return stepupFilePath(FILE_BASE, fp);
@@ -75,11 +75,11 @@ function storePath(fp?: string): string {
  */
 export function readVerified(fp?: string): VerifiedStepup | null {
   // Only the GLOBAL file has a legacy location to migrate from.
-  if (!fp) migrateLegacyFile(stepupFileName(FILE_BASE), "cache");
+  if (!fp) migrateLegacyFile(stepupFileName(FILE_BASE), 'cache');
   const file = storePath(fp);
   let raw: string;
   try {
-    raw = readFileSync(file, "utf8");
+    raw = readFileSync(file, 'utf8');
   } catch {
     return null;
   }
@@ -90,17 +90,13 @@ export function readVerified(fp?: string): VerifiedStepup | null {
     consumeVerified(fp);
     return null;
   }
-  if (
-    parsed === null ||
-    typeof parsed !== "object" ||
-    Array.isArray(parsed)
-  ) {
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     consumeVerified(fp);
     return null;
   }
   const obj = parsed as Record<string, unknown>;
-  const sid = typeof obj.sid === "string" ? obj.sid : null;
-  const verifiedAt = typeof obj.verifiedAt === "number" ? obj.verifiedAt : null;
+  const sid = typeof obj.sid === 'string' ? obj.sid : null;
+  const verifiedAt = typeof obj.verifiedAt === 'number' ? obj.verifiedAt : null;
   if (!sid || verifiedAt === null) {
     consumeVerified(fp);
     return null;
@@ -112,7 +108,9 @@ export function readVerified(fp?: string): VerifiedStepup | null {
     // appears identical to a never-verified deny and root-cause analysis
     // requires reading timestamps off disk.
     process.stderr.write(
-      `transcodes-guard: verified record EXPIRED (sid=${sid}, age=${ageMs}ms, ttl=${STEPUP_TTL_MS}ms${fp ? `, fp=${fp}` : ""}) — starting a new step-up.\n`,
+      `transcodes-guard: verified record EXPIRED (sid=${sid}, age=${ageMs}ms, ttl=${STEPUP_TTL_MS}ms${
+        fp ? `, fp=${fp}` : ''
+      }) — starting a new step-up.\n`
     );
     consumeVerified(fp);
     return null;

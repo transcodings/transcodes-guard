@@ -449,6 +449,55 @@ function dashboardHtml(): string {
       color: #5a5a64;
     }
     .tool-badge.rbac-gated { color: #8a3ffc; border-color: #d4b8ff; background: #f6f0ff; }
+    .rbac-legend {
+      margin: 0 0 16px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid #e8e0ff;
+      background: linear-gradient(180deg, #faf8ff 0%, #fff 100%);
+    }
+    .rbac-legend-title {
+      margin: 0 0 6px;
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .rbac-legend-desc {
+      margin: 0 0 10px;
+      font-size: var(--text-xs);
+      color: #5a5a64;
+      line-height: 1.5;
+    }
+    .rbac-legend-levels {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 6px;
+    }
+    .rbac-legend-levels li {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: var(--text-xs);
+      color: #5a5a64;
+      line-height: 1.4;
+    }
+    .perm-chip {
+      flex-shrink: 0;
+      min-width: 92px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      text-align: center;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    .perm-chip-0 { color: #9a3412; border-color: #fdba74; background: #fff7ed; }
+    .perm-chip-1 { color: #166534; border-color: #86efac; background: #f0fdf4; }
+    .perm-chip-2 { color: #7c3aed; border-color: #d8b4fe; background: #faf5ff; }
+    .field-k-rbac { color: #8a3ffc; font-weight: 600; }
     .admin-tools-count {
       font-size: var(--text-sm);
       color: var(--muted);
@@ -668,7 +717,7 @@ function dashboardHtml(): string {
         </div>
         <div class="guide-item">
           <div class="guide-tab">Manual</div>
-          <p class="guide-desc"><strong>Transcodes Admin MCP</strong> is a read-only catalog of backend API tools the plugin exposes. <strong>RBAC gated</strong> tools are intercepted by the PreToolUse hook; the permission matrix (0/1/2) decides deny, allow, or step-up at call time. <strong>Commands</strong> lists terminal shortcuts such as <code>transcodes set</code> and <code>transcodes tokens</code>.</p>
+          <p class="guide-desc"><strong>Transcodes Admin MCP</strong> is a read-only catalog of backend API tools the plugin exposes. Tools with a <strong>Role permission check</strong> badge follow your Transcodes console role matrix (block / allow / step-up MFA). <strong>Commands</strong> lists terminal shortcuts such as <code>transcodes set</code> and <code>transcodes tokens</code>.</p>
         </div>
       </div>
     </div>
@@ -680,7 +729,16 @@ function dashboardHtml(): string {
       </div>
       <div class="policy-pane active" id="manual-pane-admin">
         <p class="section-title">Transcodes Admin MCP</p>
-        <p class="section-sub">Transcodes backend API tools exposed via MCP. Read-only reference — agents call these through the transcodes-guard plugin. Tools marked <strong>RBAC gated</strong> are intercepted by the PreToolUse hook; your role's permission matrix (0 = deny, 1 = allow, 2 = step-up) decides the outcome at call time — not a fixed MFA requirement.</p>
+        <p class="section-sub">Backend API tools exposed via MCP — agents call these through the transcodes-guard plugin. This page is a read-only reference.</p>
+        <div class="rbac-legend">
+          <p class="rbac-legend-title">Role permission check</p>
+          <p class="rbac-legend-desc">Some tools carry this badge. When an agent calls one, your role in Transcodes console (<strong>Roles</strong> tab) decides the outcome at call time — not a fixed always-MFA rule.</p>
+          <ul class="rbac-legend-levels">
+            <li><span class="perm-chip perm-chip-0">0 · Block</span> Denied — the tool does not run</li>
+            <li><span class="perm-chip perm-chip-1">1 · Allow</span> Runs immediately — no step-up MFA</li>
+            <li><span class="perm-chip perm-chip-2">2 · Step-up</span> Step-up MFA required before the tool runs</li>
+          </ul>
+        </div>
         <p class="admin-tools-count" id="admin-tools-count"></p>
         <div class="token-list" id="admin-tools-list"></div>
       </div>
@@ -1140,13 +1198,16 @@ function dashboardHtml(): string {
 
     function adminToolRow(t) {
       const badgeHtml = t.rbacGated
-        ? '<div class="tool-badges"><span class="tool-badge rbac-gated">RBAC gated</span></div>'
+        ? '<div class="tool-badges"><span class="tool-badge rbac-gated" title="Outcome follows your role matrix: 0 block, 1 allow, 2 step-up MFA">Role permission check</span></div>'
         : '';
+      const actionLabel = t.rbacGated ? 'permission action' : 'action';
+      const resourceLabel = t.rbacGated ? 'RBAC resource' : 'resource';
+      const actionClass = t.rbacGated ? ' field-k-rbac' : '';
       const action =
-        '<div class="field"><span class="k">action</span> <code>' +
+        '<div class="field"><span class="k' + actionClass + '">' + actionLabel + '</span> <code>' +
         esc(t.rbacAction || 'update') + '</code></div>';
       const resource =
-        '<div class="field"><span class="k">resource</span> <code>' +
+        '<div class="field"><span class="k' + actionClass + '">' + resourceLabel + '</span> <code>' +
         esc(t.rbacResource || 'system') + '</code></div>';
       return (
         '<div class="token-row">' +

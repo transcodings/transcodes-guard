@@ -4,7 +4,7 @@ import {
 } from "../chunk-F23VFFYP.js";
 import {
   firstActivePending
-} from "../chunk-MI5KXR2K.js";
+} from "../chunk-GXHICN7X.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";

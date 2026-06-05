@@ -10,6 +10,7 @@ import {
   __toESM,
   addUserPattern,
   addUserToolRule,
+  checkRbacPermission,
   clearPending,
   consumeVerified,
   createStepupSession,
@@ -35,7 +36,7 @@ import {
   updateUserPattern,
   updateUserToolRule,
   writeVerified
-} from "../chunk-MI5KXR2K.js";
+} from "../chunk-GXHICN7X.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17069,7 +17070,7 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // ../../packages/mcp-server-core/dist/build-info.js
-var PLUGIN_VERSION = "0.3.0";
+var PLUGIN_VERSION = "0.5.0";
 
 // ../../packages/mcp-server-core/dist/tools/transcodes-client.js
 var ENDPOINT_MAP = {
@@ -17139,15 +17140,91 @@ function blockedResult(message) {
   };
 }
 
+// ../../packages/mcp-server-core/dist/tools/stepup-helper.js
+var RBAC_TTL_MS = 5 * 6e4;
+var rbacCache = /* @__PURE__ */ new Map();
+async function getCachedRbacLevel(config2, resource, action) {
+  const key = `${config2.memberId}:${resource}:${action}`;
+  const hit = rbacCache.get(key);
+  if (hit && Date.now() < hit.exp)
+    return hit.level;
+  const level = await checkRbacPermission(config2, resource, action) ?? 2;
+  rbacCache.set(key, { level, exp: Date.now() + RBAC_TTL_MS });
+  return level;
+}
+async function execProtectedTool(toolName, run) {
+  const verified = readVerified();
+  const rule = loadMergedToolRules().find((r) => r.toolName === toolName || r.toolName.endsWith(`__${toolName}`));
+  if (rule) {
+    let level = 2;
+    try {
+      const config2 = loadStepupConfig();
+      level = await getCachedRbacLevel(config2, rule.stepupResource, rule.stepupAction);
+    } catch {
+      level = 2;
+    }
+    if (level === 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: `transcodes-guard: BLOCKED (rbac-denied ${rule.stepupResource}/${rule.stepupAction}) \u2014 ${toolName}`
+          }
+        ]
+      };
+    }
+    if (level === 2 && !verified) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: `transcodes-guard: step-up MFA required (${rule.stepupResource}/${rule.stepupAction}) \u2014 ${toolName}. Complete WebAuthn (create_stepup_session \u2192 poll_stepup_session) or use the IDE MCP tool path.`
+          }
+        ]
+      };
+    }
+    const sid = level === 2 ? verified?.sid : void 0;
+    try {
+      return {
+        isError: false,
+        content: [{ type: "text", text: await run(sid) }]
+      };
+    } finally {
+      if (level === 2 && verified) {
+        consumeVerified();
+        clearPending();
+      }
+    }
+  }
+  if (!verified) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text",
+          text: `step-up verified record missing for ${toolName}`
+        }
+      ]
+    };
+  }
+  try {
+    return {
+      isError: false,
+      content: [{ type: "text", text: await run(verified.sid) }]
+    };
+  } finally {
+    consumeVerified();
+    clearPending();
+  }
+}
+
 // ../../packages/mcp-server-core/dist/tools/audit.js
-var textResult = (text, isError = false) => ({
-  isError,
-  content: [{ type: "text", text }]
-});
 function registerAuditTools(server) {
   server.registerTool("get_security_logs", {
     title: "Get security logs",
-    description: "List project audit logs with pagination and filters. Use for security investigations, login/admin activity review, compliance. Returns tag, severity, IP, user_agent, member_id, metadata. Filter by `tag`; `start_date`/`end_date` are ISO 8601 range filters.",
+    description: "List project audit logs with pagination and filters. Use for security investigations, login/admin activity review, compliance. Returns tag, severity, IP, user_agent, member_id, metadata. Filter by `tag`; `start_date`/`end_date` are ISO 8601 range filters. RBAC-gated via tool-rule `tc-get-security-logs` (system/read).",
     inputSchema: {
       page: external_exports.number().optional(),
       limit: external_exports.number().optional(),
@@ -17157,7 +17234,7 @@ function registerAuditTools(server) {
     }
   }, async ({ page, limit, tag, start_date, end_date }) => {
     const config2 = loadStepupConfig();
-    const text = await req(config2, {
+    return execProtectedTool("get_security_logs", (sid) => req(config2, {
       method: "GET",
       query: {
         project_id: config2.projectId,
@@ -17166,14 +17243,14 @@ function registerAuditTools(server) {
         tag,
         start_date,
         end_date
-      }
-    }, "get_security_logs");
-    return textResult(text);
+      },
+      stepUpSid: sid
+    }, "get_security_logs"));
   });
 }
 
 // ../../packages/mcp-server-core/dist/tools/auth-devices.js
-var textResult2 = (text, isError = false) => ({
+var textResult = (text, isError = false) => ({
   isError,
   content: [{ type: "text", text }]
 });
@@ -17190,7 +17267,7 @@ function registerAuthDeviceTools(server) {
       method: "GET",
       query: { project_id: config2.projectId, member_id }
     }, "list_authenticators");
-    return textResult2(text);
+    return textResult(text);
   });
   server.registerTool("list_passkeys", {
     title: "List passkeys",
@@ -17204,7 +17281,7 @@ function registerAuthDeviceTools(server) {
       method: "GET",
       query: { project_id: config2.projectId, member_id }
     }, "list_passkeys");
-    return textResult2(text);
+    return textResult(text);
   });
   server.registerTool("list_totps", {
     title: "List TOTP devices",
@@ -17218,7 +17295,7 @@ function registerAuthDeviceTools(server) {
       method: "GET",
       query: { project_id: config2.projectId, member_id }
     }, "list_totps");
-    return textResult2(text);
+    return textResult(text);
   });
 }
 
@@ -17232,22 +17309,8 @@ function registerJwkTools(server) {
   }, async () => blockedResult(MSG_JWK_BACKUP_CONSOLE));
 }
 
-// ../../packages/mcp-server-core/dist/tools/stepup-helper.js
-async function withStepupVerifiedSid(toolName, fn) {
-  const verified = readVerified();
-  if (!verified) {
-    throw new Error(`step-up verified record missing for ${toolName} \u2014 the PreToolUse hook should have populated it before this handler was invoked`);
-  }
-  try {
-    return await fn(verified.sid);
-  } finally {
-    consumeVerified();
-    clearPending();
-  }
-}
-
 // ../../packages/mcp-server-core/dist/tools/members.js
-var textResult3 = (text, isError = false) => ({
+var textResult2 = (text, isError = false) => ({
   isError,
   content: [{ type: "text", text }]
 });
@@ -17270,7 +17333,7 @@ function registerMemberTools(server) {
         email: email2
       }
     }, "get_member");
-    return textResult3(text);
+    return textResult2(text);
   });
   server.registerTool("list_members_paginated", {
     title: "List members (paginated)",
@@ -17293,7 +17356,7 @@ function registerMemberTools(server) {
         order
       }
     }, "list_members_paginated");
-    return textResult3(text);
+    return textResult2(text);
   });
   server.registerTool("list_member_devices", {
     title: "List member devices",
@@ -17307,7 +17370,7 @@ function registerMemberTools(server) {
       method: "GET",
       query: { project_id: config2.projectId, member_id }
     }, "list_member_devices");
-    return textResult3(text);
+    return textResult2(text);
   });
   server.registerTool("get_member_suspension", {
     title: "Get member suspension status",
@@ -17321,7 +17384,7 @@ function registerMemberTools(server) {
       method: "GET",
       query: { project_id: config2.projectId, member_id }
     }, "get_member_suspension");
-    return textResult3(text);
+    return textResult2(text);
   });
   server.registerTool("retire_member", {
     title: "Retire member (permanent)",
@@ -17331,12 +17394,11 @@ function registerMemberTools(server) {
     }
   }, async ({ body }) => {
     const config2 = loadStepupConfig();
-    const text = await withStepupVerifiedSid("retire_member", (sid) => req(config2, {
+    return execProtectedTool("retire_member", (sid) => req(config2, {
       method: "DELETE",
       body: { ...body, project_id: config2.projectId },
       stepUpSid: sid
     }, "retire_member"));
-    return textResult3(text);
   });
   server.registerTool("suspend_member", {
     title: "Suspend member (reversible)",
@@ -17346,12 +17408,11 @@ function registerMemberTools(server) {
     }
   }, async ({ body }) => {
     const config2 = loadStepupConfig();
-    const text = await withStepupVerifiedSid("suspend_member", (sid) => req(config2, {
+    return execProtectedTool("suspend_member", (sid) => req(config2, {
       method: "POST",
       body: { ...body, project_id: config2.projectId },
       stepUpSid: sid
     }, "suspend_member"));
-    return textResult3(text);
   });
   server.registerTool("unsuspend_member", {
     title: "Unsuspend member",
@@ -17361,16 +17422,15 @@ function registerMemberTools(server) {
     }
   }, async ({ body }) => {
     const config2 = loadStepupConfig();
-    const text = await withStepupVerifiedSid("unsuspend_member", (sid) => req(config2, {
+    return execProtectedTool("unsuspend_member", (sid) => req(config2, {
       method: "DELETE",
       body: { ...body, project_id: config2.projectId },
       stepUpSid: sid
     }, "unsuspend_member"));
-    return textResult3(text);
   });
   server.registerTool("create_member", {
     title: "Create member",
-    description: "Create a member (CreateMemberDto). member_id/name may be auto-generated. Use for onboarding or manual provisioning. Auth: TRANSCODES_TOKEN sent as x-transcodes-token (not in body).",
+    description: "Create a member (CreateMemberDto). member_id/name may be auto-generated. Use for onboarding or manual provisioning. RBAC-gated via tool-rule `tc-create-member` (0=block, 1=allow, 2=step-up MFA). Auth: TRANSCODES_TOKEN sent as x-transcodes-token (not in body).",
     inputSchema: {
       body: external_exports.object({
         email: external_exports.string(),
@@ -17381,15 +17441,11 @@ function registerMemberTools(server) {
     }
   }, async ({ body }) => {
     const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "POST",
-      body: { ...body, project_id: config2.projectId }
-    }, "create_member");
-    return textResult3(text);
+    return execProtectedTool("create_member", (sid) => req(config2, { method: "POST", body: { ...body, project_id: config2.projectId }, stepUpSid: sid }, "create_member"));
   });
   server.registerTool("update_member", {
     title: "Update member",
-    description: "Update member fields (UpdateMemberDto, flat shape). Auth: TRANSCODES_TOKEN sent as x-transcodes-token (not in body). member_id is required \u2014 supply the target member explicitly (it may differ from the caller).",
+    description: "Update member fields (UpdateMemberDto, flat shape). RBAC-gated via tool-rule `tc-update-member` (0=block, 1=allow, 2=step-up MFA). member_id is required \u2014 supply the target member explicitly (it may differ from the caller).",
     inputSchema: {
       body: external_exports.object({
         member_id: external_exports.string(),
@@ -17401,16 +17457,12 @@ function registerMemberTools(server) {
     }
   }, async ({ body }) => {
     const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "PUT",
-      body: { ...body, project_id: config2.projectId }
-    }, "update_member");
-    return textResult3(text);
+    return execProtectedTool("update_member", (sid) => req(config2, { method: "PUT", body: { ...body, project_id: config2.projectId }, stepUpSid: sid }, "update_member"));
   });
 }
 
 // ../../packages/mcp-server-core/dist/tools/membership.js
-var textResult4 = (text, isError = false) => ({
+var textResult3 = (text, isError = false) => ({
   isError,
   content: [{ type: "text", text }]
 });
@@ -17422,7 +17474,7 @@ function registerMembershipTools(server) {
   }, async () => {
     const config2 = loadStepupConfig();
     const text = await req(config2, { method: "GET" }, "membership_plans");
-    return textResult4(text);
+    return textResult3(text);
   });
   server.registerTool("membership_plans_limits", {
     title: "Membership plan limits",
@@ -17431,7 +17483,7 @@ function registerMembershipTools(server) {
   }, async () => {
     const config2 = loadStepupConfig();
     const text = await req(config2, { method: "GET" }, "membership_plans_limits");
-    return textResult4(text);
+    return textResult3(text);
   });
   server.registerTool("membership_customer_status_by_project", {
     title: "Customer status by project",
@@ -17440,7 +17492,7 @@ function registerMembershipTools(server) {
   }, async () => {
     const config2 = loadStepupConfig();
     const text = await req(config2, { method: "GET", query: { project_id: config2.projectId } }, "membership_customer_status_by_project");
-    return textResult4(text);
+    return textResult3(text);
   });
   server.registerTool("membership_customer_status_by_organization", {
     title: "Customer status by organization",
@@ -17449,7 +17501,7 @@ function registerMembershipTools(server) {
   }, async () => {
     const config2 = loadStepupConfig();
     const text = await req(config2, { method: "GET", query: { organization_id: config2.organizationId } }, "membership_customer_status_by_organization");
-    return textResult4(text);
+    return textResult3(text);
   });
   server.registerTool("membership_create_checkout_session", {
     title: "Create checkout session",
@@ -17463,13 +17515,13 @@ function registerMembershipTools(server) {
   }, async ({ body }) => {
     const config2 = loadStepupConfig();
     const text = await req(config2, { method: "POST", body }, "membership_create_checkout_session");
-    return textResult4(text);
+    return textResult3(text);
   });
 }
 
 // ../../packages/mcp-server-core/dist/tools/meta.js
 var INSTRUCTIONS_URL = "https://transcodes.io/instructions";
-var textResult5 = (text, isError = false) => ({
+var textResult4 = (text, isError = false) => ({
   isError,
   content: [{ type: "text", text }]
 });
@@ -17480,7 +17532,7 @@ function registerMetaTools(server) {
     inputSchema: {}
   }, async () => {
     const config2 = loadStepupConfig();
-    return textResult5(JSON.stringify({ ok: true, project_id: config2.projectId }, null, 2));
+    return textResult4(JSON.stringify({ ok: true, project_id: config2.projectId }, null, 2));
   });
   server.registerTool("get_current_organization_id", {
     title: "Get current organization id",
@@ -17488,7 +17540,7 @@ function registerMetaTools(server) {
     inputSchema: {}
   }, async () => {
     const config2 = loadStepupConfig();
-    return textResult5(JSON.stringify({ ok: true, organization_id: config2.organizationId }, null, 2));
+    return textResult4(JSON.stringify({ ok: true, organization_id: config2.organizationId }, null, 2));
   });
   server.registerTool("get_current_member_id", {
     title: "Get current member id",
@@ -17496,7 +17548,7 @@ function registerMetaTools(server) {
     inputSchema: {}
   }, async () => {
     const config2 = loadStepupConfig();
-    return textResult5(JSON.stringify({ ok: true, member_id: config2.memberId }, null, 2));
+    return textResult4(JSON.stringify({ ok: true, member_id: config2.memberId }, null, 2));
   });
   server.registerTool("get_my_profile", {
     title: "Get my profile",
@@ -17508,7 +17560,7 @@ function registerMetaTools(server) {
       method: "GET",
       query: { project_id: config2.projectId, member_id: config2.memberId }
     }, "get_member");
-    return textResult5(text);
+    return textResult4(text);
   });
   server.registerTool("get_console_url", {
     title: "Get console URL",
@@ -17522,7 +17574,7 @@ function registerMetaTools(server) {
       resource: "transcodes:console",
       mode: "console"
     });
-    return textResult5(JSON.stringify({
+    return textResult4(JSON.stringify({
       ok: result.envelope.ok,
       status: result.envelope.status,
       sid: result.sid,
@@ -17549,11 +17601,11 @@ function registerMetaTools(server) {
       const content = await response.text();
       const trimmed = topic?.trim();
       if (trimmed) {
-        return textResult5(JSON.stringify({ topic: trimmed, instructions: content }, null, 2));
+        return textResult4(JSON.stringify({ topic: trimmed, instructions: content }, null, 2));
       }
-      return textResult5(content);
+      return textResult4(content);
     } catch (err) {
-      return textResult5(`Could not fetch the integration guide: ${err instanceof Error ? err.message : String(err)}`, true);
+      return textResult4(`Could not fetch the integration guide: ${err instanceof Error ? err.message : String(err)}`, true);
     } finally {
       clearTimeout(timer);
     }
@@ -17672,30 +17724,25 @@ function registerOrganizationTools(server) {
 }
 
 // ../../packages/mcp-server-core/dist/tools/passcode.js
-var textResult6 = (text, isError = false) => ({
-  isError,
-  content: [{ type: "text", text }]
-});
 function registerPasscodeTools(server) {
   server.registerTool("passcode_create", {
     title: "Create recovery passcode",
-    description: "Create a recovery passcode (CreatePasscodeDto in body). Verified action \u2014 step-up MFA enforced by the PreToolUse hook (tool-rule `tc-passcode-create`). Use for onboarding, support, or admin provisioning.",
+    description: "Create a recovery passcode (CreatePasscodeDto in body). RBAC-gated via tool-rule `tc-passcode-create` (0=block, 1=allow, 2=step-up MFA). Use for onboarding, support, or admin provisioning.",
     inputSchema: {
       body: external_exports.object({ member_id: external_exports.string() })
     }
   }, async ({ body }) => {
     const config2 = loadStepupConfig();
-    const text = await withStepupVerifiedSid("passcode_create", (sid) => req(config2, {
+    return execProtectedTool("passcode_create", (sid) => req(config2, {
       method: "POST",
       body: { ...body, project_id: config2.projectId },
       stepUpSid: sid
     }, "passcode_create"));
-    return textResult6(text);
   });
 }
 
 // ../../packages/mcp-server-core/dist/tools/project.js
-var textResult7 = (text, isError = false) => ({
+var textResult5 = (text, isError = false) => ({
   isError,
   content: [{ type: "text", text }]
 });
@@ -17708,7 +17755,7 @@ function registerProjectTools(server) {
   }, async () => {
     const config2 = loadStepupConfig();
     const text = await req(config2, { method: "GET" }, "get_project", `/${config2.projectId}`);
-    return textResult7(text);
+    return textResult5(text);
   });
   server.registerTool("project_pwa_auth_console", {
     title: "PWA / auth config (console-only)",
@@ -17718,7 +17765,7 @@ function registerProjectTools(server) {
 }
 
 // ../../packages/mcp-server-core/dist/tools/rbac.js
-var textResult8 = (text, isError = false) => ({
+var textResult6 = (text, isError = false) => ({
   isError,
   content: [{ type: "text", text }]
 });
@@ -17738,7 +17785,7 @@ function registerRbacTools(server) {
   }, async () => {
     const config2 = loadStepupConfig();
     const text = await req(config2, { method: "GET", query: { project_id: config2.projectId } }, "get_roles");
-    return textResult8(text);
+    return textResult6(text);
   });
   server.registerTool("get_resources", {
     title: "Get resources",
@@ -17747,7 +17794,7 @@ function registerRbacTools(server) {
   }, async () => {
     const config2 = loadStepupConfig();
     const text = await req(config2, { method: "GET", query: { project_id: config2.projectId } }, "get_resources");
-    return textResult8(text);
+    return textResult6(text);
   });
   server.registerTool("check_rbac_permission", {
     title: "Check RBAC permission",
@@ -17765,7 +17812,7 @@ function registerRbacTools(server) {
       method: "POST",
       body: { ...body, project_id: config2.projectId }
     }, "check_rbac_permission");
-    return textResult8(text);
+    return textResult6(text);
   });
   server.registerTool("retire_role", {
     title: "Retire role",
@@ -17775,12 +17822,11 @@ function registerRbacTools(server) {
     }
   }, async ({ role_id }) => {
     const config2 = loadStepupConfig();
-    const text = await withStepupVerifiedSid("retire_role", (sid) => req(config2, {
+    return execProtectedTool("retire_role", (sid) => req(config2, {
       method: "DELETE",
       body: { project_id: config2.projectId },
       stepUpSid: sid
     }, "retire_role", `/${encodeURIComponent(role_id)}`));
-    return textResult8(text);
   });
   server.registerTool("set_role_permissions", {
     title: "Set role permissions",
@@ -17793,12 +17839,11 @@ function registerRbacTools(server) {
     }
   }, async ({ role_id, body }) => {
     const config2 = loadStepupConfig();
-    const text = await withStepupVerifiedSid("set_role_permissions", (sid) => req(config2, {
+    return execProtectedTool("set_role_permissions", (sid) => req(config2, {
       method: "PUT",
       body: { ...body, project_id: config2.projectId },
       stepUpSid: sid
     }, "set_role_permissions", `/${encodeURIComponent(role_id)}/permissions`));
-    return textResult8(text);
   });
   server.registerTool("update_member_role", {
     title: "Update member role",
@@ -17811,12 +17856,11 @@ function registerRbacTools(server) {
     }
   }, async ({ body }) => {
     const config2 = loadStepupConfig();
-    const text = await withStepupVerifiedSid("update_member_role", (sid) => req(config2, {
+    return execProtectedTool("update_member_role", (sid) => req(config2, {
       method: "PUT",
       body: { ...body, project_id: config2.projectId },
       stepUpSid: sid
     }, "update_member_role"));
-    return textResult8(text);
   });
   server.registerTool("retire_resource", {
     title: "Retire resource",
@@ -17826,17 +17870,16 @@ function registerRbacTools(server) {
     }
   }, async ({ resource_key }) => {
     const config2 = loadStepupConfig();
-    const text = await withStepupVerifiedSid("retire_resource", (sid) => req(config2, {
+    return execProtectedTool("retire_resource", (sid) => req(config2, {
       method: "DELETE",
       query: { project_id: config2.projectId },
       omitBody: true,
       stepUpSid: sid
     }, "retire_resource", `/${encodeURIComponent(resource_key)}`));
-    return textResult8(text);
   });
   server.registerTool("create_role", {
     title: "Create role",
-    description: "Create a new role (CreateRoleDto). Use before set_role_permissions to fill per-resource access. " + PROJECT_ID_GUIDANCE,
+    description: "Create a new role (CreateRoleDto). Use before set_role_permissions to fill per-resource access. RBAC-gated via tool-rule `tc-create-role` (0=block, 1=allow, 2=step-up MFA). " + PROJECT_ID_GUIDANCE,
     inputSchema: {
       body: external_exports.object({
         name: external_exports.string(),
@@ -17845,15 +17888,11 @@ function registerRbacTools(server) {
     }
   }, async ({ body }) => {
     const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "POST",
-      body: { ...body, project_id: config2.projectId }
-    }, "create_role");
-    return textResult8(text);
+    return execProtectedTool("create_role", (sid) => req(config2, { method: "POST", body: { ...body, project_id: config2.projectId }, stepUpSid: sid }, "create_role"));
   });
   server.registerTool("update_role", {
     title: "Update role",
-    description: "Update role metadata (UpdateRoleDto). " + PROJECT_ID_GUIDANCE,
+    description: "Update role metadata (UpdateRoleDto). RBAC-gated via tool-rule `tc-update-role` (0=block, 1=allow, 2=step-up MFA). " + PROJECT_ID_GUIDANCE,
     inputSchema: {
       role_id: external_exports.string(),
       body: external_exports.object({
@@ -17862,15 +17901,11 @@ function registerRbacTools(server) {
     }
   }, async ({ role_id, body }) => {
     const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "PUT",
-      body: { ...body, project_id: config2.projectId }
-    }, "update_role", `/${encodeURIComponent(role_id)}`);
-    return textResult8(text);
+    return execProtectedTool("update_role", (sid) => req(config2, { method: "PUT", body: { ...body, project_id: config2.projectId }, stepUpSid: sid }, "update_role", `/${encodeURIComponent(role_id)}`));
   });
   server.registerTool("create_resource", {
     title: "Create resource",
-    description: "Add a new resource key (CreateResourceDto). New resources default to deny (0) for all roles. " + PROJECT_ID_GUIDANCE,
+    description: "Add a new resource key (CreateResourceDto). New resources default to deny (0) for all roles. RBAC-gated via tool-rule `tc-create-resource` (0=block, 1=allow, 2=step-up MFA). " + PROJECT_ID_GUIDANCE,
     inputSchema: {
       body: external_exports.object({
         key: external_exports.string(),
@@ -17880,15 +17915,11 @@ function registerRbacTools(server) {
     }
   }, async ({ body }) => {
     const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "POST",
-      body: { ...body, project_id: config2.projectId }
-    }, "create_resource");
-    return textResult8(text);
+    return execProtectedTool("create_resource", (sid) => req(config2, { method: "POST", body: { ...body, project_id: config2.projectId }, stepUpSid: sid }, "create_resource"));
   });
   server.registerTool("update_resource", {
     title: "Update resource",
-    description: "Update resource label/description (UpdateResourceDto). Key stays the same. " + PROJECT_ID_GUIDANCE,
+    description: "Update resource label/description (UpdateResourceDto). Key stays the same. RBAC-gated via tool-rule `tc-update-resource` (0=block, 1=allow, 2=step-up MFA). " + PROJECT_ID_GUIDANCE,
     inputSchema: {
       resource_key: external_exports.string(),
       body: external_exports.object({
@@ -17897,11 +17928,7 @@ function registerRbacTools(server) {
     }
   }, async ({ resource_key, body }) => {
     const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "PATCH",
-      body: { ...body, project_id: config2.projectId }
-    }, "update_resource", `/${encodeURIComponent(resource_key)}`);
-    return textResult8(text);
+    return execProtectedTool("update_resource", (sid) => req(config2, { method: "PATCH", body: { ...body, project_id: config2.projectId }, stepUpSid: sid }, "update_resource", `/${encodeURIComponent(resource_key)}`));
   });
 }
 
@@ -17996,7 +18023,7 @@ function formatToolRulesMarkdown(rules) {
   }
   return lines.join("\n");
 }
-function textResult9(text, isError = false) {
+function textResult7(text, isError = false) {
   return {
     isError,
     content: [{ type: "text", text }]
@@ -18041,7 +18068,7 @@ function createServer() {
     const patterns = loadMergedPatterns();
     const hit = findFirstMatch(command, patterns);
     if (!hit) {
-      return textResult9(JSON.stringify({
+      return textResult7(JSON.stringify({
         matched: false,
         will_trigger_hook: false,
         patterns_checked: patterns.length,
@@ -18049,7 +18076,7 @@ function createServer() {
       }, null, 2));
     }
     const m = hit.matched;
-    return textResult9(JSON.stringify({
+    return textResult7(JSON.stringify({
       matched: true,
       matched_by: m.source,
       pattern_id: m.id,
@@ -18083,14 +18110,14 @@ id must be unique across both system and user patterns; regex must compile. Pers
     try {
       await assertRbacCoordinate(loadStepupConfig(), input.stepupResource, input.stepupAction);
       const saved = addUserPattern(input);
-      return textResult9(`Added user pattern \`${saved.id}\`.
+      return textResult7(`Added user pattern \`${saved.id}\`.
 regex: ${saved.regex}
 reason: ${saved.reason}
 resource: ${saved.stepupResource}
 action: ${saved.stepupAction}`);
     } catch (e) {
       if (e instanceof PatternValidationError || e instanceof RbacCoordinateError) {
-        return textResult9(`Rejected: ${e.message}`, true);
+        return textResult7(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18107,7 +18134,7 @@ action: ${saved.stepupAction}`);
     }
   }, async ({ id, regex, reason, stepupResource, stepupAction }) => {
     if (regex === void 0 && reason === void 0 && stepupResource === void 0 && stepupAction === void 0) {
-      return textResult9("Rejected: provide at least one of `regex`, `reason`, `stepupResource`, or `stepupAction` to update.", true);
+      return textResult7("Rejected: provide at least one of `regex`, `reason`, `stepupResource`, or `stepupAction` to update.", true);
     }
     try {
       if (stepupResource !== void 0) {
@@ -18119,14 +18146,14 @@ action: ${saved.stepupAction}`);
         stepupResource,
         stepupAction
       });
-      return textResult9(`Updated user pattern \`${saved.id}\`.
+      return textResult7(`Updated user pattern \`${saved.id}\`.
 regex: ${saved.regex}
 reason: ${saved.reason}
 resource: ${saved.stepupResource}
 action: ${saved.stepupAction}`);
     } catch (e) {
       if (e instanceof PatternValidationError || e instanceof RbacCoordinateError) {
-        return textResult9(`Rejected: ${e.message}`, true);
+        return textResult7(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18138,10 +18165,10 @@ action: ${saved.stepupAction}`);
   }, async ({ id }) => {
     try {
       removeUserPattern(id);
-      return textResult9(`Removed user pattern \`${id}\`.`);
+      return textResult7(`Removed user pattern \`${id}\`.`);
     } catch (e) {
       if (e instanceof PatternValidationError) {
-        return textResult9(`Rejected: ${e.message}`, true);
+        return textResult7(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18269,12 +18296,12 @@ action: ${saved.stepupAction}`);
     const effectiveToolName = tool_name ?? "Bash";
     const effectiveToolInput = tool_input !== void 0 ? tool_input : command !== void 0 ? { command } : {};
     if (effectiveToolName === "Bash" && !effectiveToolInput?.command) {
-      return textResult9("Rejected: Bash payload requires `command` (or `tool_input.command`).", true);
+      return textResult7("Rejected: Bash payload requires `command` (or `tool_input.command`).", true);
     }
     const before = inspectStepupState();
     const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT?.trim() || process.env.PLUGIN_ROOT?.trim();
     if (!pluginRoot) {
-      return textResult9("Rejected: CLAUDE_PLUGIN_ROOT (or PLUGIN_ROOT for Codex) must be set so the hook binary can be located.", true);
+      return textResult7("Rejected: CLAUDE_PLUGIN_ROOT (or PLUGIN_ROOT for Codex) must be set so the hook binary can be located.", true);
     }
     const hookPath = path.resolve(pluginRoot, "dist/hooks/pre-tool-use.js");
     const payload = JSON.stringify({
@@ -18394,7 +18421,7 @@ id must be unique across both system and user rules; persisted to ${getUserToolR
     try {
       await assertRbacCoordinate(loadStepupConfig(), input.stepupResource, input.stepupAction);
       const saved = addUserToolRule(input);
-      return textResult9(`Added user tool-rule \`${saved.id}\`.
+      return textResult7(`Added user tool-rule \`${saved.id}\`.
 toolName: ${saved.toolName}
 reason: ${saved.reason}
 resource: ${saved.stepupResource}
@@ -18402,7 +18429,7 @@ action: ${saved.stepupAction}
 consume_in_hook: ${saved.consume_in_hook ?? true}`);
     } catch (e) {
       if (e instanceof ToolRuleValidationError || e instanceof RbacCoordinateError) {
-        return textResult9(`Rejected: ${e.message}`, true);
+        return textResult7(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18420,7 +18447,7 @@ consume_in_hook: ${saved.consume_in_hook ?? true}`);
     }
   }, async ({ id, toolName, reason, stepupAction, stepupResource, consume_in_hook }) => {
     if (toolName === void 0 && reason === void 0 && stepupAction === void 0 && stepupResource === void 0 && consume_in_hook === void 0) {
-      return textResult9("Rejected: provide at least one of `toolName`, `reason`, `stepupAction`, `stepupResource`, or `consume_in_hook` to update.", true);
+      return textResult7("Rejected: provide at least one of `toolName`, `reason`, `stepupAction`, `stepupResource`, or `consume_in_hook` to update.", true);
     }
     try {
       if (stepupResource !== void 0) {
@@ -18433,7 +18460,7 @@ consume_in_hook: ${saved.consume_in_hook ?? true}`);
         stepupResource,
         consume_in_hook
       });
-      return textResult9(`Updated user tool-rule \`${saved.id}\`.
+      return textResult7(`Updated user tool-rule \`${saved.id}\`.
 toolName: ${saved.toolName}
 reason: ${saved.reason}
 resource: ${saved.stepupResource}
@@ -18441,7 +18468,7 @@ action: ${saved.stepupAction}
 consume_in_hook: ${saved.consume_in_hook ?? true}`);
     } catch (e) {
       if (e instanceof ToolRuleValidationError || e instanceof RbacCoordinateError) {
-        return textResult9(`Rejected: ${e.message}`, true);
+        return textResult7(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18453,10 +18480,10 @@ consume_in_hook: ${saved.consume_in_hook ?? true}`);
   }, async ({ id }) => {
     try {
       removeUserToolRule(id);
-      return textResult9(`Removed user tool-rule \`${id}\`.`);
+      return textResult7(`Removed user tool-rule \`${id}\`.`);
     } catch (e) {
       if (e instanceof ToolRuleValidationError) {
-        return textResult9(`Rejected: ${e.message}`, true);
+        return textResult7(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18472,10 +18499,10 @@ consume_in_hook: ${saved.consume_in_hook ?? true}`);
     const rules = loadMergedToolRules();
     const match = findFirstToolRule(tool_name, rules);
     if (!match) {
-      return textResult9(JSON.stringify({ tool_name, matched: false, rule_count: rules.length }, null, 2));
+      return textResult7(JSON.stringify({ tool_name, matched: false, rule_count: rules.length }, null, 2));
     }
     const r = match.matched;
-    return textResult9(JSON.stringify({
+    return textResult7(JSON.stringify({
       tool_name,
       matched: true,
       rule: {
