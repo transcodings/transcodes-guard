@@ -134,16 +134,13 @@ function buildPatternsPayload(): PatternsPayload {
 }
 
 type ToolRulesPayload = {
-  system: MergedToolRule[];
   user: MergedToolRule[];
 };
 
-/** Split the merged tool-rules by source for the dashboard UI. */
+/** User-owned tool rules for the Policies → MCP tools tab (system rules live in Manual). */
 function buildToolRulesPayload(): ToolRulesPayload {
-  const merged = loadMergedToolRules();
   return {
-    system: merged.filter((r) => r.source === 'system'),
-    user: merged.filter((r) => r.source === 'user'),
+    user: loadMergedToolRules().filter((r) => r.source === 'user'),
   };
 }
 
@@ -713,7 +710,7 @@ function dashboardHtml(): string {
         </div>
         <div class="guide-item">
           <div class="guide-tab">Policies</div>
-          <p class="guide-desc">Configure when step-up MFA is triggered. <strong>Bash Command</strong> lists regex patterns for shell commands; <strong>MCP tools</strong> lists your custom tool-name rules. Adding rules is done through your coding agent — review and edit saved rules here.</p>
+          <p class="guide-desc">Configure when step-up MFA is triggered. <strong>Bash Command</strong> lists your regex patterns for shell commands; <strong>MCP tools</strong> lists your custom tool-name rules. System MCP tools are catalogued under <strong>Manual → Transcodes Admin MCP</strong>. Adding rules is done through your coding agent — review and edit saved rules here.</p>
         </div>
         <div class="guide-item">
           <div class="guide-tab">Manual</div>
@@ -732,7 +729,7 @@ function dashboardHtml(): string {
         <p class="section-sub">Backend API tools exposed via MCP — agents call these through the transcodes-guard plugin. This page is a read-only reference.</p>
         <div class="rbac-legend">
           <p class="rbac-legend-title">Role permission check</p>
-          <p class="rbac-legend-desc">Some tools carry this badge. When an agent calls one, your role in Transcodes console (<strong>Roles</strong> tab) decides the outcome at call time — not a fixed always-MFA rule.</p>
+          <p class="rbac-legend-desc">Tools with the <strong>Role permission check</strong> badge are gated: your role in Transcodes console (<strong>Roles</strong> tab) decides block / allow / step-up MFA at call time. Other tools run with your MCP token only — no RBAC coordinate is shown because none applies.</p>
           <ul class="rbac-legend-levels">
             <li><span class="perm-chip perm-chip-0">0 · Block</span> Denied — the tool does not run</li>
             <li><span class="perm-chip perm-chip-1">1 · Allow</span> Runs immediately — no step-up MFA</li>
@@ -801,8 +798,6 @@ function dashboardHtml(): string {
         <div id="tool-toast" class="toast"></div>
         <p class="list-label">Your tool rules</p>
         <div class="token-list" id="tool-user-list"></div>
-        <p class="list-label">System tool rules (read-only)</p>
-        <div class="token-list" id="tool-system-list"></div>
       </div>
     </div>
   </div>
@@ -1192,7 +1187,6 @@ function dashboardHtml(): string {
 
     const toolToastEl = document.getElementById("tool-toast");
     const toolUserListEl = document.getElementById("tool-user-list");
-    const toolSystemListEl = document.getElementById("tool-system-list");
     const adminToolsListEl = document.getElementById("admin-tools-list");
     const adminToolsCountEl = document.getElementById("admin-tools-count");
 
@@ -1200,15 +1194,12 @@ function dashboardHtml(): string {
       const badgeHtml = t.rbacGated
         ? '<div class="tool-badges"><span class="tool-badge rbac-gated" title="Outcome follows your role matrix: 0 block, 1 allow, 2 step-up MFA">Role permission check</span></div>'
         : '';
-      const actionLabel = t.rbacGated ? 'permission action' : 'action';
-      const resourceLabel = t.rbacGated ? 'RBAC resource' : 'resource';
-      const actionClass = t.rbacGated ? ' field-k-rbac' : '';
-      const action =
-        '<div class="field"><span class="k' + actionClass + '">' + actionLabel + '</span> <code>' +
-        esc(t.rbacAction || 'update') + '</code></div>';
-      const resource =
-        '<div class="field"><span class="k' + actionClass + '">' + resourceLabel + '</span> <code>' +
-        esc(t.rbacResource || 'system') + '</code></div>';
+      const rbacFields = t.rbacGated
+        ? '<div class="field"><span class="k field-k-rbac">permission action</span> <code>' +
+          esc(t.rbacAction || 'update') + '</code></div>' +
+          '<div class="field"><span class="k field-k-rbac">RBAC resource</span> <code>' +
+          esc(t.rbacResource || 'system') + '</code></div>'
+        : '';
       return (
         '<div class="token-row">' +
           '<div class="token-top">' +
@@ -1216,7 +1207,7 @@ function dashboardHtml(): string {
               '<div class="label">' + esc(t.title) + '</div>' +
               badgeHtml +
               '<p class="tool-desc">' + esc(t.description) + '</p>' +
-              action + resource +
+              rbacFields +
               '<div class="field"><span class="k">name</span> <code>' + esc(t.name) + '</code></div>' +
             '</div>' +
           '</div>' +
@@ -1306,10 +1297,6 @@ function dashboardHtml(): string {
         s.user && s.user.length
           ? s.user.map((r) => toolRuleRow(r, false)).join("")
           : '<div class="token-empty">No custom tool rules yet — ask your agent to add one</div>';
-      toolSystemListEl.innerHTML =
-        s.system && s.system.length
-          ? s.system.map((r) => toolRuleRow(r, true)).join("")
-          : '<div class="token-empty">No system tool rules</div>';
       if (toolEditingId) {
         const el = toolUserListEl.querySelector(
           '[data-edit-treason="' + toolEditingId + '"]');
