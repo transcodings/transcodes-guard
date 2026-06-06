@@ -25,6 +25,12 @@ export declare function formatAllowReason(decision: Extract<GateDecision, {
 }>): string;
 export declare function formatNoTokenReason(block: BlockResult): string;
 export declare function formatNoTokenSystemMessage(block: BlockResult): string;
+export declare function formatRbacDeniedReason(decision: Extract<GateDecision, {
+    kind: 'deny-rbac-denied';
+}>): string;
+export declare function formatRbacDeniedSystemMessage(decision: Extract<GateDecision, {
+    kind: 'deny-rbac-denied';
+}>): string;
 export declare function formatStepupFailureDetail(decision: Extract<GateDecision, {
     kind: 'deny-stepup-failure';
 }>): string;

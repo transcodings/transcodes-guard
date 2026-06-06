@@ -13,11 +13,12 @@
 export { type Envelope, type RequestInput as HttpRequestInput, request, } from './client.js';
 export { DEFAULT_BACKEND_URL, loadStepupConfig, STEPUP_TTL_MS, type StepupConfig, } from './config.js';
 export { type BlockResult, evaluatePreToolUse, type GateDecision, type ToolCallInput, } from './evaluate.js';
-export { type RequestInput, type RequestResult, requestStepup, } from './gate.js';
+export { fingerprintOf, type RequestInput, type RequestResult, requestStepup, } from './gate.js';
 export { type BrowserLockInspection, inspectStepupState, type PendingInspection, type StepupStateInspection, type VerifiedInspection, } from './inspector.js';
 export { type MemberTokenClaims, type ParsedMemberToken, parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
-export { formatAllowReason, formatBlockedSummary, formatNoTokenReason, formatNoTokenSessionNotice, formatNoTokenSystemMessage, formatStderrTag, formatStepupFailureDetail, formatStepupFailureReason, formatStepupFailureSystemMessage, formatStepupPendingReason, formatStepupPendingSystemMessage, } from './messages.js';
-export { clearPending, isExpired, markVerified, type PendingState, readPending, writePending, } from './pending.js';
+export { formatAllowReason, formatBlockedSummary, formatNoTokenReason, formatNoTokenSessionNotice, formatNoTokenSystemMessage, formatRbacDeniedReason, formatRbacDeniedSystemMessage, formatStderrTag, formatStepupFailureDetail, formatStepupFailureReason, formatStepupFailureSystemMessage, formatStepupPendingReason, formatStepupPendingSystemMessage, } from './messages.js';
+export { clearPending, findPendingBySid, firstActivePending, firstInFlightFpPending, isExpired, listFpPendings, markVerified, type PendingState, readPending, sweepStepup, writePending, } from './pending.js';
+export { checkRbacPermission, type RbacLevel } from './rbac-check.js';
 export { type CreatedStepupSession, type CreateStepupArgs, createStepupSession, type PollStepupResult, pollStepupSession, pollStepupSessionWait, type WaitStepupResult, } from './session.js';
-export { cacheDir, consumeVerified, readVerified, type VerifiedStepup, writeVerified, } from './store.js';
-export { clearTokenFile, isTrackerEnabled, type ResolvedToken, readTokenFromFile, readTokenList, readTokenRecords, removeTokenFromFile, resolveToken, setActiveToken, setTokenLabel, setTrackerEnabled, type TokenRecord, type TokenSource, transcodesConfigDir, transcodesConfigFile, writeTokenToFile, } from './token-store.js';
+export { cacheDir, consumeVerified, listVerifiedFingerprints, readVerified, type VerifiedStepup, writeVerified, } from './store.js';
+export { clearTokenFile, type ResolvedToken, readTokenFromFile, readTokenList, readTokenRecords, removeTokenFromFile, resolveToken, setActiveToken, setTokenLabel, type TokenRecord, type TokenSource, transcodesConfigDir, transcodesConfigFile, writeTokenToFile, } from './token-store.js';

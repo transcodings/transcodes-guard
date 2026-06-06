@@ -22,19 +22,6 @@ The package lives under `private-packages/` (npm name `@transcodes-guard-private
 - **Before a danger match** (stdin parse, classify, pattern load) → **fail-open**: return `{ kind: "pass" }`. The hook exits 0 with no JSON. A crash here must never block a safe command.
 - **After a danger match** → **fail-safe**: return a `deny-*` decision. The hook emits `permissionDecision: "deny"`. A crash here must never silently allow a risky command.
 
-## Kill-switch and enable/disable asymmetry
-
-Global enable/disable lives in `~/.transcodes/config.json` `enabled` flag (CLI-owned; the one fixed path the CLI process and all four host hooks share). **Absent or corrupt = enabled (true)** — the gate must never fail silent-off. `isTrackerEnabled()` at the top of `evaluatePreToolUse` returns `{ kind: "pass" }` when disabled, neutralizing both Bash and protected-MCP blocking at one point. SessionStart primers guard on it separately.
-
-Disabling weakens protection, so only a **human out-of-band action** may do it; an agent must not switch off its own guardrails:
-
-- MCP `set_tracker_enabled` accepts `enabled=true` only and rejects `false` (`get_tracker_status` is read-only).
-- An agent's `transcodes disable` shell attempt is blocked by the `tracker-self-disable` system pattern (see `.claude/rules/danger-patterns.md`).
-- Only a human typing `transcodes disable` in a real terminal (no hook) turns it off.
-- **Known limit**: the GUI dashboard's `POST /api/settings` can also disable, and that path is not gated (localhost HTTP cannot identify the caller). The broad `tracker-dashboard-launch` pattern that used to block agent-launched dashboards was **removed** (it false-matched the word `transcodes` everywhere). Full coverage needs a WebAuthn gate on the toggle itself (unimplemented).
-
-Enabling is protection-strengthening, so an agent doing it is safe → MCP and CLI both allowed.
-
 ## Hook orchestra and shared state
 
 Four coordinating events (Claude Code / Codex have all four; Antigravity merges SessionStart + UserPromptSubmit into PreInvocation, so three):

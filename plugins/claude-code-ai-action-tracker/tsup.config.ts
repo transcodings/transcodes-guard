@@ -1,9 +1,13 @@
 import { defineConfig } from 'tsup';
 
-// This plugin ships to npm as a self-contained package: the internal
-// @transcodes-guard/* workspace packages are never published, so they must be
-// bundled into the plugin (noExternal). Real runtime deps (@modelcontextprotocol/sdk,
-// zod — declared in `dependencies`) are auto-externalised by tsup and stay external.
+// The committed dist/ is the distribution artifact: Claude Code installs this
+// plugin by git-cloning the repo (`/plugin marketplace add …`) and running the
+// committed dist/ directly — there is NO `npm install` step, so the plugin
+// cache has no node_modules. The bundle must therefore be FULLY self-contained:
+// the internal @transcodes-guard/* workspace packages AND the real runtime deps
+// (@modelcontextprotocol/sdk, zod) are all bundled (noExternal). Externalising
+// zod/the SDK would crash every hook with ERR_MODULE_NOT_FOUND in a real
+// install (it only "worked" from the workspace because of hoisted node_modules).
 //
 // Multi-entry: every transport + hook entry the manifests reference. The entry
 // KEYS preserve the dist layout (dist/src/stdio.js, dist/hooks/*.js) that
@@ -27,7 +31,11 @@ export default defineConfig({
   target: 'node20',
   platform: 'node',
   bundle: true,
-  noExternal: [/^@transcodes-guard(-private)?\//],
+  noExternal: [
+    /^@transcodes-guard(-private)?\//,
+    'zod',
+    /^@modelcontextprotocol\/sdk/,
+  ],
   splitting: true,
   clean: true,
   sourcemap: false,

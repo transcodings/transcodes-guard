@@ -11,7 +11,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { loadStepupConfig } from '@transcodes-guard-private/stepup-core';
 import { z } from 'zod';
-import { withStepupVerifiedSid } from './stepup-helper.js';
+import { execProtectedTool } from './stepup-helper.js';
 import { req } from './transcodes-client.js';
 
 const textResult = (text: string, isError = false) => ({
@@ -150,7 +150,7 @@ export function registerMemberTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      const text = await withStepupVerifiedSid('retire_member', (sid) =>
+      return execProtectedTool('retire_member', (sid) =>
         req(
           config,
           {
@@ -161,7 +161,6 @@ export function registerMemberTools(server: McpServer): void {
           'retire_member',
         ),
       );
-      return textResult(text);
     },
   );
 
@@ -179,7 +178,7 @@ export function registerMemberTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      const text = await withStepupVerifiedSid('suspend_member', (sid) =>
+      return execProtectedTool('suspend_member', (sid) =>
         req(
           config,
           {
@@ -190,7 +189,6 @@ export function registerMemberTools(server: McpServer): void {
           'suspend_member',
         ),
       );
-      return textResult(text);
     },
   );
 
@@ -208,7 +206,7 @@ export function registerMemberTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      const text = await withStepupVerifiedSid('unsuspend_member', (sid) =>
+      return execProtectedTool('unsuspend_member', (sid) =>
         req(
           config,
           {
@@ -219,7 +217,6 @@ export function registerMemberTools(server: McpServer): void {
           'unsuspend_member',
         ),
       );
-      return textResult(text);
     },
   );
 
@@ -229,6 +226,7 @@ export function registerMemberTools(server: McpServer): void {
       title: 'Create member',
       description:
         'Create a member (CreateMemberDto). member_id/name may be auto-generated. Use for onboarding or manual provisioning. ' +
+        'RBAC-gated via tool-rule `tc-create-member` (0=block, 1=allow, 2=step-up MFA). ' +
         'Auth: TRANSCODES_TOKEN sent as x-transcodes-token (not in body).',
       inputSchema: {
         body: z.object({
@@ -241,15 +239,17 @@ export function registerMemberTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      const text = await req(
-        config,
-        {
-          method: 'POST',
-          body: { ...body, project_id: config.projectId },
-        },
-        'create_member',
+      return execProtectedTool('create_member', (sid) =>
+        req(
+          config,
+          {
+            method: 'POST',
+            body: { ...body, project_id: config.projectId },
+            stepUpSid: sid,
+          },
+          'create_member',
+        ),
       );
-      return textResult(text);
     },
   );
 
@@ -259,7 +259,7 @@ export function registerMemberTools(server: McpServer): void {
       title: 'Update member',
       description:
         'Update member fields (UpdateMemberDto, flat shape). ' +
-        'Auth: TRANSCODES_TOKEN sent as x-transcodes-token (not in body). ' +
+        'RBAC-gated via tool-rule `tc-update-member` (0=block, 1=allow, 2=step-up MFA). ' +
         'member_id is required — supply the target member explicitly (it may differ from the caller).',
       inputSchema: {
         body: z.object({
@@ -273,15 +273,17 @@ export function registerMemberTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      const text = await req(
-        config,
-        {
-          method: 'PUT',
-          body: { ...body, project_id: config.projectId },
-        },
-        'update_member',
+      return execProtectedTool('update_member', (sid) =>
+        req(
+          config,
+          {
+            method: 'PUT',
+            body: { ...body, project_id: config.projectId },
+            stepUpSid: sid,
+          },
+          'update_member',
+        ),
       );
-      return textResult(text);
     },
   );
 }

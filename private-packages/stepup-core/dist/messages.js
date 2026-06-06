@@ -57,6 +57,22 @@ export function formatNoTokenSystemMessage(block) {
         'then ask the user to run `transcodes login <token>` in a terminal (or set TRANSCODES_TOKEN),\n' +
         'and retry. Do not have the user paste the token into this chat.');
 }
+export function formatRbacDeniedReason(decision) {
+    return (`Blocked by transcodes-guard: ${decision.block.reason}. ` +
+        `Your RBAC role denies this action (resource="${decision.resource}", action="${decision.action}") — ` +
+        'step-up MFA cannot grant it. Report this to the user; do not retry. ' +
+        'An admin must grant the permission in the Transcodes console (RBAC → Roles).');
+}
+export function formatRbacDeniedSystemMessage(decision) {
+    return [
+        formatBlockedSummary(decision.block),
+        '',
+        `RBAC permission DENIED — resource="${decision.resource}", action="${decision.action}".`,
+        'Your role has no access to this action, so step-up MFA cannot unlock it.',
+        'An admin must grant the permission in the Transcodes console (RBAC → Roles),',
+        'then retry. Do not retry until the permission is granted.',
+    ].join('\n');
+}
 export function formatStepupFailureDetail(decision) {
     const { failure } = decision;
     return failure.reason === 'no-token'
@@ -115,6 +131,8 @@ export function formatStderrTag(decision) {
             return `transcodes-guard: ALLOWED (stepup-verified) — ${decision.block.command}`;
         case 'deny-no-token':
             return `transcodes-guard: BLOCKED (no token) — ${decision.block.command}`;
+        case 'deny-rbac-denied':
+            return `transcodes-guard: BLOCKED (rbac-denied ${decision.resource}/${decision.action}) — ${decision.block.command}`;
         case 'deny-stepup-failure':
             return `transcodes-guard: BLOCKED (stepup-failure) — ${decision.block.command}`;
         case 'deny-stepup-pending':

@@ -29,6 +29,7 @@ export {
   type ToolCallInput,
 } from './evaluate.js';
 export {
+  fingerprintOf,
   type RequestInput,
   type RequestResult,
   requestStepup,
@@ -52,6 +53,8 @@ export {
   formatNoTokenReason,
   formatNoTokenSessionNotice,
   formatNoTokenSystemMessage,
+  formatRbacDeniedReason,
+  formatRbacDeniedSystemMessage,
   formatStderrTag,
   formatStepupFailureDetail,
   formatStepupFailureReason,
@@ -61,12 +64,18 @@ export {
 } from './messages.js';
 export {
   clearPending,
+  findPendingBySid,
+  firstActivePending,
+  firstInFlightFpPending,
   isExpired,
+  listFpPendings,
   markVerified,
   type PendingState,
   readPending,
+  sweepStepup,
   writePending,
 } from './pending.js';
+export { checkRbacPermission, type RbacLevel } from './rbac-check.js';
 export {
   type CreatedStepupSession,
   type CreateStepupArgs,
@@ -79,13 +88,13 @@ export {
 export {
   cacheDir,
   consumeVerified,
+  listVerifiedFingerprints,
   readVerified,
   type VerifiedStepup,
   writeVerified,
 } from './store.js';
 export {
   clearTokenFile,
-  isTrackerEnabled,
   type ResolvedToken,
   readTokenFromFile,
   readTokenList,
@@ -94,7 +103,6 @@ export {
   resolveToken,
   setActiveToken,
   setTokenLabel,
-  setTrackerEnabled,
   type TokenRecord,
   type TokenSource,
   transcodesConfigDir,

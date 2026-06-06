@@ -80,6 +80,30 @@ export function formatNoTokenSystemMessage(block: BlockResult): string {
   );
 }
 
+export function formatRbacDeniedReason(
+  decision: Extract<GateDecision, { kind: 'deny-rbac-denied' }>,
+): string {
+  return (
+    `Blocked by transcodes-guard: ${decision.block.reason}. ` +
+    `Your RBAC role denies this action (resource="${decision.resource}", action="${decision.action}") — ` +
+    'step-up MFA cannot grant it. Report this to the user; do not retry. ' +
+    'An admin must grant the permission in the Transcodes console (RBAC → Roles).'
+  );
+}
+
+export function formatRbacDeniedSystemMessage(
+  decision: Extract<GateDecision, { kind: 'deny-rbac-denied' }>,
+): string {
+  return [
+    formatBlockedSummary(decision.block),
+    '',
+    `RBAC permission DENIED — resource="${decision.resource}", action="${decision.action}".`,
+    'Your role has no access to this action, so step-up MFA cannot unlock it.',
+    'An admin must grant the permission in the Transcodes console (RBAC → Roles),',
+    'then retry. Do not retry until the permission is granted.',
+  ].join('\n');
+}
+
 export function formatStepupFailureDetail(
   decision: Extract<GateDecision, { kind: 'deny-stepup-failure' }>,
 ): string {
@@ -87,15 +111,21 @@ export function formatStepupFailureDetail(
   return failure.reason === 'no-token'
     ? 'No Transcodes token found — step-up MFA gate is unavailable. Get a token from the Transcodes console (https://app.transcodes.io member detail page), then run `transcodes login <token>`.'
     : failure.reason === 'create-failed'
-      ? `Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ''}.`
-      : `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ''}.`;
+      ? `Step-up MFA session could not be started${
+          failure.detail ? ` (${failure.detail})` : ''
+        }.`
+      : `Step-up MFA gate errored${
+          failure.detail ? ` (${failure.detail})` : ''
+        }.`;
 }
 
 export function formatStepupFailureReason(
   decision: Extract<GateDecision, { kind: 'deny-stepup-failure' }>,
 ): string {
   return (
-    `Bash blocked by transcodes-guard: ${decision.block.reason}. ${formatStepupFailureDetail(decision)} ` +
+    `Bash blocked by transcodes-guard: ${
+      decision.block.reason
+    }. ${formatStepupFailureDetail(decision)} ` +
     'Report the failure to the user; do not retry until step-up is available.'
   );
 }
@@ -103,7 +133,9 @@ export function formatStepupFailureReason(
 export function formatStepupFailureSystemMessage(
   decision: Extract<GateDecision, { kind: 'deny-stepup-failure' }>,
 ): string {
-  return `${formatBlockedSummary(decision.block)}\n\n${formatStepupFailureDetail(decision)}`;
+  return `${formatBlockedSummary(
+    decision.block,
+  )}\n\n${formatStepupFailureDetail(decision)}`;
 }
 
 export function formatStepupPendingReason(
@@ -157,6 +189,8 @@ export function formatStderrTag(decision: GateDecision): string {
       return `transcodes-guard: ALLOWED (stepup-verified) — ${decision.block.command}`;
     case 'deny-no-token':
       return `transcodes-guard: BLOCKED (no token) — ${decision.block.command}`;
+    case 'deny-rbac-denied':
+      return `transcodes-guard: BLOCKED (rbac-denied ${decision.resource}/${decision.action}) — ${decision.block.command}`;
     case 'deny-stepup-failure':
       return `transcodes-guard: BLOCKED (stepup-failure) — ${decision.block.command}`;
     case 'deny-stepup-pending':

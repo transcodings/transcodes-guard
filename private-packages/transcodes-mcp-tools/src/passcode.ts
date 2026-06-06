@@ -8,13 +8,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { loadStepupConfig } from '@transcodes-guard-private/stepup-core';
 import { z } from 'zod';
-import { withStepupVerifiedSid } from './stepup-helper.js';
+import { execProtectedTool } from './stepup-helper.js';
 import { req } from './transcodes-client.js';
-
-const textResult = (text: string, isError = false) => ({
-  isError,
-  content: [{ type: 'text' as const, text }],
-});
 
 export function registerPasscodeTools(server: McpServer): void {
   server.registerTool(
@@ -23,7 +18,7 @@ export function registerPasscodeTools(server: McpServer): void {
       title: 'Create recovery passcode',
       description:
         'Create a recovery passcode (CreatePasscodeDto in body). ' +
-        'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-passcode-create`). ' +
+        'RBAC-gated via tool-rule `tc-passcode-create` (0=block, 1=allow, 2=step-up MFA). ' +
         'Use for onboarding, support, or admin provisioning.',
       inputSchema: {
         body: z.object({ member_id: z.string() }),
@@ -31,7 +26,7 @@ export function registerPasscodeTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      const text = await withStepupVerifiedSid('passcode_create', (sid) =>
+      return execProtectedTool('passcode_create', (sid) =>
         req(
           config,
           {
@@ -42,7 +37,6 @@ export function registerPasscodeTools(server: McpServer): void {
           'passcode_create',
         ),
       );
-      return textResult(text);
     },
   );
 }

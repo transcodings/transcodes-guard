@@ -12,7 +12,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { loadStepupConfig } from '@transcodes-guard-private/stepup-core';
 import { z } from 'zod';
-import { withStepupVerifiedSid } from './stepup-helper.js';
+import { execProtectedTool } from './stepup-helper.js';
 import { req } from './transcodes-client.js';
 
 const textResult = (text: string, isError = false) => ({
@@ -113,7 +113,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ role_id }) => {
       const config = loadStepupConfig();
-      const text = await withStepupVerifiedSid('retire_role', (sid) =>
+      return execProtectedTool('retire_role', (sid) =>
         req(
           config,
           {
@@ -125,7 +125,6 @@ export function registerRbacTools(server: McpServer): void {
           `/${encodeURIComponent(role_id)}`,
         ),
       );
-      return textResult(text);
     },
   );
 
@@ -145,7 +144,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ role_id, body }) => {
       const config = loadStepupConfig();
-      const text = await withStepupVerifiedSid('set_role_permissions', (sid) =>
+      return execProtectedTool('set_role_permissions', (sid) =>
         req(
           config,
           {
@@ -157,7 +156,6 @@ export function registerRbacTools(server: McpServer): void {
           `/${encodeURIComponent(role_id)}/permissions`,
         ),
       );
-      return textResult(text);
     },
   );
 
@@ -177,7 +175,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      const text = await withStepupVerifiedSid('update_member_role', (sid) =>
+      return execProtectedTool('update_member_role', (sid) =>
         req(
           config,
           {
@@ -188,7 +186,6 @@ export function registerRbacTools(server: McpServer): void {
           'update_member_role',
         ),
       );
-      return textResult(text);
     },
   );
 
@@ -206,7 +203,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ resource_key }) => {
       const config = loadStepupConfig();
-      const text = await withStepupVerifiedSid('retire_resource', (sid) =>
+      return execProtectedTool('retire_resource', (sid) =>
         req(
           config,
           {
@@ -219,7 +216,6 @@ export function registerRbacTools(server: McpServer): void {
           `/${encodeURIComponent(resource_key)}`,
         ),
       );
-      return textResult(text);
     },
   );
 
@@ -229,6 +225,7 @@ export function registerRbacTools(server: McpServer): void {
       title: 'Create role',
       description:
         'Create a new role (CreateRoleDto). Use before set_role_permissions to fill per-resource access. ' +
+        'RBAC-gated via tool-rule `tc-create-role` (0=block, 1=allow, 2=step-up MFA). ' +
         PROJECT_ID_GUIDANCE,
       inputSchema: {
         body: z.object({
@@ -239,15 +236,17 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      const text = await req(
-        config,
-        {
-          method: 'POST',
-          body: { ...body, project_id: config.projectId },
-        },
-        'create_role',
+      return execProtectedTool('create_role', (sid) =>
+        req(
+          config,
+          {
+            method: 'POST',
+            body: { ...body, project_id: config.projectId },
+            stepUpSid: sid,
+          },
+          'create_role',
+        ),
       );
-      return textResult(text);
     },
   );
 
@@ -256,7 +255,9 @@ export function registerRbacTools(server: McpServer): void {
     {
       title: 'Update role',
       description:
-        'Update role metadata (UpdateRoleDto). ' + PROJECT_ID_GUIDANCE,
+        'Update role metadata (UpdateRoleDto). ' +
+        'RBAC-gated via tool-rule `tc-update-role` (0=block, 1=allow, 2=step-up MFA). ' +
+        PROJECT_ID_GUIDANCE,
       inputSchema: {
         role_id: z.string(),
         body: z.object({
@@ -266,16 +267,18 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ role_id, body }) => {
       const config = loadStepupConfig();
-      const text = await req(
-        config,
-        {
-          method: 'PUT',
-          body: { ...body, project_id: config.projectId },
-        },
-        'update_role',
-        `/${encodeURIComponent(role_id)}`,
+      return execProtectedTool('update_role', (sid) =>
+        req(
+          config,
+          {
+            method: 'PUT',
+            body: { ...body, project_id: config.projectId },
+            stepUpSid: sid,
+          },
+          'update_role',
+          `/${encodeURIComponent(role_id)}`,
+        ),
       );
-      return textResult(text);
     },
   );
 
@@ -285,6 +288,7 @@ export function registerRbacTools(server: McpServer): void {
       title: 'Create resource',
       description:
         'Add a new resource key (CreateResourceDto). New resources default to deny (0) for all roles. ' +
+        'RBAC-gated via tool-rule `tc-create-resource` (0=block, 1=allow, 2=step-up MFA). ' +
         PROJECT_ID_GUIDANCE,
       inputSchema: {
         body: z.object({
@@ -296,15 +300,17 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      const text = await req(
-        config,
-        {
-          method: 'POST',
-          body: { ...body, project_id: config.projectId },
-        },
-        'create_resource',
+      return execProtectedTool('create_resource', (sid) =>
+        req(
+          config,
+          {
+            method: 'POST',
+            body: { ...body, project_id: config.projectId },
+            stepUpSid: sid,
+          },
+          'create_resource',
+        ),
       );
-      return textResult(text);
     },
   );
 
@@ -314,6 +320,7 @@ export function registerRbacTools(server: McpServer): void {
       title: 'Update resource',
       description:
         'Update resource label/description (UpdateResourceDto). Key stays the same. ' +
+        'RBAC-gated via tool-rule `tc-update-resource` (0=block, 1=allow, 2=step-up MFA). ' +
         PROJECT_ID_GUIDANCE,
       inputSchema: {
         resource_key: z.string(),
@@ -324,16 +331,18 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ resource_key, body }) => {
       const config = loadStepupConfig();
-      const text = await req(
-        config,
-        {
-          method: 'PATCH',
-          body: { ...body, project_id: config.projectId },
-        },
-        'update_resource',
-        `/${encodeURIComponent(resource_key)}`,
+      return execProtectedTool('update_resource', (sid) =>
+        req(
+          config,
+          {
+            method: 'PATCH',
+            body: { ...body, project_id: config.projectId },
+            stepUpSid: sid,
+          },
+          'update_resource',
+          `/${encodeURIComponent(resource_key)}`,
+        ),
       );
-      return textResult(text);
     },
   );
 }

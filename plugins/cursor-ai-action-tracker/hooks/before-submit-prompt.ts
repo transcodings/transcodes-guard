@@ -19,8 +19,7 @@ import { cursorAdapter } from '@transcodes-guard/hook-adapters';
 import {
   clearPending,
   consumeVerified,
-  isExpired,
-  readPending,
+  firstActivePending,
   readVerified,
 } from '@transcodes-guard-private/stepup-core';
 
@@ -45,16 +44,17 @@ function main(): void {
   if (!parsed.prompt) emitContinue();
   if (!COMPLETION_PATTERN.test(parsed.prompt)) emitContinue();
 
-  const pending = readPending();
-  if (!pending || isExpired(pending)) emitContinue();
+  const pending = firstActivePending();
+  if (!pending) emitContinue();
 
   // User says "done" and a verified record is sitting in the cache → the
   // sensible thing is to consume it so the next danger tool call passes
-  // through. If verified is missing, the agent is expected to call
-  // poll_stepup_session_wait via MCP to wait for verification.
-  if (readVerified()) {
-    consumeVerified();
-    clearPending();
+  // through. `pending.fp` selects the right store: FP-KEYED for Bash/user
+  // sessions, GLOBAL (undefined fp) for the MCP system path. If verified is
+  // missing, the agent is expected to call poll_stepup_session_wait via MCP.
+  if (readVerified(pending.fp)) {
+    consumeVerified(pending.fp);
+    clearPending(pending.fp);
   }
 
   emitContinue();

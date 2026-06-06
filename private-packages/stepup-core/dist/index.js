@@ -13,12 +13,13 @@
 export { request, } from './client.js';
 export { DEFAULT_BACKEND_URL, loadStepupConfig, STEPUP_TTL_MS, } from './config.js';
 export { evaluatePreToolUse, } from './evaluate.js';
-export { requestStepup, } from './gate.js';
+export { fingerprintOf, requestStepup, } from './gate.js';
 export { inspectStepupState, } from './inspector.js';
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
-export { formatAllowReason, formatBlockedSummary, formatNoTokenReason, formatNoTokenSessionNotice, formatNoTokenSystemMessage, formatStderrTag, formatStepupFailureDetail, formatStepupFailureReason, formatStepupFailureSystemMessage, formatStepupPendingReason, formatStepupPendingSystemMessage, } from './messages.js';
-export { clearPending, isExpired, markVerified, readPending, writePending, } from './pending.js';
+export { formatAllowReason, formatBlockedSummary, formatNoTokenReason, formatNoTokenSessionNotice, formatNoTokenSystemMessage, formatRbacDeniedReason, formatRbacDeniedSystemMessage, formatStderrTag, formatStepupFailureDetail, formatStepupFailureReason, formatStepupFailureSystemMessage, formatStepupPendingReason, formatStepupPendingSystemMessage, } from './messages.js';
+export { clearPending, findPendingBySid, firstActivePending, firstInFlightFpPending, isExpired, listFpPendings, markVerified, readPending, sweepStepup, writePending, } from './pending.js';
+export { checkRbacPermission } from './rbac-check.js';
 export { createStepupSession, pollStepupSession, pollStepupSessionWait, } from './session.js';
-export { cacheDir, consumeVerified, readVerified, writeVerified, } from './store.js';
-export { clearTokenFile, isTrackerEnabled, readTokenFromFile, readTokenList, readTokenRecords, removeTokenFromFile, resolveToken, setActiveToken, setTokenLabel, setTrackerEnabled, transcodesConfigDir, transcodesConfigFile, writeTokenToFile, } from './token-store.js';
+export { cacheDir, consumeVerified, listVerifiedFingerprints, readVerified, writeVerified, } from './store.js';
+export { clearTokenFile, readTokenFromFile, readTokenList, readTokenRecords, removeTokenFromFile, resolveToken, setActiveToken, setTokenLabel, transcodesConfigDir, transcodesConfigFile, writeTokenToFile, } from './token-store.js';
 //# sourceMappingURL=index.js.map

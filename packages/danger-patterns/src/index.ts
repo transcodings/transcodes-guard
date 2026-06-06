@@ -1,12 +1,10 @@
 /**
  * Public surface of @transcodes-guard/danger-patterns.
  *
- * Bash danger-pattern registry: regex matchers against Bash command strings.
- *
- * Two-layer source (system + user) and the load/validate/CRUD surface mirror
- * @transcodes-guard-private/danger-rules deliberately so the mental model is
- * single. tool-rules (MCP tool-name registry) is the private sibling — it
- * carries Transcodes-specific protected tool mappings and ships separately.
+ * Bash danger-pattern registry: regex matchers against Bash command strings,
+ * plus the shared RBAC coordinate vocabulary (action/resource) that both this
+ * package and the private @transcodes-guard-private/danger-rules sibling map
+ * their rows onto. tool-rules (MCP tool-name registry) is the private sibling.
  */
 
 export {
@@ -29,3 +27,12 @@ export {
   userPatternsFileExists,
   validateNewPattern,
 } from './danger-patterns.js';
+export {
+  coerceRbacAction,
+  coerceRbacResource,
+  DEFAULT_RBAC_ACTION,
+  DEFAULT_RBAC_RESOURCE,
+  isRbacAction,
+  RBAC_ACTIONS,
+  type RbacAction,
+} from './rbac.js';
