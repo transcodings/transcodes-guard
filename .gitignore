@@ -237,20 +237,25 @@ tags
 # Plugin packaging — dist/ is generally ignored above, but we ship plugin
 # build artifacts inside the marketplace tree so users get a runnable
 # install without `npm install`.
-!plugins/*/dist/
-!plugins/*/dist/**
+!public/plugins/*/dist/
+!public/plugins/*/dist/**
 
 # Workspace packages — dist/ is consumed by the plugins at install time
 # (workspace symlink + tsc reads the `.d.ts` here). Must be committed so
 # bisecting and CI (npm ci + npm run build:plugin) work without rebuilding
 # every workspace by hand.
-!packages/*/dist/
-!packages/*/dist/**
+!public/packages/*/dist/
+!public/packages/*/dist/**
+
+# Private workspace packages also commit dist — it is bundled into the
+# plugins (tsup noExternal) and the CLI tarball, and CI verifies it in sync.
+!private/packages/*/dist/
+!private/packages/*/dist/**
 
 # The CLI is published to npm independently (bundled via tsup at publish
 # time). Its dist is a build artifact not consumed by the marketplace tree,
 # so keep it OUT of git — re-ignore after the broad packages/* un-ignore.
-packages/cli/dist/
+private/cli/dist/
 
 # Turborepo / Nx local cache (not part of the source)
 .turbo/

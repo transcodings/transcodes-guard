@@ -23,11 +23,11 @@ export const PLUGIN_VERSION = '${version}';
 `;
 
 const targets = [
-  "packages/mcp-server-core/src/build-info.ts",
-  "plugins/claude-code-ai-action-tracker/src/version.ts",
-  "plugins/codex-ai-action-tracker/src/version.ts",
-  "plugins/cursor-ai-action-tracker/src/version.ts",
-  "plugins/antigravity-ai-action-tracker/src/version.ts",
+  "public/packages/mcp-server-core/src/build-info.ts",
+  "public/plugins/claude-code/src/version.ts",
+  "public/plugins/codex/src/version.ts",
+  "public/plugins/cursor/src/version.ts",
+  "public/plugins/antigravity/src/version.ts",
 ];
 for (const rel of targets) {
   writeFileSync(path.join(root, rel), out, "utf8");
