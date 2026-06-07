@@ -12,10 +12,12 @@ import { cursorAdapter } from '@transcodes-guard/hook-adapters';
 import {
   clearPending,
   consumeVerified,
+  firstInFlightFpPending,
   isExpired,
   type PendingState,
   readPending,
   readVerified,
+  sweepStepup,
 } from '@transcodes-guard-private/stepup-core';
 
 function reminderFor(pending: PendingState): string {
@@ -43,6 +45,8 @@ async function main(): Promise<void> {
     // ignore
   }
 
+  sweepStepup();
+
   const pending = readPending();
   const verified = readVerified();
 
@@ -56,9 +60,11 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  if (!pending || isExpired(pending)) process.exit(0);
+  const reminder =
+    pending && !isExpired(pending) ? pending : firstInFlightFpPending();
+  if (!reminder) process.exit(0);
 
-  process.stdout.write(cursorAdapter.emitStop(reminderFor(pending)));
+  process.stdout.write(cursorAdapter.emitStop(reminderFor(reminder)));
   process.exit(0);
 }
 

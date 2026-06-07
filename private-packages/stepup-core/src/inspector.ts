@@ -12,13 +12,18 @@
  * its state without side effects.
  */
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { cacheDir, migrateLegacyFile } from '@transcodes-guard/plugin-paths';
 import { STEPUP_TTL_MS } from './config.js';
+import {
+  isExpiredAt,
+  listFingerprints,
+  stepupFileName,
+  stepupFilePath,
+} from './stepup-files.js';
 
-const VERIFIED_FILE = 'stepup-verified.json';
-const PENDING_FILE = 'stepup-pending.json';
-const BROWSER_LOCK_FILE = 'stepup-browser-lock.json';
+const VERIFIED_BASE = 'stepup-verified';
+const PENDING_BASE = 'stepup-pending';
+const BROWSER_LOCK_BASE = 'stepup-browser-lock';
 const BROWSER_LOCK_TTL_MS = 15_000;
 const COMMAND_PREVIEW_LIMIT = 120;
 
@@ -31,6 +36,9 @@ export type VerifiedInspection =
       age_ms: number;
       expired: boolean;
       ttl_ms: number;
+      /** Present for FP-KEYED records (Bash + user tool-rules); absent for
+       * the GLOBAL MCP system-rule record. */
+      fp?: string;
     };
 
 export type PendingInspection =
@@ -45,6 +53,7 @@ export type PendingInspection =
       age_ms: number;
       expired: boolean;
       expires_at?: string;
+      fp?: string;
     };
 
 export type BrowserLockInspection =
@@ -61,8 +70,15 @@ export type BrowserLockInspection =
 export type StepupStateInspection = {
   cache_dir: string;
   now_ms: number;
+  /** GLOBAL records (MCP system-rule path). */
   verified: VerifiedInspection;
   pending: PendingInspection;
+  /** FP-KEYED records (Bash + user tool-rules, content-addressed). Each
+   * danger command in flight has its own entry — this is where the agent
+   * looks to confirm its own command (matched by command_preview) is
+   * verified, without picking up another sub-agent's record. */
+  verified_fp: VerifiedInspection[];
+  pending_fp: PendingInspection[];
   browser_lock: BrowserLockInspection;
 };
 
@@ -84,8 +100,11 @@ function previewCommand(command: string): string {
   return `${command.slice(0, COMMAND_PREVIEW_LIMIT)}…`;
 }
 
-function inspectVerified(now: number): VerifiedInspection {
-  const file = path.join(cacheDir(), VERIFIED_FILE);
+function inspectVerifiedFile(
+  file: string,
+  now: number,
+  fp?: string,
+): VerifiedInspection {
   const data = readJsonFile(file);
   if (!data) return { exists: false };
   const sid = typeof data.sid === 'string' ? data.sid : null;
@@ -98,13 +117,21 @@ function inspectVerified(now: number): VerifiedInspection {
     sid,
     verified_at_ms: verifiedAt,
     age_ms: ageMs,
-    expired: ageMs > STEPUP_TTL_MS,
+    expired: isExpiredAt(verifiedAt, undefined, now),
     ttl_ms: STEPUP_TTL_MS,
+    ...(fp ? { fp } : {}),
   };
 }
 
-function inspectPending(now: number): PendingInspection {
-  const file = path.join(cacheDir(), PENDING_FILE);
+function inspectVerified(now: number): VerifiedInspection {
+  return inspectVerifiedFile(stepupFilePath(VERIFIED_BASE), now);
+}
+
+function inspectPendingFile(
+  file: string,
+  now: number,
+  fp?: string,
+): PendingInspection {
   const data = readJsonFile(file);
   if (!data) return { exists: false };
   const sid = typeof data.sid === 'string' ? data.sid : null;
@@ -121,11 +148,7 @@ function inspectPending(now: number): PendingInspection {
   const ageMs = now - createdAt;
   const expiresAt =
     typeof data.expiresAt === 'string' ? data.expiresAt : undefined;
-  let expired = ageMs > STEPUP_TTL_MS;
-  if (expiresAt) {
-    const t = Date.parse(expiresAt);
-    if (Number.isFinite(t)) expired = now >= t;
-  }
+  const expired = isExpiredAt(createdAt, expiresAt, now);
   return {
     exists: true,
     sid,
@@ -136,11 +159,16 @@ function inspectPending(now: number): PendingInspection {
     age_ms: ageMs,
     expired,
     expires_at: expiresAt,
+    ...(fp ? { fp } : {}),
   };
 }
 
+function inspectPending(now: number): PendingInspection {
+  return inspectPendingFile(stepupFilePath(PENDING_BASE), now);
+}
+
 function inspectBrowserLock(now: number): BrowserLockInspection {
-  const file = path.join(cacheDir(), BROWSER_LOCK_FILE);
+  const file = stepupFilePath(BROWSER_LOCK_BASE);
   const data = readJsonFile(file);
   if (!data) return { exists: false };
   const fingerprint =
@@ -153,7 +181,7 @@ function inspectBrowserLock(now: number): BrowserLockInspection {
     fingerprint,
     opened_at_ms: openedAt,
     age_ms: ageMs,
-    expired: ageMs > BROWSER_LOCK_TTL_MS,
+    expired: isExpiredAt(openedAt, undefined, now, BROWSER_LOCK_TTL_MS),
     ttl_ms: BROWSER_LOCK_TTL_MS,
   };
 }
@@ -161,14 +189,28 @@ function inspectBrowserLock(now: number): BrowserLockInspection {
 export function inspectStepupState(
   now: number = Date.now(),
 ): StepupStateInspection {
-  migrateLegacyFile(VERIFIED_FILE, 'cache');
-  migrateLegacyFile(PENDING_FILE, 'cache');
-  migrateLegacyFile(BROWSER_LOCK_FILE, 'cache');
+  migrateLegacyFile(stepupFileName(VERIFIED_BASE), 'cache');
+  migrateLegacyFile(stepupFileName(PENDING_BASE), 'cache');
+  migrateLegacyFile(stepupFileName(BROWSER_LOCK_BASE), 'cache');
   return {
     cache_dir: cacheDir(),
     now_ms: now,
     verified: inspectVerified(now),
     pending: inspectPending(now),
+    verified_fp: listFingerprints(VERIFIED_BASE)
+      .map((fp) =>
+        inspectVerifiedFile(stepupFilePath(VERIFIED_BASE, fp), now, fp),
+      )
+      .filter(
+        (v): v is Extract<VerifiedInspection, { exists: true }> => v.exists,
+      ),
+    pending_fp: listFingerprints(PENDING_BASE)
+      .map((fp) =>
+        inspectPendingFile(stepupFilePath(PENDING_BASE, fp), now, fp),
+      )
+      .filter(
+        (p): p is Extract<PendingInspection, { exists: true }> => p.exists,
+      ),
     browser_lock: inspectBrowserLock(now),
   };
 }

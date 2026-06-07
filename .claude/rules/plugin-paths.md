@@ -24,7 +24,7 @@ Active when editing `packages/plugin-paths/`. This package is the only place tha
 
 Distinct from `dataDir()`/`cacheDir()`: the `transcodes` CLI (external package, see root `CLAUDE.md`) owns `~/.transcodes/`:
 
-- `~/.transcodes/config.json` — the `enabled` kill-switch flag. The one fixed path the CLI and all four host hooks share. Hooks **read** it (via the step-up gate's `isTrackerEnabled()`); they do not own or rewrite it.
+- `~/.transcodes/config.json` — member MCP token storage (`resolveToken()` reads env → this file). The one fixed path the CLI and all four host hooks share. Hooks **read** tokens; they do not own or rewrite the file.
 - `~/.transcodes/state/` — consolidated local plugin state.
 
 Do not route plugin-managed files into `~/.transcodes/` — that namespace belongs to the CLI. Use `dataDir()`/`cacheDir()` for anything this repo owns.

@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "build": "turbo run build",
+    "prebuild:plugin": "node scripts/stamp-build-info.mjs",
     "build:plugin": "turbo run build:plugin",
     "dev:stdio": "npm run dev:stdio -w plugins/claude-code-ai-action-tracker",
     "dev:http": "npm run dev:http -w plugins/claude-code-ai-action-tracker",
@@ -18,6 +19,7 @@
     "format": "biome format --write --files-ignore-unknown=true --no-errors-on-unmatched",
     "check": "biome check --write --files-ignore-unknown=true --no-errors-on-unmatched",
     "type-check": "turbo run type-check",
+    "version:bump": "node scripts/version-bump.mjs",
     "postinstall": "[ -z \"$CI\" ] && lefthook install || true"
   },
   "devDependencies": {

@@ -1,12 +1,16 @@
+import { type RbacAction } from "./rbac.js";
 export interface ToolRule {
     id: string;
     /** Exact tool_name match. Regex is intentionally not supported — keeps the
      * gate's scope explicit and auditable. */
     toolName: string;
     reason: string;
-    /** Backend audit-log action identifier (e.g. "retire_member"). */
-    stepupAction: string;
-    /** Backend audit-log resource identifier (e.g. "transcodes-guard:mcp:members"). */
+    /** RBAC CRUD action this rule maps onto (create/read/update/delete). Feeds
+     * `createStepupSession({ action })` so the step-up audit log + the project's
+     * RBAC permission matrix share coordinates. */
+    stepupAction: RbacAction;
+    /** RBAC resource key (e.g. "system"), validated against the live backend at
+     * add time. Feeds `createStepupSession({ resource })`. */
     stepupResource: string;
     /** When true, the PreToolUse hook consumes the verified record itself on the
      * fast-path (Bash-like). When false, consume is deferred to the tool handler
@@ -37,7 +41,10 @@ export interface ToolRuleInput {
     id: string;
     toolName: string;
     reason: string;
+    /** Must be a CRUD action (create/read/update/delete). */
     stepupAction: string;
+    /** RBAC resource key. Backend existence is validated by the caller (MCP
+     * handler) before this runs — this layer only enforces non-empty. */
     stepupResource: string;
     consume_in_hook?: boolean;
 }

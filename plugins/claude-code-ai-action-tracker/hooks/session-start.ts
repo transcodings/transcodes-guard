@@ -9,12 +9,11 @@
 import '../host.js';
 import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
 import {
+  firstActivePending,
   formatNoTokenSessionNotice,
-  isExpired,
-  isTrackerEnabled,
-  readPending,
   resolveToken,
 } from '@transcodes-guard-private/stepup-core';
+import { PLUGIN_VERSION } from '../src/version.js';
 
 const PROTOCOL_PRIMER = [
   'transcodes-guard step-up MFA protocol:',
@@ -41,9 +40,8 @@ const PROTOCOL_PRIMER = [
 ].join('\n');
 
 function carryoverBlock(): string | null {
-  const pending = readPending();
+  const pending = firstActivePending();
   if (!pending) return null;
-  if (isExpired(pending)) return null;
   const statusNote =
     pending.status === 'verified'
       ? 'VERIFIED but not yet consumed — retry the original command to release it.'
@@ -60,15 +58,14 @@ function carryoverBlock(): string | null {
 }
 
 function main(): void {
-  // Gate disabled (transcodes disable / set_tracker_enabled): stay silent —
-  // no protocol primer, no carry-over. exit 0 with no additionalContext.
-  if (!isTrackerEnabled()) process.exit(0);
+  process.stderr.write(`[transcodes-guard] v${PLUGIN_VERSION}\n`);
 
   const carry = carryoverBlock();
   const tokenNotice = resolveToken().token
     ? null
     : formatNoTokenSessionNotice();
-  const additionalContext = [PROTOCOL_PRIMER, carry, tokenNotice]
+  const versionLine = `transcodes-guard v${PLUGIN_VERSION}`;
+  const additionalContext = [versionLine, PROTOCOL_PRIMER, carry, tokenNotice]
     .filter((s): s is string => Boolean(s))
     .join('\n');
   process.stdout.write(

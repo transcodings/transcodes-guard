@@ -9,6 +9,12 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import {
+  coerceRbacAction,
+  coerceRbacResource,
+  isRbacAction,
+  type RbacAction,
+} from '@transcodes-guard/danger-patterns';
 import { dataDir, migrateLegacyFile } from '@transcodes-guard/plugin-paths';
 import { parse as parseJsonc } from 'jsonc-parser';
 // System rules embedded at build time — see the matching note in
@@ -22,9 +28,12 @@ export interface ToolRule {
    * gate's scope explicit and auditable. */
   toolName: string;
   reason: string;
-  /** Backend audit-log action identifier (e.g. "retire_member"). */
-  stepupAction: string;
-  /** Backend audit-log resource identifier (e.g. "transcodes-guard:mcp:members"). */
+  /** RBAC CRUD action this rule maps onto (create/read/update/delete). Feeds
+   * `createStepupSession({ action })` so the step-up audit log + the project's
+   * RBAC permission matrix share coordinates. */
+  stepupAction: RbacAction;
+  /** RBAC resource key (e.g. "system"), validated against the live backend at
+   * add time. Feeds `createStepupSession({ resource })`. */
   stepupResource: string;
   /** When true, the PreToolUse hook consumes the verified record itself on the
    * fast-path (Bash-like). When false, consume is deferred to the tool handler
@@ -83,13 +92,19 @@ export function userToolRulesFileExists(): boolean {
 }
 
 export function loadMergedToolRules(): MergedToolRule[] {
+  // Coerce action/resource on load so the gate always sees a valid RBAC
+  // coordinate even for rows written before these fields existed.
   const system = loadSystemToolRules().rules.map((r) => ({
     ...r,
+    stepupAction: coerceRbacAction(r.stepupAction),
+    stepupResource: coerceRbacResource(r.stepupResource),
     consume_in_hook: r.consume_in_hook ?? false,
     source: 'system' as const,
   }));
   const user = loadUserToolRules().rules.map((r) => ({
     ...r,
+    stepupAction: coerceRbacAction(r.stepupAction),
+    stepupResource: coerceRbacResource(r.stepupResource),
     consume_in_hook: r.consume_in_hook ?? true,
     source: 'user' as const,
   }));
@@ -116,9 +131,22 @@ export interface ToolRuleInput {
   id: string;
   toolName: string;
   reason: string;
+  /** Must be a CRUD action (create/read/update/delete). */
   stepupAction: string;
+  /** RBAC resource key. Backend existence is validated by the caller (MCP
+   * handler) before this runs — this layer only enforces non-empty. */
   stepupResource: string;
   consume_in_hook?: boolean;
+}
+
+// Heuristic guard: a tool rule matches a tool_name exactly. A Bash COMMAND
+// STRING (e.g. "rm -rf /", "git push") pasted in as a toolName is a mis-bucketed
+// command pattern — it would never fire here because the hook matches tool rules
+// against tool_name, not Bash commands. A valid MCP tool name is a single
+// identifier (alnum + `_` `.` `:` `-`, with `__`/`:` namespacing). Anything with
+// whitespace or shell metacharacters is a command, not a tool name.
+function detectShellCommand(toolName: string): boolean {
+  return /[\s|&;<>$*()`\\/]/.test(toolName);
 }
 
 export function validateNewToolRule(input: ToolRuleInput): ToolRule {
@@ -149,14 +177,24 @@ export function validateNewToolRule(input: ToolRuleInput): ToolRule {
     throw new ToolRuleValidationError('toolName must not be empty');
   }
 
+  if (detectShellCommand(trimmedToolName)) {
+    throw new ToolRuleValidationError(
+      `"${trimmedToolName}" looks like a Bash command, not an MCP tool name. ` +
+        'Tool rules match a tool_name exactly (e.g. mcp__github__delete_repository); ' +
+        'they never match Bash commands. Use add_user_pattern (regex) instead.',
+    );
+  }
+
   const trimmedReason = reason.trim();
   if (!trimmedReason) {
     throw new ToolRuleValidationError('reason must not be empty');
   }
 
   const trimmedAction = stepupAction.trim();
-  if (!trimmedAction) {
-    throw new ToolRuleValidationError('stepupAction must not be empty');
+  if (!isRbacAction(trimmedAction)) {
+    throw new ToolRuleValidationError(
+      `stepupAction must be one of create|read|update|delete (got: "${stepupAction}")`,
+    );
   }
 
   const trimmedResource = stepupResource.trim();
@@ -214,8 +252,12 @@ export function updateUserToolRule(
     id,
     toolName: changes.toolName ?? existing.toolName,
     reason: changes.reason ?? existing.reason,
-    stepupAction: changes.stepupAction ?? existing.stepupAction,
-    stepupResource: changes.stepupResource ?? existing.stepupResource,
+    // Coerce existing values that predate the CRUD constraint so an unrelated
+    // edit (e.g. reason only) of a legacy rule doesn't fail validation.
+    stepupAction:
+      changes.stepupAction ?? coerceRbacAction(existing.stepupAction),
+    stepupResource:
+      changes.stepupResource ?? coerceRbacResource(existing.stepupResource),
     consume_in_hook: changes.consume_in_hook ?? existing.consume_in_hook,
   };
   const validated = validateNewToolRule(merged);

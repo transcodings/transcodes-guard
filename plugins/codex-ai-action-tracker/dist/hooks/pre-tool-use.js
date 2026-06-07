@@ -9,13 +9,15 @@ import {
   formatAllowReason,
   formatNoTokenReason,
   formatNoTokenSystemMessage,
+  formatRbacDeniedReason,
+  formatRbacDeniedSystemMessage,
   formatStderrTag,
   formatStepupFailureReason,
   formatStepupFailureSystemMessage,
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   writePending
-} from "../chunk-Q5N7GH7Z.js";
+} from "../chunk-GX5P3FER.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
@@ -39,8 +41,8 @@ async function main() {
         })
       );
       if (decision.consumeHere) {
-        consumeVerified();
-        clearPending();
+        consumeVerified(decision.fp);
+        clearPending(decision.fp);
       }
       process.stderr.write(`${formatStderrTag(decision)}
 `);
@@ -51,6 +53,17 @@ async function main() {
           kind: "deny",
           reason: formatNoTokenReason(decision.block),
           systemMessage: formatNoTokenSystemMessage(decision.block)
+        })
+      );
+      process.stderr.write(`${formatStderrTag(decision)}
+`);
+      process.exit(0);
+    case "deny-rbac-denied":
+      process.stdout.write(
+        codexAdapter.emitPreToolUse({
+          kind: "deny",
+          reason: formatRbacDeniedReason(decision),
+          systemMessage: formatRbacDeniedSystemMessage(decision)
         })
       );
       process.stderr.write(`${formatStderrTag(decision)}

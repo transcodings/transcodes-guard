@@ -5,10 +5,12 @@ import {
 import {
   clearPending,
   consumeVerified,
+  firstInFlightFpPending,
   isExpired,
   readPending,
-  readVerified
-} from "../chunk-JOKLDK4M.js";
+  readVerified,
+  sweepStepup
+} from "../chunk-Z4JI3X77.js";
 
 // hooks/stop.ts
 function reminderFor(pending) {
@@ -32,6 +34,7 @@ async function main() {
     }
   } catch {
   }
+  sweepStepup();
   const pending = readPending();
   const verified = readVerified();
   if (verified && (!pending || pending.status !== "pending")) {
@@ -43,8 +46,9 @@ async function main() {
     clearPending();
     process.exit(0);
   }
-  if (!pending || isExpired(pending)) process.exit(0);
-  process.stdout.write(claudeCodeAdapter.emitStop(reminderFor(pending)));
+  const reminder = pending && !isExpired(pending) ? pending : firstInFlightFpPending();
+  if (!reminder) process.exit(0);
+  process.stdout.write(claudeCodeAdapter.emitStop(reminderFor(reminder)));
   process.exit(0);
 }
 main().catch((err) => {

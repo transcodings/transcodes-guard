@@ -84,9 +84,7 @@ jobs:
           exit $MISSING
 
       # ─────────────────────────────────────────────────────────
-      # Claude Code plugin smoke tests (9 scenarios — 7 preserved verbatim
-      # from pre-monorepo CI, plus the gate-disabled kill-switch check and the
-      # agent-self-disable block).
+      # Claude Code plugin smoke tests (7 scenarios).
       # All inputs are static JSON literals; no GitHub event injection
       # surface exists in this job.
       # ─────────────────────────────────────────────────────────
@@ -107,37 +105,6 @@ jobs:
             | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow safe command"; exit 1; }
-
-      - name: claude-code · gate disabled → danger command passes (kill-switch)
-        run: |
-          set -e
-          mkdir -p "$HOME/.transcodes"
-          # Save any pre-existing config, then disable the gate.
-          [ -f "$HOME/.transcodes/config.json" ] && mv "$HOME/.transcodes/config.json" "$HOME/.transcodes/config.json.cibak" || true
-          echo '{"enabled":false}' > "$HOME/.transcodes/config.json"
-          OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
-            | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
-          # Restore before asserting so a failed assertion cannot leak the
-          # disabled flag into later steps.
-          rm -f "$HOME/.transcodes/config.json"
-          [ -f "$HOME/.transcodes/config.json.cibak" ] && mv "$HOME/.transcodes/config.json.cibak" "$HOME/.transcodes/config.json" || true
-          echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Disabled gate did not exit 0 for danger command"; exit 1; }
-          if echo "$OUT" | grep -q '"permissionDecision"'; then
-            echo "::error::Disabled gate still emitted a permissionDecision (kill-switch not honored before token/danger checks)"; exit 1
-          fi
-
-      - name: claude-code · agent self-disable is gated (transcodes disable)
-        run: |
-          set -e
-          # Gate enabled (no config file), no token → the self-disable pattern
-          # must match and deny, proving an agent cannot shell out to turn the
-          # gate off without step-up.
-          OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"transcodes disable"},"cwd":"'"$PWD"'"}' \
-            | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
-          echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for transcodes disable"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Agent self-disable was not gated (deny JSON missing)"; exit 1; }
 
       - name: claude-code · protected MCP tool denied (retire_member) + arg context
         run: |
@@ -193,17 +160,22 @@ jobs:
           }
           JSON
           NOW=$(node -e 'console.log(Date.now())')
-          echo "{\"sid\":\"ci-user-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
+          # User rules consume in the hook (consume_in_hook default true) → the
+          # verified record is CONTENT-ADDRESSED by the command fingerprint
+          # (fp = sha256("<toolName>:<JSON.stringify(tool_input)>").slice(0,16)),
+          # not the legacy global file. Replicate the gate's fp here.
+          FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'mcp__ci_user_test_tool:{"arg":"v"}')
+          echo "{\"sid\":\"ci-user-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
           OUT=$(echo '{"tool_name":"mcp__ci_user_test_tool","tool_input":{"arg":"v"}}' \
             | node plugins/claude-code-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for user rule fast-path"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"allow"' || { echo "::error::Explicit allow JSON missing for user rule"; exit 1; }
-          if [ -f "$HOME/.transcodes/state/stepup-verified.json" ]; then
-            echo "::error::User rule fast-path did NOT consume verified record (consume_in_hook=true expected)"; exit 1
+          if [ -f "$HOME/.transcodes/state/stepup-verified.$FP.json" ]; then
+            echo "::error::User rule fast-path did NOT consume fp-keyed verified record (consume_in_hook=true expected)"; exit 1
           fi
           rm -f "$HOME/.transcodes/state/user-tool-rules.json"
-          rm -f "$HOME/.transcodes/state/stepup-verified.json"
+          rm -f "$HOME/.transcodes/state/stepup-verified.$FP.json"
           rm -f "$HOME/.transcodes/state/stepup-pending.json"
 
       - name: claude-code · Stop hook reaps orphan verified+pending(verified) silently
@@ -250,14 +222,17 @@ jobs:
           set -e
           mkdir -p "$HOME/.transcodes/state"
           NOW=$(node -e 'console.log(Date.now())')
-          echo "{\"sid\":\"codex-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
+          # Bash consumes in the hook → verified record is CONTENT-ADDRESSED by
+          # the command fingerprint (fp = sha256("<command>").slice(0,16)).
+          FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'rm -rf /tmp/x')
+          echo "{\"sid\":\"codex-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
           OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"},"cwd":"'"$PWD"'"}' \
             | node plugins/codex-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex hook did not exit 0 with verified record"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"allow"' || { echo "::error::Codex explicit allow JSON missing despite verified record"; exit 1; }
-          if [ -f "$HOME/.transcodes/state/stepup-verified.json" ]; then
-            echo "::error::Codex Bash fast-path did NOT consume verified record"; exit 1
+          if [ -f "$HOME/.transcodes/state/stepup-verified.$FP.json" ]; then
+            echo "::error::Codex Bash fast-path did NOT consume fp-keyed verified record"; exit 1
           fi
           rm -f "$HOME/.transcodes/state/stepup-pending.json"
 
@@ -300,14 +275,17 @@ jobs:
           set -e
           mkdir -p "$HOME/.transcodes/state"
           NOW=$(node -e 'console.log(Date.now())')
-          echo "{\"sid\":\"ag-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
+          # run_command maps to the Bash kind; the adapter rewrites CommandLine
+          # → command, so fp = sha256("<command>").slice(0,16).
+          FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'rm -rf /tmp/x')
+          echo "{\"sid\":\"ag-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
           OUT=$(echo '{"toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /tmp/x","Cwd":"'"$PWD"'"}},"stepIdx":0,"conversationId":"ag-ci","workspacePaths":["'"$PWD"'"]}' \
             | node plugins/antigravity-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity hook did not exit 0 with verified record"; exit 1; }
           echo "$OUT" | grep -q '"decision":"allow"' || { echo "::error::Antigravity explicit allow JSON missing despite verified record"; exit 1; }
-          if [ -f "$HOME/.transcodes/state/stepup-verified.json" ]; then
-            echo "::error::Antigravity run_command fast-path did NOT consume verified record"; exit 1
+          if [ -f "$HOME/.transcodes/state/stepup-verified.$FP.json" ]; then
+            echo "::error::Antigravity run_command fast-path did NOT consume fp-keyed verified record"; exit 1
           fi
           rm -f "$HOME/.transcodes/state/stepup-pending.json"
 
@@ -378,14 +356,16 @@ jobs:
           set -e
           mkdir -p "$HOME/.transcodes/state"
           NOW=$(node -e 'console.log(Date.now())')
-          echo "{\"sid\":\"cursor-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
+          # Shell maps to the Bash kind → fp = sha256("<command>").slice(0,16).
+          FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'rm -rf /tmp/x')
+          echo "{\"sid\":\"cursor-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
           OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"rm -rf /tmp/x"},"cwd":"'"$PWD"'"}' \
             | node plugins/cursor-ai-action-tracker/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not exit 0 with verified record"; exit 1; }
           echo "$OUT" | grep -q '"permission":"allow"' || { echo "::error::Cursor explicit allow JSON missing despite verified record"; exit 1; }
-          if [ -f "$HOME/.transcodes/state/stepup-verified.json" ]; then
-            echo "::error::Cursor Shell fast-path did NOT consume verified record"; exit 1
+          if [ -f "$HOME/.transcodes/state/stepup-verified.$FP.json" ]; then
+            echo "::error::Cursor Shell fast-path did NOT consume fp-keyed verified record"; exit 1
           fi
           rm -f "$HOME/.transcodes/state/stepup-pending.json"
 

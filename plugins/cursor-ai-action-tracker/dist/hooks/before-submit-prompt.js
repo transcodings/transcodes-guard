@@ -5,10 +5,9 @@ import {
 import {
   clearPending,
   consumeVerified,
-  isExpired,
-  readPending,
+  firstActivePending,
   readVerified
-} from "../chunk-6BAT6U6T.js";
+} from "../chunk-3OUU7C2D.js";
 
 // hooks/before-submit-prompt.ts
 import { readFileSync } from "fs";
@@ -27,11 +26,11 @@ function main() {
   }
   if (!parsed.prompt) emitContinue();
   if (!COMPLETION_PATTERN.test(parsed.prompt)) emitContinue();
-  const pending = readPending();
-  if (!pending || isExpired(pending)) emitContinue();
-  if (readVerified()) {
-    consumeVerified();
-    clearPending();
+  const pending = firstActivePending();
+  if (!pending) emitContinue();
+  if (readVerified(pending.fp)) {
+    consumeVerified(pending.fp);
+    clearPending(pending.fp);
   }
   emitContinue();
 }

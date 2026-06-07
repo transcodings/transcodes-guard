@@ -11,6 +11,7 @@ import { parse as parseJsonc } from 'jsonc-parser';
 import systemPatternsData from './data/danger-patterns.json' with {
     type: 'json'
 };
+import { coerceRbacAction, coerceRbacResource, isRbacAction, } from './rbac.js';
 const USER_PATTERNS_FILE = 'user-patterns.json';
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 export function getUserPatternsPath() {
@@ -50,10 +51,14 @@ export function userPatternsFileExists() {
 export function loadMergedPatterns() {
     const system = loadSystemPatterns().patterns.map((p) => ({
         ...p,
+        stepupResource: coerceRbacResource(p.stepupResource),
+        stepupAction: coerceRbacAction(p.stepupAction),
         source: 'system',
     }));
     const user = loadUserPatterns().patterns.map((p) => ({
         ...p,
+        stepupResource: coerceRbacResource(p.stepupResource),
+        stepupAction: coerceRbacAction(p.stepupAction),
         source: 'user',
     }));
     return [...system, ...user];
@@ -76,14 +81,34 @@ export class PatternValidationError extends Error {
 function isReservedId(id, systemIds) {
     return systemIds.has(id);
 }
+// Heuristic guard: a command pattern matches a Bash COMMAND STRING via regex.
+// An MCP tool name (e.g. `mcp__github__delete_repository` or `github:delete_page`)
+// pasted in as a "regex" is a mis-bucketed tool rule — it would never fire here
+// because the hook only regex-matches Bash command strings, not tool_names.
+// Reject it deterministically and redirect to `add_tool_rule`.
+function detectMcpToolName(regex) {
+    // Explicit MCP namespace marker — unambiguous across hosts.
+    if (/mcp__[A-Za-z0-9]/.test(regex))
+        return true;
+    // Bare `<server>__<tool>` / `<server>:<tool>` identifier with no regex
+    // metacharacters or whitespace (i.e. someone pasted a tool name verbatim).
+    if (/^[A-Za-z0-9_-]+(?:__|:)[A-Za-z0-9_.:-]+$/.test(regex))
+        return true;
+    return false;
+}
 export function validateNewPattern(input) {
-    const { id, regex, reason } = input;
+    const { id, regex, reason, stepupAction, stepupResource } = input;
     if (!ID_REGEX.test(id)) {
         throw new PatternValidationError(`id must match /^[a-z0-9][a-z0-9-]*$/ (got: "${id}")`);
     }
     const systemIds = new Set(loadSystemPatterns().patterns.map((p) => p.id));
     if (isReservedId(id, systemIds)) {
         throw new PatternValidationError(`id "${id}" is reserved by a system pattern and cannot be overridden`);
+    }
+    if (detectMcpToolName(regex)) {
+        throw new PatternValidationError(`"${regex}" looks like an MCP tool name, not a Bash command pattern. ` +
+            'Bash Command only match Bash command strings via regex; they never ' +
+            'match MCP tool calls. Use add_tool_rule (exact tool_name match) instead.');
     }
     try {
         new RegExp(regex);
@@ -95,7 +120,21 @@ export function validateNewPattern(input) {
     if (trimmedReason.length === 0) {
         throw new PatternValidationError('reason must not be empty');
     }
-    return { id, regex, reason: trimmedReason };
+    const trimmedAction = stepupAction.trim();
+    if (!isRbacAction(trimmedAction)) {
+        throw new PatternValidationError(`stepupAction must be one of create|read|update|delete (got: "${stepupAction}")`);
+    }
+    const trimmedResource = stepupResource.trim();
+    if (!trimmedResource) {
+        throw new PatternValidationError('stepupResource must not be empty');
+    }
+    return {
+        id,
+        regex,
+        reason: trimmedReason,
+        stepupAction: trimmedAction,
+        stepupResource: trimmedResource,
+    };
 }
 export function addUserPattern(input) {
     const pattern = validateNewPattern(input);
@@ -121,6 +160,10 @@ export function updateUserPattern(id, changes) {
         id,
         regex: changes.regex ?? existing.regex,
         reason: changes.reason ?? existing.reason,
+        // Coerce legacy rows missing the RBAC fields so an unrelated edit doesn't
+        // fail validation.
+        stepupAction: changes.stepupAction ?? coerceRbacAction(existing.stepupAction),
+        stepupResource: changes.stepupResource ?? coerceRbacResource(existing.stepupResource),
     };
     // Re-validate the full pattern (regex compile, reason non-empty).
     // id check is redundant but cheap and keeps a single validation path.

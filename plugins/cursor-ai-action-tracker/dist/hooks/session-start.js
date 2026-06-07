@@ -3,18 +3,15 @@ import {
   cursorAdapter
 } from "../chunk-JLIPJGWI.js";
 import {
+  firstActivePending,
   formatNoTokenSessionNotice,
-  isExpired,
-  isTrackerEnabled,
-  readPending,
   resolveToken
-} from "../chunk-6BAT6U6T.js";
+} from "../chunk-3OUU7C2D.js";
 
 // hooks/session-start.ts
 function carryoverBlock() {
-  const pending = readPending();
+  const pending = firstActivePending();
   if (!pending) return null;
-  if (isExpired(pending)) return null;
   const statusNote = pending.status === "verified" ? "VERIFIED but not yet consumed \u2014 retry the original command to release it." : "PENDING \u2014 resume polling.";
   return [
     "Carried-over step-up state from a previous session:",
@@ -26,7 +23,6 @@ function carryoverBlock() {
   ].join("\n");
 }
 function main() {
-  if (!isTrackerEnabled()) process.exit(0);
   const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
   const parts = [carryoverBlock(), tokenNotice].filter(
     (s) => Boolean(s)
