@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.3.0...transcodes-guard-v0.4.0) (2026-06-07)
+
+
+### Features
+
+* **rbac:** RBAC step-up 게이트 전환을 public/private 분할 위로 re-port ([#26](https://github.com/transcodings/ai-action-tracker-mcp/issues/26)) ([c3c6ad5](https://github.com/transcodings/ai-action-tracker-mcp/commit/c3c6ad5e0b81e584deefdce6166350412e68cac2))
+
 ## [0.3.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.2.1...transcodes-guard-v0.3.0) (2026-06-01)
 
 
