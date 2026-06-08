@@ -7,12 +7,13 @@
  * for the adapter import.
  */
 import '../host.js';
+import '../backend.js';
 import { readFileSync } from 'node:fs';
-import { codexAdapter } from '@transcodes-guard/hook-adapters';
 import {
-  firstActivePending,
+  getGateBackend,
   type PendingState,
-} from '@transcodes-guard-private/stepup-core';
+} from '@transcodes-guard/gate-contract';
+import { codexAdapter } from '@transcodes-guard/hook-adapters';
 
 const COMPLETION_PATTERN =
   /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
@@ -48,7 +49,7 @@ function main(): void {
 
   if (!parsed.prompt) process.exit(0);
 
-  const pending = firstActivePending();
+  const pending = getGateBackend().firstActivePending();
   if (!pending) process.exit(0);
 
   const additionalContext = buildContext(parsed.prompt, pending);

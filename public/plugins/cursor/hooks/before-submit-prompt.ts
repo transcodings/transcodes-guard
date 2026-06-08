@@ -14,14 +14,10 @@
  * Output is always `{ continue: true }` (never blocks user input).
  */
 import '../host.js';
+import '../backend.js';
 import { readFileSync } from 'node:fs';
+import { getGateBackend } from '@transcodes-guard/gate-contract';
 import { cursorAdapter } from '@transcodes-guard/hook-adapters';
-import {
-  clearPending,
-  consumeVerified,
-  firstActivePending,
-  readVerified,
-} from '@transcodes-guard-private/stepup-core';
 
 const COMPLETION_PATTERN =
   /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
@@ -44,7 +40,8 @@ function main(): void {
   if (!parsed.prompt) emitContinue();
   if (!COMPLETION_PATTERN.test(parsed.prompt)) emitContinue();
 
-  const pending = firstActivePending();
+  const backend = getGateBackend();
+  const pending = backend.firstActivePending();
   if (!pending) emitContinue();
 
   // User says "done" and a verified record is sitting in the cache → the
@@ -52,9 +49,9 @@ function main(): void {
   // through. `pending.fp` selects the right store: FP-KEYED for Bash/user
   // sessions, GLOBAL (undefined fp) for the MCP system path. If verified is
   // missing, the agent is expected to call poll_stepup_session_wait via MCP.
-  if (readVerified(pending.fp)) {
-    consumeVerified(pending.fp);
-    clearPending(pending.fp);
+  if (backend.readVerified(pending.fp)) {
+    backend.consumeVerified(pending.fp);
+    backend.clearPending(pending.fp);
   }
 
   emitContinue();

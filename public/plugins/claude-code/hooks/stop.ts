@@ -11,17 +11,12 @@
  * `hookSpecificOutput` enum — wrapping it makes the validator reject.
  */
 import '../host.js';
-import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
+import '../backend.js';
 import {
-  clearPending,
-  consumeVerified,
-  firstInFlightFpPending,
-  isExpired,
+  getGateBackend,
   type PendingState,
-  readPending,
-  readVerified,
-  sweepStepup,
-} from '@transcodes-guard-private/stepup-core';
+} from '@transcodes-guard/gate-contract';
+import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
 
 function reminderFor(pending: PendingState): string {
   return [
@@ -49,30 +44,34 @@ async function main(): Promise<void> {
     // ignore
   }
 
+  const backend = getGateBackend();
+
   // Silent housekeeping for the FP-KEYED (Bash + user tool-rule) files:
   // reap orphans + sweep expired. GLOBAL (MCP system) orphan reap stays
   // inline below for backward-compatible behaviour.
-  sweepStepup();
+  backend.sweepStepup();
 
-  const pending = readPending();
-  const verified = readVerified();
+  const pending = backend.readPending();
+  const verified = backend.readVerified();
 
   // Orphan A: GLOBAL verified file exists but pending is gone or non-pending.
   if (verified && (!pending || pending.status !== 'pending')) {
-    consumeVerified();
-    if (pending) clearPending();
+    backend.consumeVerified();
+    if (pending) backend.clearPending();
     process.exit(0);
   }
   // Orphan B: GLOBAL pending says verified but the verified file is gone.
   if (pending && !verified && pending.status === 'verified') {
-    clearPending();
+    backend.clearPending();
     process.exit(0);
   }
 
   // Remind on the first in-flight session: GLOBAL first (unchanged), else
   // any FP-KEYED Bash/user session still awaiting verification.
   const reminder =
-    pending && !isExpired(pending) ? pending : firstInFlightFpPending();
+    pending && !backend.isExpired(pending)
+      ? pending
+      : backend.firstInFlightFpPending();
   if (!reminder) process.exit(0);
 
   process.stdout.write(claudeCodeAdapter.emitStop(reminderFor(reminder)));

@@ -3,10 +3,9 @@ import {
   claudeCodeAdapter
 } from "../chunk-ODK4KW7V.js";
 import {
-  firstActivePending,
   formatNoTokenSessionNotice,
-  resolveToken
-} from "../chunk-NLM4XYZT.js";
+  getGateBackend
+} from "../chunk-NFAMB6JC.js";
 
 // src/version.ts
 var PLUGIN_VERSION = "0.4.0";
@@ -36,7 +35,7 @@ var PROTOCOL_PRIMER = [
   "command. Always resume from the pending sid the hook reported."
 ].join("\n");
 function carryoverBlock() {
-  const pending = firstActivePending();
+  const pending = getGateBackend().firstActivePending();
   if (!pending) return null;
   const statusNote = pending.status === "verified" ? "VERIFIED but not yet consumed \u2014 retry the original command to release it." : "PENDING \u2014 resume polling.";
   return [
@@ -53,7 +52,7 @@ function main() {
   process.stderr.write(`[transcodes-guard] v${PLUGIN_VERSION}
 `);
   const carry = carryoverBlock();
-  const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
+  const tokenNotice = getGateBackend().hasToken() ? null : formatNoTokenSessionNotice();
   const versionLine = `transcodes-guard v${PLUGIN_VERSION}`;
   const additionalContext = [versionLine, PROTOCOL_PRIMER, carry, tokenNotice].filter((s) => Boolean(s)).join("\n");
   process.stdout.write(

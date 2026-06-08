@@ -1,42 +1,21 @@
 #!/usr/bin/env node
 import {
   PatternValidationError,
-  RBAC_ACTIONS,
-  ToolRuleValidationError,
   ZodFirstPartyTypeKind,
   ZodOptional,
   __commonJS,
   __export,
   __toESM,
   addUserPattern,
-  addUserToolRule,
-  checkRbacPermission,
-  clearPending,
-  consumeVerified,
-  createStepupSession,
   external_exports,
   findFirstMatch,
-  findFirstToolRule,
-  findPendingBySid,
+  getGateBackend,
   getUserPatternsPath,
-  getUserToolRulesPath,
-  inspectStepupState,
-  isRbacAction,
   loadMergedPatterns,
-  loadMergedToolRules,
-  loadStepupConfig,
-  markVerified,
   objectType,
-  pollStepupSession,
-  pollStepupSessionWait,
-  readVerified,
   removeUserPattern,
-  removeUserToolRule,
-  request,
-  updateUserPattern,
-  updateUserToolRule,
-  writeVerified
-} from "../chunk-LH2BAUPS.js";
+  updateUserPattern
+} from "../chunk-QOIJMDNV.js";
 
 // ../../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -12769,17 +12748,17 @@ var CompleteRequestSchema = RequestSchema.extend({
   method: literal("completion/complete"),
   params: CompleteRequestParamsSchema
 });
-function assertCompleteRequestPrompt(request2) {
-  if (request2.params.ref.type !== "ref/prompt") {
-    throw new TypeError(`Expected CompleteRequestPrompt, but got ${request2.params.ref.type}`);
+function assertCompleteRequestPrompt(request) {
+  if (request.params.ref.type !== "ref/prompt") {
+    throw new TypeError(`Expected CompleteRequestPrompt, but got ${request.params.ref.type}`);
   }
-  void request2;
+  void request;
 }
-function assertCompleteRequestResourceTemplate(request2) {
-  if (request2.params.ref.type !== "ref/resource") {
-    throw new TypeError(`Expected CompleteRequestResourceTemplate, but got ${request2.params.ref.type}`);
+function assertCompleteRequestResourceTemplate(request) {
+  if (request.params.ref.type !== "ref/resource") {
+    throw new TypeError(`Expected CompleteRequestResourceTemplate, but got ${request.params.ref.type}`);
   }
-  void request2;
+  void request;
 }
 var CompleteResultSchema = ResultSchema.extend({
   completion: looseObject({
@@ -14569,8 +14548,8 @@ var Protocol = class {
     this._taskStore = _options?.taskStore;
     this._taskMessageQueue = _options?.taskMessageQueue;
     if (this._taskStore) {
-      this.setRequestHandler(GetTaskRequestSchema, async (request2, extra) => {
-        const task = await this._taskStore.getTask(request2.params.taskId, extra.sessionId);
+      this.setRequestHandler(GetTaskRequestSchema, async (request, extra) => {
+        const task = await this._taskStore.getTask(request.params.taskId, extra.sessionId);
         if (!task) {
           throw new McpError(ErrorCode.InvalidParams, "Failed to retrieve task: Task not found");
         }
@@ -14578,9 +14557,9 @@ var Protocol = class {
           ...task
         };
       });
-      this.setRequestHandler(GetTaskPayloadRequestSchema, async (request2, extra) => {
+      this.setRequestHandler(GetTaskPayloadRequestSchema, async (request, extra) => {
         const handleTaskResult = async () => {
-          const taskId = request2.params.taskId;
+          const taskId = request.params.taskId;
           if (this._taskMessageQueue) {
             let queuedMessage;
             while (queuedMessage = await this._taskMessageQueue.dequeue(taskId, extra.sessionId)) {
@@ -14631,9 +14610,9 @@ var Protocol = class {
         };
         return await handleTaskResult();
       });
-      this.setRequestHandler(ListTasksRequestSchema, async (request2, extra) => {
+      this.setRequestHandler(ListTasksRequestSchema, async (request, extra) => {
         try {
-          const { tasks, nextCursor } = await this._taskStore.listTasks(request2.params?.cursor, extra.sessionId);
+          const { tasks, nextCursor } = await this._taskStore.listTasks(request.params?.cursor, extra.sessionId);
           return {
             tasks,
             nextCursor,
@@ -14643,20 +14622,20 @@ var Protocol = class {
           throw new McpError(ErrorCode.InvalidParams, `Failed to list tasks: ${error2 instanceof Error ? error2.message : String(error2)}`);
         }
       });
-      this.setRequestHandler(CancelTaskRequestSchema, async (request2, extra) => {
+      this.setRequestHandler(CancelTaskRequestSchema, async (request, extra) => {
         try {
-          const task = await this._taskStore.getTask(request2.params.taskId, extra.sessionId);
+          const task = await this._taskStore.getTask(request.params.taskId, extra.sessionId);
           if (!task) {
-            throw new McpError(ErrorCode.InvalidParams, `Task not found: ${request2.params.taskId}`);
+            throw new McpError(ErrorCode.InvalidParams, `Task not found: ${request.params.taskId}`);
           }
           if (isTerminal(task.status)) {
             throw new McpError(ErrorCode.InvalidParams, `Cannot cancel task in terminal status: ${task.status}`);
           }
-          await this._taskStore.updateTaskStatus(request2.params.taskId, "cancelled", "Client cancelled task execution.", extra.sessionId);
-          this._clearTaskQueue(request2.params.taskId);
-          const cancelledTask = await this._taskStore.getTask(request2.params.taskId, extra.sessionId);
+          await this._taskStore.updateTaskStatus(request.params.taskId, "cancelled", "Client cancelled task execution.", extra.sessionId);
+          this._clearTaskQueue(request.params.taskId);
+          const cancelledTask = await this._taskStore.getTask(request.params.taskId, extra.sessionId);
           if (!cancelledTask) {
-            throw new McpError(ErrorCode.InvalidParams, `Task not found after cancellation: ${request2.params.taskId}`);
+            throw new McpError(ErrorCode.InvalidParams, `Task not found after cancellation: ${request.params.taskId}`);
           }
           return {
             _meta: {},
@@ -14777,14 +14756,14 @@ var Protocol = class {
     }
     Promise.resolve().then(() => handler(notification)).catch((error2) => this._onerror(new Error(`Uncaught error in notification handler: ${error2}`)));
   }
-  _onrequest(request2, extra) {
-    const handler = this._requestHandlers.get(request2.method) ?? this.fallbackRequestHandler;
+  _onrequest(request, extra) {
+    const handler = this._requestHandlers.get(request.method) ?? this.fallbackRequestHandler;
     const capturedTransport = this._transport;
-    const relatedTaskId = request2.params?._meta?.[RELATED_TASK_META_KEY]?.taskId;
+    const relatedTaskId = request.params?._meta?.[RELATED_TASK_META_KEY]?.taskId;
     if (handler === void 0) {
       const errorResponse = {
         jsonrpc: "2.0",
-        id: request2.id,
+        id: request.id,
         error: {
           code: ErrorCode.MethodNotFound,
           message: "Method not found"
@@ -14802,17 +14781,17 @@ var Protocol = class {
       return;
     }
     const abortController = new AbortController();
-    this._requestHandlerAbortControllers.set(request2.id, abortController);
-    const taskCreationParams = isTaskAugmentedRequestParams(request2.params) ? request2.params.task : void 0;
-    const taskStore = this._taskStore ? this.requestTaskStore(request2, capturedTransport?.sessionId) : void 0;
+    this._requestHandlerAbortControllers.set(request.id, abortController);
+    const taskCreationParams = isTaskAugmentedRequestParams(request.params) ? request.params.task : void 0;
+    const taskStore = this._taskStore ? this.requestTaskStore(request, capturedTransport?.sessionId) : void 0;
     const fullExtra = {
       signal: abortController.signal,
       sessionId: capturedTransport?.sessionId,
-      _meta: request2.params?._meta,
+      _meta: request.params?._meta,
       sendNotification: async (notification) => {
         if (abortController.signal.aborted)
           return;
-        const notificationOptions = { relatedRequestId: request2.id };
+        const notificationOptions = { relatedRequestId: request.id };
         if (relatedTaskId) {
           notificationOptions.relatedTask = { taskId: relatedTaskId };
         }
@@ -14822,7 +14801,7 @@ var Protocol = class {
         if (abortController.signal.aborted) {
           throw new McpError(ErrorCode.ConnectionClosed, "Request was cancelled");
         }
-        const requestOptions = { ...options, relatedRequestId: request2.id };
+        const requestOptions = { ...options, relatedRequestId: request.id };
         if (relatedTaskId && !requestOptions.relatedTask) {
           requestOptions.relatedTask = { taskId: relatedTaskId };
         }
@@ -14833,7 +14812,7 @@ var Protocol = class {
         return await this.request(r, resultSchema, requestOptions);
       },
       authInfo: extra?.authInfo,
-      requestId: request2.id,
+      requestId: request.id,
       requestInfo: extra?.requestInfo,
       taskId: relatedTaskId,
       taskStore,
@@ -14843,16 +14822,16 @@ var Protocol = class {
     };
     Promise.resolve().then(() => {
       if (taskCreationParams) {
-        this.assertTaskHandlerCapability(request2.method);
+        this.assertTaskHandlerCapability(request.method);
       }
-    }).then(() => handler(request2, fullExtra)).then(async (result) => {
+    }).then(() => handler(request, fullExtra)).then(async (result) => {
       if (abortController.signal.aborted) {
         return;
       }
       const response = {
         result,
         jsonrpc: "2.0",
-        id: request2.id
+        id: request.id
       };
       if (relatedTaskId && this._taskMessageQueue) {
         await this._enqueueTaskMessage(relatedTaskId, {
@@ -14869,7 +14848,7 @@ var Protocol = class {
       }
       const errorResponse = {
         jsonrpc: "2.0",
-        id: request2.id,
+        id: request.id,
         error: {
           code: Number.isSafeInteger(error2["code"]) ? error2["code"] : ErrorCode.InternalError,
           message: error2.message ?? "Internal error",
@@ -14886,8 +14865,8 @@ var Protocol = class {
         await capturedTransport?.send(errorResponse);
       }
     }).catch((error2) => this._onerror(new Error(`Failed to send response: ${error2}`))).finally(() => {
-      if (this._requestHandlerAbortControllers.get(request2.id) === abortController) {
-        this._requestHandlerAbortControllers.delete(request2.id);
+      if (this._requestHandlerAbortControllers.get(request.id) === abortController) {
+        this._requestHandlerAbortControllers.delete(request.id);
       }
     });
   }
@@ -14991,11 +14970,11 @@ var Protocol = class {
    *
    * @experimental Use `client.experimental.tasks.requestStream()` to access this method.
    */
-  async *requestStream(request2, resultSchema, options) {
+  async *requestStream(request, resultSchema, options) {
     const { task } = options ?? {};
     if (!task) {
       try {
-        const result = await this.request(request2, resultSchema, options);
+        const result = await this.request(request, resultSchema, options);
         yield { type: "result", result };
       } catch (error2) {
         yield {
@@ -15007,7 +14986,7 @@ var Protocol = class {
     }
     let taskId;
     try {
-      const createResult = await this.request(request2, CreateTaskResultSchema, options);
+      const createResult = await this.request(request, CreateTaskResultSchema, options);
       if (createResult.task) {
         taskId = createResult.task.taskId;
         yield { type: "taskCreated", task: createResult.task };
@@ -15055,7 +15034,7 @@ var Protocol = class {
    *
    * Do not use this method to emit notifications! Use notification() instead.
    */
-  request(request2, resultSchema, options) {
+  request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
     return new Promise((resolve, reject) => {
       const earlyReject = (error2) => {
@@ -15067,9 +15046,9 @@ var Protocol = class {
       }
       if (this._options?.enforceStrictCapabilities === true) {
         try {
-          this.assertCapabilityForMethod(request2.method);
+          this.assertCapabilityForMethod(request.method);
           if (task) {
-            this.assertTaskCapability(request2.method);
+            this.assertTaskCapability(request.method);
           }
         } catch (e) {
           earlyReject(e);
@@ -15079,16 +15058,16 @@ var Protocol = class {
       options?.signal?.throwIfAborted();
       const messageId = this._requestMessageId++;
       const jsonrpcRequest = {
-        ...request2,
+        ...request,
         jsonrpc: "2.0",
         id: messageId
       };
       if (options?.onprogress) {
         this._progressHandlers.set(messageId, options.onprogress);
         jsonrpcRequest.params = {
-          ...request2.params,
+          ...request.params,
           _meta: {
-            ...request2.params?._meta || {},
+            ...request.params?._meta || {},
             progressToken: messageId
           }
         };
@@ -15292,8 +15271,8 @@ var Protocol = class {
   setRequestHandler(requestSchema, handler) {
     const method = getMethodLiteral(requestSchema);
     this.assertRequestHandlerCapability(method);
-    this._requestHandlers.set(method, (request2, extra) => {
-      const parsed = parseWithCompat(requestSchema, request2);
+    this._requestHandlers.set(method, (request, extra) => {
+      const parsed = parseWithCompat(requestSchema, request);
       return Promise.resolve(handler(parsed, extra));
     });
   }
@@ -15408,19 +15387,19 @@ var Protocol = class {
       }, { once: true });
     });
   }
-  requestTaskStore(request2, sessionId) {
+  requestTaskStore(request, sessionId) {
     const taskStore = this._taskStore;
     if (!taskStore) {
       throw new Error("No task store configured");
     }
     return {
       createTask: async (taskParams) => {
-        if (!request2) {
+        if (!request) {
           throw new Error("No request provided");
         }
-        return await taskStore.createTask(taskParams, request2.id, {
-          method: request2.method,
-          params: request2.params
+        return await taskStore.createTask(taskParams, request.id, {
+          method: request.method,
+          params: request.params
         }, sessionId);
       },
       getTask: async (taskId) => {
@@ -15581,8 +15560,8 @@ var ExperimentalServerTasks = class {
    *
    * @experimental
    */
-  requestStream(request2, resultSchema, options) {
-    return this._server.requestStream(request2, resultSchema, options);
+  requestStream(request, resultSchema, options) {
+    return this._server.requestStream(request, resultSchema, options);
   }
   /**
    * Sends a sampling request and returns an AsyncGenerator that yields response messages.
@@ -15827,12 +15806,12 @@ var Server = class extends Protocol {
     this._capabilities = options?.capabilities ?? {};
     this._instructions = options?.instructions;
     this._jsonSchemaValidator = options?.jsonSchemaValidator ?? new AjvJsonSchemaValidator();
-    this.setRequestHandler(InitializeRequestSchema, (request2) => this._oninitialize(request2));
+    this.setRequestHandler(InitializeRequestSchema, (request) => this._oninitialize(request));
     this.setNotificationHandler(InitializedNotificationSchema, () => this.oninitialized?.());
     if (this._capabilities.logging) {
-      this.setRequestHandler(SetLevelRequestSchema, async (request2, extra) => {
+      this.setRequestHandler(SetLevelRequestSchema, async (request, extra) => {
         const transportSessionId = extra.sessionId || extra.requestInfo?.headers["mcp-session-id"] || void 0;
-        const { level } = request2.params;
+        const { level } = request.params;
         const parseResult = LoggingLevelSchema.safeParse(level);
         if (parseResult.success) {
           this._loggingLevels.set(transportSessionId, parseResult.data);
@@ -15891,14 +15870,14 @@ var Server = class extends Protocol {
     }
     const method = methodValue;
     if (method === "tools/call") {
-      const wrappedHandler = async (request2, extra) => {
-        const validatedRequest = safeParse3(CallToolRequestSchema, request2);
+      const wrappedHandler = async (request, extra) => {
+        const validatedRequest = safeParse3(CallToolRequestSchema, request);
         if (!validatedRequest.success) {
           const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
           throw new McpError(ErrorCode.InvalidParams, `Invalid tools/call request: ${errorMessage}`);
         }
         const { params } = validatedRequest.data;
-        const result = await Promise.resolve(handler(request2, extra));
+        const result = await Promise.resolve(handler(request, extra));
         if (params.task) {
           const taskValidationResult = safeParse3(CreateTaskResultSchema, result);
           if (!taskValidationResult.success) {
@@ -16029,10 +16008,10 @@ var Server = class extends Protocol {
     }
     assertToolsCallTaskCapability(this._capabilities.tasks?.requests, method, "Server");
   }
-  async _oninitialize(request2) {
-    const requestedVersion = request2.params.protocolVersion;
-    this._clientCapabilities = request2.params.capabilities;
-    this._clientVersion = request2.params.clientInfo;
+  async _oninitialize(request) {
+    const requestedVersion = request.params.protocolVersion;
+    this._clientCapabilities = request.params.capabilities;
+    this._clientVersion = request.params.clientInfo;
     const protocolVersion = SUPPORTED_PROTOCOL_VERSIONS.includes(requestedVersion) ? requestedVersion : LATEST_PROTOCOL_VERSION;
     return {
       protocolVersion,
@@ -16359,33 +16338,33 @@ var McpServer = class {
         return toolDefinition;
       })
     }));
-    this.server.setRequestHandler(CallToolRequestSchema, async (request2, extra) => {
+    this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       try {
-        const tool = this._registeredTools[request2.params.name];
+        const tool = this._registeredTools[request.params.name];
         if (!tool) {
-          throw new McpError(ErrorCode.InvalidParams, `Tool ${request2.params.name} not found`);
+          throw new McpError(ErrorCode.InvalidParams, `Tool ${request.params.name} not found`);
         }
         if (!tool.enabled) {
-          throw new McpError(ErrorCode.InvalidParams, `Tool ${request2.params.name} disabled`);
+          throw new McpError(ErrorCode.InvalidParams, `Tool ${request.params.name} disabled`);
         }
-        const isTaskRequest = !!request2.params.task;
+        const isTaskRequest = !!request.params.task;
         const taskSupport = tool.execution?.taskSupport;
         const isTaskHandler = "createTask" in tool.handler;
         if ((taskSupport === "required" || taskSupport === "optional") && !isTaskHandler) {
-          throw new McpError(ErrorCode.InternalError, `Tool ${request2.params.name} has taskSupport '${taskSupport}' but was not registered with registerToolTask`);
+          throw new McpError(ErrorCode.InternalError, `Tool ${request.params.name} has taskSupport '${taskSupport}' but was not registered with registerToolTask`);
         }
         if (taskSupport === "required" && !isTaskRequest) {
-          throw new McpError(ErrorCode.MethodNotFound, `Tool ${request2.params.name} requires task augmentation (taskSupport: 'required')`);
+          throw new McpError(ErrorCode.MethodNotFound, `Tool ${request.params.name} requires task augmentation (taskSupport: 'required')`);
         }
         if (taskSupport === "optional" && !isTaskRequest && isTaskHandler) {
-          return await this.handleAutomaticTaskPolling(tool, request2, extra);
+          return await this.handleAutomaticTaskPolling(tool, request, extra);
         }
-        const args = await this.validateToolInput(tool, request2.params.arguments, request2.params.name);
+        const args = await this.validateToolInput(tool, request.params.arguments, request.params.name);
         const result = await this.executeToolHandler(tool, args, extra);
         if (isTaskRequest) {
           return result;
         }
-        await this.validateToolOutput(tool, result, request2.params.name);
+        await this.validateToolOutput(tool, result, request.params.name);
         return result;
       } catch (error2) {
         if (error2 instanceof McpError) {
@@ -16486,11 +16465,11 @@ var McpServer = class {
   /**
    * Handles automatic task polling for tools with taskSupport 'optional'.
    */
-  async handleAutomaticTaskPolling(tool, request2, extra) {
+  async handleAutomaticTaskPolling(tool, request, extra) {
     if (!extra.taskStore) {
       throw new Error("No task store provided for task-capable tool.");
     }
-    const args = await this.validateToolInput(tool, request2.params.arguments, request2.params.name);
+    const args = await this.validateToolInput(tool, request.params.arguments, request.params.name);
     const handler = tool.handler;
     const taskExtra = { ...extra, taskStore: extra.taskStore };
     const createTaskResult = args ? await Promise.resolve(handler.createTask(args, taskExtra)) : (
@@ -16518,21 +16497,21 @@ var McpServer = class {
     this.server.registerCapabilities({
       completions: {}
     });
-    this.server.setRequestHandler(CompleteRequestSchema, async (request2) => {
-      switch (request2.params.ref.type) {
+    this.server.setRequestHandler(CompleteRequestSchema, async (request) => {
+      switch (request.params.ref.type) {
         case "ref/prompt":
-          assertCompleteRequestPrompt(request2);
-          return this.handlePromptCompletion(request2, request2.params.ref);
+          assertCompleteRequestPrompt(request);
+          return this.handlePromptCompletion(request, request.params.ref);
         case "ref/resource":
-          assertCompleteRequestResourceTemplate(request2);
-          return this.handleResourceCompletion(request2, request2.params.ref);
+          assertCompleteRequestResourceTemplate(request);
+          return this.handleResourceCompletion(request, request.params.ref);
         default:
-          throw new McpError(ErrorCode.InvalidParams, `Invalid completion reference: ${request2.params.ref}`);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid completion reference: ${request.params.ref}`);
       }
     });
     this._completionHandlerInitialized = true;
   }
-  async handlePromptCompletion(request2, ref) {
+  async handlePromptCompletion(request, ref) {
     const prompt = this._registeredPrompts[ref.name];
     if (!prompt) {
       throw new McpError(ErrorCode.InvalidParams, `Prompt ${ref.name} not found`);
@@ -16544,7 +16523,7 @@ var McpServer = class {
       return EMPTY_COMPLETION_RESULT;
     }
     const promptShape = getObjectShape(prompt.argsSchema);
-    const field = promptShape?.[request2.params.argument.name];
+    const field = promptShape?.[request.params.argument.name];
     if (!isCompletable(field)) {
       return EMPTY_COMPLETION_RESULT;
     }
@@ -16552,22 +16531,22 @@ var McpServer = class {
     if (!completer) {
       return EMPTY_COMPLETION_RESULT;
     }
-    const suggestions = await completer(request2.params.argument.value, request2.params.context);
+    const suggestions = await completer(request.params.argument.value, request.params.context);
     return createCompletionResult(suggestions);
   }
-  async handleResourceCompletion(request2, ref) {
+  async handleResourceCompletion(request, ref) {
     const template = Object.values(this._registeredResourceTemplates).find((t) => t.resourceTemplate.uriTemplate.toString() === ref.uri);
     if (!template) {
       if (this._registeredResources[ref.uri]) {
         return EMPTY_COMPLETION_RESULT;
       }
-      throw new McpError(ErrorCode.InvalidParams, `Resource template ${request2.params.ref.uri} not found`);
+      throw new McpError(ErrorCode.InvalidParams, `Resource template ${request.params.ref.uri} not found`);
     }
-    const completer = template.resourceTemplate.completeCallback(request2.params.argument.name);
+    const completer = template.resourceTemplate.completeCallback(request.params.argument.name);
     if (!completer) {
       return EMPTY_COMPLETION_RESULT;
     }
-    const suggestions = await completer(request2.params.argument.value, request2.params.context);
+    const suggestions = await completer(request.params.argument.value, request.params.context);
     return createCompletionResult(suggestions);
   }
   setResourceRequestHandlers() {
@@ -16582,7 +16561,7 @@ var McpServer = class {
         listChanged: true
       }
     });
-    this.server.setRequestHandler(ListResourcesRequestSchema, async (request2, extra) => {
+    this.server.setRequestHandler(ListResourcesRequestSchema, async (request, extra) => {
       const resources = Object.entries(this._registeredResources).filter(([_, resource]) => resource.enabled).map(([uri, resource]) => ({
         uri,
         name: resource.name,
@@ -16612,8 +16591,8 @@ var McpServer = class {
       }));
       return { resourceTemplates };
     });
-    this.server.setRequestHandler(ReadResourceRequestSchema, async (request2, extra) => {
-      const uri = new URL(request2.params.uri);
+    this.server.setRequestHandler(ReadResourceRequestSchema, async (request, extra) => {
+      const uri = new URL(request.params.uri);
       const resource = this._registeredResources[uri.toString()];
       if (resource) {
         if (!resource.enabled) {
@@ -16652,21 +16631,21 @@ var McpServer = class {
         };
       })
     }));
-    this.server.setRequestHandler(GetPromptRequestSchema, async (request2, extra) => {
-      const prompt = this._registeredPrompts[request2.params.name];
+    this.server.setRequestHandler(GetPromptRequestSchema, async (request, extra) => {
+      const prompt = this._registeredPrompts[request.params.name];
       if (!prompt) {
-        throw new McpError(ErrorCode.InvalidParams, `Prompt ${request2.params.name} not found`);
+        throw new McpError(ErrorCode.InvalidParams, `Prompt ${request.params.name} not found`);
       }
       if (!prompt.enabled) {
-        throw new McpError(ErrorCode.InvalidParams, `Prompt ${request2.params.name} disabled`);
+        throw new McpError(ErrorCode.InvalidParams, `Prompt ${request.params.name} disabled`);
       }
       if (prompt.argsSchema) {
         const argsObj = normalizeObjectSchema(prompt.argsSchema);
-        const parseResult = await safeParseAsync3(argsObj, request2.params.arguments);
+        const parseResult = await safeParseAsync3(argsObj, request.params.arguments);
         if (!parseResult.success) {
           const error2 = "error" in parseResult ? parseResult.error : "Unknown error";
           const errorMessage = getParseErrorMessage(error2);
-          throw new McpError(ErrorCode.InvalidParams, `Invalid arguments for prompt ${request2.params.name}: ${errorMessage}`);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid arguments for prompt ${request.params.name}: ${errorMessage}`);
         }
         const args = parseResult.data;
         const cb = prompt.callback;
@@ -17069,949 +17048,6 @@ var EMPTY_COMPLETION_RESULT = {
   }
 };
 
-// ../../../private/packages/transcodes-mcp-tools/dist/stepup-helper.js
-var RBAC_TTL_MS = 5 * 6e4;
-var rbacCache = /* @__PURE__ */ new Map();
-async function getCachedRbacLevel(config2, resource, action) {
-  const key = `${config2.memberId}:${resource}:${action}`;
-  const hit = rbacCache.get(key);
-  if (hit && Date.now() < hit.exp)
-    return hit.level;
-  const level = await checkRbacPermission(config2, resource, action) ?? 2;
-  rbacCache.set(key, { level, exp: Date.now() + RBAC_TTL_MS });
-  return level;
-}
-async function execProtectedTool(toolName, run) {
-  const verified = readVerified();
-  const rule = loadMergedToolRules().find((r) => r.toolName === toolName || r.toolName.endsWith(`__${toolName}`));
-  if (rule) {
-    let level = 2;
-    try {
-      const config2 = loadStepupConfig();
-      level = await getCachedRbacLevel(config2, rule.stepupResource, rule.stepupAction);
-    } catch {
-      level = 2;
-    }
-    if (level === 0) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: `transcodes-guard: BLOCKED (rbac-denied ${rule.stepupResource}/${rule.stepupAction}) \u2014 ${toolName}`
-          }
-        ]
-      };
-    }
-    if (level === 2 && !verified) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: `transcodes-guard: step-up MFA required (${rule.stepupResource}/${rule.stepupAction}) \u2014 ${toolName}. Complete WebAuthn (create_stepup_session \u2192 poll_stepup_session) or use the IDE MCP tool path.`
-          }
-        ]
-      };
-    }
-    const sid = level === 2 ? verified?.sid : void 0;
-    try {
-      return {
-        isError: false,
-        content: [{ type: "text", text: await run(sid) }]
-      };
-    } finally {
-      if (level === 2 && verified) {
-        consumeVerified();
-        clearPending();
-      }
-    }
-  }
-  if (!verified) {
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text: `step-up verified record missing for ${toolName}`
-        }
-      ]
-    };
-  }
-  try {
-    return {
-      isError: false,
-      content: [{ type: "text", text: await run(verified.sid) }]
-    };
-  } finally {
-    consumeVerified();
-    clearPending();
-  }
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/transcodes-client.js
-var ENDPOINT_MAP = {
-  // Project
-  get_project: "/project",
-  // Audit
-  get_security_logs: "/audit/logs",
-  // Members
-  get_member: "/auth/member",
-  list_members_paginated: "/auth/members/list",
-  list_member_devices: "/auth/members/devices",
-  create_member: "/auth/member",
-  update_member: "/auth/member",
-  get_member_suspension: "/auth/member/revocation",
-  retire_member: "/auth/member",
-  suspend_member: "/auth/member/revocation",
-  unsuspend_member: "/auth/member/revocation",
-  // Auth devices — authenticators
-  list_authenticators: "/auth/authenticators",
-  // Auth devices — passkeys
-  list_passkeys: "/auth/passkeys",
-  // Auth devices — TOTP
-  list_totps: "/auth/totps",
-  // RBAC — roles
-  get_roles: "/auth/roles",
-  create_role: "/auth/role",
-  update_role: "/auth/role",
-  check_rbac_permission: "/auth/role/check-permission",
-  retire_role: "/auth/role",
-  set_role_permissions: "/auth/role",
-  update_member_role: "/auth/member/role",
-  // RBAC — resources
-  get_resources: "/auth/resources",
-  create_resource: "/auth/resources",
-  update_resource: "/auth/resources",
-  retire_resource: "/auth/resources",
-  // Membership / billing
-  membership_plans: "/membership/plans",
-  membership_plans_limits: "/membership/plans/limits",
-  membership_customer_status_by_project: "/membership/customer/status/project",
-  membership_customer_status_by_organization: "/membership/customer/status/organization",
-  membership_create_checkout_session: "/membership/mcp/session",
-  // Passcode
-  passcode_create: "/auth/passcode/create"
-};
-async function req(config2, input, toolName, pathSuffix) {
-  const base = ENDPOINT_MAP[toolName];
-  if (!base) {
-    return JSON.stringify({
-      ok: false,
-      blocked: true,
-      message: `Tool '${toolName}' is not in this plugin's endpoint map.`
-    }, null, 2);
-  }
-  const path2 = pathSuffix ? `${base}${pathSuffix}` : base;
-  const envelope = await request(config2, { ...input, path: path2 });
-  return JSON.stringify(envelope, null, 2);
-}
-function blockedResult(message) {
-  return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify({ ok: false, blocked: true, message }, null, 2)
-      }
-    ]
-  };
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/audit.js
-function registerAuditTools(server) {
-  server.registerTool("get_security_logs", {
-    title: "Get security logs",
-    description: "List project audit logs with pagination and filters. Use for security investigations, login/admin activity review, compliance. Returns tag, severity, IP, user_agent, member_id, metadata. Filter by `tag`; `start_date`/`end_date` are ISO 8601 range filters. RBAC-gated via tool-rule `tc-get-security-logs` (system/read).",
-    inputSchema: {
-      page: external_exports.number().optional(),
-      limit: external_exports.number().optional(),
-      tag: external_exports.string().optional(),
-      start_date: external_exports.string().optional(),
-      end_date: external_exports.string().optional()
-    }
-  }, async ({ page, limit, tag, start_date, end_date }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("get_security_logs", (sid) => req(config2, {
-      method: "GET",
-      query: {
-        project_id: config2.projectId,
-        page,
-        limit,
-        tag,
-        start_date,
-        end_date
-      },
-      stepUpSid: sid
-    }, "get_security_logs"));
-  });
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/auth-devices.js
-var textResult = (text, isError = false) => ({
-  isError,
-  content: [{ type: "text", text }]
-});
-function registerAuthDeviceTools(server) {
-  server.registerTool("list_authenticators", {
-    title: "List authenticators",
-    description: "List all WebAuthn authenticators for a member. Separate from the passkey service. Requires member_id.",
-    inputSchema: {
-      member_id: external_exports.string()
-    }
-  }, async ({ member_id }) => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "GET",
-      query: { project_id: config2.projectId, member_id }
-    }, "list_authenticators");
-    return textResult(text);
-  });
-  server.registerTool("list_passkeys", {
-    title: "List passkeys",
-    description: "List passkeys for a member. Server typically filters by project rp_id. Requires member_id.",
-    inputSchema: {
-      member_id: external_exports.string()
-    }
-  }, async ({ member_id }) => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "GET",
-      query: { project_id: config2.projectId, member_id }
-    }, "list_passkeys");
-    return textResult(text);
-  });
-  server.registerTool("list_totps", {
-    title: "List TOTP devices",
-    description: "List TOTP devices for a member. Use to audit MFA enrollment. Requires member_id.",
-    inputSchema: {
-      member_id: external_exports.string()
-    }
-  }, async ({ member_id }) => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "GET",
-      query: { project_id: config2.projectId, member_id }
-    }, "list_totps");
-    return textResult(text);
-  });
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/jwk.js
-var MSG_JWK_BACKUP_CONSOLE = "JWK backup (encrypted download of member metadata, registered authentication methods, and audit logs) must be done in the Transcodes console. This MCP tool does not call the API.";
-function registerJwkTools(server) {
-  server.registerTool("jwk_backup", {
-    title: "JWK backup (console-only)",
-    description: "Blocked: JWK backup must be performed in the Transcodes console only. That flow yields an encrypted backup bundle that can include member metadata, authentication methods, and audit logs \u2014 not exposed through MCP.",
-    inputSchema: {}
-  }, async () => blockedResult(MSG_JWK_BACKUP_CONSOLE));
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/members.js
-var textResult2 = (text, isError = false) => ({
-  isError,
-  content: [{ type: "text", text }]
-});
-var MEMBER_SUSPENSION_API_NOTE = "Exact path after /v1: /auth/member/revocation (singular member, NOT members). GET=query only; POST=suspend body; DELETE=unsuspend body. No PUT, PATCH, or /member/suspend.";
-function registerMemberTools(server) {
-  server.registerTool("get_member", {
-    title: "Get member",
-    description: "Get one member profile. Pass `member_id` OR `email` \u2014 at least one is required (never omit both). Use for support lookups and auth debugging.",
-    inputSchema: {
-      member_id: external_exports.string().optional(),
-      email: external_exports.string().optional()
-    }
-  }, async ({ member_id, email: email2 }) => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "GET",
-      query: {
-        project_id: config2.projectId,
-        member_id,
-        email: email2
-      }
-    }, "get_member");
-    return textResult2(text);
-  });
-  server.registerTool("list_members_paginated", {
-    title: "List members (paginated)",
-    description: "Paginated member list without search. Fast for large directories; use sort_by/order.",
-    inputSchema: {
-      page: external_exports.number().optional(),
-      limit: external_exports.number().optional(),
-      sort_by: external_exports.enum(["created_at", "updated_at"]).optional(),
-      order: external_exports.enum(["asc", "desc"]).optional()
-    }
-  }, async ({ page, limit, sort_by, order }) => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "GET",
-      query: {
-        project_id: config2.projectId,
-        page,
-        limit,
-        sort_by,
-        order
-      }
-    }, "list_members_paginated");
-    return textResult2(text);
-  });
-  server.registerTool("list_member_devices", {
-    title: "List member devices",
-    description: "Summary of passkeys, authenticators, and TOTP devices for a member. Labels and last-used timestamps. Use to audit MFA surface.",
-    inputSchema: {
-      member_id: external_exports.string()
-    }
-  }, async ({ member_id }) => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "GET",
-      query: { project_id: config2.projectId, member_id }
-    }, "list_member_devices");
-    return textResult2(text);
-  });
-  server.registerTool("get_member_suspension", {
-    title: "Get member suspension status",
-    description: "Check whether a member is currently suspended and when it was applied. Returns { revoked_at: ISO date string } if suspended, or { revoked_at: null } if active. Read-only. " + MEMBER_SUSPENSION_API_NOTE,
-    inputSchema: {
-      member_id: external_exports.string()
-    }
-  }, async ({ member_id }) => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "GET",
-      query: { project_id: config2.projectId, member_id }
-    }, "get_member_suspension");
-    return textResult2(text);
-  });
-  server.registerTool("retire_member", {
-    title: "Retire member (permanent)",
-    description: "PERMANENTLY delete a member from the project (kill switch \u2014 irreversible). Use only when the user wants to fully delete / remove a member; for a temporary block use suspend_member. Verified action \u2014 step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-member`). Body: { member_id } \u2014 project_id comes from TRANSCODES_TOKEN.",
-    inputSchema: {
-      body: external_exports.object({ member_id: external_exports.string() })
-    }
-  }, async ({ body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("retire_member", (sid) => req(config2, {
-      method: "DELETE",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "retire_member"));
-  });
-  server.registerTool("suspend_member", {
-    title: "Suspend member (reversible)",
-    description: "Temporarily SUSPEND a member: blocks login and invalidates active sessions. Reversible via unsuspend_member. Verified action \u2014 step-up MFA enforced by the PreToolUse hook (tool-rule `tc-suspend-member`). " + MEMBER_SUSPENSION_API_NOTE,
-    inputSchema: {
-      body: external_exports.object({ member_id: external_exports.string() })
-    }
-  }, async ({ body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("suspend_member", (sid) => req(config2, {
-      method: "POST",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "suspend_member"));
-  });
-  server.registerTool("unsuspend_member", {
-    title: "Unsuspend member",
-    description: "Lift a member's suspension and restore their ability to log in and create sessions. Use only on members previously suspended. Verified action \u2014 step-up MFA enforced by the PreToolUse hook (tool-rule `tc-unsuspend-member`). " + MEMBER_SUSPENSION_API_NOTE,
-    inputSchema: {
-      body: external_exports.object({ member_id: external_exports.string() })
-    }
-  }, async ({ body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("unsuspend_member", (sid) => req(config2, {
-      method: "DELETE",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "unsuspend_member"));
-  });
-  server.registerTool("create_member", {
-    title: "Create member",
-    description: "Create a member (CreateMemberDto). member_id/name may be auto-generated. Use for onboarding or manual provisioning. RBAC-gated via tool-rule `tc-create-member` (0=block, 1=allow, 2=step-up MFA). Auth: TRANSCODES_TOKEN sent as x-transcodes-token (not in body).",
-    inputSchema: {
-      body: external_exports.object({
-        email: external_exports.string(),
-        name: external_exports.string().optional(),
-        role: external_exports.string().optional(),
-        metadata: external_exports.record(external_exports.string(), external_exports.unknown()).optional()
-      })
-    }
-  }, async ({ body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("create_member", (sid) => req(config2, {
-      method: "POST",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "create_member"));
-  });
-  server.registerTool("update_member", {
-    title: "Update member",
-    description: "Update member fields (UpdateMemberDto, flat shape). RBAC-gated via tool-rule `tc-update-member` (0=block, 1=allow, 2=step-up MFA). member_id is required \u2014 supply the target member explicitly (it may differ from the caller).",
-    inputSchema: {
-      body: external_exports.object({
-        member_id: external_exports.string(),
-        name: external_exports.string().optional(),
-        email: external_exports.string().optional(),
-        role: external_exports.string().optional(),
-        metadata: external_exports.record(external_exports.string(), external_exports.unknown()).optional()
-      })
-    }
-  }, async ({ body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("update_member", (sid) => req(config2, {
-      method: "PUT",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "update_member"));
-  });
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/membership.js
-var textResult3 = (text, isError = false) => ({
-  isError,
-  content: [{ type: "text", text }]
-});
-function registerMembershipTools(server) {
-  server.registerTool("membership_plans", {
-    title: "Membership plans",
-    description: "Returns the full list of available Transcodes membership plans (free, standard, business, enterprise) including price, currency, billing interval, and Stripe product metadata. This is a public endpoint \u2014 no authentication required. Use this tool to display plan options to users or to look up the price_id needed for membership_create_checkout_session.",
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, { method: "GET" }, "membership_plans");
-    return textResult3(text);
-  });
-  server.registerTool("membership_plans_limits", {
-    title: "Membership plan limits",
-    description: "Returns the resource limits enforced per plan tier. Each plan entry includes: projects (max projects allowed), roles, resources, members (max members per project), and price (monthly USD, null = contact for pricing). Free tier: 1 project / 2 roles / 2 resources / 2 members. Standard: 5 projects / unlimited roles & resources / 10 members. Business & Enterprise: unlimited everything. Use this to build pricing comparison UI or to warn users when they are approaching a limit.",
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, { method: "GET" }, "membership_plans_limits");
-    return textResult3(text);
-  });
-  server.registerTool("membership_customer_status_by_project", {
-    title: "Customer status by project",
-    description: "Returns the active subscription status of the organization that owns the project in TRANSCODES_TOKEN (pid claim). SkipAuth \u2014 GET /v1/membership/customer/status/project?project_id=... Useful when the SDK Toolkit only carries a project context.",
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, { method: "GET", query: { project_id: config2.projectId } }, "membership_customer_status_by_project");
-    return textResult3(text);
-  });
-  server.registerTool("membership_customer_status_by_organization", {
-    title: "Customer status by organization",
-    description: "Returns the active subscription status for the organization in TRANSCODES_TOKEN (oid claim). SkipAuth \u2014 GET /v1/membership/customer/status/organization?organization_id=... Preferred when the caller already knows the organization (avoids the project \u2192 organization lookup).",
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, { method: "GET", query: { organization_id: config2.organizationId } }, "membership_customer_status_by_organization");
-    return textResult3(text);
-  });
-  server.registerTool("membership_create_checkout_session", {
-    title: "Create checkout session",
-    description: 'MCP checkout: POST /v1/membership/mcp/session \u2014 creates a Stripe Checkout session for the organization bound to the MAT (x-transcodes-token) and returns a one-time redirect URL. Use for plan upgrade or first purchase (e.g. free \u2192 standard). Body: price_id from membership_plans; optional mode: "subscription" (default) | "payment" | "setup". Organization is resolved server-side from the authenticated principal \u2014 do not pass organization_id in the body. The returned URL expires after a short window \u2014 redirect the user immediately after receiving it.',
-    inputSchema: {
-      body: external_exports.object({
-        price_id: external_exports.string(),
-        mode: external_exports.enum(["subscription", "payment", "setup"]).optional()
-      })
-    }
-  }, async ({ body }) => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, { method: "POST", body }, "membership_create_checkout_session");
-    return textResult3(text);
-  });
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/meta.js
-var INSTRUCTIONS_URL = "https://transcodes.io/instructions";
-var textResult4 = (text, isError = false) => ({
-  isError,
-  content: [{ type: "text", text }]
-});
-function registerMetaTools(server) {
-  server.registerTool("get_current_project_id", {
-    title: "Get current project id",
-    description: "Returns the active project ID parsed from TRANSCODES_TOKEN. Call this tool first when you need the project ID instead of asking the user.",
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    return textResult4(JSON.stringify({ ok: true, project_id: config2.projectId }, null, 2));
-  });
-  server.registerTool("get_current_organization_id", {
-    title: "Get current organization id",
-    description: "Returns organizationId from TRANSCODES_TOKEN JWT.",
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    return textResult4(JSON.stringify({ ok: true, organization_id: config2.organizationId }, null, 2));
-  });
-  server.registerTool("get_current_member_id", {
-    title: "Get current member id",
-    description: "Returns memberId from TRANSCODES_TOKEN JWT.",
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    return textResult4(JSON.stringify({ ok: true, member_id: config2.memberId }, null, 2));
-  });
-  server.registerTool("get_my_profile", {
-    title: "Get my profile",
-    description: 'Returns the profile of the member identified by TRANSCODES_TOKEN (organizationId, projectId, memberId in config). Use when the user asks "who am I", "show my profile", or "show my member info". No arguments needed.',
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "GET",
-      query: { project_id: config2.projectId, member_id: config2.memberId }
-    }, "get_member");
-    return textResult4(text);
-  });
-  server.registerTool("get_console_url", {
-    title: "Get console URL",
-    description: "Mint a step-up-protected console URL. Console access is gated behind step-up MFA (mode=console) so this tool creates a step-up session and returns the browser URL the user must visit to authenticate (WebAuthn) before reaching the console. Use when the user needs to perform browser-only actions: passkey register/update/revoke, authenticator register/update/revoke, TOTP enroll/update/revoke, OTP flows, JWK backup, or subscription portal (cancel, payment method, invoices). Direct the user to visit the returned browser_url and complete the action there.",
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    const result = await createStepupSession(config2, {
-      comment: "Open the Transcodes console (browser-only action)",
-      action: "verify",
-      resource: "transcodes:console",
-      mode: "console"
-    });
-    return textResult4(JSON.stringify({
-      ok: result.envelope.ok,
-      status: result.envelope.status,
-      sid: result.sid,
-      browser_url: result.browserUrl,
-      expires_at: result.expiresAt,
-      message: result.browserUrl ? "Console access is protected by step-up MFA. Direct the user to browser_url to authenticate, then complete the browser-only action." : "Could not mint a console step-up session. Check the token and backend connectivity.",
-      raw: result.envelope.data
-    }, null, 2));
-  });
-  server.registerTool("get_integration_guide", {
-    title: "Get integration guide",
-    description: "IMPORTANT: You MUST call this tool BEFORE writing ANY Transcodes-related code. Fetches the official Transcodes integration guide (llms.txt) \u2014 the single source of truth for all implementation details. Trigger keywords: install, setup, integrate, SDK, PWA, passkey, auth, login, signup, modal, step-up, MFA, JWT, token, audit, webhook, RBAC, role, service worker, manifest, CDN, webworker, sign-in, sign-out, session, member, console, admin, IDP, OTP, TOTP, biometric, WebAuthn. The returned guide contains exact API signatures, code examples, framework setup (React, Next.js, Vue, Vite), CSP rules, JWT verification, and common mistakes. You MUST follow it instead of guessing. Call once per conversation \u2014 the result stays in context for follow-up requests.",
-    inputSchema: {
-      topic: external_exports.string().optional()
-    }
-  }, async ({ topic }) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15e3);
-    try {
-      const response = await fetch(INSTRUCTIONS_URL, {
-        headers: { Accept: "text/plain" },
-        signal: controller.signal
-      });
-      const content = await response.text();
-      const trimmed = topic?.trim();
-      if (trimmed) {
-        return textResult4(JSON.stringify({ topic: trimmed, instructions: content }, null, 2));
-      }
-      return textResult4(content);
-    } catch (err) {
-      return textResult4(`Could not fetch the integration guide: ${err instanceof Error ? err.message : String(err)}`, true);
-    } finally {
-      clearTimeout(timer);
-    }
-  });
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/organization.js
-var MSG_PLATFORM_CONSOLE = "User and organization management must be done in the Transcodes console. This MCP tool does not call the API.";
-var MSG_ORG_CONSOLE = "Organization settings, user invitations, and invitation management (send, update, cancel, accept, decline) must be done directly in the Transcodes console at https://transcodes.io. This MCP tool does not call the API.";
-var MSG_MEMBER_TOKEN_CONSOLE = "Per-member MCP tokens (TRANSCODES_TOKEN \u2014 the JWT sent as the x-transcodes-token header) can only be issued from the Transcodes console at https://app.transcodes.io. This MCP tool does not call the API \u2014 open the console, sign in, and create or rotate the token from the member detail page; then store it in your MCP client config.";
-function registerOrganizationTools(server) {
-  server.registerTool("user_get_current", {
-    title: "Get current user (console-only)",
-    description: "Blocked: current user profile must be managed in the Transcodes console / host app (Firebase Bearer).",
-    inputSchema: {}
-  }, async () => blockedResult(MSG_PLATFORM_CONSOLE));
-  server.registerTool("user_find", {
-    title: "Find user (console-only)",
-    description: "Blocked: user lookup must be done in the Transcodes console.",
-    inputSchema: {
-      ids: external_exports.string().optional().describe("comma-separated"),
-      emails: external_exports.string().optional().describe("comma-separated")
-    }
-  }, async () => blockedResult(MSG_PLATFORM_CONSOLE));
-  server.registerTool("user_create", {
-    title: "Create user (console-only)",
-    description: "Blocked: user creation must be done in the Transcodes console.",
-    inputSchema: {}
-  }, async () => blockedResult(MSG_PLATFORM_CONSOLE));
-  server.registerTool("user_patch", {
-    title: "Update user (console-only)",
-    description: "Blocked: user updates must be done in the Transcodes console.",
-    inputSchema: {}
-  }, async () => blockedResult(MSG_PLATFORM_CONSOLE));
-  server.registerTool("user_delete", {
-    title: "Delete user (console-only)",
-    description: "Blocked: user deletion must be done in the Transcodes console.",
-    inputSchema: {}
-  }, async () => blockedResult(MSG_PLATFORM_CONSOLE));
-  server.registerTool("organization_get", {
-    title: "Get organization (console-only)",
-    description: "Blocked: organization settings, user invitations, and invitation management must be done in the Transcodes console at https://transcodes.io.",
-    inputSchema: {}
-  }, async () => blockedResult(MSG_ORG_CONSOLE));
-  server.registerTool("organization_overview", {
-    title: "Organization overview (console-only)",
-    description: "Blocked: organization settings, user invitations, and invitation management must be done in the Transcodes console at https://transcodes.io.",
-    inputSchema: {}
-  }, async () => blockedResult(MSG_ORG_CONSOLE));
-  server.registerTool("organization_create", {
-    title: "Create organization (console-only)",
-    description: "Blocked: organization settings, user invitations, and invitation management must be done in the Transcodes console at https://transcodes.io.",
-    inputSchema: {}
-  }, async () => blockedResult(MSG_ORG_CONSOLE));
-  server.registerTool("organization_patch", {
-    title: "Update organization (console-only)",
-    description: "Blocked: organization settings, user invitations, and invitation management must be done in the Transcodes console at https://transcodes.io.",
-    inputSchema: {
-      organization_id: external_exports.string(),
-      body: external_exports.record(external_exports.string(), external_exports.unknown())
-    }
-  }, async () => blockedResult(MSG_ORG_CONSOLE));
-  server.registerTool("organization_delete", {
-    title: "Delete organization (console-only)",
-    description: "Blocked: organization settings, user invitations, and invitation management must be done in the Transcodes console at https://transcodes.io.",
-    inputSchema: {
-      organization_id: external_exports.string()
-    }
-  }, async () => blockedResult(MSG_ORG_CONSOLE));
-  server.registerTool("organization_invitation_accept", {
-    title: "Accept invitation (console-only)",
-    description: "Blocked: organization settings, user invitations, and invitation management must be done in the Transcodes console at https://transcodes.io.",
-    inputSchema: {}
-  }, async () => blockedResult(MSG_ORG_CONSOLE));
-  server.registerTool("organization_invitation_decline", {
-    title: "Decline invitation (console-only)",
-    description: "Blocked: organization settings, user invitations, and invitation management must be done in the Transcodes console at https://transcodes.io.",
-    inputSchema: {}
-  }, async () => blockedResult(MSG_ORG_CONSOLE));
-  server.registerTool("organization_get_collaborators", {
-    title: "Get collaborators (console-only)",
-    description: "Blocked: organization settings, user invitations, and invitation management must be done in the Transcodes console at https://transcodes.io.",
-    inputSchema: {
-      organization_id: external_exports.string()
-    }
-  }, async () => blockedResult(MSG_ORG_CONSOLE));
-  server.registerTool("organization_invite_collaborator", {
-    title: "Invite collaborator (console-only)",
-    description: "Blocked: organization settings, user invitations, and invitation management must be done in the Transcodes console at https://transcodes.io.",
-    inputSchema: {
-      organization_id: external_exports.string(),
-      body: external_exports.record(external_exports.string(), external_exports.unknown())
-    }
-  }, async () => blockedResult(MSG_ORG_CONSOLE));
-  server.registerTool("organization_resend_invitation", {
-    title: "Resend invitation (console-only)",
-    description: "Blocked: organization settings, user invitations, and invitation management must be done in the Transcodes console at https://transcodes.io.",
-    inputSchema: {
-      organization_id: external_exports.string(),
-      body: external_exports.record(external_exports.string(), external_exports.unknown())
-    }
-  }, async () => blockedResult(MSG_ORG_CONSOLE));
-  server.registerTool("organization_leave_collaborator", {
-    title: "Leave organization (console-only)",
-    description: "Blocked: organization settings, user invitations, and invitation management must be done in the Transcodes console at https://transcodes.io.",
-    inputSchema: {
-      organization_id: external_exports.string(),
-      body: external_exports.record(external_exports.string(), external_exports.unknown())
-    }
-  }, async () => blockedResult(MSG_ORG_CONSOLE));
-  server.registerTool("member_token_create", {
-    title: "Create member token (console-only)",
-    description: 'Blocked: issuing a per-member MCP token (TRANSCODES_TOKEN \u2014 the JWT used as x-transcodes-token) must be done in the Transcodes console only. Use this when the user asks to "create / issue / rotate / regenerate / get a new" member token, MCP token, x-transcodes-token, or member JWT. This MCP tool does not call the API \u2014 direct the user to the Transcodes console (https://transcodes.io) member detail page to mint the token, then have them paste it into their MCP client config.',
-    inputSchema: {}
-  }, async () => blockedResult(MSG_MEMBER_TOKEN_CONSOLE));
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/passcode.js
-function registerPasscodeTools(server) {
-  server.registerTool("passcode_create", {
-    title: "Create recovery passcode",
-    description: "Create a recovery passcode (CreatePasscodeDto in body). RBAC-gated via tool-rule `tc-passcode-create` (0=block, 1=allow, 2=step-up MFA). Use for onboarding, support, or admin provisioning.",
-    inputSchema: {
-      body: external_exports.object({ member_id: external_exports.string() })
-    }
-  }, async ({ body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("passcode_create", (sid) => req(config2, {
-      method: "POST",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "passcode_create"));
-  });
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/project.js
-var textResult5 = (text, isError = false) => ({
-  isError,
-  content: [{ type: "text", text }]
-});
-var MSG_PROJECT_PWA_AUTH_CONSOLE = "PWA and authentication configuration (manifest, service worker, widget, branding, WebAuthn, related origins, token expiry, etc.) must be performed in the Transcodes console. Changes to these settings require the project SDK to be rebuilt and redeployed \u2014 a process that the console handles automatically. Modifying them directly via API without going through the console build pipeline will leave the deployed SDK out of sync with your configuration. This MCP tool does not call the API.";
-function registerProjectTools(server) {
-  server.registerTool("get_project", {
-    title: "Get project",
-    description: "Fetch the active project (fixed by TRANSCODES_TOKEN pid claim). Returns all information about the project \u2014 including toolkit, pwa, domain_url, title, description, and created/updated timestamps. No arguments \u2014 project is determined by the token.",
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, { method: "GET" }, "get_project", `/${config2.projectId}`);
-    return textResult5(text);
-  });
-  server.registerTool("project_pwa_auth_console", {
-    title: "PWA / auth config (console-only)",
-    description: "Blocked: PWA and authentication configuration (manifest, service worker, branding, WebAuthn, related origins, token expiry, etc.) must be done in the Transcodes console. These settings trigger an SDK rebuild and redeployment \u2014 a pipeline the console manages automatically. Applying changes directly via API skips that pipeline and leaves the live SDK out of sync with the new configuration.",
-    inputSchema: {}
-  }, async () => blockedResult(MSG_PROJECT_PWA_AUTH_CONSOLE));
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/rbac.js
-var textResult6 = (text, isError = false) => ({
-  isError,
-  content: [{ type: "text", text }]
-});
-var PROJECT_ID_GUIDANCE = "project_id in the body must be the TRANSCODES_TOKEN project id (pid claim); it is not configurable per tool call.";
-var PermissionLevel = external_exports.union([external_exports.literal(0), external_exports.literal(1), external_exports.literal(2)]);
-var ResourcePermissions = external_exports.object({
-  create: PermissionLevel.optional(),
-  read: PermissionLevel.optional(),
-  update: PermissionLevel.optional(),
-  delete: PermissionLevel.optional()
-});
-function registerRbacTools(server) {
-  server.registerTool("get_roles", {
-    title: "Get roles",
-    description: "List all roles and permission matrix for a project. Use when you need RBAC data for console parity or to know which roles can be assigned.",
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, { method: "GET", query: { project_id: config2.projectId } }, "get_roles");
-    return textResult6(text);
-  });
-  server.registerTool("get_resources", {
-    title: "Get resources",
-    description: "List RBAC resource keys for a project. Use before editing roles or building permission UI.",
-    inputSchema: {}
-  }, async () => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, { method: "GET", query: { project_id: config2.projectId } }, "get_resources");
-    return textResult6(text);
-  });
-  server.registerTool("check_rbac_permission", {
-    title: "Check RBAC permission",
-    description: "Simulate whether a member may access a resource+action (SkipAuth). Returns denied/allowed; if allowed, may include stepUpRequired. Use for guard/debugging before routing.",
-    inputSchema: {
-      body: external_exports.object({
-        member_id: external_exports.string(),
-        resource: external_exports.string(),
-        action: external_exports.enum(["create", "read", "update", "delete"])
-      })
-    }
-  }, async ({ body }) => {
-    const config2 = loadStepupConfig();
-    const text = await req(config2, {
-      method: "POST",
-      body: { ...body, project_id: config2.projectId }
-    }, "check_rbac_permission");
-    return textResult6(text);
-  });
-  server.registerTool("retire_role", {
-    title: "Retire role",
-    description: "Retire a role from the project. Use when the user wants to remove, drop, or discard a role. Verified action \u2014 step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-role`). Body { project_id } is injected from TRANSCODES_TOKEN by the server.",
-    inputSchema: {
-      role_id: external_exports.string()
-    }
-  }, async ({ role_id }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("retire_role", (sid) => req(config2, {
-      method: "DELETE",
-      body: { project_id: config2.projectId },
-      stepUpSid: sid
-    }, "retire_role", `/${encodeURIComponent(role_id)}`));
-  });
-  server.registerTool("set_role_permissions", {
-    title: "Set role permissions",
-    description: "Set per-resource permission matrix for a role. 0=deny, 1=allow, 2=allow+step-up. Verified action \u2014 step-up MFA enforced by the PreToolUse hook (tool-rule `tc-set-role-permissions`).",
-    inputSchema: {
-      role_id: external_exports.string(),
-      body: external_exports.object({
-        permissions: external_exports.record(external_exports.string(), ResourcePermissions)
-      })
-    }
-  }, async ({ role_id, body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("set_role_permissions", (sid) => req(config2, {
-      method: "PUT",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "set_role_permissions", `/${encodeURIComponent(role_id)}/permissions`));
-  });
-  server.registerTool("update_member_role", {
-    title: "Update member role",
-    description: "Change a member's assigned role (UpdateMemberRoleDto). Verified action \u2014 step-up MFA enforced by the PreToolUse hook (tool-rule `tc-update-member-role`).",
-    inputSchema: {
-      body: external_exports.object({
-        member_id: external_exports.string(),
-        role: external_exports.string()
-      })
-    }
-  }, async ({ body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("update_member_role", (sid) => req(config2, {
-      method: "PUT",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "update_member_role"));
-  });
-  server.registerTool("retire_resource", {
-    title: "Retire resource",
-    description: "Retire a resource key from the project. Use when the user wants to remove, drop, or discard a resource. Verified action \u2014 step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-resource`). Path: resource_key. Query: project_id. No JSON body.",
-    inputSchema: {
-      resource_key: external_exports.string()
-    }
-  }, async ({ resource_key }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("retire_resource", (sid) => req(config2, {
-      method: "DELETE",
-      query: { project_id: config2.projectId },
-      omitBody: true,
-      stepUpSid: sid
-    }, "retire_resource", `/${encodeURIComponent(resource_key)}`));
-  });
-  server.registerTool("create_role", {
-    title: "Create role",
-    description: "Create a new role (CreateRoleDto). Use before set_role_permissions to fill per-resource access. RBAC-gated via tool-rule `tc-create-role` (0=block, 1=allow, 2=step-up MFA). " + PROJECT_ID_GUIDANCE,
-    inputSchema: {
-      body: external_exports.object({
-        name: external_exports.string(),
-        description: external_exports.string().optional()
-      })
-    }
-  }, async ({ body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("create_role", (sid) => req(config2, {
-      method: "POST",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "create_role"));
-  });
-  server.registerTool("update_role", {
-    title: "Update role",
-    description: "Update role metadata (UpdateRoleDto). RBAC-gated via tool-rule `tc-update-role` (0=block, 1=allow, 2=step-up MFA). " + PROJECT_ID_GUIDANCE,
-    inputSchema: {
-      role_id: external_exports.string(),
-      body: external_exports.object({
-        description: external_exports.string().optional()
-      })
-    }
-  }, async ({ role_id, body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("update_role", (sid) => req(config2, {
-      method: "PUT",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "update_role", `/${encodeURIComponent(role_id)}`));
-  });
-  server.registerTool("create_resource", {
-    title: "Create resource",
-    description: "Add a new resource key (CreateResourceDto). New resources default to deny (0) for all roles. RBAC-gated via tool-rule `tc-create-resource` (0=block, 1=allow, 2=step-up MFA). " + PROJECT_ID_GUIDANCE,
-    inputSchema: {
-      body: external_exports.object({
-        key: external_exports.string(),
-        name: external_exports.string(),
-        description: external_exports.string().optional()
-      })
-    }
-  }, async ({ body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("create_resource", (sid) => req(config2, {
-      method: "POST",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "create_resource"));
-  });
-  server.registerTool("update_resource", {
-    title: "Update resource",
-    description: "Update resource label/description (UpdateResourceDto). Key stays the same. RBAC-gated via tool-rule `tc-update-resource` (0=block, 1=allow, 2=step-up MFA). " + PROJECT_ID_GUIDANCE,
-    inputSchema: {
-      resource_key: external_exports.string(),
-      body: external_exports.object({
-        description: external_exports.string().optional()
-      })
-    }
-  }, async ({ resource_key, body }) => {
-    const config2 = loadStepupConfig();
-    return execProtectedTool("update_resource", (sid) => req(config2, {
-      method: "PATCH",
-      body: { ...body, project_id: config2.projectId },
-      stepUpSid: sid
-    }, "update_resource", `/${encodeURIComponent(resource_key)}`));
-  });
-}
-
-// ../../../private/packages/transcodes-mcp-tools/dist/rbac-validate.js
-var RbacCoordinateError = class extends Error {
-};
-function extractResourceKeys(data) {
-  const items = Array.isArray(data) ? data : data && typeof data === "object" ? (() => {
-    const rec = data;
-    for (const k of ["resources", "data", "items", "result"]) {
-      if (Array.isArray(rec[k]))
-        return rec[k];
-    }
-    return [];
-  })() : [];
-  const keys = /* @__PURE__ */ new Set();
-  for (const item of items) {
-    if (typeof item === "string") {
-      if (item.trim())
-        keys.add(item.trim());
-      continue;
-    }
-    if (item && typeof item === "object") {
-      const rec = item;
-      const key = rec.key ?? rec.resource_key ?? rec.resourceKey ?? rec.name ?? rec.id;
-      if (typeof key === "string" && key.trim())
-        keys.add(key.trim());
-    }
-  }
-  return [...keys];
-}
-async function fetchRbacResourceKeys(config2) {
-  let text;
-  try {
-    text = await req(config2, { method: "GET", query: { project_id: config2.projectId } }, "get_resources");
-  } catch {
-    return null;
-  }
-  let envelope;
-  try {
-    envelope = JSON.parse(text);
-  } catch {
-    return null;
-  }
-  if (envelope.ok !== true)
-    return null;
-  const keys = extractResourceKeys(envelope.data);
-  return keys.length > 0 ? keys : null;
-}
-async function assertRbacCoordinate(config2, resource, action) {
-  if (!isRbacAction(action.trim())) {
-    throw new RbacCoordinateError(`action must be one of ${RBAC_ACTIONS.join("|")} (got: "${action}")`);
-  }
-  const keys = await fetchRbacResourceKeys(config2);
-  if (keys === null) {
-    throw new RbacCoordinateError("could not fetch RBAC resources from the backend to validate `resource`. Ensure TRANSCODES_TOKEN is set and the backend is reachable, then retry. Inspect valid resources with the `get_resources` tool.");
-  }
-  if (!keys.includes(resource.trim())) {
-    throw new RbacCoordinateError(`resource "${resource}" is not a known RBAC resource for this project. Valid resources: ${keys.join(", ")}. Call \`get_resources\` to inspect, or create it first with \`create_resource\`.`);
-  }
-}
-
 // ../../packages/mcp-server-core/dist/build-info.js
 var PLUGIN_VERSION = "0.4.0";
 
@@ -18032,12 +17068,12 @@ function formatPatternsMarkdown(patterns) {
   }
   return lines.join("\n");
 }
-function formatToolRulesMarkdown(rules) {
+function formatToolRulesMarkdown(rules, userRulesPath) {
   const lines = [
     "# Step-up-protected MCP tool rules",
     "",
     `${rules.length} rule(s) gate MCP tool invocations via the PreToolUse hook.`,
-    `User rules live at \`${getUserToolRulesPath()}\` and are editable through the \`add_tool_rule\`/\`update_tool_rule\`/\`remove_tool_rule\` tools. System rules are immutable.`,
+    `User rules live at \`${userRulesPath}\` and are editable through the \`add_tool_rule\`/\`update_tool_rule\`/\`remove_tool_rule\` tools. System rules are immutable.`,
     "",
     "| source | id | toolName | reason | action | resource | consume_in_hook |",
     "| ------ | -- | -------- | ------ | ------ | -------- | --------------- |"
@@ -18047,13 +17083,13 @@ function formatToolRulesMarkdown(rules) {
   }
   return lines.join("\n");
 }
-function textResult7(text, isError = false) {
+function textResult(text, isError = false) {
   return {
     isError,
     content: [{ type: "text", text }]
   };
 }
-function createServer() {
+function createServer(backend = getGateBackend()) {
   const server = new McpServer({
     name: "transcodes-guard-mcp",
     version: PLUGIN_VERSION
@@ -18092,7 +17128,7 @@ function createServer() {
     const patterns = loadMergedPatterns();
     const hit = findFirstMatch(command, patterns);
     if (!hit) {
-      return textResult7(JSON.stringify({
+      return textResult(JSON.stringify({
         matched: false,
         will_trigger_hook: false,
         patterns_checked: patterns.length,
@@ -18100,7 +17136,7 @@ function createServer() {
       }, null, 2));
     }
     const m = hit.matched;
-    return textResult7(JSON.stringify({
+    return textResult(JSON.stringify({
       matched: true,
       matched_by: m.source,
       pattern_id: m.id,
@@ -18132,16 +17168,16 @@ id must be unique across both system and user patterns; regex must compile. Pers
     }
   }, async (input) => {
     try {
-      await assertRbacCoordinate(loadStepupConfig(), input.stepupResource, input.stepupAction);
+      await backend.assertRbacCoordinate(input.stepupResource, input.stepupAction);
       const saved = addUserPattern(input);
-      return textResult7(`Added user pattern \`${saved.id}\`.
+      return textResult(`Added user pattern \`${saved.id}\`.
 regex: ${saved.regex}
 reason: ${saved.reason}
 resource: ${saved.stepupResource}
 action: ${saved.stepupAction}`);
     } catch (e) {
-      if (e instanceof PatternValidationError || e instanceof RbacCoordinateError) {
-        return textResult7(`Rejected: ${e.message}`, true);
+      if (e instanceof PatternValidationError || backend.isRbacCoordinateError(e)) {
+        return textResult(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18158,11 +17194,11 @@ action: ${saved.stepupAction}`);
     }
   }, async ({ id, regex, reason, stepupResource, stepupAction }) => {
     if (regex === void 0 && reason === void 0 && stepupResource === void 0 && stepupAction === void 0) {
-      return textResult7("Rejected: provide at least one of `regex`, `reason`, `stepupResource`, or `stepupAction` to update.", true);
+      return textResult("Rejected: provide at least one of `regex`, `reason`, `stepupResource`, or `stepupAction` to update.", true);
     }
     try {
       if (stepupResource !== void 0) {
-        await assertRbacCoordinate(loadStepupConfig(), stepupResource, stepupAction ?? "update");
+        await backend.assertRbacCoordinate(stepupResource, stepupAction ?? "update");
       }
       const saved = updateUserPattern(id, {
         regex,
@@ -18170,14 +17206,14 @@ action: ${saved.stepupAction}`);
         stepupResource,
         stepupAction
       });
-      return textResult7(`Updated user pattern \`${saved.id}\`.
+      return textResult(`Updated user pattern \`${saved.id}\`.
 regex: ${saved.regex}
 reason: ${saved.reason}
 resource: ${saved.stepupResource}
 action: ${saved.stepupAction}`);
     } catch (e) {
-      if (e instanceof PatternValidationError || e instanceof RbacCoordinateError) {
-        return textResult7(`Rejected: ${e.message}`, true);
+      if (e instanceof PatternValidationError || backend.isRbacCoordinateError(e)) {
+        return textResult(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18189,10 +17225,10 @@ action: ${saved.stepupAction}`);
   }, async ({ id }) => {
     try {
       removeUserPattern(id);
-      return textResult7(`Removed user pattern \`${id}\`.`);
+      return textResult(`Removed user pattern \`${id}\`.`);
     } catch (e) {
       if (e instanceof PatternValidationError) {
-        return textResult7(`Rejected: ${e.message}`, true);
+        return textResult(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18207,8 +17243,7 @@ action: ${saved.stepupAction}`);
       member_id: external_exports.string().optional().describe("Member public id to authenticate. Defaults to the mid claim in TRANSCODES_TOKEN.")
     }
   }, async ({ comment, action, resource, member_id }) => {
-    const config2 = loadStepupConfig();
-    const result = await createStepupSession(config2, {
+    const result = await backend.createStepupSession({
       comment,
       action,
       resource,
@@ -18237,12 +17272,11 @@ action: ${saved.stepupAction}`);
       sid: external_exports.string().min(1).describe("Session id returned from create_stepup_session.")
     }
   }, async ({ sid }) => {
-    const config2 = loadStepupConfig();
-    const result = await pollStepupSession(config2, sid);
+    const result = await backend.pollStepupSession(sid);
     if (result.status === "verified") {
-      const fp = findPendingBySid(sid)?.fp;
-      writeVerified({ sid, verifiedAt: Date.now() }, fp);
-      markVerified(sid);
+      const fp = backend.findPendingBySid(sid)?.fp;
+      backend.writeVerified({ sid, verifiedAt: Date.now() }, fp);
+      backend.markVerified(sid);
     }
     return {
       content: [
@@ -18267,15 +17301,14 @@ action: ${saved.stepupAction}`);
       interval_ms: external_exports.number().int().positive().max(1e4).optional().describe("Polling interval in ms. Defaults to 1_000.")
     }
   }, async ({ sid, max_wait_ms, interval_ms }) => {
-    const config2 = loadStepupConfig();
-    const result = await pollStepupSessionWait(config2, sid, {
+    const result = await backend.pollStepupSessionWait(sid, {
       maxWaitMs: max_wait_ms,
       intervalMs: interval_ms
     });
     if (result.outcome === "verified") {
-      const fp = findPendingBySid(sid)?.fp;
-      writeVerified({ sid, verifiedAt: Date.now() }, fp);
-      markVerified(sid);
+      const fp = backend.findPendingBySid(sid)?.fp;
+      backend.writeVerified({ sid, verifiedAt: Date.now() }, fp);
+      backend.markVerified(sid);
     }
     return {
       content: [
@@ -18297,7 +17330,7 @@ action: ${saved.stepupAction}`);
     description: "Single source of truth for what the step-up state files look like RIGHT NOW. Returns structured JSON for verified / pending / browser-lock records with explicit `age_ms`, `expired`, and `ttl_ms` fields so the agent never has to compute expiry from raw timestamps or trust a wrapped `ls` output. Strict read-only: this tool never consumes or rewrites any record. Call this BEFORE and AFTER any step-up flow to verify state transitions deterministically.",
     inputSchema: {}
   }, async () => {
-    const snapshot = inspectStepupState();
+    const snapshot = backend.inspectStepupState();
     return {
       content: [
         {
@@ -18320,12 +17353,12 @@ action: ${saved.stepupAction}`);
     const effectiveToolName = tool_name ?? "Bash";
     const effectiveToolInput = tool_input !== void 0 ? tool_input : command !== void 0 ? { command } : {};
     if (effectiveToolName === "Bash" && !effectiveToolInput?.command) {
-      return textResult7("Rejected: Bash payload requires `command` (or `tool_input.command`).", true);
+      return textResult("Rejected: Bash payload requires `command` (or `tool_input.command`).", true);
     }
-    const before = inspectStepupState();
+    const before = backend.inspectStepupState();
     const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT?.trim() || process.env.PLUGIN_ROOT?.trim();
     if (!pluginRoot) {
-      return textResult7("Rejected: CLAUDE_PLUGIN_ROOT (or PLUGIN_ROOT for Codex) must be set so the hook binary can be located.", true);
+      return textResult("Rejected: CLAUDE_PLUGIN_ROOT (or PLUGIN_ROOT for Codex) must be set so the hook binary can be located.", true);
     }
     const hookPath = path.resolve(pluginRoot, "dist/hooks/pre-tool-use.js");
     const payload = JSON.stringify({
@@ -18345,7 +17378,7 @@ action: ${saved.stepupAction}`);
       child.on("error", () => resolve({ stdout: stdout2, stderr: stderr2, exitCode: -1 }));
       child.stdin.end(payload);
     });
-    const after = inspectStepupState();
+    const after = backend.inspectStepupState();
     let parsedStdout = null;
     try {
       parsedStdout = stdout.trim() ? JSON.parse(stdout) : null;
@@ -18395,26 +17428,17 @@ action: ${saved.stepupAction}`);
       }
     ]
   }));
-  registerMemberTools(server);
-  registerRbacTools(server);
-  registerPasscodeTools(server);
-  registerProjectTools(server);
-  registerAuditTools(server);
-  registerAuthDeviceTools(server);
-  registerMembershipTools(server);
-  registerMetaTools(server);
-  registerOrganizationTools(server);
-  registerJwkTools(server);
+  backend.registerBackendTools(server);
   server.registerResource("tool-rules", "tool-rules://list", {
     title: "Step-up-protected MCP tool rules",
-    description: `Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with user rules (${getUserToolRulesPath()}, JSONC), read fresh at every request.`,
+    description: `Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with user rules (${backend.getUserToolRulesPath()}, JSONC), read fresh at every request.`,
     mimeType: "text/markdown"
   }, async (uri) => ({
     contents: [
       {
         uri: uri.href,
         mimeType: "text/markdown",
-        text: formatToolRulesMarkdown(loadMergedToolRules())
+        text: formatToolRulesMarkdown(backend.loadMergedToolRules(), backend.getUserToolRulesPath())
       }
     ]
   }));
@@ -18432,7 +17456,7 @@ WORKFLOW (follow in order):
   2. VERIFY with \`simulate_tool_call\` before saving to confirm the rule will match the intended tool name.
   3. RESOLVE the RBAC coordinate: call \`get_resources\` to fetch valid resource keys, then set \`stepupResource\` (one of those keys \u2014 validated against the backend on save) and \`stepupAction\` (create|read|update|delete, matching what the tool does). Most rules use resource \`system\`.
   4. CONFIRM the proposed id/toolName/reason/stepupResource/stepupAction with the user, then SAVE by calling this tool.
-id must be unique across both system and user rules; persisted to ${getUserToolRulesPath()} (JSONC) and effective on the next hook invocation.`,
+id must be unique across both system and user rules; persisted to ${backend.getUserToolRulesPath()} (JSONC) and effective on the next hook invocation.`,
     inputSchema: {
       id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
       toolName: external_exports.string().min(1),
@@ -18443,17 +17467,17 @@ id must be unique across both system and user rules; persisted to ${getUserToolR
     }
   }, async (input) => {
     try {
-      await assertRbacCoordinate(loadStepupConfig(), input.stepupResource, input.stepupAction);
-      const saved = addUserToolRule(input);
-      return textResult7(`Added user tool-rule \`${saved.id}\`.
+      await backend.assertRbacCoordinate(input.stepupResource, input.stepupAction);
+      const saved = backend.addUserToolRule(input);
+      return textResult(`Added user tool-rule \`${saved.id}\`.
 toolName: ${saved.toolName}
 reason: ${saved.reason}
 resource: ${saved.stepupResource}
 action: ${saved.stepupAction}
 consume_in_hook: ${saved.consume_in_hook ?? true}`);
     } catch (e) {
-      if (e instanceof ToolRuleValidationError || e instanceof RbacCoordinateError) {
-        return textResult7(`Rejected: ${e.message}`, true);
+      if (backend.isToolRuleValidationError(e) || backend.isRbacCoordinateError(e)) {
+        return textResult(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18471,28 +17495,28 @@ consume_in_hook: ${saved.consume_in_hook ?? true}`);
     }
   }, async ({ id, toolName, reason, stepupAction, stepupResource, consume_in_hook }) => {
     if (toolName === void 0 && reason === void 0 && stepupAction === void 0 && stepupResource === void 0 && consume_in_hook === void 0) {
-      return textResult7("Rejected: provide at least one of `toolName`, `reason`, `stepupAction`, `stepupResource`, or `consume_in_hook` to update.", true);
+      return textResult("Rejected: provide at least one of `toolName`, `reason`, `stepupAction`, `stepupResource`, or `consume_in_hook` to update.", true);
     }
     try {
       if (stepupResource !== void 0) {
-        await assertRbacCoordinate(loadStepupConfig(), stepupResource, stepupAction ?? "update");
+        await backend.assertRbacCoordinate(stepupResource, stepupAction ?? "update");
       }
-      const saved = updateUserToolRule(id, {
+      const saved = backend.updateUserToolRule(id, {
         toolName,
         reason,
         stepupAction,
         stepupResource,
         consume_in_hook
       });
-      return textResult7(`Updated user tool-rule \`${saved.id}\`.
+      return textResult(`Updated user tool-rule \`${saved.id}\`.
 toolName: ${saved.toolName}
 reason: ${saved.reason}
 resource: ${saved.stepupResource}
 action: ${saved.stepupAction}
 consume_in_hook: ${saved.consume_in_hook ?? true}`);
     } catch (e) {
-      if (e instanceof ToolRuleValidationError || e instanceof RbacCoordinateError) {
-        return textResult7(`Rejected: ${e.message}`, true);
+      if (backend.isToolRuleValidationError(e) || backend.isRbacCoordinateError(e)) {
+        return textResult(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18503,11 +17527,11 @@ consume_in_hook: ${saved.consume_in_hook ?? true}`);
     inputSchema: { id: external_exports.string().min(1) }
   }, async ({ id }) => {
     try {
-      removeUserToolRule(id);
-      return textResult7(`Removed user tool-rule \`${id}\`.`);
+      backend.removeUserToolRule(id);
+      return textResult(`Removed user tool-rule \`${id}\`.`);
     } catch (e) {
-      if (e instanceof ToolRuleValidationError) {
-        return textResult7(`Rejected: ${e.message}`, true);
+      if (backend.isToolRuleValidationError(e)) {
+        return textResult(`Rejected: ${e.message}`, true);
       }
       throw e;
     }
@@ -18520,13 +17544,13 @@ consume_in_hook: ${saved.consume_in_hook ?? true}`);
       tool_input: external_exports.unknown().optional()
     }
   }, async ({ tool_name }) => {
-    const rules = loadMergedToolRules();
-    const match = findFirstToolRule(tool_name, rules);
+    const rules = backend.loadMergedToolRules();
+    const match = backend.findFirstToolRule(tool_name, rules);
     if (!match) {
-      return textResult7(JSON.stringify({ tool_name, matched: false, rule_count: rules.length }, null, 2));
+      return textResult(JSON.stringify({ tool_name, matched: false, rule_count: rules.length }, null, 2));
     }
     const r = match.matched;
-    return textResult7(JSON.stringify({
+    return textResult(JSON.stringify({
       tool_name,
       matched: true,
       rule: {

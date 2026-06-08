@@ -7,12 +7,12 @@
  * pending sid that survived a restart. Pure additive context — never blocks.
  */
 import '../host.js';
-import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
+import '../backend.js';
 import {
-  firstActivePending,
   formatNoTokenSessionNotice,
-  resolveToken,
-} from '@transcodes-guard-private/stepup-core';
+  getGateBackend,
+} from '@transcodes-guard/gate-contract';
+import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
 import { PLUGIN_VERSION } from '../src/version.js';
 
 const PROTOCOL_PRIMER = [
@@ -40,7 +40,7 @@ const PROTOCOL_PRIMER = [
 ].join('\n');
 
 function carryoverBlock(): string | null {
-  const pending = firstActivePending();
+  const pending = getGateBackend().firstActivePending();
   if (!pending) return null;
   const statusNote =
     pending.status === 'verified'
@@ -61,7 +61,7 @@ function main(): void {
   process.stderr.write(`[transcodes-guard] v${PLUGIN_VERSION}\n`);
 
   const carry = carryoverBlock();
-  const tokenNotice = resolveToken().token
+  const tokenNotice = getGateBackend().hasToken()
     ? null
     : formatNoTokenSessionNotice();
   const versionLine = `transcodes-guard v${PLUGIN_VERSION}`;

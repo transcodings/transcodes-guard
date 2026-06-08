@@ -1,4 +1,5 @@
 import '../host.js';
+import '../backend.js';
 import http from 'node:http';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createServer } from '@transcodes-guard/mcp-server-core';

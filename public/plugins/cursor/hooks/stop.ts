@@ -8,17 +8,12 @@
  * the rendering; the rest of the body mirrors the codex stop entry.
  */
 import '../host.js';
-import { cursorAdapter } from '@transcodes-guard/hook-adapters';
+import '../backend.js';
 import {
-  clearPending,
-  consumeVerified,
-  firstInFlightFpPending,
-  isExpired,
+  getGateBackend,
   type PendingState,
-  readPending,
-  readVerified,
-  sweepStepup,
-} from '@transcodes-guard-private/stepup-core';
+} from '@transcodes-guard/gate-contract';
+import { cursorAdapter } from '@transcodes-guard/hook-adapters';
 
 function reminderFor(pending: PendingState): string {
   return [
@@ -45,23 +40,26 @@ async function main(): Promise<void> {
     // ignore
   }
 
-  sweepStepup();
+  const backend = getGateBackend();
+  backend.sweepStepup();
 
-  const pending = readPending();
-  const verified = readVerified();
+  const pending = backend.readPending();
+  const verified = backend.readVerified();
 
   if (verified && (!pending || pending.status !== 'pending')) {
-    consumeVerified();
-    if (pending) clearPending();
+    backend.consumeVerified();
+    if (pending) backend.clearPending();
     process.exit(0);
   }
   if (pending && !verified && pending.status === 'verified') {
-    clearPending();
+    backend.clearPending();
     process.exit(0);
   }
 
   const reminder =
-    pending && !isExpired(pending) ? pending : firstInFlightFpPending();
+    pending && !backend.isExpired(pending)
+      ? pending
+      : backend.firstInFlightFpPending();
   if (!reminder) process.exit(0);
 
   process.stdout.write(cursorAdapter.emitStop(reminderFor(reminder)));

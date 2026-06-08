@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import '../host.js';
+import '../backend.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createServer } from '@transcodes-guard/mcp-server-core';
 

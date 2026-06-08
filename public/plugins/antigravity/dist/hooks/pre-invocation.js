@@ -4,10 +4,9 @@ import {
   detectUserDoneFromTranscript
 } from "../chunk-DVNHC35J.js";
 import {
-  firstActivePending,
   formatNoTokenSessionNotice,
-  resolveToken
-} from "../chunk-LH2BAUPS.js";
+  getGateBackend
+} from "../chunk-QOIJMDNV.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";
@@ -70,11 +69,12 @@ function main() {
   } catch {
     process.exit(0);
   }
-  const pending = firstActivePending();
+  const backend = getGateBackend();
+  const pending = backend.firstActivePending();
   const injectSteps = [];
   if (input.invocationNum <= 1) {
     injectSteps.push({ ephemeralMessage: primerMessage(pending) });
-    if (!resolveToken().token) {
+    if (!backend.hasToken()) {
       injectSteps.push({ ephemeralMessage: formatNoTokenSessionNotice() });
     }
   }

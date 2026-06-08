@@ -1,0 +1,80 @@
+const NOT_INSTALLED = 'transcodes-guard: gate backend not installed';
+function notInstalled() {
+    throw new Error(NOT_INSTALLED);
+}
+export const denyByDefaultBackend = {
+    // hook path — inert no-ops / empty reads
+    async evaluatePreToolUse() {
+        return { kind: 'pass' };
+    },
+    writePending() { },
+    consumeVerified() { },
+    clearPending() { },
+    firstActivePending() {
+        return null;
+    },
+    firstInFlightFpPending() {
+        return null;
+    },
+    readPending() {
+        return null;
+    },
+    readVerified() {
+        return null;
+    },
+    isExpired() {
+        return true;
+    },
+    sweepStepup() { },
+    hasToken() {
+        return false;
+    },
+    // server path — call-shaped methods throw
+    createStepupSession() {
+        return notInstalled();
+    },
+    pollStepupSession() {
+        return notInstalled();
+    },
+    pollStepupSessionWait() {
+        return notInstalled();
+    },
+    inspectStepupState() {
+        return notInstalled();
+    },
+    findPendingBySid() {
+        return null;
+    },
+    writeVerified() { },
+    markVerified() { },
+    assertRbacCoordinate() {
+        return notInstalled();
+    },
+    isRbacCoordinateError(_e) {
+        return false;
+    },
+    loadMergedToolRules() {
+        return [];
+    },
+    findFirstToolRule() {
+        return null;
+    },
+    addUserToolRule() {
+        return notInstalled();
+    },
+    updateUserToolRule() {
+        return notInstalled();
+    },
+    removeUserToolRule() {
+        return notInstalled();
+    },
+    getUserToolRulesPath() {
+        return '';
+    },
+    isToolRuleValidationError(_e) {
+        return false;
+    },
+    // no-op: a public-only server simply registers no backend tools.
+    registerBackendTools(_server) { },
+};
+//# sourceMappingURL=noop.js.map

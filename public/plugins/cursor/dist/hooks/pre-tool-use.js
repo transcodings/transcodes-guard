@@ -3,9 +3,6 @@ import {
   cursorAdapter
 } from "../chunk-JLIPJGWI.js";
 import {
-  clearPending,
-  consumeVerified,
-  evaluatePreToolUse,
   formatAllowReason,
   formatNoTokenReason,
   formatNoTokenSystemMessage,
@@ -16,8 +13,8 @@ import {
   formatStepupFailureSystemMessage,
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
-  writePending
-} from "../chunk-EP3PXNGA.js";
+  getGateBackend
+} from "../chunk-VQHTYA7P.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
@@ -29,7 +26,8 @@ async function main() {
   } catch {
     process.exit(0);
   }
-  const decision = await evaluatePreToolUse(input);
+  const backend = getGateBackend();
+  const decision = await backend.evaluatePreToolUse(input);
   switch (decision.kind) {
     case "pass":
       process.exit(0);
@@ -41,8 +39,8 @@ async function main() {
         })
       );
       if (decision.consumeHere) {
-        consumeVerified(decision.fp);
-        clearPending(decision.fp);
+        backend.consumeVerified(decision.fp);
+        backend.clearPending(decision.fp);
       }
       process.stderr.write(`${formatStderrTag(decision)}
 `);
@@ -89,7 +87,7 @@ async function main() {
         })
       );
       try {
-        writePending(decision.pending);
+        backend.writePending(decision.pending);
       } catch (err) {
         process.stderr.write(
           `transcodes-guard: pending file write failed (deny still emitted): ${err}

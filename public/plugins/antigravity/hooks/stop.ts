@@ -11,17 +11,12 @@
  * validation — see docs/research/antigravity-e2e-findings.md #4.
  */
 import '../host.js';
-import { antigravityAdapter } from '@transcodes-guard/hook-adapters';
+import '../backend.js';
 import {
-  clearPending,
-  consumeVerified,
-  firstInFlightFpPending,
-  isExpired,
+  getGateBackend,
   type PendingState,
-  readPending,
-  readVerified,
-  sweepStepup,
-} from '@transcodes-guard-private/stepup-core';
+} from '@transcodes-guard/gate-contract';
+import { antigravityAdapter } from '@transcodes-guard/hook-adapters';
 
 function reminderFor(pending: PendingState): string {
   return [
@@ -50,27 +45,31 @@ async function main(): Promise<void> {
     // ignore
   }
 
-  // Silent housekeeping for FP-KEYED files (reap orphans + sweep expired).
-  sweepStepup();
+  const backend = getGateBackend();
 
-  const pending = readPending();
-  const verified = readVerified();
+  // Silent housekeeping for FP-KEYED files (reap orphans + sweep expired).
+  backend.sweepStepup();
+
+  const pending = backend.readPending();
+  const verified = backend.readVerified();
 
   // Orphan reap: GLOBAL verified record exists without an in-flight pending →
   // silently consume (the gate's fast-path didn't get a chance to). This
   // is the same backstop as the Claude Code / Codex Stop hooks.
   if (verified && (!pending || pending.status !== 'pending')) {
-    consumeVerified();
-    if (pending) clearPending();
+    backend.consumeVerified();
+    if (pending) backend.clearPending();
     process.exit(0);
   }
   if (pending && !verified && pending.status === 'verified') {
-    clearPending();
+    backend.clearPending();
     process.exit(0);
   }
 
   const reminder =
-    pending && !isExpired(pending) ? pending : firstInFlightFpPending();
+    pending && !backend.isExpired(pending)
+      ? pending
+      : backend.firstInFlightFpPending();
   if (!reminder) process.exit(0);
 
   process.stdout.write(antigravityAdapter.emitStop(reminderFor(reminder)));

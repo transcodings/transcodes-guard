@@ -25,9 +25,7 @@
   },
   "dependencies": {
     "@transcodes-guard/danger-patterns": "*",
-    "@transcodes-guard-private/danger-rules": "*",
-    "@transcodes-guard-private/stepup-core": "*",
-    "@transcodes-guard-private/transcodes-mcp-tools": "*",
+    "@transcodes-guard/gate-contract": "*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23.0"
   },
