@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.0...transcodes-guard-v0.5.1) (2026-06-08)
+
+
+### Documentation
+
+* **prd:** 3단계 CDN 미러 배포 PRD 추가 ([3624e30](https://github.com/transcodings/ai-action-tracker-mcp/commit/3624e3022fce9a22514bc17f5eee1584ac09768a))
+
 ## [0.5.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.4.0...transcodes-guard-v0.5.0) (2026-06-08)
 
 
