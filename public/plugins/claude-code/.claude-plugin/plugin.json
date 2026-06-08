@@ -1,12 +1,19 @@
 {
   "name": "transcodes-guard",
   "description": "Risky-bash interceptor (PreToolUse hook) and audit MCP server for Claude Code.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "bigstrider"
   },
   "homepage": "https://github.com/transcodings/ai-action-tracker-mcp",
   "repository": "https://github.com/transcodings/ai-action-tracker-mcp",
   "license": "MIT",
-  "keywords": ["safety", "hook", "mcp", "audit", "security", "bash"]
+  "keywords": [
+    "safety",
+    "hook",
+    "mcp",
+    "audit",
+    "security",
+    "bash"
+  ]
 }

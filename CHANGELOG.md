@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.4.0...transcodes-guard-v0.5.0) (2026-06-08)
+
+
+### Features
+
+* GateBackend DI 경계 — public이 private 없이 빌드 (분리 2단계) ([6508acb](https://github.com/transcodings/ai-action-tracker-mcp/commit/6508acb45f9d3fbb89107d671fea30b8cb2c4429))
+* GateBackend DI 경계 도입 — public이 private 없이 빌드 ([651dd02](https://github.com/transcodings/ai-action-tracker-mcp/commit/651dd021e9e24abe2d2a2bed03ff523c6937c64d))
+
+
+### Code Refactoring
+
+* public/private 2분할 재배치 + 플러그인 디렉토리명 정리 ([dcb801e](https://github.com/transcodings/ai-action-tracker-mcp/commit/dcb801ef62ce78f24b1cad11a9d2b81b63f22fec))
+* public/private 2분할 재배치 + 플러그인 디렉토리명 정리 (분리 1단계) ([f104495](https://github.com/transcodings/ai-action-tracker-mcp/commit/f1044956372e93fef5749cf914b23b66e28ecfdb))
+
 ## [0.4.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.3.0...transcodes-guard-v0.4.0) (2026-06-07)
 
 
