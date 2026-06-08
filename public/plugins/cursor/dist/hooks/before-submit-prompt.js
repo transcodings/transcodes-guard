@@ -3,11 +3,8 @@ import {
   cursorAdapter
 } from "../chunk-JLIPJGWI.js";
 import {
-  clearPending,
-  consumeVerified,
-  firstActivePending,
-  readVerified
-} from "../chunk-EP3PXNGA.js";
+  getGateBackend
+} from "../chunk-VQHTYA7P.js";
 
 // hooks/before-submit-prompt.ts
 import { readFileSync } from "fs";
@@ -26,11 +23,12 @@ function main() {
   }
   if (!parsed.prompt) emitContinue();
   if (!COMPLETION_PATTERN.test(parsed.prompt)) emitContinue();
-  const pending = firstActivePending();
+  const backend = getGateBackend();
+  const pending = backend.firstActivePending();
   if (!pending) emitContinue();
-  if (readVerified(pending.fp)) {
-    consumeVerified(pending.fp);
-    clearPending(pending.fp);
+  if (backend.readVerified(pending.fp)) {
+    backend.consumeVerified(pending.fp);
+    backend.clearPending(pending.fp);
   }
   emitContinue();
 }

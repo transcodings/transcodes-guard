@@ -7,12 +7,13 @@
  * naming the sid + next action so the agent knows which session to poll.
  */
 import '../host.js';
+import '../backend.js';
 import { readFileSync } from 'node:fs';
-import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
 import {
-  firstActivePending,
+  getGateBackend,
   type PendingState,
-} from '@transcodes-guard-private/stepup-core';
+} from '@transcodes-guard/gate-contract';
+import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
 
 // Loose matcher — false positives only matter when a pending record exists,
 // in which case the worst case is one unnecessary poll call.
@@ -50,7 +51,7 @@ function main(): void {
 
   if (!parsed.prompt) process.exit(0);
 
-  const pending = firstActivePending();
+  const pending = getGateBackend().firstActivePending();
   if (!pending) process.exit(0);
 
   const additionalContext = buildContext(parsed.prompt, pending);

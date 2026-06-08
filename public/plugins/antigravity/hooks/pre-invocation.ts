@@ -26,18 +26,18 @@
  * antigravityAdapter.emitPreInvocation. Empty array → empty `{}` payload.
  */
 import '../host.js';
+import '../backend.js';
 import { readFileSync } from 'node:fs';
+import {
+  formatNoTokenSessionNotice,
+  getGateBackend,
+  type PendingState,
+} from '@transcodes-guard/gate-contract';
 import {
   antigravityAdapter,
   detectUserDoneFromTranscript,
   type InjectStep,
 } from '@transcodes-guard/hook-adapters';
-import {
-  firstActivePending,
-  formatNoTokenSessionNotice,
-  type PendingState,
-  resolveToken,
-} from '@transcodes-guard-private/stepup-core';
 
 function primerMessage(pending: PendingState | null): string {
   const base = [
@@ -114,13 +114,14 @@ function main(): void {
     process.exit(0);
   }
 
-  const pending = firstActivePending();
+  const backend = getGateBackend();
+  const pending = backend.firstActivePending();
   const injectSteps: InjectStep[] = [];
 
   // SessionStart-equivalent: primer + carry-over on first invocation only.
   if (input.invocationNum <= 1) {
     injectSteps.push({ ephemeralMessage: primerMessage(pending) });
-    if (!resolveToken().token) {
+    if (!backend.hasToken()) {
       injectSteps.push({ ephemeralMessage: formatNoTokenSessionNotice() });
     }
   }

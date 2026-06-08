@@ -5,19 +5,19 @@
  * and `systemMessage` on its adapter's `emitPreToolUse(...)`. The strings
  * here are stable across hosts because the agent-facing protocol
  * instructions don't depend on which CLI ran the hook.
+ *
+ * These live in gate-contract (public) — they are pure text formatters over
+ * the `GateDecision` shape, carry no backend coupling, and let every host hook
+ * render decisions without importing private code.
  */
-import type { BlockResult, GateDecision } from './evaluate.js';
+import type { BlockResult, GateDecision } from './types.js';
 
 /**
  * Session-start notice text shown when no Transcodes token is configured.
  *
  * Pure formatter — it does NOT decide whether to show itself. The caller is
- * responsible for the token lookup (`resolveToken().token`) and only renders
- * this when no token is found. Keeping the env/file I/O out of this module
- * preserves it as host-agnostic *text* (see file header); all four hosts
- * share this one wording. Nudges first-time users toward `transcodes login`
- * BEFORE they hit a blocked command. The token must be set in a terminal,
- * never pasted into the agent chat (that would leak it into the transcript).
+ * responsible for the token lookup (`backend.hasToken()`) and only renders
+ * this when no token is found.
  */
 export function formatNoTokenSessionNotice(): string {
   return [

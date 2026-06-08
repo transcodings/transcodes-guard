@@ -3,14 +3,13 @@ import {
   cursorAdapter
 } from "../chunk-JLIPJGWI.js";
 import {
-  firstActivePending,
   formatNoTokenSessionNotice,
-  resolveToken
-} from "../chunk-EP3PXNGA.js";
+  getGateBackend
+} from "../chunk-VQHTYA7P.js";
 
 // hooks/session-start.ts
 function carryoverBlock() {
-  const pending = firstActivePending();
+  const pending = getGateBackend().firstActivePending();
   if (!pending) return null;
   const statusNote = pending.status === "verified" ? "VERIFIED but not yet consumed \u2014 retry the original command to release it." : "PENDING \u2014 resume polling.";
   return [
@@ -23,7 +22,7 @@ function carryoverBlock() {
   ].join("\n");
 }
 function main() {
-  const tokenNotice = resolveToken().token ? null : formatNoTokenSessionNotice();
+  const tokenNotice = getGateBackend().hasToken() ? null : formatNoTokenSessionNotice();
   const parts = [carryoverBlock(), tokenNotice].filter(
     (s) => Boolean(s)
   );

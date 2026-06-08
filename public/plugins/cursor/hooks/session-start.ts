@@ -8,15 +8,15 @@
  * body verbatim; only the adapter import differs.
  */
 import '../host.js';
-import { cursorAdapter } from '@transcodes-guard/hook-adapters';
+import '../backend.js';
 import {
-  firstActivePending,
   formatNoTokenSessionNotice,
-  resolveToken,
-} from '@transcodes-guard-private/stepup-core';
+  getGateBackend,
+} from '@transcodes-guard/gate-contract';
+import { cursorAdapter } from '@transcodes-guard/hook-adapters';
 
 function carryoverBlock(): string | null {
-  const pending = firstActivePending();
+  const pending = getGateBackend().firstActivePending();
   if (!pending) return null;
   const statusNote =
     pending.status === 'verified'
@@ -33,7 +33,7 @@ function carryoverBlock(): string | null {
 }
 
 function main(): void {
-  const tokenNotice = resolveToken().token
+  const tokenNotice = getGateBackend().hasToken()
     ? null
     : formatNoTokenSessionNotice();
   const parts = [carryoverBlock(), tokenNotice].filter((s): s is string =>

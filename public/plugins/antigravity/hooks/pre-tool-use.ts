@@ -14,12 +14,9 @@
  * intentionally not gated — see the plugin README for the scope rationale.
  */
 import '../host.js';
+import '../backend.js';
 import { readFileSync } from 'node:fs';
-import { antigravityAdapter } from '@transcodes-guard/hook-adapters';
 import {
-  clearPending,
-  consumeVerified,
-  evaluatePreToolUse,
   formatAllowReason,
   formatNoTokenReason,
   formatNoTokenSystemMessage,
@@ -30,8 +27,9 @@ import {
   formatStepupFailureSystemMessage,
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
-  writePending,
-} from '@transcodes-guard-private/stepup-core';
+  getGateBackend,
+} from '@transcodes-guard/gate-contract';
+import { antigravityAdapter } from '@transcodes-guard/hook-adapters';
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, 'utf8');
@@ -43,7 +41,8 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  const decision = await evaluatePreToolUse(input);
+  const backend = getGateBackend();
+  const decision = await backend.evaluatePreToolUse(input);
 
   switch (decision.kind) {
     case 'pass':
@@ -57,8 +56,8 @@ async function main(): Promise<void> {
         }),
       );
       if (decision.consumeHere) {
-        consumeVerified(decision.fp);
-        clearPending(decision.fp);
+        backend.consumeVerified(decision.fp);
+        backend.clearPending(decision.fp);
       }
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       process.exit(0);
@@ -108,7 +107,7 @@ async function main(): Promise<void> {
         }),
       );
       try {
-        writePending(decision.pending);
+        backend.writePending(decision.pending);
       } catch (err) {
         process.stderr.write(
           `transcodes-guard: pending file write failed (deny still emitted): ${err}\n`,

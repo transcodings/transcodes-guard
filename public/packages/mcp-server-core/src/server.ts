@@ -12,39 +12,10 @@ import {
   updateUserPattern,
 } from '@transcodes-guard/danger-patterns';
 import {
-  addUserToolRule,
-  findFirstToolRule,
-  getUserToolRulesPath,
-  loadMergedToolRules,
+  type GateBackend,
+  getGateBackend,
   type MergedToolRule,
-  removeUserToolRule,
-  ToolRuleValidationError,
-  updateUserToolRule,
-} from '@transcodes-guard-private/danger-rules';
-import {
-  createStepupSession,
-  findPendingBySid,
-  inspectStepupState,
-  loadStepupConfig,
-  markVerified,
-  pollStepupSession,
-  pollStepupSessionWait,
-  writeVerified,
-} from '@transcodes-guard-private/stepup-core';
-import {
-  assertRbacCoordinate,
-  RbacCoordinateError,
-  registerAuditTools,
-  registerAuthDeviceTools,
-  registerJwkTools,
-  registerMembershipTools,
-  registerMemberTools,
-  registerMetaTools,
-  registerOrganizationTools,
-  registerPasscodeTools,
-  registerProjectTools,
-  registerRbacTools,
-} from '@transcodes-guard-private/transcodes-mcp-tools';
+} from '@transcodes-guard/gate-contract';
 import { z } from 'zod';
 import { PLUGIN_VERSION } from './build-info.js';
 
@@ -67,12 +38,15 @@ function formatPatternsMarkdown(patterns: MergedPattern[]): string {
   return lines.join('\n');
 }
 
-function formatToolRulesMarkdown(rules: MergedToolRule[]): string {
+function formatToolRulesMarkdown(
+  rules: MergedToolRule[],
+  userRulesPath: string,
+): string {
   const lines: string[] = [
     '# Step-up-protected MCP tool rules',
     '',
     `${rules.length} rule(s) gate MCP tool invocations via the PreToolUse hook.`,
-    `User rules live at \`${getUserToolRulesPath()}\` and are editable through the \`add_tool_rule\`/\`update_tool_rule\`/\`remove_tool_rule\` tools. System rules are immutable.`,
+    `User rules live at \`${userRulesPath}\` and are editable through the \`add_tool_rule\`/\`update_tool_rule\`/\`remove_tool_rule\` tools. System rules are immutable.`,
     '',
     '| source | id | toolName | reason | action | resource | consume_in_hook |',
     '| ------ | -- | -------- | ------ | ------ | -------- | --------------- |',
@@ -94,7 +68,9 @@ function textResult(text: string, isError = false) {
   };
 }
 
-export function createServer(): McpServer {
+export function createServer(
+  backend: GateBackend = getGateBackend(),
+): McpServer {
   const server = new McpServer({
     name: 'transcodes-guard-mcp',
     version: PLUGIN_VERSION,
@@ -212,8 +188,7 @@ export function createServer(): McpServer {
     },
     async (input) => {
       try {
-        await assertRbacCoordinate(
-          loadStepupConfig(),
+        await backend.assertRbacCoordinate(
           input.stepupResource,
           input.stepupAction,
         );
@@ -224,7 +199,7 @@ export function createServer(): McpServer {
       } catch (e) {
         if (
           e instanceof PatternValidationError ||
-          e instanceof RbacCoordinateError
+          backend.isRbacCoordinateError(e)
         ) {
           return textResult(`Rejected: ${e.message}`, true);
         }
@@ -271,8 +246,7 @@ export function createServer(): McpServer {
         // changes — an existing resource was already validated on add. The
         // action is enum-checked by zod, so it needs no backend round-trip.
         if (stepupResource !== undefined) {
-          await assertRbacCoordinate(
-            loadStepupConfig(),
+          await backend.assertRbacCoordinate(
             stepupResource,
             stepupAction ?? 'update',
           );
@@ -289,7 +263,7 @@ export function createServer(): McpServer {
       } catch (e) {
         if (
           e instanceof PatternValidationError ||
-          e instanceof RbacCoordinateError
+          backend.isRbacCoordinateError(e)
         ) {
           return textResult(`Rejected: ${e.message}`, true);
         }
@@ -351,8 +325,7 @@ export function createServer(): McpServer {
       },
     },
     async ({ comment, action, resource, member_id }) => {
-      const config = loadStepupConfig();
-      const result = await createStepupSession(config, {
+      const result = await backend.createStepupSession({
         comment,
         action,
         resource,
@@ -399,17 +372,16 @@ export function createServer(): McpServer {
       },
     },
     async ({ sid }) => {
-      const config = loadStepupConfig();
-      const result = await pollStepupSession(config, sid);
+      const result = await backend.pollStepupSession(sid);
       if (result.status === 'verified') {
         // Route the verified record to the right store: the pending record
         // carries the fp for the hook-consume (Bash/user) path; absent fp
         // → GLOBAL store (MCP system path). Recomputing fp here is impossible
         // (we only have the sid), so the gate-time fp is read back via the
         // pending record it created.
-        const fp = findPendingBySid(sid)?.fp;
-        writeVerified({ sid, verifiedAt: Date.now() }, fp);
-        markVerified(sid);
+        const fp = backend.findPendingBySid(sid)?.fp;
+        backend.writeVerified({ sid, verifiedAt: Date.now() }, fp);
+        backend.markVerified(sid);
       }
       return {
         content: [
@@ -466,15 +438,14 @@ export function createServer(): McpServer {
       },
     },
     async ({ sid, max_wait_ms, interval_ms }) => {
-      const config = loadStepupConfig();
-      const result = await pollStepupSessionWait(config, sid, {
+      const result = await backend.pollStepupSessionWait(sid, {
         maxWaitMs: max_wait_ms,
         intervalMs: interval_ms,
       });
       if (result.outcome === 'verified') {
-        const fp = findPendingBySid(sid)?.fp;
-        writeVerified({ sid, verifiedAt: Date.now() }, fp);
-        markVerified(sid);
+        const fp = backend.findPendingBySid(sid)?.fp;
+        backend.writeVerified({ sid, verifiedAt: Date.now() }, fp);
+        backend.markVerified(sid);
       }
       return {
         content: [
@@ -513,7 +484,7 @@ export function createServer(): McpServer {
       inputSchema: {},
     },
     async () => {
-      const snapshot = inspectStepupState();
+      const snapshot = backend.inspectStepupState();
       return {
         content: [
           {
@@ -586,7 +557,7 @@ export function createServer(): McpServer {
           true,
         );
       }
-      const before = inspectStepupState();
+      const before = backend.inspectStepupState();
       // Host-supplied plugin install root. Claude Code sets
       // CLAUDE_PLUGIN_ROOT; Codex CLI sets PLUGIN_ROOT (+ honors
       // CLAUDE_PLUGIN_ROOT as alias). Fail loudly when neither is
@@ -626,7 +597,7 @@ export function createServer(): McpServer {
         child.on('error', () => resolve({ stdout, stderr, exitCode: -1 }));
         child.stdin.end(payload);
       });
-      const after = inspectStepupState();
+      const after = backend.inspectStepupState();
       let parsedStdout: unknown = null;
       try {
         parsedStdout = stdout.trim() ? JSON.parse(stdout) : null;
@@ -708,23 +679,14 @@ export function createServer(): McpServer {
     }),
   );
 
-  registerMemberTools(server);
-  registerRbacTools(server);
-  registerPasscodeTools(server);
-  registerProjectTools(server);
-  registerAuditTools(server);
-  registerAuthDeviceTools(server);
-  registerMembershipTools(server);
-  registerMetaTools(server);
-  registerOrganizationTools(server);
-  registerJwkTools(server);
+  backend.registerBackendTools(server);
 
   server.registerResource(
     'tool-rules',
     'tool-rules://list',
     {
       title: 'Step-up-protected MCP tool rules',
-      description: `Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with user rules (${getUserToolRulesPath()}, JSONC), read fresh at every request.`,
+      description: `Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with user rules (${backend.getUserToolRulesPath()}, JSONC), read fresh at every request.`,
       mimeType: 'text/markdown',
     },
     async (uri) => ({
@@ -732,7 +694,10 @@ export function createServer(): McpServer {
         {
           uri: uri.href,
           mimeType: 'text/markdown',
-          text: formatToolRulesMarkdown(loadMergedToolRules()),
+          text: formatToolRulesMarkdown(
+            backend.loadMergedToolRules(),
+            backend.getUserToolRulesPath(),
+          ),
         },
       ],
     }),
@@ -742,7 +707,7 @@ export function createServer(): McpServer {
     'add_tool_rule',
     {
       title: 'Add user MCP tool-rule',
-      description: `Register a new user-owned tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called", "block mcp__github__delete_repository".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push, an env-file move) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) → use this tool (exact tool_name match).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. RESOLVE the exact tool name. Tool names are host-specific (e.g. mcp__github__delete_repository, or mcp__plugin_<plugin>_<server>__<tool> for plugin-provided servers). Do not guess — confirm the exact string with the user or read it from the host's available tools. Regex/wildcards are NOT supported; the match is exact.\n  2. VERIFY with \`simulate_tool_call\` before saving to confirm the rule will match the intended tool name.\n  3. RESOLVE the RBAC coordinate: call \`get_resources\` to fetch valid resource keys, then set \`stepupResource\` (one of those keys — validated against the backend on save) and \`stepupAction\` (create|read|update|delete, matching what the tool does). Most rules use resource \`system\`.\n  4. CONFIRM the proposed id/toolName/reason/stepupResource/stepupAction with the user, then SAVE by calling this tool.\nid must be unique across both system and user rules; persisted to ${getUserToolRulesPath()} (JSONC) and effective on the next hook invocation.`,
+      description: `Register a new user-owned tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called", "block mcp__github__delete_repository".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push, an env-file move) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) → use this tool (exact tool_name match).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. RESOLVE the exact tool name. Tool names are host-specific (e.g. mcp__github__delete_repository, or mcp__plugin_<plugin>_<server>__<tool> for plugin-provided servers). Do not guess — confirm the exact string with the user or read it from the host's available tools. Regex/wildcards are NOT supported; the match is exact.\n  2. VERIFY with \`simulate_tool_call\` before saving to confirm the rule will match the intended tool name.\n  3. RESOLVE the RBAC coordinate: call \`get_resources\` to fetch valid resource keys, then set \`stepupResource\` (one of those keys — validated against the backend on save) and \`stepupAction\` (create|read|update|delete, matching what the tool does). Most rules use resource \`system\`.\n  4. CONFIRM the proposed id/toolName/reason/stepupResource/stepupAction with the user, then SAVE by calling this tool.\nid must be unique across both system and user rules; persisted to ${backend.getUserToolRulesPath()} (JSONC) and effective on the next hook invocation.`,
       inputSchema: {
         id: z
           .string()
@@ -763,12 +728,11 @@ export function createServer(): McpServer {
     },
     async (input) => {
       try {
-        await assertRbacCoordinate(
-          loadStepupConfig(),
+        await backend.assertRbacCoordinate(
           input.stepupResource,
           input.stepupAction,
         );
-        const saved = addUserToolRule(input);
+        const saved = backend.addUserToolRule(input);
         return textResult(
           `Added user tool-rule \`${saved.id}\`.\ntoolName: ${
             saved.toolName
@@ -780,8 +744,8 @@ export function createServer(): McpServer {
         );
       } catch (e) {
         if (
-          e instanceof ToolRuleValidationError ||
-          e instanceof RbacCoordinateError
+          backend.isToolRuleValidationError(e) ||
+          backend.isRbacCoordinateError(e)
         ) {
           return textResult(`Rejected: ${e.message}`, true);
         }
@@ -839,13 +803,12 @@ export function createServer(): McpServer {
       }
       try {
         if (stepupResource !== undefined) {
-          await assertRbacCoordinate(
-            loadStepupConfig(),
+          await backend.assertRbacCoordinate(
             stepupResource,
             stepupAction ?? 'update',
           );
         }
-        const saved = updateUserToolRule(id, {
+        const saved = backend.updateUserToolRule(id, {
           toolName,
           reason,
           stepupAction,
@@ -863,8 +826,8 @@ export function createServer(): McpServer {
         );
       } catch (e) {
         if (
-          e instanceof ToolRuleValidationError ||
-          e instanceof RbacCoordinateError
+          backend.isToolRuleValidationError(e) ||
+          backend.isRbacCoordinateError(e)
         ) {
           return textResult(`Rejected: ${e.message}`, true);
         }
@@ -883,10 +846,10 @@ export function createServer(): McpServer {
     },
     async ({ id }) => {
       try {
-        removeUserToolRule(id);
+        backend.removeUserToolRule(id);
         return textResult(`Removed user tool-rule \`${id}\`.`);
       } catch (e) {
-        if (e instanceof ToolRuleValidationError) {
+        if (backend.isToolRuleValidationError(e)) {
           return textResult(`Rejected: ${e.message}`, true);
         }
         throw e;
@@ -906,8 +869,8 @@ export function createServer(): McpServer {
       },
     },
     async ({ tool_name }) => {
-      const rules = loadMergedToolRules();
-      const match = findFirstToolRule(tool_name, rules);
+      const rules = backend.loadMergedToolRules();
+      const match = backend.findFirstToolRule(tool_name, rules);
       if (!match) {
         return textResult(
           JSON.stringify(

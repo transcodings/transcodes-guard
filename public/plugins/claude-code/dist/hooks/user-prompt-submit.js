@@ -3,8 +3,8 @@ import {
   claudeCodeAdapter
 } from "../chunk-ODK4KW7V.js";
 import {
-  firstActivePending
-} from "../chunk-NLM4XYZT.js";
+  getGateBackend
+} from "../chunk-NFAMB6JC.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";
@@ -33,7 +33,7 @@ function main() {
     process.exit(0);
   }
   if (!parsed.prompt) process.exit(0);
-  const pending = firstActivePending();
+  const pending = getGateBackend().firstActivePending();
   if (!pending) process.exit(0);
   const additionalContext = buildContext(parsed.prompt, pending);
   if (!additionalContext) process.exit(0);

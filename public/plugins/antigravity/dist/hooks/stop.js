@@ -3,14 +3,8 @@ import {
   antigravityAdapter
 } from "../chunk-DVNHC35J.js";
 import {
-  clearPending,
-  consumeVerified,
-  firstInFlightFpPending,
-  isExpired,
-  readPending,
-  readVerified,
-  sweepStepup
-} from "../chunk-LH2BAUPS.js";
+  getGateBackend
+} from "../chunk-QOIJMDNV.js";
 
 // hooks/stop.ts
 function reminderFor(pending) {
@@ -34,19 +28,20 @@ async function main() {
     }
   } catch {
   }
-  sweepStepup();
-  const pending = readPending();
-  const verified = readVerified();
+  const backend = getGateBackend();
+  backend.sweepStepup();
+  const pending = backend.readPending();
+  const verified = backend.readVerified();
   if (verified && (!pending || pending.status !== "pending")) {
-    consumeVerified();
-    if (pending) clearPending();
+    backend.consumeVerified();
+    if (pending) backend.clearPending();
     process.exit(0);
   }
   if (pending && !verified && pending.status === "verified") {
-    clearPending();
+    backend.clearPending();
     process.exit(0);
   }
-  const reminder = pending && !isExpired(pending) ? pending : firstInFlightFpPending();
+  const reminder = pending && !backend.isExpired(pending) ? pending : backend.firstInFlightFpPending();
   if (!reminder) process.exit(0);
   process.stdout.write(antigravityAdapter.emitStop(reminderFor(reminder)));
   process.exit(0);

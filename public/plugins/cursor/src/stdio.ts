@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import '../host.js';
+import '../backend.js';
 /**
  * MCP stdio entrypoint for the Cursor IDE plugin.
  *
