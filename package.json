@@ -4,18 +4,19 @@
   "version": "0.4.0",
   "description": "Monorepo orchestrator for transcodes-guard plugins + marketplace. Root is the release-please train coordinator (never published).",
   "workspaces": [
-    "packages/*",
-    "plugins/*",
-    "private-packages/*"
+    "public/packages/*",
+    "public/plugins/*",
+    "private/packages/*",
+    "private/cli"
   ],
   "scripts": {
     "build": "turbo run build",
     "prebuild:plugin": "node scripts/stamp-build-info.mjs",
     "build:plugin": "turbo run build:plugin",
-    "dev:stdio": "npm run dev:stdio -w plugins/claude-code-ai-action-tracker",
-    "dev:http": "npm run dev:http -w plugins/claude-code-ai-action-tracker",
-    "dev:hook": "npm run dev:hook -w plugins/claude-code-ai-action-tracker",
-    "inspect": "npm run inspect -w plugins/claude-code-ai-action-tracker",
+    "dev:stdio": "npm run dev:stdio -w @bigstrider/transcodes-guard-claude-code",
+    "dev:http": "npm run dev:http -w @bigstrider/transcodes-guard-claude-code",
+    "dev:hook": "npm run dev:hook -w @bigstrider/transcodes-guard-claude-code",
+    "inspect": "npm run inspect -w @bigstrider/transcodes-guard-claude-code",
     "format": "biome format --write --files-ignore-unknown=true --no-errors-on-unmatched",
     "check": "biome check --write --files-ignore-unknown=true --no-errors-on-unmatched",
     "type-check": "turbo run type-check",

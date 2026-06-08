@@ -42,12 +42,12 @@ const next = bumpSemver(current, arg);
 
 const targets = [
   "package.json",
-  "packages/mcp-server-core/package.json",
-  "plugins/claude-code-ai-action-tracker/package.json",
-  "plugins/claude-code-ai-action-tracker/.claude-plugin/plugin.json",
-  "plugins/codex-ai-action-tracker/package.json",
-  "plugins/cursor-ai-action-tracker/package.json",
-  "plugins/antigravity-ai-action-tracker/package.json",
+  "public/packages/mcp-server-core/package.json",
+  "public/plugins/claude-code/package.json",
+  "public/plugins/claude-code/.claude-plugin/plugin.json",
+  "public/plugins/codex/package.json",
+  "public/plugins/cursor/package.json",
+  "public/plugins/antigravity/package.json",
 ];
 
 for (const rel of targets) {
