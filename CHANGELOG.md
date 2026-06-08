@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.1...transcodes-guard-v0.5.2) (2026-06-08)
+
+
+### Documentation
+
+* **prd:** 구버전 PRD 초안 정리 (phase3만 유지) ([bc89ab2](https://github.com/transcodings/ai-action-tracker-mcp/commit/bc89ab2a5cfe41072cd6e271917b4f7e1f4dfea6))
+
 ## [0.5.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.0...transcodes-guard-v0.5.1) (2026-06-08)
 
 
