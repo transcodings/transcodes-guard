@@ -35,6 +35,54 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      # release-please는 root package.json 버전만 bump하고 부수 산출물은
+      # 동기화하지 않는다 — ① package-lock.json의 workspace 버전 엔트리
+      # ② stamp-build-info가 생성하는 version.ts/build-info.ts ③ 번들 dist.
+      # 이걸 두면 매 release 후 셋이 stale해진다(게이트 완화 후 무해하지만 untidy).
+      # Release PR 브랜치에서 직접 재생성해 커밋한다.
+      # best-effort: 동기화가 실패해도 release를 막지 않는다(staleness는 cosmetic).
+      # PAT로 push해야 PR CI가 재실행된다(GITHUB_TOKEN push는 워크플로 미트리거).
+      - name: Resolve Release PR branch
+        if: ${{ steps.release.outputs.prs_created == 'true' }}
+        env:
+          RELEASE_PR_JSON: ${{ steps.release.outputs.pr }}
+        run: |
+          BRANCH=$(printf '%s' "$RELEASE_PR_JSON" | jq -r '.headBranchName')
+          echo "release_branch=$BRANCH" >> "$GITHUB_ENV"
+
+      - name: Checkout Release PR branch
+        if: ${{ steps.release.outputs.prs_created == 'true' && env.release_branch != '' && env.release_branch != 'null' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.release_branch }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        if: ${{ steps.release.outputs.prs_created == 'true' && env.release_branch != '' && env.release_branch != 'null' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+
+      - name: Sync lockfile + dist + version stamp
+        id: sync
+        if: ${{ steps.release.outputs.prs_created == 'true' && env.release_branch != '' && env.release_branch != 'null' }}
+        continue-on-error: true
+        run: |
+          set -e
+          npm ci
+          npm install --package-lock-only
+          npm run build:plugin
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No artifact drift to commit."
+          else
+            git commit -m "chore: sync lockfile + dist + version stamp"
+            git push origin "HEAD:${release_branch}"
+          fi
+
       # release-please가 Release PR을 생성/갱신했으면 자동 머지한다.
       # PR 번호는 run 안에서 jq로 파싱한다 — `pr` output이 비어 있을 때
       # env에서 fromJSON('')을 평가하면 워크플로 템플릿이 깨지기 때문(이 step은
