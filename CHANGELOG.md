@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.6.0...transcodes-guard-v0.6.1) (2026-06-09)
+
+
+### Documentation
+
+* **phase3:** Unit A 상태 Done으로 갱신 (PR [#44](https://github.com/transcodings/ai-action-tracker-mcp/issues/44) 머지) ([bd77b83](https://github.com/transcodings/ai-action-tracker-mcp/commit/bd77b8319ee983b5958e59a8e1a019cbf9df96cf))
+
 ## [0.6.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.7...transcodes-guard-v0.6.0) (2026-06-09)
 
 
