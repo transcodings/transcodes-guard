@@ -259,3 +259,6 @@ private/cli/dist/
 
 # Turborepo / Nx local cache (not part of the source)
 .turbo/
+
+# Phase 3 CDN build artifact (Unit A) — deploy artifact, not committed
+cdn-dist/
