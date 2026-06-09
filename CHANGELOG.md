@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.7](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.6...transcodes-guard-v0.5.7) (2026-06-09)
+
+
+### Documentation
+
+* **prd:** phase3 PRD를 개발 단위 6종으로 분할 + 규모 산정 ([6dd7812](https://github.com/transcodings/ai-action-tracker-mcp/commit/6dd7812707736ee76bd679a4be60bf70fff45701))
+* **prd:** phase3 PRD를 개발 단위 6종으로 분할 + 규모 산정 ([36dc0d9](https://github.com/transcodings/ai-action-tracker-mcp/commit/36dc0d9ba36e0658bec9c0ae2ba6e91b2ea5d89b))
+
 ## [0.5.6](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.5...transcodes-guard-v0.5.6) (2026-06-09)
 
 
