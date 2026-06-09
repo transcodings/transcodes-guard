@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.6](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.5...transcodes-guard-v0.5.6) (2026-06-09)
+
+
+### Bug Fixes
+
+* **lockfile:** workspace 버전 엔트리 0.5.4 재동기화 ([1eae261](https://github.com/transcodings/ai-action-tracker-mcp/commit/1eae26182f1f330d923af676ef73eccfea9b737d))
+* **lockfile:** workspace 버전 엔트리를 0.5.4로 재동기화 ([cc07f9d](https://github.com/transcodings/ai-action-tracker-mcp/commit/cc07f9d40162afe27b32e5a4b54eba683cec4ba7))
+
 ## [0.5.5](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.4...transcodes-guard-v0.5.5) (2026-06-09)
 
 
