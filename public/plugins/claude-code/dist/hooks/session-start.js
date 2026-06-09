@@ -8,7 +8,7 @@ import {
 } from "../chunk-BZCPAYAS.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.6.0";
+var PLUGIN_VERSION = "0.6.1";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
