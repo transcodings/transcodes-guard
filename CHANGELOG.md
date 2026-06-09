@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.4](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.3...transcodes-guard-v0.5.4) (2026-06-09)
+
+
+### Bug Fixes
+
+* **ci:** dist-sync 바이트 게이트 제거 + 버전 스탬프 0.5.2 재동기화 (main CI 복구) ([890f81f](https://github.com/transcodings/ai-action-tracker-mcp/commit/890f81f5765d92797f1ed658e5272ca81f6ac9b1))
+* **dist:** 버전 스탬프 dist를 0.5.2로 재동기화 (CI dist-sync 복구) ([4096ea0](https://github.com/transcodings/ai-action-tracker-mcp/commit/4096ea0f6b39d6f3556ff1ee702bf350bd0c2a53))
+* **lint:** biome error 2건 해소 — dist 게이트에 가려졌던 기존 결함 ([5471a53](https://github.com/transcodings/ai-action-tracker-mcp/commit/5471a53f8ec97f3ed5f358450fda26888e97d07f))
+
 ## [0.5.3](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.2...transcodes-guard-v0.5.3) (2026-06-09)
 
 
