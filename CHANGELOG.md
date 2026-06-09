@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.7...transcodes-guard-v0.6.0) (2026-06-09)
+
+
+### Features
+
+* **build:** Phase3-A 비공개 backend 난독화 CDN 번들 빌드 ([5a2420a](https://github.com/transcodings/ai-action-tracker-mcp/commit/5a2420ae8c1d467badf884150cff96815aa13a97))
+* **build:** Phase3-A 비공개 backend 난독화 CDN 번들 빌드 추가 ([3e5a421](https://github.com/transcodings/ai-action-tracker-mcp/commit/3e5a4212d3d086ce15f6da00db2c32eb1715b6cd))
+
+
+### Bug Fixes
+
+* **build:** CDN 번들 결정성 강제 + 워크스페이스 사전 빌드 ([1d77a68](https://github.com/transcodings/ai-action-tracker-mcp/commit/1d77a6836ce10d40ff920607dbfa06ac62c9e559))
+
 ## [0.5.7](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.6...transcodes-guard-v0.5.7) (2026-06-09)
 
 
