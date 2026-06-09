@@ -74,7 +74,7 @@ function readNumericDate(
 function readAudience(
   rec: Record<string, unknown>,
 ): readonly string[] | undefined {
-  const aud = rec['aud'];
+  const aud = rec.aud;
   if (typeof aud === 'string') {
     const t = aud.trim();
     return t ? [t] : undefined;

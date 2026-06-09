@@ -22,7 +22,7 @@ function readJson(p) {
   return JSON.parse(readFileSync(p, "utf8"));
 }
 function writeJson(p, obj) {
-  writeFileSync(p, JSON.stringify(obj, null, 2) + "\n", "utf8");
+  writeFileSync(p, `${JSON.stringify(obj, null, 2)}\n`, "utf8");
 }
 
 function bumpSemver(current, part) {
