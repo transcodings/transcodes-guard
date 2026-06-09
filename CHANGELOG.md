@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.5](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.4...transcodes-guard-v0.5.5) (2026-06-09)
+
+
+### Bug Fixes
+
+* **ci:** biome 포맷 대상에서 plugin.json 제외 (release-please 충돌 해소) ([0bc7c29](https://github.com/transcodings/ai-action-tracker-mcp/commit/0bc7c29440cbedff022d1f8b6be5912cc261809b))
+* **ci:** biome 포맷에서 plugin.json 제외 (release-please 충돌 → main CI 복구) ([03f28f9](https://github.com/transcodings/ai-action-tracker-mcp/commit/03f28f98d2619d0f544b315f77c9784829100c54))
+
 ## [0.5.4](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.3...transcodes-guard-v0.5.4) (2026-06-09)
 
 
