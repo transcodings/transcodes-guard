@@ -17,7 +17,8 @@
       "**/hooks/**/*.ts",
       "**/host.ts",
       "**/*.json",
-      "**/tsup.config.ts"
+      "**/tsup.config.ts",
+      "!**/plugin.json"
     ]
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
