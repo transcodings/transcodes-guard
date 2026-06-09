@@ -81,7 +81,7 @@ setGateBackend — the getGateBackend() call sites do not change.
 
 | 단위 | 제목 | 규모 | 선행 | 외부 blocker | 상태 |
 |---|---|:--:|---|---|---|
-| [A](./phase3/A-obfuscate-build.md) | 비공개 backend 난독화 빌드 | **M** | — | 없음 | ✅ **Ready** |
+| [A](./phase3/A-obfuscate-build.md) | 비공개 backend 난독화 빌드 | **M** | — | 없음 | 🎉 **Done** (PR #44) |
 | [B](./phase3/B-cdn-deploy.md) | SHA384 매니페스트 + S3/CloudFront 배포 | **L** | A | AWS 인프라·`cdn.transcodes.dev` 도메인·secrets (OQ2) | ⚠️ Blocked(인프라) |
 | [C](./phase3/C-cdn-loader.md) | CDN 로더 (`backend.ts` 교체) | **L** | A, B | fallback 정책·버전 핀·로더 위치 결정 (OQ1/3/4) | ⚠️ Blocked(결정) |
 | [E](./phase3/E-lint-promotion.md) | 경계 lint warn→error 승격 | **S** | — | 없음 | ✅ **Ready** |
@@ -90,7 +90,7 @@ setGateBackend — the getGateBackend() call sites do not change.
 
 규모 기준: **S** = 단일 PR·외부 의존 0 · **M** = 1~2 PR·결정/검증 동반 · **L** = 복수 PR·외부 인프라 또는 다수 결정·보안 임계.
 
-**권장 실행 순서: A → B → C → E → D → F** (A~C가 본체, E·D는 공개 직전 안전망, F가 스위치). **지금 외부 의존 없이 착수 가능 = A·E.**
+**권장 실행 순서: A → B → C → E → D → F** (A~C가 본체, E·D는 공개 직전 안전망, F가 스위치). **A 완료(PR #44); 지금 외부 의존 없이 착수 가능 = E.**
 
 ## 6. 위험 (Risks) — 마스터
 
@@ -120,7 +120,7 @@ setGateBackend — the getGateBackend() call sites do not change.
 
 | 마일스톤 | 단위 | 산출물 | 규모 | 상태 |
 |---|---|---|:--:|---|
-| M1 — 난독화 빌드 | [A](./phase3/A-obfuscate-build.md) | `npm run build:cdn`, obfuscated `guard-<ver>.mjs` | M | Ready |
+| M1 — 난독화 빌드 | [A](./phase3/A-obfuscate-build.md) | `npm run build:cdn`, obfuscated `guard-<ver>.mjs` | M | 🎉 Done (PR #44) |
 | M2 — CDN 배포 | [B](./phase3/B-cdn-deploy.md) | S3/CloudFront 인프라 + 배포 워크플로 + SHA384 매니페스트 | L | Blocked |
 | M3 — 로더 전환 | [C](./phase3/C-cdn-loader.md) | `backend.ts` 로더 교체, 23종 smoke 통과 | L | Blocked |
 | M4 — 경계 강제 | [E](./phase3/E-lint-promotion.md) | lint error 승격 + seam override | S | Ready |
