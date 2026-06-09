@@ -13,13 +13,15 @@
 - **1단계 (완료)** — 디렉토리를 `public/` ↔ `private/`로 물리 분리. `private/packages/*`는 전부 `"private": true`, CI가 publish-surface 게이트로 강제. public→private import는 biome `noRestrictedImports`로 검출(현재 **warn**).
 - **2단계 (완료)** — `public/packages/gate-contract`에 `GateBackend` 인터페이스 + `setGateBackend`/`getGateBackend` 레지스트리를 두고, `private/packages/gate-backend`가 구현. public 측(hook 15종 + `mcp-server-core`)은 private를 직접 import하지 않고 `getGateBackend()`만 호출한다. public standalone 빌드(private 격리 후 `tsc --noEmit`)까지 검증됨.
 
-핵심 seam은 호스트별 [`public/plugins/*/backend.ts`](../../public/plugins/claude-code/backend.ts) 단 4개 파일이다. 현재는 **phase 1 정적 import**로 `setGateBackend(transcodesGateBackend)`를 호출하며, tsup `noExternal`이 private 어댑터를 각 entry 번들에 **평문(plaintext)으로 inline**한다. 이 docstring이 3단계를 명시적으로 예고한다:
+핵심 seam은 호스트별 [`public/plugins/*/backend.ts`](../../public/plugins/claude-code/backend.ts) 단 4개 파일이다. 현재는 **정적 import**로 `setGateBackend(transcodesGateBackend)`를 호출하며, tsup `noExternal`이 private 어댑터를 각 entry 번들에 **평문(plaintext)으로 inline**한다. 이 docstring이 본 단계(CDN 전환)를 명시적으로 예고한다:
 
 ```
 Phase 2 (CDN): replace the static import below with the loader that fetches
 the obfuscated backend bundle from CloudFront, verifies it, and calls
 setGateBackend — the getGateBackend() call sites do not change.
 ```
+
+> ⚠️ **단계 번호 주의**: 코드 docstring(`backend.ts`·`registry.ts`)과 biome 메시지는 CDN/DI 작업을 **"Phase 2"**로 부른다. 이는 DI 단계가 독립 단계로 삽입되기 *전*의 2단계 모델(1=분리+번들, 2=CDN)에서 쓰인 것이며, 갱신되지 않았다. **코드의 "Phase 2 (CDN)" = 본 PRD의 3단계**다. 워크스트림 C·E에서 이 docstring/메시지의 번호를 phase3 기준으로 정정한다(아래 §C·§E).
 
 ## 2. 문제 정의 (Problem)
 
@@ -80,13 +82,15 @@ setGateBackend — the getGateBackend() call sites do not change.
 | 항목 | 내용 |
 |---|---|
 | **요구사항** | `private/packages/gate-backend`를 단일 obfuscated ESM(`guard-<version>.mjs`)으로 빌드하는 별도 스크립트 신설 |
-| **도구** | `javascript-obfuscator` — identifier mangling + control-flow flattening + string-array encoding + self-defending + dead code injection (split.md §2.4). 단순 `mangle`만으로는 불충분 |
+| **빌드 파이프라인** | esbuild/tsup로 단일 ESM 번들(`minify: true`) → `javascript-obfuscator`로 후처리. **역할 분담**: `minify`가 identifier mangling + dead-code elimination 담당, obfuscator는 minify가 못 하는 문자열 은닉만 담당 |
+| **obfuscator 설정 (기존 백엔드 전략 채택)** | 기존 백엔드 [`bundler.obfuscate.ts`](../../../transcode-backend-nestjs-v1/src/toolkit/bundler/bundler.obfuscate.ts)의 **lightweight 프리셋**을 기준으로 한다: `stringArray: true` + 낮은 `stringArrayThreshold`(~0.1) + **`stringArrayEncoding: []`(인코딩 없음)**, `controlFlowFlattening`·`deadCodeInjection`·`selfDefending`·`renameGlobals`·`simplify` **전부 OFF**. 결정적 빌드를 위해 `seed` 고정 추가 |
+| **근거** | (1) hook 임계경로 — `controlFlowFlattening`은 런타임 최대 1.5x 저하(context7 확인), `deadCodeInjection`은 번들 비대화. 게이트는 *모든 tool call* hook에서 돌아 §6 "첫 fetch 지연" risk와 직결. (2) 결정성 — shuffle/rotate/deadCode는 난수 기반→비결정적이라 SHA384 핀(§B)과 충돌. (3) "풀린다" 전제(NG2)상 heavy transform은 정상 사용자만 느리게 함. 로직 은닉 강도는 transform이 아니라 NG2 정책 이관으로 메운다 |
 | **산출물** | `cdn-dist/guard-<version>.mjs` (단일 파일, public dist와 분리된 경로) |
 | **public dist 변경** | plugin 번들에서 private backend 평문 inline 제거 — backend.ts가 로더로 바뀌면 자연 해소(C와 연동) |
-| **검증** | 산출물 grep으로 백엔드 URL/도구명/식별자 잔존 0건; 번들이 정상 `import()` 가능 |
-| **수용 기준** | `npm run build:cdn`(가칭)이 결정적으로 동일 번들 생성, public dist에 private 식별자 누출 0 |
+| **검증** | 번들 입력 검증은 **esbuild/tsup `metafile`로 input 모듈 그래프 확인**(백엔드 가이드 `toolkit-core.md`: "string grep on obfuscated bundles is unreliable" — `stringArray`가 문자열을 배열로 재배치해 grep이 false-negative 낼 수 있음). grep은 보조 스모크로만; 번들이 정상 `import()` 가능 |
+| **수용 기준** | `npm run build:cdn`(가칭)이 **동일 입력→동일 SHA384**(seed 고정 결정성), metafile에 private 모듈만 포함, public dist에 private 식별자 누출 0 |
 
-> 한계 명시: obfuscation은 "결국 클라이언트 코드는 풀린다"는 전제(split.md §2.4). 라이선스/표면 축소용이며 완전한 안티-리버스엔지니어링이 아님. 진짜 방어선은 NG2(정책 백엔드 이관).
+> 한계 명시: obfuscation은 "결국 클라이언트 코드는 풀린다"는 전제(split.md §2.4). 라이선스/표면 축소용이며 완전한 안티-리버스엔지니어링이 아님. 진짜 방어선은 NG2(정책 백엔드 이관). 따라서 lightweight 프리셋으로 충분하며, aggressive 프리셋의 비용(런타임 저하·비결정성·번들 비대)은 이 전제하에서 정당화되지 않는다.
 
 ### B. SHA384 매니페스트 + S3/CloudFront 배포
 
@@ -118,17 +122,20 @@ setGateBackend — the getGateBackend() call sites do not change.
 | **요구사항** | `git filter-repo --invert-paths --path private/`로 private 히스토리를 완전 제거한 미러를 `transcodes-guard` public repo로 push하는 워크플로 |
 | **타이밍 제약** | 공개 push 전에 디렉토리 분리가 끝나야 force-push 마찰이 없음 — **1단계로 이미 충족** (split.md §5.2) |
 | **CLI tarball 예외** | CLI tarball 빌드 job은 **full repo에서** 실행(미러 아님) — tsup이 private deps를 inline해야 함(release-dist.md) |
-| **검증 체크리스트** | private 히스토리 제거 확인, files allowlist, 백엔드 endpoint/도구명 잔존 grep, `--dry-run` filter-repo 사전 점검(mapping.md §검증) |
-| **수용 기준** | 미러 리포에 `private/` 경로가 현재·과거 커밋 어디에도 없음; public만으로 빌드/타입체크 그린 |
+| ⚠️ **CLI 경로 충돌** | CLI(`@bigstrider/transcodes-cli`) 소스는 현재 **`private/cli/`** 에 있다. `--invert-paths --path private/`는 CLI 소스까지 미러에서 제거 → **public 미러에 control plane(enable/disable/tokens) 소스가 0줄**이 된다. npm 발행은 위 "full repo 빌드" job이 커버하나, "미러=배포 채널"(§F)·"CLI는 게이트의 human control plane"(CLAUDE.md)과 정합하려면 미러에 CLI를 둘지 결정 필요. → OQ#7 |
+| **검증 체크리스트** | private 히스토리 제거 확인, files allowlist, 백엔드 endpoint/도구명 잔존은 **metafile/모듈그래프 기준**(grep 보조), `--dry-run` filter-repo 사전 점검(mapping.md §검증) |
+| **수용 기준** | 미러 리포에 `private/` 경로가 현재·과거 커밋 어디에도 없음; public만으로 빌드/타입체크 그린; CLI 미러 포함 방침(OQ#7) 반영 |
 
 ### E. 경계 lint warn→error 승격
 
 | 항목 | 내용 |
 |---|---|
 | **요구사항** | biome `noRestrictedImports`를 public→private import에 대해 **error**로 승격 |
+| ⚠️ **현 규칙 갭** | 현재 `biome.json`의 restricted paths는 `stepup-core`·`transcodes-mcp-tools`·`danger-rules` **3개뿐**이고 **`@transcodes-guard-private/gate-backend`는 빠져 있다**. seam인 `backend.ts`는 `gate-backend`만 import → 현 규칙으론 애초에 안 걸린다. 따라서 승격 작업은 **(1) `gate-backend`를 restricted list에 추가** → **(2) `backend.ts`에 per-file override**의 2단계가 모두 필요하다(둘 중 하나만으론 경계 미강제 또는 seam 오류) |
 | **예외** | `public/plugins/*/backend.ts` 단일 seam만 per-file override(의도적 private import 지점) |
-| **배경** | 2단계에서 의도적으로 보류됨(#29 본문) — error 승격은 per-file override 선행 필요 |
-| **수용 기준** | seam 외 public 파일이 private를 import하면 빌드 실패; CI에서 강제 |
+| **stale 메시지 정리** | 현 restricted-import 메시지는 `"Phase 2 will introduce a GateBackend DI interface..."`라 하나, DI는 이미 #29에서 도입 완료. 메시지를 "DI 경계는 도입됨; 본 승격으로 seam 외 import를 금지한다" 취지로 갱신(§1 단계 번호 주의와 함께) |
+| **배경** | 2단계에서 의도적으로 보류됨(#29 본문) — error 승격은 위 2단계(gate-backend 등록 + per-file override) 선행 필요 |
+| **수용 기준** | seam(`backend.ts`) 외 public 파일이 `@transcodes-guard-private/*`(gate-backend 포함)를 import하면 빌드 실패; CI에서 강제 |
 
 ### F. public 미러 공개
 
@@ -158,6 +165,8 @@ setGateBackend — the getGateBackend() call sites do not change.
 4. **로더 패키지 위치** — `@transcodes-guard/loader`를 별도 public 패키지로 둘지, `backend.ts` 인라인으로 둘지?
 5. **public dist 평문 제거 타이밍** — A 완료 후 C 전까지 과도기에 public dist는 어떤 상태인가?
 6. **CLI tarball의 private inline** — CLI는 여전히 private를 inline 발행하는데(MEMORY), 이는 CDN 모델 밖에 둘지 함께 전환할지?
+7. **CLI 미러 포함 여부** — CLI 소스가 `private/cli/`에 있어 `--path private/` 미러 명령에 함께 제거된다(§D). 미러는 npm 발행 CLI를 참조만 하고 소스는 비공개로 둘지, 아니면 CLI를 `public/`으로 옮겨 미러에 포함할지? (control plane 소스 가시성 vs 비공개 유지)
+8. **obfuscator encoding 채택 여부** — 기본은 백엔드와 동일하게 `stringArrayEncoding: []`(없음). 엔드포인트 문자열 은닉을 위해 `['base64']`를 켤 가치가 있는가? (hot-path 디코드 비용 vs 네트워크 트래픽으로 어차피 노출되는 엔드포인트 — §A는 "없음" 권장)
 
 ## 8. 마일스톤 (Milestones)
 
