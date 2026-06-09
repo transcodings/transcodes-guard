@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.3](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.2...transcodes-guard-v0.5.3) (2026-06-09)
+
+
+### Documentation
+
+* **prd:** phase3 정합성 정정 — obfuscation 전략·lint 갭·CLI 경로 ([3fb55db](https://github.com/transcodings/ai-action-tracker-mcp/commit/3fb55db029b602a6eab1163dc4be0143f154ab1d))
+* **prd:** phase3 정합성 정정 — obfuscation 전략·lint 갭·CLI 경로 ([5dd9472](https://github.com/transcodings/ai-action-tracker-mcp/commit/5dd9472ee5bdca66376a59d113c5e6700fd62635))
+
 ## [0.5.2](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.5.1...transcodes-guard-v0.5.2) (2026-06-08)
 
 
