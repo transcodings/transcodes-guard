@@ -13,6 +13,7 @@
     "build": "turbo run build",
     "prebuild:plugin": "node scripts/stamp-build-info.mjs",
     "build:plugin": "turbo run build:plugin",
+    "prebuild:cdn": "turbo run build --filter=@transcodes-guard-private/gate-backend...",
     "build:cdn": "node scripts/build-cdn.mjs",
     "dev:stdio": "npm run dev:stdio -w @bigstrider/transcodes-guard-claude-code",
     "dev:http": "npm run dev:http -w @bigstrider/transcodes-guard-claude-code",

@@ -18,8 +18,7 @@
  * diagnostics go to console.error.
  *
  * Usage:
- *   node scripts/build-cdn.mjs            build once, write artifact, print hash
- *   node scripts/build-cdn.mjs --verify   build twice, assert identical SHA384
+ *   node scripts/build-cdn.mjs   build twice, assert identical SHA384, write artifact
  */
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -118,18 +117,18 @@ const version = JSON.parse(
   readFileSync(path.join(root, "package.json"), "utf8"),
 ).version;
 
-const obfuscated = await buildOnce();
-
-if (process.argv.includes("--verify")) {
-  const second = await buildOnce();
-  if (sha384(obfuscated) !== sha384(second)) {
-    console.error("Determinism check FAILED — two builds differ.");
-    process.exit(1);
-  }
-  console.error("Determinism check OK — two builds identical.");
+// Always build twice and assert the obfuscated output is byte-identical: the
+// SHA384 pin (Unit B) depends on this determinism, so it is a build invariant,
+// not an opt-in. Write the verified build.
+const first = await buildOnce();
+const second = await buildOnce();
+if (sha384(first) !== sha384(second)) {
+  console.error("Determinism check FAILED — two builds differ.");
+  process.exit(1);
 }
+console.error("Determinism check OK — two builds identical.");
 
 const outFile = path.join(OUT_DIR, `guard-${version}.mjs`);
 mkdirSync(path.join(root, OUT_DIR), { recursive: true });
-writeFileSync(path.join(root, outFile), obfuscated, "utf8");
-console.error(`built ${outFile}  ${sha384(obfuscated)}`);
+writeFileSync(path.join(root, outFile), second, "utf8");
+console.error(`built ${outFile}  ${sha384(second)}`);
