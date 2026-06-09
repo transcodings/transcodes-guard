@@ -1,7 +1,7 @@
 # Phase 3 / Unit A — 비공개 backend 난독화 빌드
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M1
-> 규모: **M** · 선행: 없음 · 외부 의존: 없음 · 상태: ✅ **Ready (지금 착수 가능)**
+> 규모: **M** · 선행: 없음 · 외부 의존: 없음 · 상태: 🎉 **Done** ([PR #44](https://github.com/transcodings/ai-action-tracker-mcp/pull/44) 머지)
 
 ## 규모 산정
 
