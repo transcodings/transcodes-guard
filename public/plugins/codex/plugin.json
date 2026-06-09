@@ -8,15 +8,7 @@
   "homepage": "https://github.com/transcodings/ai-action-tracker-mcp",
   "repository": "https://github.com/transcodings/ai-action-tracker-mcp",
   "license": "MIT",
-  "keywords": [
-    "safety",
-    "hook",
-    "mcp",
-    "audit",
-    "security",
-    "bash",
-    "codex"
-  ],
+  "keywords": ["safety", "hook", "mcp", "audit", "security", "bash", "codex"],
   "hooks": "./hooks/hooks.json",
   "mcpServers": "./.mcp.json"
 }

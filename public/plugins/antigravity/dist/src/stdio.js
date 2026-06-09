@@ -15,7 +15,7 @@ import {
   objectType,
   removeUserPattern,
   updateUserPattern
-} from "../chunk-QOIJMDNV.js";
+} from "../chunk-EDVJVNSK.js";
 
 // ../../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17049,7 +17049,7 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // ../../packages/mcp-server-core/dist/build-info.js
-var PLUGIN_VERSION = "0.4.0";
+var PLUGIN_VERSION = "0.5.2";
 
 // ../../packages/mcp-server-core/dist/server.js
 var RBAC_ACTION_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first to fetch valid resource keys, then pass `stepupResource` (must match one of those keys; validated against the backend) and `stepupAction` (CRUD). System rules use resource `system`. This maps the rule onto the project's RBAC permission matrix and audit log.";

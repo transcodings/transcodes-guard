@@ -1724,7 +1724,7 @@ function readNumericDate(rec, key) {
   return Number.isFinite(n) ? Math.floor(n) : void 0;
 }
 function readAudience(rec) {
-  const aud = rec["aud"];
+  const aud = rec.aud;
   if (typeof aud === "string") {
     const t = aud.trim();
     return t ? [t] : void 0;
