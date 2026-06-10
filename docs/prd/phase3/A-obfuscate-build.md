@@ -1,7 +1,7 @@
 # Phase 3 / Unit A — 비공개 backend 난독화 빌드
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M1
-> 규모: **M** · 선행: 없음 · 외부 의존: 없음 · 상태: 🎉 **Done** ([PR #44](https://github.com/transcodings/ai-action-tracker-mcp/pull/44) 머지)
+> 규모: **M** · 선행: 없음 · 외부 의존: 없음 · 상태: 🎉 **Done** ([PR #44](https://github.com/transcodings/ai-action-tracker-mcp/pull/44) 머지) · **산출물 보류 (2026-06-10, v2 전환)** — v2는 코드 은닉을 폐기하므로 `build:cdn` 산출물은 미사용. 스크립트는 보존(shelved), 후속 정리는 [Unit I](./I-license.md) §부수 정리. 미해결 지적: `rotateStringArray`는 구 옵션명 가능성(현행 `stringArrayRotate`) — 재가동 시 확인.
 
 ## 규모 산정
 
