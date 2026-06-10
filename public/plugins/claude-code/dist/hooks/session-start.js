@@ -8,7 +8,7 @@ import {
 } from "../chunk-HSD64H5W.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.7.1";
+var PLUGIN_VERSION = "0.8.0";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
