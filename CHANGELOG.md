@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.6.1...transcodes-guard-v0.7.0) (2026-06-10)
+
+
+### Features
+
+* **lint:** Phase3-E — public→private 경계 lint warn→error 승격 + CLAUDE.md 현행화 ([39e0824](https://github.com/transcodings/ai-action-tracker-mcp/commit/39e08248eec983a54abdcfe56604b4a25209d4be))
+* **lint:** public→private 경계 noRestrictedImports warn→error 승격 (Phase3-E) ([5a37157](https://github.com/transcodings/ai-action-tracker-mcp/commit/5a3715775c90e61502407d79e2c2184698073b4d))
+
+
+### Documentation
+
+* **claude:** CLAUDE.md를 public/private 재배치 후 현 상태로 갱신 ([a9ca7b9](https://github.com/transcodings/ai-action-tracker-mcp/commit/a9ca7b9a84c743f84b39c7d7731aaf2984e0fc84))
+
 ## [0.6.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.6.0...transcodes-guard-v0.6.1) (2026-06-09)
 
 
