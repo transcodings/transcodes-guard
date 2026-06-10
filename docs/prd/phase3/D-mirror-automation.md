@@ -1,7 +1,8 @@
 # Phase 3 / Unit D — public 미러 자동화
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M5
-> 규모: **M** · 선행: [A](./A-obfuscate-build.md)~[C](./C-cdn-loader.md)(사실상 — 평문 누출 제거가 선행돼야 안전) · 외부 의존: **target public repo·OQ7 결정** · 상태: ⚠️ **Blocked (결정)**
+> 상태: 🗑 **Superseded (2026-06-10, v2 전환)** — 상시 미러 인프라 폐기. v2에서는 비밀 코드가 없어 리포 자체를 공개하며, filter-repo는 시크릿 스캔 실패 시 1회성 도구로 강등 → [Unit J](./J-public-flip.md). OQ7(CLI 미러)은 소멸. 이하는 기록용 원문.
+> ~~규모: **M** · 선행: [A](./A-obfuscate-build.md)~[C](./C-cdn-loader.md)(사실상 — 평문 누출 제거가 선행돼야 안전) · 외부 의존: **target public repo·OQ7 결정** · 상태: ⚠️ Blocked (결정)~~
 
 ## 규모 산정
 

@@ -1,7 +1,8 @@
 # Phase 3 / Unit E — 경계 lint warn→error 승격
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M4
-> 규모: **S** · 선행: 없음 · 외부 의존: 없음 · 상태: ✅ **Ready (지금 착수 가능)**
+> 규모: **S** · 선행: 없음 · 외부 의존: 없음 · 상태: 🎉 **Done** ([PR #48](https://github.com/transcodings/ai-action-tracker-mcp/pull/48) 머지 — gate-backend restricted 등록 + seam override + `private/**` off + stale 메시지 정리)
+> v2 비고: private scope가 [Unit I](./I-license.md)에서 해체되면 본 규칙은 "구현 패키지는 seam 외 import 금지"라는 아키텍처 규칙으로 재조준된다(I §경계 규칙 정리).
 
 ## 규모 산정
 

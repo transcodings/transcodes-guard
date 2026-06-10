@@ -1,7 +1,8 @@
 # Phase 3 / Unit F — public 미러 공개
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M6
-> 규모: **S** (대부분 human) · 선행: **A~E 전부** · 외부 의존: 위 전부 · 상태: 🚫 **Gated (최종 스위치)**
+> 상태: 🗑 **Superseded (2026-06-10, v2 전환)** — 미러 공개가 아니라 본 리포 공개로 대체 → [Unit J](./J-public-flip.md). 이하는 기록용 원문.
+> ~~규모: **S** (대부분 human) · 선행: **A~E 전부** · 외부 의존: 위 전부 · 상태: 🚫 Gated (최종 스위치)~~
 
 ## 규모 산정
 
