@@ -51,6 +51,7 @@ export const denyByDefaultBackend: GateBackend = {
   hasToken() {
     return false;
   },
+  async sendGateDecisionAudit() {},
 
   // server path — call-shaped methods throw
   createStepupSession() {

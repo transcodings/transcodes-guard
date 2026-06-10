@@ -12,6 +12,7 @@
  */
 export { request, } from './client.js';
 export { DEFAULT_BACKEND_URL, loadStepupConfig, STEPUP_TTL_MS, } from './config.js';
+export { DECISION_AUDIT_TAG, DECISION_AUDIT_TIMEOUT_MS, decisionAuditEventOf, sendDecisionAudit, sendGateDecisionAudit, } from './decision-audit.js';
 export { evaluatePreToolUse, } from './evaluate.js';
 export { fingerprintOf, requestStepup, } from './gate.js';
 export { inspectStepupState, } from './inspector.js';

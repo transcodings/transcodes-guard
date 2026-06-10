@@ -46,6 +46,9 @@ export interface BlockResult {
   details?: string[];
   /** Command / tool-call summary used in stderr logs and the pending file. */
   command: string;
+  /** Id of the matched pattern/tool-rule (or a synthetic id for built-in
+   * semantic checks). Feeds the decision audit (H2) — never the raw command. */
+  ruleId: string;
   /** RBAC step-up coordinate of the matched rule. Always resolved by the
    * producer (pattern/tool-rule are coerced on load; the git-tracked check
    * hard-codes system/delete) so the gate can consult the matrix directly. */
@@ -98,6 +101,7 @@ function checkPatternMatch(command: string): BlockResult | null {
   return {
     reason: `matched ${source} pattern \`${id}\` — ${reason}`,
     command,
+    ruleId: id,
     stepupResource,
     stepupAction,
   };
@@ -201,6 +205,7 @@ function checkRmGitTracked(command: string, cwd: string): BlockResult | null {
       )}${more}`;
     }),
     command,
+    ruleId: 'rm-git-tracked',
     stepupResource: DEFAULT_RBAC_RESOURCE,
     stepupAction: 'delete',
   };
@@ -334,6 +339,7 @@ export async function evaluatePreToolUse(
           command: `${classified.toolName} ${stringifyToolInput(
             classified.toolInput,
           )}`,
+          ruleId: classified.rule.id,
           stepupResource: classified.rule.stepupResource,
           stepupAction: classified.rule.stepupAction,
         };

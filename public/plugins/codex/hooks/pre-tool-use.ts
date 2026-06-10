@@ -56,6 +56,7 @@ async function main(): Promise<void> {
         backend.clearPending(decision.fp);
       }
       process.stderr.write(`${formatStderrTag(decision)}\n`);
+      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
     case 'deny-no-token':
@@ -67,6 +68,7 @@ async function main(): Promise<void> {
         }),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
+      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
     case 'deny-rbac-denied':
@@ -78,6 +80,7 @@ async function main(): Promise<void> {
         }),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
+      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
     case 'deny-stepup-failure':
@@ -89,6 +92,7 @@ async function main(): Promise<void> {
         }),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
+      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
     case 'deny-stepup-pending':
@@ -107,6 +111,7 @@ async function main(): Promise<void> {
         );
       }
       process.stderr.write(`${formatStderrTag(decision)}\n`);
+      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
   }
 }

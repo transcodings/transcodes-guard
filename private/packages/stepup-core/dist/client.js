@@ -31,7 +31,7 @@ export async function request(config, input) {
         body = JSON.stringify(input.body ?? {});
     }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? REQUEST_TIMEOUT_MS);
     try {
         const response = await fetch(url, {
             method: input.method,

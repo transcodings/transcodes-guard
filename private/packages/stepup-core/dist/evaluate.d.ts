@@ -13,6 +13,9 @@ export interface BlockResult {
     details?: string[];
     /** Command / tool-call summary used in stderr logs and the pending file. */
     command: string;
+    /** Id of the matched pattern/tool-rule (or a synthetic id for built-in
+     * semantic checks). Feeds the decision audit (H2) — never the raw command. */
+    ruleId: string;
     /** RBAC step-up coordinate of the matched rule. Always resolved by the
      * producer (pattern/tool-rule are coerced on load; the git-tracked check
      * hard-codes system/delete) so the gate can consult the matrix directly. */

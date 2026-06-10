@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "codex";
+process.env.TRANSCODES_GUARD_HOST = "antigravity";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -172,6 +172,8 @@ var denyByDefaultBackend = {
   },
   hasToken() {
     return false;
+  },
+  async sendGateDecisionAudit() {
   },
   // server path — call-shaped methods throw
   createStepupSession() {
@@ -1660,7 +1662,7 @@ async function request(config, input) {
     body = JSON.stringify(input.body ?? {});
   }
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(url, {
       method: input.method,
@@ -1919,6 +1921,56 @@ function loadStepupConfig() {
     projectId: parsed.claims.projectId,
     memberId: parsed.claims.memberId
   };
+}
+
+// ../../../private/packages/stepup-core/dist/decision-audit.js
+var DECISION_AUDIT_TAG = "guard_gate_decision";
+var DECISION_AUDIT_TIMEOUT_MS = 1e3;
+function decisionAuditEventOf(decision) {
+  if (decision.kind === "pass")
+    return null;
+  return {
+    decision: decision.kind,
+    resource: decision.block.stepupResource,
+    action: decision.block.stepupAction,
+    ruleId: decision.block.ruleId,
+    ...decision.kind === "allow" && decision.fp ? { fp: decision.fp } : {},
+    ...decision.kind === "deny-stepup-pending" && decision.pending.fp ? { fp: decision.pending.fp } : {}
+  };
+}
+async function sendDecisionAudit(config, event, opts = {}) {
+  try {
+    const env = await request(config, {
+      method: "POST",
+      path: "/audit/logs",
+      timeoutMs: opts.timeoutMs ?? DECISION_AUDIT_TIMEOUT_MS,
+      body: {
+        project_id: config.projectId,
+        member_id: config.memberId,
+        tag: DECISION_AUDIT_TAG,
+        severity: event.decision === "allow" ? "low" : "medium",
+        status: true,
+        metadata: event
+      }
+    });
+    if (!env.ok) {
+      console.error(`transcodes-guard: decision audit not recorded (status ${env.status})`);
+    }
+  } catch (err) {
+    console.error(`transcodes-guard: decision audit not recorded (${err instanceof Error ? err.message : String(err)})`);
+  }
+}
+async function sendGateDecisionAudit(decision) {
+  const event = decisionAuditEventOf(decision);
+  if (!event)
+    return;
+  let config;
+  try {
+    config = loadStepupConfig();
+  } catch {
+    return;
+  }
+  await sendDecisionAudit(config, event);
 }
 
 // ../../../private/packages/stepup-core/dist/evaluate.js
@@ -6363,7 +6415,7 @@ function extractPermission(data, resource, action) {
   const payload = data.payload;
   if (!Array.isArray(payload))
     return null;
-  const match = payload.find((p) => !!p && typeof p === "object" && p.resource === resource && p.action === action) ?? payload[0];
+  const match = payload.find((p) => !!p && typeof p === "object" && p.resource === resource && p.action === action);
   const level = match?.permission;
   return level === 0 || level === 1 || level === 2 ? level : null;
 }
@@ -6392,6 +6444,7 @@ function checkPatternMatch(command) {
   return {
     reason: `matched ${source} pattern \`${id}\` \u2014 ${reason}`,
     command,
+    ruleId: id,
     stepupResource,
     stepupAction
   };
@@ -6470,6 +6523,7 @@ function checkRmGitTracked(command, cwd) {
       return `${h.target} \u2014 ${h.trackedCount} tracked file(s): ${h.samples.join(", ")}${more}`;
     }),
     command,
+    ruleId: "rm-git-tracked",
     stepupResource: DEFAULT_RBAC_RESOURCE,
     stepupAction: "delete"
   };
@@ -6534,6 +6588,7 @@ async function evaluatePreToolUse(input) {
   const block = classified.kind === "bash" ? checkPatternMatch(classified.command) ?? checkRmGitTracked(classified.command, classified.cwd) : {
     reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` \u2014 ${classified.rule.reason}`,
     command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
+    ruleId: classified.rule.id,
     stepupResource: classified.rule.stepupResource,
     stepupAction: classified.rule.stepupAction
   };
@@ -7666,6 +7721,7 @@ var transcodesGateBackend = {
   isExpired,
   sweepStepup,
   hasToken: () => Boolean(resolveToken().token),
+  sendGateDecisionAudit,
   // server path: step-up session — config loaded internally
   createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),
   pollStepupSession: (sid) => pollStepupSession(loadStepupConfig(), sid),

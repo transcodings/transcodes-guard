@@ -28,6 +28,8 @@ export interface BlockResult {
   reason: string;
   details?: string[];
   command: string;
+  /** Id of the matched pattern/tool-rule. Feeds the decision audit (H2). */
+  ruleId: string;
   stepupResource: string;
   stepupAction: RbacAction;
 }

@@ -22,10 +22,15 @@ function extractPermission(data, resource, action) {
     const payload = data.payload;
     if (!Array.isArray(payload))
         return null;
+    // Coordinate must match exactly. No payload[0] fallback: borrowing another
+    // coordinate's permission would decide with the wrong row of the matrix.
+    // The backend always echoes resource/action back (CheckRbacPermissionResponseDto),
+    // so a mismatch means a malformed/foreign response → null → caller's
+    // fail-closed `?? 2` (step-up forced). Phase3 v2 Unit H1.
     const match = payload.find((p) => !!p &&
         typeof p === 'object' &&
         p.resource === resource &&
-        p.action === action) ?? payload[0];
+        p.action === action);
     const level = match?.permission;
     return level === 0 || level === 1 || level === 2 ? level : null;
 }
