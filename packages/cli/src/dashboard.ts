@@ -31,11 +31,14 @@ import {
   updateUserToolRule,
 } from '@transcodes-guard-private/danger-rules';
 import {
+  loadStepupConfig,
   parseMemberAccessToken,
   readTokenFromFile,
   readTokenList,
   readTokenRecords,
   removeTokenFromFile,
+  request,
+  resolveToken,
   setActiveToken,
   setTokenLabel,
   transcodesConfigFile,
@@ -63,6 +66,19 @@ type StatusPayload = {
   envOverridesFile: boolean;
   tokens: TokenEntry[];
 };
+
+type ProfilePayload =
+  | {
+      ok: true;
+      name?: string;
+      email?: string;
+      role?: string;
+    }
+  | {
+      ok: false;
+      reason: 'no-token' | 'backend-error' | 'error';
+      message?: string;
+    };
 
 function fingerprint(token: string): string {
   return createHash('sha256').update(token).digest('hex').slice(0, 12);
@@ -115,6 +131,126 @@ function buildStatus(): StatusPayload {
   });
 
   return { configPath, envOverridesFile, tokens };
+}
+
+function pickString(
+  obj: Record<string, unknown>,
+  keys: string[],
+): string | undefined {
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+function firstRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  const first = value[0];
+  if (first && typeof first === 'object' && !Array.isArray(first)) {
+    return first as Record<string, unknown>;
+  }
+  return undefined;
+}
+
+function unwrapMemberData(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+  const root = data as Record<string, unknown>;
+
+  // Transcodes API envelope: { payload: [{ name, email, role, ... }] }
+  const fromPayload = firstRecord(root.payload);
+  if (fromPayload) return fromPayload;
+
+  if (
+    root.member &&
+    typeof root.member === 'object' &&
+    !Array.isArray(root.member)
+  ) {
+    return root.member as Record<string, unknown>;
+  }
+
+  if (root.data && typeof root.data === 'object' && !Array.isArray(root.data)) {
+    const nested = root.data as Record<string, unknown>;
+    const fromNestedPayload = firstRecord(nested.payload);
+    if (fromNestedPayload) return fromNestedPayload;
+    if (
+      nested.member &&
+      typeof nested.member === 'object' &&
+      !Array.isArray(nested.member)
+    ) {
+      return nested.member as Record<string, unknown>;
+    }
+    return nested;
+  }
+
+  return root;
+}
+
+function extractMemberProfile(data: unknown): {
+  name?: string;
+  email?: string;
+  role?: string;
+} {
+  const member = unwrapMemberData(data);
+  let role = pickString(member, ['role', 'role_name', 'roleName', 'role_id']);
+  if (!role && member.role && typeof member.role === 'object') {
+    role = pickString(member.role as Record<string, unknown>, [
+      'name',
+      'id',
+      'role_name',
+      'roleName',
+    ]);
+  }
+  return {
+    name: pickString(member, [
+      'name',
+      'member_name',
+      'displayName',
+      'display_name',
+    ]),
+    email: pickString(member, ['email']),
+    role,
+  };
+}
+
+function backendErrorMessage(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const obj = data as Record<string, unknown>;
+  const message = obj.message ?? obj.error;
+  return typeof message === 'string' && message.trim()
+    ? message.trim()
+    : undefined;
+}
+
+/** Same backend call as MCP `get_my_profile` — member of the active token. */
+async function buildProfile(): Promise<ProfilePayload> {
+  const { token } = resolveToken();
+  if (!token) return { ok: false, reason: 'no-token' };
+
+  try {
+    const config = loadStepupConfig();
+    const envelope = await request(config, {
+      method: 'GET',
+      path: '/auth/member',
+      query: { project_id: config.projectId, member_id: config.memberId },
+    });
+    if (!envelope.ok) {
+      return {
+        ok: false,
+        reason: 'backend-error',
+        message:
+          backendErrorMessage(envelope.data) ??
+          `Backend returned HTTP ${envelope.status}`,
+      };
+    }
+    return { ok: true, ...extractMemberProfile(envelope.data) };
+  } catch (err) {
+    return {
+      ok: false,
+      reason: 'error',
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 /** Find a stored token by its fingerprint id. */
@@ -195,7 +331,7 @@ function dashboardHtml(): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Transcodes — Token</title>
+  <title>Transcodes</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     :root {
@@ -239,30 +375,85 @@ function dashboardHtml(): string {
     }
     .header {
       display: flex;
-      align-items: center;
-      gap: 16px;
+      align-items: flex-start;
+      gap: 18px;
       padding-bottom: 24px;
       border-bottom: 1px solid var(--line);
     }
     .avatar {
-      width: 56px;
-      height: 56px;
+      width: 52px;
+      height: 52px;
       border-radius: 14px;
       flex-shrink: 0;
       object-fit: contain;
-      background: #f4f4f6;
-      padding: 8px;
+      background: linear-gradient(180deg, #fafafa 0%, #f0f0f4 100%);
+      padding: 9px;
+      border: 1px solid var(--line);
+      box-shadow: 0 1px 2px rgba(16, 16, 26, 0.04);
+    }
+    .header-brand {
+      flex: 1;
+      min-width: 0;
+      padding-top: 2px;
     }
     .header h1 {
       margin: 0;
       font-size: var(--text-xl);
       font-weight: 700;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
     }
-    .header p {
+    .header-subtitle {
       margin: 5px 0 0;
       font-size: var(--text-sm);
       color: var(--muted);
+      line-height: 1.35;
+    }
+    .profile-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: var(--text-2xs);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(91, 84, 230, 0.14);
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .header-meta {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .header-meta.hidden { display: none; }
+    .header-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .profile-hint {
+      margin: 0;
+      font-size: var(--text-2xs);
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .profile-name {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+      line-height: 1.35;
+    }
+    .profile-email {
+      font-size: var(--text-sm);
+      font-weight: 400;
+      color: var(--muted);
+      line-height: 1.35;
     }
     .tabs {
       display: flex;
@@ -679,9 +870,10 @@ function dashboardHtml(): string {
   <div class="card">
     <div class="header">
       <img class="avatar" src="${LOGO_DATA_URI}" alt="Transcodes" />
-      <div>
+      <div class="header-brand">
         <h1>Transcodes</h1>
-        <p>CLI Dashboard</p>
+        <p class="header-subtitle">CLI GUI Dashboard</p>
+        <div id="header-meta" class="header-meta hidden" aria-live="polite"></div>
       </div>
     </div>
     <div class="tabs">
@@ -815,6 +1007,35 @@ function dashboardHtml(): string {
     const saveBtn = document.getElementById("save");
     const clearBtn = document.getElementById("clear");
     const policyTokenWarningEl = document.getElementById("policy-token-warning");
+    const headerMetaEl = document.getElementById("header-meta");
+
+    function renderProfile(profile) {
+      if (!headerMetaEl) return;
+      if (!profile || !profile.ok) {
+        headerMetaEl.classList.add("hidden");
+        headerMetaEl.innerHTML = "";
+        return;
+      }
+      const parts = [];
+      if (profile.name) {
+        parts.push('<span class="profile-name">' + esc(profile.name) + '</span>');
+      }
+      if (profile.role) {
+        parts.push('<span class="profile-badge">' + esc(profile.role) + '</span>');
+      }
+      if (profile.email) {
+        parts.push('<span class="profile-email">' + esc(profile.email) + '</span>');
+      }
+      if (parts.length === 0) {
+        headerMetaEl.classList.add("hidden");
+        headerMetaEl.innerHTML = "";
+        return;
+      }
+      headerMetaEl.innerHTML =
+        '<div class="header-meta-row">' + parts.join("") + '</div>' +
+        '<p class="profile-hint">Changing the default token updates your profile</p>';
+      headerMetaEl.classList.remove("hidden");
+    }
 
     function updatePolicyTokenWarning() {
       const empty = !lastStatus.tokens || lastStatus.tokens.length === 0;
@@ -922,9 +1143,17 @@ function dashboardHtml(): string {
     }
 
     async function refresh() {
-      const res = await fetch("/api/status");
-      lastStatus = await res.json();
+      const [statusRes, profileRes] = await Promise.all([
+        fetch("/api/status"),
+        fetch("/api/profile"),
+      ]);
+      lastStatus = await statusRes.json();
       renderTokens(lastStatus);
+      try {
+        renderProfile(await profileRes.json());
+      } catch {
+        renderProfile(null);
+      }
     }
 
     async function saveLabel(id) {
@@ -1429,6 +1658,11 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
           return;
         }
 
+        if (method === 'GET' && url === '/api/profile') {
+          sendJson(res, 200, await buildProfile());
+          return;
+        }
+
         if (method === 'POST' && url === '/api/token') {
           const body = (await readJsonBody(req)) as {
             token?: unknown;
@@ -1694,7 +1928,9 @@ function waitForDashboardShutdown(
       server.close((err) => {
         if (err) {
           process.stderr.write(
-            `Shutdown error: ${err instanceof Error ? err.message : String(err)}\n`,
+            `Shutdown error: ${
+              err instanceof Error ? err.message : String(err)
+            }\n`,
           );
         }
         finish();
