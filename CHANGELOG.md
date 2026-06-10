@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.7.0...transcodes-guard-v0.7.1) (2026-06-10)
+
+
+### Documentation
+
+* **prd:** phase3 v2 — 경계 재설계: 난독화 CDN 노선 폐기, 정책 번들+서버 결정+라이선스로 전환 ([be4608f](https://github.com/transcodings/ai-action-tracker-mcp/commit/be4608f13e85c9e26540d661f317551823843d1d))
+* **prd:** phase3 v2 재작성 — CDN 미러 노선 폐기, 정책 번들+결정 봉합+라이선스로 전환 ([f8c9253](https://github.com/transcodings/ai-action-tracker-mcp/commit/f8c92532cc4cafd10f7b742d77b85ded93294d8b))
+* **prd:** Unit I에 flatten 반영 — private/ 해체 시 public/ 단계도 제거 ([d089382](https://github.com/transcodings/ai-action-tracker-mcp/commit/d08938272ae6bce6748cd61dc336d11882e4462d))
+* **research:** 경계 재설계 리서치 — 코드 은닉에서 정책 데이터+결정 권한 보호로 ([903dbbc](https://github.com/transcodings/ai-action-tracker-mcp/commit/903dbbc165363b5361704ec9ceba70b824426c86))
+
 ## [0.7.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.6.1...transcodes-guard-v0.7.0) (2026-06-10)
 
 
