@@ -90,6 +90,12 @@ jobs:
           exit $MISSING
 
       # ─────────────────────────────────────────────────────────
+      # Unit tests (node:test via tsx). Currently stepup-core only —
+      # policy-bundle fetch/verify/cache core (Phase 3 v2 Unit G1).
+      - name: stepup-core unit tests
+        run: npm test -w @transcodes-guard-private/stepup-core
+
+      # ─────────────────────────────────────────────────────────
       # Claude Code plugin smoke tests (7 scenarios).
       # All inputs are static JSON literals; no GitHub event injection
       # surface exists in this job.

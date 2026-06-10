@@ -60,6 +60,22 @@ export {
   sweepStepup,
   writePending,
 } from './pending.js';
+export {
+  type CachedPolicyBundle,
+  type FetchPolicyBundleResult,
+  fetchPolicyBundle,
+  POLICY_BUNDLE_TTL_MS,
+  type PolicyBundle,
+  PolicyBundleError,
+  type PolicyBundleRefreshOutcome,
+  type PolicyBundleRule,
+  policyBundleCachePath,
+  policyBundleSha384,
+  readCachedPolicyBundle,
+  refreshPolicyBundle,
+  verifyAndParsePolicyBundle,
+  writeCachedPolicyBundle,
+} from './policy-bundle.js';
 export { checkRbacPermission, type RbacLevel } from './rbac-check.js';
 export {
   type CreatedStepupSession,
