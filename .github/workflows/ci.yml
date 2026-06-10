@@ -63,8 +63,9 @@ jobs:
       # ─────────────────────────────────────────────────────────
       # Biome lint + format check (no --write).
       # Fails if any source file deviates from biome.json conventions or
-      # contains lint errors. Warnings (incl. noRestrictedImports for the
-      # public→private boundary) do not fail the build in phase 1.
+      # contains lint errors. noRestrictedImports (public→private boundary)
+      # is an error: only the public/plugins/*/backend.ts seams may import
+      # @transcodes-guard-private/gate-backend (biome.json overrides).
       - name: Biome check
         run: npx biome check --reporter=github
 
