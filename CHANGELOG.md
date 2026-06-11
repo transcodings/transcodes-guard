@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.7.1...transcodes-guard-v0.8.0) (2026-06-10)
+
+
+### Features
+
+* **policy:** Phase3-G1 정책 번들 클라이언트 코어 — fetch/검증/캐시 ([455bba5](https://github.com/transcodings/ai-action-tracker-mcp/commit/455bba5301b1cd0e56aee3eb623f34809f0de373))
+* **policy:** Phase3-G1 정책 번들 클라이언트 코어 — fetch/검증/캐시 ([4601d46](https://github.com/transcodings/ai-action-tracker-mcp/commit/4601d46913c8e7447f67aada13ea4957045f4d4b))
+
+
+### Documentation
+
+* **prd:** 백엔드 탐사 결과를 G·H·인덱스에 반영 ([59105b7](https://github.com/transcodings/ai-action-tracker-mcp/commit/59105b7e3b1af1191596c458de7d87e2e4cbc6b1))
+
 ## [0.7.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.7.0...transcodes-guard-v0.7.1) (2026-06-10)
 
 
