@@ -38,6 +38,7 @@ import {
   readPending,
   readVerified,
   resolveToken,
+  sendGateDecisionAudit,
   sweepStepup,
   writePending,
   writeVerified,
@@ -70,6 +71,7 @@ export const transcodesGateBackend: GateBackend = {
   isExpired,
   sweepStepup,
   hasToken: () => Boolean(resolveToken().token),
+  sendGateDecisionAudit,
 
   // server path: step-up session — config loaded internally
   createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),

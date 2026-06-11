@@ -30,6 +30,12 @@ export type RequestInput = {
      * Nest's `@Body()` validation passes — matches transcodes parity.
      */
     omitBody?: boolean;
+    /**
+     * Per-request timeout override. Defaults to REQUEST_TIMEOUT_MS (30s).
+     * Fire-and-forget callers (decision audit) pass a sub-second value so the
+     * hook process never lingers on an unreachable backend.
+     */
+    timeoutMs?: number;
 };
 export type Envelope = {
     ok: boolean;

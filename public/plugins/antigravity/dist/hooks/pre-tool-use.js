@@ -14,7 +14,7 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   getGateBackend
-} from "../chunk-PNZMLTY5.js";
+} from "../chunk-YQNYLQK4.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
@@ -44,6 +44,7 @@ async function main() {
       }
       process.stderr.write(`${formatStderrTag(decision)}
 `);
+      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
     case "deny-no-token":
       process.stdout.write(
@@ -55,6 +56,7 @@ async function main() {
       );
       process.stderr.write(`${formatStderrTag(decision)}
 `);
+      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
     case "deny-rbac-denied":
       process.stdout.write(
@@ -66,6 +68,7 @@ async function main() {
       );
       process.stderr.write(`${formatStderrTag(decision)}
 `);
+      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
     case "deny-stepup-failure":
       process.stdout.write(
@@ -77,6 +80,7 @@ async function main() {
       );
       process.stderr.write(`${formatStderrTag(decision)}
 `);
+      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
     case "deny-stepup-pending":
       process.stdout.write(
@@ -96,6 +100,7 @@ async function main() {
       }
       process.stderr.write(`${formatStderrTag(decision)}
 `);
+      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
   }
 }

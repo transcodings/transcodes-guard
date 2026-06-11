@@ -23,6 +23,14 @@ export {
   type StepupConfig,
 } from './config.js';
 export {
+  DECISION_AUDIT_TAG,
+  DECISION_AUDIT_TIMEOUT_MS,
+  type DecisionAuditEvent,
+  decisionAuditEventOf,
+  sendDecisionAudit,
+  sendGateDecisionAudit,
+} from './decision-audit.js';
+export {
   type BlockResult,
   evaluatePreToolUse,
   type GateDecision,

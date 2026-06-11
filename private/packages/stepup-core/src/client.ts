@@ -33,6 +33,12 @@ export type RequestInput = {
    * Nest's `@Body()` validation passes — matches transcodes parity.
    */
   omitBody?: boolean;
+  /**
+   * Per-request timeout override. Defaults to REQUEST_TIMEOUT_MS (30s).
+   * Fire-and-forget callers (decision audit) pass a sub-second value so the
+   * hook process never lingers on an unreachable backend.
+   */
+  timeoutMs?: number;
 };
 
 export type Envelope = {
@@ -78,7 +84,10 @@ export async function request(
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(
+    () => controller.abort(),
+    input.timeoutMs ?? REQUEST_TIMEOUT_MS,
+  );
 
   try {
     const response = await fetch(url, {

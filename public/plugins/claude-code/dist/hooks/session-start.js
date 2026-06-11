@@ -5,7 +5,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-HSD64H5W.js";
+} from "../chunk-5LNZBOGI.js";
 
 // src/version.ts
 var PLUGIN_VERSION = "0.8.0";

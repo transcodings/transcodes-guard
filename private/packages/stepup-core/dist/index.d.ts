@@ -12,6 +12,7 @@
  */
 export { type Envelope, type RequestInput as HttpRequestInput, request, } from './client.js';
 export { DEFAULT_BACKEND_URL, loadStepupConfig, STEPUP_TTL_MS, type StepupConfig, } from './config.js';
+export { DECISION_AUDIT_TAG, DECISION_AUDIT_TIMEOUT_MS, type DecisionAuditEvent, decisionAuditEventOf, sendDecisionAudit, sendGateDecisionAudit, } from './decision-audit.js';
 export { type BlockResult, evaluatePreToolUse, type GateDecision, type ToolCallInput, } from './evaluate.js';
 export { fingerprintOf, type RequestInput, type RequestResult, requestStepup, } from './gate.js';
 export { type BrowserLockInspection, inspectStepupState, type PendingInspection, type StepupStateInspection, type VerifiedInspection, } from './inspector.js';

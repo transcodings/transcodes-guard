@@ -33,6 +33,12 @@ export interface GateBackend {
     sweepStepup(now?: number): void;
     /** Whether a Transcodes token is resolvable (session-start no-token notice). */
     hasToken(): boolean;
+    /**
+     * Fire-and-forget decision audit (Phase3 v2 H2). Call AFTER the decision
+     * JSON is on stdout — never rejects, bounded by a sub-second timeout, and
+     * a silent no-op for `pass` decisions or when no token is resolvable.
+     */
+    sendGateDecisionAudit(decision: GateDecision): Promise<void>;
     createStepupSession(args: CreateStepupArgs): Promise<CreatedStepupSession>;
     pollStepupSession(sid: string): Promise<PollStepupResult>;
     pollStepupSessionWait(sid: string, options?: {

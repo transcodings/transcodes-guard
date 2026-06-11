@@ -31,6 +31,7 @@ function checkPatternMatch(command) {
     return {
         reason: `matched ${source} pattern \`${id}\` — ${reason}`,
         command,
+        ruleId: id,
         stepupResource,
         stepupAction,
     };
@@ -113,6 +114,7 @@ function checkRmGitTracked(command, cwd) {
             return `${h.target} — ${h.trackedCount} tracked file(s): ${h.samples.join(', ')}${more}`;
         }),
         command,
+        ruleId: 'rm-git-tracked',
         stepupResource: DEFAULT_RBAC_RESOURCE,
         stepupAction: 'delete',
     };
@@ -236,6 +238,7 @@ export async function evaluatePreToolUse(input) {
         : {
             reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` — ${classified.rule.reason}`,
             command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
+            ruleId: classified.rule.id,
             stepupResource: classified.rule.stepupResource,
             stepupAction: classified.rule.stepupAction,
         };
