@@ -123,11 +123,11 @@ POST / PUT / DELETE /v1/guard/rules[/:id]
 
 ## 수용 기준
 
-- PreToolUse 임계 경로에 네트워크 호출 0 (코드 검토 + smoke로 확인).
-- 번들 fetch → SHA-384 검증 → 원자적 캐시 → 다음 hook에서 반영.
-- 위 fail-closed 매트릭스 4행이 각각 smoke로 재현됨(특히 "캐시 없음+불가 → gated deny").
-- 손상/스키마 불일치 번들 → 활성화 거부 + 기존 캐시 유지.
-- 시스템 tool-rules가 plugin dist에서 제거되고(또는 baseline 최소셋만 잔존) 23종 smoke 통과(번들 픽스처 주입 방식 갱신 포함).
+- [ ] PreToolUse 임계 경로에 네트워크 호출 0 (코드 검토 + smoke로 확인).
+- [ ] 번들 fetch → SHA-384 검증 → 원자적 캐시 → 다음 hook에서 반영.
+- [ ] 위 fail-closed 매트릭스 4행이 각각 smoke로 재현됨(특히 "캐시 없음+불가 → gated deny").
+- [ ] 손상/스키마 불일치 번들 → 활성화 거부 + 기존 캐시 유지.
+- [ ] 시스템 tool-rules가 plugin dist에서 제거되고(또는 baseline 최소셋만 잔존) 23종 smoke 통과(번들 픽스처 주입 방식 갱신 포함).
 
 ## 산출 파일(예상)
 

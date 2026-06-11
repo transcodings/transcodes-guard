@@ -15,7 +15,7 @@
 ## 요구사항
 
 [A](./A-obfuscate-build-done.md) 산출물(`guard-<version>.mjs`)의 SHA384를 계산해서:
-1. **로더 소스에 핀 상수로 박고** ([Unit C](./C-cdn-loader.md)와 연동)
+1. **로더 소스에 핀 상수로 박고** ([Unit C](./C-cdn-loader-cancel.md)와 연동)
 2. 별도 **매니페스트(JSON)로도 게시**
 
 ## CDN 경로

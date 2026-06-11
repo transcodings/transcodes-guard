@@ -29,7 +29,7 @@ esbuild/tsup로 단일 ESM 번들(`minify: true`) → `javascript-obfuscator`로
 
 **근거**:
 1. **hook 임계경로** — `controlFlowFlattening`은 런타임 최대 1.5x 저하(context7 확인), `deadCodeInjection`은 번들 비대화. 게이트는 *모든 tool call* hook에서 돌아 [부모 §6 "첫 fetch 지연" risk](../phase3-cdn-mirror-distribution.md#6-위험-risks--마스터)와 직결.
-2. **결정성** — shuffle/rotate/deadCode는 난수 기반→비결정적이라 SHA384 핀([Unit B](./B-cdn-deploy.md))과 충돌.
+2. **결정성** — shuffle/rotate/deadCode는 난수 기반→비결정적이라 SHA384 핀([Unit B](./B-cdn-deploy-cancel.md))과 충돌.
 3. **"풀린다" 전제(NG2)** — heavy transform은 정상 사용자만 느리게 함. 로직 은닉 강도는 transform이 아니라 NG2 정책 이관으로 메운다.
 
 > 한계 명시: obfuscation은 "결국 클라이언트 코드는 풀린다"는 전제(split.md §2.4). 라이선스/표면 축소용이며 완전한 안티-리버스엔지니어링이 아님. 진짜 방어선은 NG2(정책 백엔드 이관). lightweight로 충분하며 aggressive 프리셋의 비용(런타임 저하·비결정성·번들 비대)은 정당화되지 않는다.
@@ -40,7 +40,7 @@ esbuild/tsup로 단일 ESM 번들(`minify: true`) → `javascript-obfuscator`로
 
 ## public dist 변경
 
-plugin 번들에서 private backend 평문 inline 제거 — `backend.ts`가 로더로 바뀌면 자연 해소([Unit C](./C-cdn-loader.md)와 연동). → 과도기 상태는 OQ5.
+plugin 번들에서 private backend 평문 inline 제거 — `backend.ts`가 로더로 바뀌면 자연 해소([Unit C](./C-cdn-loader-cancel.md)와 연동). → 과도기 상태는 OQ5.
 
 ## 검증
 
