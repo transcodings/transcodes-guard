@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.9.0...transcodes-guard-v0.9.1) (2026-06-11)
+
+
+### Documentation
+
+* **prd:** 완료 유닛 A·E·H 문서에 -done suffix 부여 ([8d2dff5](https://github.com/transcodings/ai-action-tracker-mcp/commit/8d2dff5ce9df440842c5831376825df093e93d9e))
+* **prd:** 완료 유닛 A·E·H 문서에 -done suffix 부여 + H 상태 Done 갱신 ([a092af6](https://github.com/transcodings/ai-action-tracker-mcp/commit/a092af6ba1441089d0b55120e80f40f38f06573a))
+* **prd:** 폐기 유닛 B·C·D·F에 -cancel suffix + 활성 유닛 G·I·J 수용 기준 체크리스트화 ([c9eea56](https://github.com/transcodings/ai-action-tracker-mcp/commit/c9eea5607061369aa1dee89e0160534adf0c7f00))
+
 ## [0.9.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.8.0...transcodes-guard-v0.9.0) (2026-06-11)
 
 
