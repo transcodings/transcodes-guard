@@ -16,7 +16,7 @@
 
 ## 선행 조건
 
-- [A](./A-obfuscate-build.md) · [B](./B-cdn-deploy.md) · [C](./C-cdn-loader.md) · [E](./E-lint-promotion.md) **전부 완료**.
+- [A](./A-obfuscate-build-done.md) · [B](./B-cdn-deploy.md) · [C](./C-cdn-loader.md) · [E](./E-lint-promotion-done.md) **전부 완료**.
 - [D](./D-mirror-automation.md) 검증 체크리스트 **그린**(private 히스토리/평문 누출 0, 수동 감사 통과).
 
 ## 배포 채널

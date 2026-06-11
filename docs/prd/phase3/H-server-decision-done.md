@@ -1,7 +1,7 @@
 # Phase 3 v2 / Unit H — 결정 권한 봉합 (server decision authority)
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M8
-> 규모: **S** · 선행: 없음 · 외부 의존: **없음** (기존 `/v1/audit/logs` 재사용 — 백엔드 탐사로 확정, H2 참조) · 상태: ✅ **Ready**
+> 규모: **S** · 선행: 없음 · 외부 의존: **없음** (기존 `/v1/audit/logs` 재사용 — 백엔드 탐사로 확정, H2 참조) · 상태: 🎉 **Done** ([PR #54](https://github.com/transcodings/ai-action-tracker-mcp/pull/54) 머지 — H1 폴백 제거 + H2 결정 감사 + H3 체크리스트 완료, 백엔드 `@SkipAuth` 이슈는 백엔드 리포 별도 처리)
 > 근거: [`boundary-redesign.md`](../../research/boundary-redesign.md) §1 (결정 권한은 이미 절반 서버에 있음 — 잔여 갭만 봉합)
 
 ## 규모 산정

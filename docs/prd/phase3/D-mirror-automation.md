@@ -2,7 +2,7 @@
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M5
 > 상태: 🗑 **Superseded (2026-06-10, v2 전환)** — 상시 미러 인프라 폐기. v2에서는 비밀 코드가 없어 리포 자체를 공개하며, filter-repo는 시크릿 스캔 실패 시 1회성 도구로 강등 → [Unit J](./J-public-flip.md). OQ7(CLI 미러)은 소멸. 이하는 기록용 원문.
-> ~~규모: **M** · 선행: [A](./A-obfuscate-build.md)~[C](./C-cdn-loader.md)(사실상 — 평문 누출 제거가 선행돼야 안전) · 외부 의존: **target public repo·OQ7 결정** · 상태: ⚠️ Blocked (결정)~~
+> ~~규모: **M** · 선행: [A](./A-obfuscate-build-done.md)~[C](./C-cdn-loader.md)(사실상 — 평문 누출 제거가 선행돼야 안전) · 외부 의존: **target public repo·OQ7 결정** · 상태: ⚠️ Blocked (결정)~~
 
 ## 규모 산정
 
@@ -34,7 +34,7 @@ CLI(`@bigstrider/transcodes-cli`) 소스는 현재 **`private/cli/`** 에 있다
 
 - private 히스토리 제거 확인(현재·과거 커밋 전부).
 - files allowlist 확인.
-- 백엔드 endpoint/도구명 잔존은 **metafile/모듈그래프 기준**(grep 보조 — [A 참조](./A-obfuscate-build.md)의 "grep unreliable").
+- 백엔드 endpoint/도구명 잔존은 **metafile/모듈그래프 기준**(grep 보조 — [A 참조](./A-obfuscate-build-done.md)의 "grep unreliable").
 - `--dry-run` filter-repo 사전 점검(mapping.md §검증).
 - 공개 전 **수동 감사** 1회.
 
