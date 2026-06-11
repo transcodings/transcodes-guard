@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.8.0...transcodes-guard-v0.9.0) (2026-06-11)
+
+
+### Features
+
+* **gate:** Phase3-H 결정 권한 봉합 — rbac fail-closed + 결정 감사 ([77e7396](https://github.com/transcodings/ai-action-tracker-mcp/commit/77e7396326392f30e2c76d293e9d505591a2d2a6))
+* **gate:** Phase3-H 결정 권한 봉합 — RBAC fail-closed + 결정 감사 ([740c752](https://github.com/transcodings/ai-action-tracker-mcp/commit/740c752d8ba1c4cf0ab8bbfb425c82a9911d49f4))
+
+
+### Documentation
+
+* **prd:** G 문서에 백엔드 구현 명세 단일 섹션 신설 ([1a00942](https://github.com/transcodings/ai-action-tracker-mcp/commit/1a00942e47875d4df5656ae1fda869baada28b0c))
+
 ## [0.8.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.7.1...transcodes-guard-v0.8.0) (2026-06-10)
 
 
