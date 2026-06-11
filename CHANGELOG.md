@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.9.1...transcodes-guard-v0.10.0) (2026-06-11)
+
+
+### Features
+
+* **policy:** Phase3-G2 정책 번들 refresh 배선 — 훅 4종 + MCP 기동 + envelope unwrap ([f1b797b](https://github.com/transcodings/ai-action-tracker-mcp/commit/f1b797b67185b0fbd7d3a376dcf7cafd4d6145a1))
+* **policy:** Phase3-G2 정책 번들 refresh 배선 — 훅 4종 + MCP 기동, envelope unwrap ([b1a8c2e](https://github.com/transcodings/ai-action-tracker-mcp/commit/b1a8c2e8400dc1aedbcffbf45d14a2e3dac83f26))
+
 ## [0.9.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.9.0...transcodes-guard-v0.9.1) (2026-06-11)
 
 
