@@ -46,7 +46,7 @@ export interface ToolRuleConfig {
   rules: ToolRule[];
 }
 
-export type ToolRuleSource = 'system' | 'user';
+export type ToolRuleSource = 'system' | 'bundle' | 'user';
 
 export interface MergedToolRule extends ToolRule {
   source: ToolRuleSource;
@@ -91,24 +91,53 @@ export function userToolRulesFileExists(): boolean {
   return existsSync(getUserToolRulesPath());
 }
 
-export function loadMergedToolRules(): MergedToolRule[] {
+/**
+ * Layered merge (Phase3 v2 G3): built-in baseline → org policy bundle →
+ * user rules. Same `id` in a later layer replaces the earlier rule (the
+ * replacement keeps the original position so rule precedence inside a layer
+ * stays stable); user rules win over everything — the pre-bundle user-rule
+ * semantics are preserved unchanged.
+ *
+ * `bundleRules` is the cached org bundle's `rules` array (Unit G policy
+ * bundle). Callers without a bundle (no token / no cache) pass nothing and
+ * get the pre-G3 baseline+user behavior — fail-closed matrix row 3.
+ */
+export function loadMergedToolRules(
+  bundleRules: ToolRule[] = [],
+): MergedToolRule[] {
   // Coerce action/resource on load so the gate always sees a valid RBAC
   // coordinate even for rows written before these fields existed.
-  const system = loadSystemToolRules().rules.map((r) => ({
+  const coerce = (r: ToolRule) => ({
     ...r,
     stepupAction: coerceRbacAction(r.stepupAction),
     stepupResource: coerceRbacResource(r.stepupResource),
-    consume_in_hook: r.consume_in_hook ?? false,
-    source: 'system' as const,
-  }));
-  const user = loadUserToolRules().rules.map((r) => ({
-    ...r,
-    stepupAction: coerceRbacAction(r.stepupAction),
-    stepupResource: coerceRbacResource(r.stepupResource),
-    consume_in_hook: r.consume_in_hook ?? true,
-    source: 'user' as const,
-  }));
-  return [...system, ...user];
+  });
+  const merged = new Map<string, MergedToolRule>();
+  for (const r of loadSystemToolRules().rules) {
+    merged.set(r.id, {
+      ...coerce(r),
+      consume_in_hook: r.consume_in_hook ?? false,
+      source: 'system',
+    });
+  }
+  for (const r of bundleRules) {
+    merged.set(r.id, {
+      ...coerce(r),
+      // Bundle rules are org/system policy — like system rules, the verified
+      // record is consumed by the tool handler (which needs the sid), not
+      // the hook, unless the rule says otherwise.
+      consume_in_hook: r.consume_in_hook ?? false,
+      source: 'bundle',
+    });
+  }
+  for (const r of loadUserToolRules().rules) {
+    merged.set(r.id, {
+      ...coerce(r),
+      consume_in_hook: r.consume_in_hook ?? true,
+      source: 'user',
+    });
+  }
+  return [...merged.values()];
 }
 
 export interface ToolRuleMatch {

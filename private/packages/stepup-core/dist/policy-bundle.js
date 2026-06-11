@@ -25,6 +25,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { RBAC_ACTIONS } from '@transcodes-guard/danger-patterns';
 import { cacheDir } from '@transcodes-guard/plugin-paths';
+import { loadMergedToolRules, } from '@transcodes-guard-private/danger-rules';
 import { z } from 'zod';
 import { request } from './client.js';
 import { loadStepupConfig } from './config.js';
@@ -241,6 +242,26 @@ export async function refreshPolicyBundle(config, opts = {}) {
         console.error(`transcodes-guard: policy bundle refresh failed — keeping cached bundle (${err instanceof Error ? err.message : String(err)})`);
         return 'failed';
     }
+}
+/**
+ * Effective tool-rule set (Phase3 v2 G3): built-in baseline → cached org
+ * bundle → user rules. Synchronous and cache-only — safe on the PreToolUse
+ * critical path (design invariant 2). Without a resolvable token or a cached
+ * bundle this degrades to the pre-G3 baseline+user merge. Staleness is
+ * deliberately ignored here: a stale bundle is last-known-good (fail-closed
+ * matrix row 2), and refresh happens elsewhere (G2 wiring).
+ */
+export function loadEffectiveToolRules() {
+    let bundleRules = [];
+    try {
+        const config = loadStepupConfig();
+        bundleRules =
+            readCachedPolicyBundle(config.organizationId)?.bundle.rules ?? [];
+    }
+    catch {
+        // no token → baseline + user only
+    }
+    return loadMergedToolRules(bundleRules);
 }
 /**
  * Config-less refresh for the GateBackend seam (decision-audit pattern):

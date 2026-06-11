@@ -72,6 +72,7 @@ export {
   type CachedPolicyBundle,
   type FetchPolicyBundleResult,
   fetchPolicyBundle,
+  loadEffectiveToolRules,
   POLICY_BUNDLE_FETCH_TIMEOUT_MS,
   POLICY_BUNDLE_TTL_MS,
   type PolicyBundle,

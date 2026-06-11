@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "claude-code";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -1520,22 +1520,38 @@ function saveUserToolRules(config) {
   mkdirSync3(path3.dirname(file), { recursive: true });
   writeFileSync2(file, JSON.stringify(config, null, 2) + "\n", "utf8");
 }
-function loadMergedToolRules() {
-  const system = loadSystemToolRules().rules.map((r) => ({
+function loadMergedToolRules(bundleRules = []) {
+  const coerce2 = (r) => ({
     ...r,
     stepupAction: coerceRbacAction(r.stepupAction),
-    stepupResource: coerceRbacResource(r.stepupResource),
-    consume_in_hook: r.consume_in_hook ?? false,
-    source: "system"
-  }));
-  const user = loadUserToolRules().rules.map((r) => ({
-    ...r,
-    stepupAction: coerceRbacAction(r.stepupAction),
-    stepupResource: coerceRbacResource(r.stepupResource),
-    consume_in_hook: r.consume_in_hook ?? true,
-    source: "user"
-  }));
-  return [...system, ...user];
+    stepupResource: coerceRbacResource(r.stepupResource)
+  });
+  const merged = /* @__PURE__ */ new Map();
+  for (const r of loadSystemToolRules().rules) {
+    merged.set(r.id, {
+      ...coerce2(r),
+      consume_in_hook: r.consume_in_hook ?? false,
+      source: "system"
+    });
+  }
+  for (const r of bundleRules) {
+    merged.set(r.id, {
+      ...coerce2(r),
+      // Bundle rules are org/system policy — like system rules, the verified
+      // record is consumed by the tool handler (which needs the sid), not
+      // the hook, unless the rule says otherwise.
+      consume_in_hook: r.consume_in_hook ?? false,
+      source: "bundle"
+    });
+  }
+  for (const r of loadUserToolRules().rules) {
+    merged.set(r.id, {
+      ...coerce2(r),
+      consume_in_hook: r.consume_in_hook ?? true,
+      source: "user"
+    });
+  }
+  return [...merged.values()];
 }
 function findFirstToolRule(toolName, rules) {
   for (const r of rules) {
@@ -1977,7 +1993,7 @@ async function sendGateDecisionAudit(decision) {
 
 // ../../../private/packages/stepup-core/dist/evaluate.js
 import { execFileSync } from "child_process";
-import path7 from "path";
+import path8 from "path";
 
 // ../../../private/packages/stepup-core/dist/gate.js
 import { spawn } from "child_process";
@@ -6410,6 +6426,186 @@ function sweepStepup(now = Date.now()) {
   }
 }
 
+// ../../../private/packages/stepup-core/dist/policy-bundle.js
+import { createHash as createHash2 } from "crypto";
+import { mkdirSync as mkdirSync8, readFileSync as readFileSync7, renameSync as renameSync2, writeFileSync as writeFileSync7 } from "fs";
+import path7 from "path";
+var POLICY_BUNDLE_TTL_MS = 60 * 60 * 1e3;
+var POLICY_BUNDLE_FETCH_TIMEOUT_MS = 3e3;
+var bundleToolRuleSchema = external_exports.object({
+  id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/),
+  toolName: external_exports.string().min(1),
+  reason: external_exports.string().min(1),
+  stepupAction: external_exports.enum(RBAC_ACTIONS),
+  stepupResource: external_exports.string().min(1),
+  consume_in_hook: external_exports.boolean().optional()
+});
+var policyBundleSchema = external_exports.object({
+  revision: external_exports.string().min(1),
+  rules: external_exports.array(bundleToolRuleSchema)
+});
+var manifestSchema = external_exports.object({
+  sha384: external_exports.string().regex(/^[0-9a-f]{96}$/i)
+});
+var PolicyBundleError = class extends Error {
+};
+function canonicalJson(value) {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value) ?? "null";
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => canonicalJson(v)).join(",")}]`;
+  }
+  const entries = Object.entries(value).filter(([, v]) => v !== void 0).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
+}
+function policyBundleSha384(body) {
+  return createHash2("sha384").update(canonicalJson(body), "utf8").digest("hex");
+}
+function verifyAndParsePolicyBundle(raw) {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new PolicyBundleError("bundle body is not an object");
+  }
+  const { manifest, ...body } = raw;
+  const manifestParsed = manifestSchema.safeParse(manifest);
+  if (!manifestParsed.success) {
+    throw new PolicyBundleError("manifest.sha384 missing or malformed");
+  }
+  const expected = manifestParsed.data.sha384.toLowerCase();
+  const actual = policyBundleSha384(body);
+  if (actual !== expected) {
+    throw new PolicyBundleError(`manifest sha384 mismatch (manifest=${expected.slice(0, 12)}\u2026, body=${actual.slice(0, 12)}\u2026)`);
+  }
+  const parsed = policyBundleSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new PolicyBundleError(`bundle schema invalid: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+  }
+  return parsed.data;
+}
+function policyBundleCachePath(organizationId) {
+  const safe = organizationId.replace(/[^A-Za-z0-9._-]/g, "_");
+  return path7.join(cacheDir(), `policy-bundle.${safe}.json`);
+}
+function readCachedPolicyBundle(organizationId, ttlMs = POLICY_BUNDLE_TTL_MS) {
+  let raw;
+  try {
+    raw = readFileSync7(policyBundleCachePath(organizationId), "utf8");
+  } catch {
+    return null;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  const envelope = parsed;
+  if (typeof envelope.fetchedAt !== "number") {
+    return null;
+  }
+  const bundle = policyBundleSchema.safeParse(envelope.bundle);
+  if (!bundle.success) {
+    return null;
+  }
+  return {
+    bundle: bundle.data,
+    fetchedAt: envelope.fetchedAt,
+    fresh: Date.now() - envelope.fetchedAt < ttlMs
+  };
+}
+function writeCachedPolicyBundle(organizationId, bundle) {
+  const file = policyBundleCachePath(organizationId);
+  mkdirSync8(path7.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  const envelope = { fetchedAt: Date.now(), bundle };
+  writeFileSync7(tmp, JSON.stringify(envelope), { mode: 384 });
+  renameSync2(tmp, file);
+}
+function unwrapBundleBody(data) {
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    return data;
+  }
+  const env = data;
+  if (Array.isArray(env.payload) && ("success" in env || "statusCode" in env)) {
+    return env.payload[0];
+  }
+  return data;
+}
+async function fetchPolicyBundle(config, currentRevision) {
+  const res = await request(config, {
+    method: "GET",
+    path: "/guard/policy-bundle",
+    query: { revision: currentRevision },
+    timeoutMs: POLICY_BUNDLE_FETCH_TIMEOUT_MS
+  });
+  if (res.status === 304) {
+    return { kind: "not-modified" };
+  }
+  if (!res.ok) {
+    return {
+      kind: "error",
+      message: res.status === 0 ? "backend unreachable" : `backend responded ${res.status}`
+    };
+  }
+  try {
+    return {
+      kind: "fetched",
+      bundle: verifyAndParsePolicyBundle(unwrapBundleBody(res.data))
+    };
+  } catch (err) {
+    return {
+      kind: "error",
+      message: err instanceof Error ? err.message : String(err)
+    };
+  }
+}
+async function refreshPolicyBundle(config, opts = {}) {
+  try {
+    const ttlMs = opts.ttlMs ?? POLICY_BUNDLE_TTL_MS;
+    const cached = readCachedPolicyBundle(config.organizationId, ttlMs);
+    if (cached?.fresh && !opts.force) {
+      return "fresh";
+    }
+    const result = await fetchPolicyBundle(config, cached?.bundle.revision);
+    if (result.kind === "fetched") {
+      writeCachedPolicyBundle(config.organizationId, result.bundle);
+      return "refreshed";
+    }
+    if (result.kind === "not-modified" && cached) {
+      writeCachedPolicyBundle(config.organizationId, cached.bundle);
+      return "not-modified";
+    }
+    if (result.kind === "error") {
+      console.error(`transcodes-guard: policy bundle refresh failed \u2014 keeping cached bundle (${result.message})`);
+    }
+    return "failed";
+  } catch (err) {
+    console.error(`transcodes-guard: policy bundle refresh failed \u2014 keeping cached bundle (${err instanceof Error ? err.message : String(err)})`);
+    return "failed";
+  }
+}
+function loadEffectiveToolRules() {
+  let bundleRules = [];
+  try {
+    const config = loadStepupConfig();
+    bundleRules = readCachedPolicyBundle(config.organizationId)?.bundle.rules ?? [];
+  } catch {
+  }
+  return loadMergedToolRules(bundleRules);
+}
+async function refreshPolicyBundleIfConfigured(opts = {}) {
+  let config;
+  try {
+    config = loadStepupConfig();
+  } catch {
+    return "skipped";
+  }
+  return refreshPolicyBundle(config, opts);
+}
+
 // ../../../private/packages/stepup-core/dist/rbac-check.js
 function extractPermission(data, resource, action) {
   if (!data || typeof data !== "object")
@@ -6480,15 +6676,15 @@ function extractRmTargets(command) {
 function checkTargetGitTracked(target, cwd) {
   if (/[*?{[]/.test(target))
     return null;
-  const abs = path7.resolve(cwd, target);
+  const abs = path8.resolve(cwd, target);
   let toplevel;
   try {
     toplevel = execFileSync("git", ["-C", cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
     return null;
   }
-  const rel = path7.relative(toplevel, abs);
-  if (rel.startsWith("..") || path7.isAbsolute(rel))
+  const rel = path8.relative(toplevel, abs);
+  if (rel.startsWith("..") || path8.isAbsolute(rel))
     return null;
   let tracked;
   try {
@@ -6567,7 +6763,7 @@ function classifyToolCall(input) {
       return null;
     return { kind: "bash", command: cmd, cwd: input.cwd };
   }
-  const rules = loadMergedToolRules();
+  const rules = loadEffectiveToolRules();
   const match = findFirstToolRule(input.toolName, rules);
   if (!match)
     return null;
@@ -6657,7 +6853,7 @@ async function evaluatePreToolUse(input) {
 }
 
 // ../../../private/packages/stepup-core/dist/inspector.js
-import { readFileSync as readFileSync7 } from "fs";
+import { readFileSync as readFileSync8 } from "fs";
 var VERIFIED_BASE = "stepup-verified";
 var PENDING_BASE = "stepup-pending";
 var BROWSER_LOCK_BASE = "stepup-browser-lock";
@@ -6665,7 +6861,7 @@ var BROWSER_LOCK_TTL_MS2 = 15e3;
 var COMMAND_PREVIEW_LIMIT = 120;
 function readJsonFile(file) {
   try {
-    const raw = readFileSync7(file, "utf8");
+    const raw = readFileSync8(file, "utf8");
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed;
@@ -6764,177 +6960,6 @@ function inspectStepupState(now = Date.now()) {
     pending_fp: listFingerprints(PENDING_BASE).map((fp) => inspectPendingFile(stepupFilePath(PENDING_BASE, fp), now, fp)).filter((p) => p.exists),
     browser_lock: inspectBrowserLock(now)
   };
-}
-
-// ../../../private/packages/stepup-core/dist/policy-bundle.js
-import { createHash as createHash2 } from "crypto";
-import { mkdirSync as mkdirSync8, readFileSync as readFileSync8, renameSync as renameSync2, writeFileSync as writeFileSync7 } from "fs";
-import path8 from "path";
-var POLICY_BUNDLE_TTL_MS = 60 * 60 * 1e3;
-var POLICY_BUNDLE_FETCH_TIMEOUT_MS = 3e3;
-var bundleToolRuleSchema = external_exports.object({
-  id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/),
-  toolName: external_exports.string().min(1),
-  reason: external_exports.string().min(1),
-  stepupAction: external_exports.enum(RBAC_ACTIONS),
-  stepupResource: external_exports.string().min(1),
-  consume_in_hook: external_exports.boolean().optional()
-});
-var policyBundleSchema = external_exports.object({
-  revision: external_exports.string().min(1),
-  rules: external_exports.array(bundleToolRuleSchema)
-});
-var manifestSchema = external_exports.object({
-  sha384: external_exports.string().regex(/^[0-9a-f]{96}$/i)
-});
-var PolicyBundleError = class extends Error {
-};
-function canonicalJson(value) {
-  if (value === null || typeof value !== "object") {
-    return JSON.stringify(value) ?? "null";
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map((v) => canonicalJson(v)).join(",")}]`;
-  }
-  const entries = Object.entries(value).filter(([, v]) => v !== void 0).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
-  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
-}
-function policyBundleSha384(body) {
-  return createHash2("sha384").update(canonicalJson(body), "utf8").digest("hex");
-}
-function verifyAndParsePolicyBundle(raw) {
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new PolicyBundleError("bundle body is not an object");
-  }
-  const { manifest, ...body } = raw;
-  const manifestParsed = manifestSchema.safeParse(manifest);
-  if (!manifestParsed.success) {
-    throw new PolicyBundleError("manifest.sha384 missing or malformed");
-  }
-  const expected = manifestParsed.data.sha384.toLowerCase();
-  const actual = policyBundleSha384(body);
-  if (actual !== expected) {
-    throw new PolicyBundleError(`manifest sha384 mismatch (manifest=${expected.slice(0, 12)}\u2026, body=${actual.slice(0, 12)}\u2026)`);
-  }
-  const parsed = policyBundleSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new PolicyBundleError(`bundle schema invalid: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
-  }
-  return parsed.data;
-}
-function policyBundleCachePath(organizationId) {
-  const safe = organizationId.replace(/[^A-Za-z0-9._-]/g, "_");
-  return path8.join(cacheDir(), `policy-bundle.${safe}.json`);
-}
-function readCachedPolicyBundle(organizationId, ttlMs = POLICY_BUNDLE_TTL_MS) {
-  let raw;
-  try {
-    raw = readFileSync8(policyBundleCachePath(organizationId), "utf8");
-  } catch {
-    return null;
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return null;
-  }
-  const envelope = parsed;
-  if (typeof envelope.fetchedAt !== "number") {
-    return null;
-  }
-  const bundle = policyBundleSchema.safeParse(envelope.bundle);
-  if (!bundle.success) {
-    return null;
-  }
-  return {
-    bundle: bundle.data,
-    fetchedAt: envelope.fetchedAt,
-    fresh: Date.now() - envelope.fetchedAt < ttlMs
-  };
-}
-function writeCachedPolicyBundle(organizationId, bundle) {
-  const file = policyBundleCachePath(organizationId);
-  mkdirSync8(path8.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  const envelope = { fetchedAt: Date.now(), bundle };
-  writeFileSync7(tmp, JSON.stringify(envelope), { mode: 384 });
-  renameSync2(tmp, file);
-}
-function unwrapBundleBody(data) {
-  if (data === null || typeof data !== "object" || Array.isArray(data)) {
-    return data;
-  }
-  const env = data;
-  if (Array.isArray(env.payload) && ("success" in env || "statusCode" in env)) {
-    return env.payload[0];
-  }
-  return data;
-}
-async function fetchPolicyBundle(config, currentRevision) {
-  const res = await request(config, {
-    method: "GET",
-    path: "/guard/policy-bundle",
-    query: { revision: currentRevision },
-    timeoutMs: POLICY_BUNDLE_FETCH_TIMEOUT_MS
-  });
-  if (res.status === 304) {
-    return { kind: "not-modified" };
-  }
-  if (!res.ok) {
-    return {
-      kind: "error",
-      message: res.status === 0 ? "backend unreachable" : `backend responded ${res.status}`
-    };
-  }
-  try {
-    return {
-      kind: "fetched",
-      bundle: verifyAndParsePolicyBundle(unwrapBundleBody(res.data))
-    };
-  } catch (err) {
-    return {
-      kind: "error",
-      message: err instanceof Error ? err.message : String(err)
-    };
-  }
-}
-async function refreshPolicyBundle(config, opts = {}) {
-  try {
-    const ttlMs = opts.ttlMs ?? POLICY_BUNDLE_TTL_MS;
-    const cached = readCachedPolicyBundle(config.organizationId, ttlMs);
-    if (cached?.fresh && !opts.force) {
-      return "fresh";
-    }
-    const result = await fetchPolicyBundle(config, cached?.bundle.revision);
-    if (result.kind === "fetched") {
-      writeCachedPolicyBundle(config.organizationId, result.bundle);
-      return "refreshed";
-    }
-    if (result.kind === "not-modified" && cached) {
-      writeCachedPolicyBundle(config.organizationId, cached.bundle);
-      return "not-modified";
-    }
-    if (result.kind === "error") {
-      console.error(`transcodes-guard: policy bundle refresh failed \u2014 keeping cached bundle (${result.message})`);
-    }
-    return "failed";
-  } catch (err) {
-    console.error(`transcodes-guard: policy bundle refresh failed \u2014 keeping cached bundle (${err instanceof Error ? err.message : String(err)})`);
-    return "failed";
-  }
-}
-async function refreshPolicyBundleIfConfigured(opts = {}) {
-  let config;
-  try {
-    config = loadStepupConfig();
-  } catch {
-    return "skipped";
-  }
-  return refreshPolicyBundle(config, opts);
 }
 
 // ../../../private/packages/transcodes-mcp-tools/dist/stepup-helper.js
@@ -7909,8 +7934,9 @@ var transcodesGateBackend = {
   // server path: RBAC coordinate — config loaded internally, error wrapped
   assertRbacCoordinate: (resource, action) => assertRbacCoordinate(loadStepupConfig(), resource, action),
   isRbacCoordinateError: (e) => e instanceof RbacCoordinateError,
-  // server path: tool-rule registry
-  loadMergedToolRules,
+  // server path: tool-rule registry — the effective set includes the cached
+  // org policy bundle layer (G3): baseline → bundle → user.
+  loadMergedToolRules: loadEffectiveToolRules,
   findFirstToolRule,
   addUserToolRule,
   updateUserToolRule,

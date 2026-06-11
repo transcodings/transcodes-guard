@@ -22,12 +22,12 @@ import {
 } from '@transcodes-guard/danger-patterns';
 import {
   findFirstToolRule,
-  loadMergedToolRules,
   type MergedToolRule,
 } from '@transcodes-guard-private/danger-rules';
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, type RequestResult, requestStepup } from './gate.js';
 import { clearPending, type PendingState } from './pending.js';
+import { loadEffectiveToolRules } from './policy-bundle.js';
 import { checkRbacPermission, type RbacLevel } from './rbac-check.js';
 import { pollStepupSession } from './session.js';
 import { consumeVerified, readVerified } from './store.js';
@@ -294,7 +294,9 @@ function classifyToolCall(input: ToolCallInput): Classified | null {
     if (typeof cmd !== 'string') return null;
     return { kind: 'bash', command: cmd, cwd: input.cwd };
   }
-  const rules = loadMergedToolRules();
+  // G3: baseline → cached org bundle → user rules. Cache-only read — the
+  // PreToolUse critical path stays network-free.
+  const rules = loadEffectiveToolRules();
   const match = findFirstToolRule(input.toolName, rules);
   if (!match) return null;
   return {
