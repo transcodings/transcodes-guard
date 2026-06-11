@@ -76,6 +76,11 @@ export function createServer(
     version: PLUGIN_VERSION,
   });
 
+  // Boot-time policy bundle refresh (Phase3 v2 G2) — fire-and-forget so
+  // transport connect is never delayed; failures keep the cached bundle and
+  // an unconfigured machine skips silently.
+  void backend.refreshPolicyBundle();
+
   server.registerResource(
     'version-info',
     'version://info',

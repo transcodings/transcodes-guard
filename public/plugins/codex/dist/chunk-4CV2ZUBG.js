@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "cursor";
+process.env.TRANSCODES_GUARD_HOST = "codex";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -174,6 +174,8 @@ var denyByDefaultBackend = {
     return false;
   },
   async sendGateDecisionAudit() {
+  },
+  async refreshPolicyBundle() {
   },
   // server path — call-shaped methods throw
   createStepupSession() {
@@ -1637,7 +1639,7 @@ function removeUserToolRule(id) {
 // ../../../private/packages/stepup-core/dist/client.js
 var REQUEST_TIMEOUT_MS = 3e4;
 async function request(config, input) {
-  const path8 = input.path.startsWith("/") ? input.path : `/${input.path}`;
+  const path9 = input.path.startsWith("/") ? input.path : `/${input.path}`;
   const params = new URLSearchParams();
   if (input.query) {
     for (const [k, v] of Object.entries(input.query)) {
@@ -1647,7 +1649,7 @@ async function request(config, input) {
     }
   }
   const qs = params.toString();
-  const url = `${config.apiBaseV1}${path8}${qs ? `?${qs}` : ""}`;
+  const url = `${config.apiBaseV1}${path9}${qs ? `?${qs}` : ""}`;
   const headers = {
     "x-transcodes-token": config.token,
     Accept: "application/json"
@@ -2652,8 +2654,8 @@ function getErrorMap() {
 
 // ../../../node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path8, errorMaps, issueData } = params;
-  const fullPath = [...path8, ...issueData.path || []];
+  const { data, path: path9, errorMaps, issueData } = params;
+  const fullPath = [...path9, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -2769,11 +2771,11 @@ var errorUtil;
 
 // ../../../node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path8, key) {
+  constructor(parent, value, path9, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path8;
+    this._path = path9;
     this._key = key;
   }
   get path() {
@@ -6764,6 +6766,177 @@ function inspectStepupState(now = Date.now()) {
   };
 }
 
+// ../../../private/packages/stepup-core/dist/policy-bundle.js
+import { createHash as createHash2 } from "crypto";
+import { mkdirSync as mkdirSync8, readFileSync as readFileSync8, renameSync as renameSync2, writeFileSync as writeFileSync7 } from "fs";
+import path8 from "path";
+var POLICY_BUNDLE_TTL_MS = 60 * 60 * 1e3;
+var POLICY_BUNDLE_FETCH_TIMEOUT_MS = 3e3;
+var bundleToolRuleSchema = external_exports.object({
+  id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/),
+  toolName: external_exports.string().min(1),
+  reason: external_exports.string().min(1),
+  stepupAction: external_exports.enum(RBAC_ACTIONS),
+  stepupResource: external_exports.string().min(1),
+  consume_in_hook: external_exports.boolean().optional()
+});
+var policyBundleSchema = external_exports.object({
+  revision: external_exports.string().min(1),
+  rules: external_exports.array(bundleToolRuleSchema)
+});
+var manifestSchema = external_exports.object({
+  sha384: external_exports.string().regex(/^[0-9a-f]{96}$/i)
+});
+var PolicyBundleError = class extends Error {
+};
+function canonicalJson(value) {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value) ?? "null";
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => canonicalJson(v)).join(",")}]`;
+  }
+  const entries = Object.entries(value).filter(([, v]) => v !== void 0).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
+}
+function policyBundleSha384(body) {
+  return createHash2("sha384").update(canonicalJson(body), "utf8").digest("hex");
+}
+function verifyAndParsePolicyBundle(raw) {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new PolicyBundleError("bundle body is not an object");
+  }
+  const { manifest, ...body } = raw;
+  const manifestParsed = manifestSchema.safeParse(manifest);
+  if (!manifestParsed.success) {
+    throw new PolicyBundleError("manifest.sha384 missing or malformed");
+  }
+  const expected = manifestParsed.data.sha384.toLowerCase();
+  const actual = policyBundleSha384(body);
+  if (actual !== expected) {
+    throw new PolicyBundleError(`manifest sha384 mismatch (manifest=${expected.slice(0, 12)}\u2026, body=${actual.slice(0, 12)}\u2026)`);
+  }
+  const parsed = policyBundleSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new PolicyBundleError(`bundle schema invalid: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+  }
+  return parsed.data;
+}
+function policyBundleCachePath(organizationId) {
+  const safe = organizationId.replace(/[^A-Za-z0-9._-]/g, "_");
+  return path8.join(cacheDir(), `policy-bundle.${safe}.json`);
+}
+function readCachedPolicyBundle(organizationId, ttlMs = POLICY_BUNDLE_TTL_MS) {
+  let raw;
+  try {
+    raw = readFileSync8(policyBundleCachePath(organizationId), "utf8");
+  } catch {
+    return null;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  const envelope = parsed;
+  if (typeof envelope.fetchedAt !== "number") {
+    return null;
+  }
+  const bundle = policyBundleSchema.safeParse(envelope.bundle);
+  if (!bundle.success) {
+    return null;
+  }
+  return {
+    bundle: bundle.data,
+    fetchedAt: envelope.fetchedAt,
+    fresh: Date.now() - envelope.fetchedAt < ttlMs
+  };
+}
+function writeCachedPolicyBundle(organizationId, bundle) {
+  const file = policyBundleCachePath(organizationId);
+  mkdirSync8(path8.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  const envelope = { fetchedAt: Date.now(), bundle };
+  writeFileSync7(tmp, JSON.stringify(envelope), { mode: 384 });
+  renameSync2(tmp, file);
+}
+function unwrapBundleBody(data) {
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    return data;
+  }
+  const env = data;
+  if (Array.isArray(env.payload) && ("success" in env || "statusCode" in env)) {
+    return env.payload[0];
+  }
+  return data;
+}
+async function fetchPolicyBundle(config, currentRevision) {
+  const res = await request(config, {
+    method: "GET",
+    path: "/guard/policy-bundle",
+    query: { revision: currentRevision },
+    timeoutMs: POLICY_BUNDLE_FETCH_TIMEOUT_MS
+  });
+  if (res.status === 304) {
+    return { kind: "not-modified" };
+  }
+  if (!res.ok) {
+    return {
+      kind: "error",
+      message: res.status === 0 ? "backend unreachable" : `backend responded ${res.status}`
+    };
+  }
+  try {
+    return {
+      kind: "fetched",
+      bundle: verifyAndParsePolicyBundle(unwrapBundleBody(res.data))
+    };
+  } catch (err) {
+    return {
+      kind: "error",
+      message: err instanceof Error ? err.message : String(err)
+    };
+  }
+}
+async function refreshPolicyBundle(config, opts = {}) {
+  try {
+    const ttlMs = opts.ttlMs ?? POLICY_BUNDLE_TTL_MS;
+    const cached = readCachedPolicyBundle(config.organizationId, ttlMs);
+    if (cached?.fresh && !opts.force) {
+      return "fresh";
+    }
+    const result = await fetchPolicyBundle(config, cached?.bundle.revision);
+    if (result.kind === "fetched") {
+      writeCachedPolicyBundle(config.organizationId, result.bundle);
+      return "refreshed";
+    }
+    if (result.kind === "not-modified" && cached) {
+      writeCachedPolicyBundle(config.organizationId, cached.bundle);
+      return "not-modified";
+    }
+    if (result.kind === "error") {
+      console.error(`transcodes-guard: policy bundle refresh failed \u2014 keeping cached bundle (${result.message})`);
+    }
+    return "failed";
+  } catch (err) {
+    console.error(`transcodes-guard: policy bundle refresh failed \u2014 keeping cached bundle (${err instanceof Error ? err.message : String(err)})`);
+    return "failed";
+  }
+}
+async function refreshPolicyBundleIfConfigured(opts = {}) {
+  let config;
+  try {
+    config = loadStepupConfig();
+  } catch {
+    return "skipped";
+  }
+  return refreshPolicyBundle(config, opts);
+}
+
 // ../../../private/packages/transcodes-mcp-tools/dist/stepup-helper.js
 var RBAC_TTL_MS = 5 * 6e4;
 var rbacCache = /* @__PURE__ */ new Map();
@@ -6897,8 +7070,8 @@ async function req(config, input, toolName, pathSuffix) {
       message: `Tool '${toolName}' is not in this plugin's endpoint map.`
     }, null, 2);
   }
-  const path8 = pathSuffix ? `${base}${pathSuffix}` : base;
-  const envelope = await request(config, { ...input, path: path8 });
+  const path9 = pathSuffix ? `${base}${pathSuffix}` : base;
+  const envelope = await request(config, { ...input, path: path9 });
   return JSON.stringify(envelope, null, 2);
 }
 function blockedResult(message) {
@@ -7722,6 +7895,9 @@ var transcodesGateBackend = {
   sweepStepup,
   hasToken: () => Boolean(resolveToken().token),
   sendGateDecisionAudit,
+  refreshPolicyBundle: async () => {
+    await refreshPolicyBundleIfConfigured();
+  },
   // server path: step-up session — config loaded internally
   createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),
   pollStepupSession: (sid) => pollStepupSession(loadStepupConfig(), sid),

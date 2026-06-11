@@ -72,6 +72,7 @@ export {
   type CachedPolicyBundle,
   type FetchPolicyBundleResult,
   fetchPolicyBundle,
+  POLICY_BUNDLE_FETCH_TIMEOUT_MS,
   POLICY_BUNDLE_TTL_MS,
   type PolicyBundle,
   PolicyBundleError,
@@ -81,6 +82,7 @@ export {
   policyBundleSha384,
   readCachedPolicyBundle,
   refreshPolicyBundle,
+  refreshPolicyBundleIfConfigured,
   verifyAndParsePolicyBundle,
   writeCachedPolicyBundle,
 } from './policy-bundle.js';

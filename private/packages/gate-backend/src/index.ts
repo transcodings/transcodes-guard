@@ -37,6 +37,7 @@ import {
   pollStepupSessionWait,
   readPending,
   readVerified,
+  refreshPolicyBundleIfConfigured,
   resolveToken,
   sendGateDecisionAudit,
   sweepStepup,
@@ -72,6 +73,9 @@ export const transcodesGateBackend: GateBackend = {
   sweepStepup,
   hasToken: () => Boolean(resolveToken().token),
   sendGateDecisionAudit,
+  refreshPolicyBundle: async () => {
+    await refreshPolicyBundleIfConfigured();
+  },
 
   // server path: step-up session — config loaded internally
   createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),

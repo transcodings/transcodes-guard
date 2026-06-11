@@ -1,9 +1,12 @@
 import { z } from 'zod';
-import type { StepupConfig } from './config.js';
+import { type StepupConfig } from './config.js';
 /** Bundle refresh TTL. Policy changes are infrequent and refresh runs only on
  * session-start/server boot (never per tool call), so 1h is the PRD default.
  * OPA-style 10–120s polling assumes a resident daemon — hooks are short-lived. */
 export declare const POLICY_BUNDLE_TTL_MS: number;
+/** Refresh runs at session-start/server boot where a hung backend would delay
+ * the session — keep the fetch bounded well under the host's hook timeout. */
+export declare const POLICY_BUNDLE_FETCH_TIMEOUT_MS = 3000;
 /** Mirrors `ToolRule` in @transcodes-guard-private/danger-rules, as a zod
  * schema — backend responses are untrusted input like any other (a partially
  * corrupt bundle must never take the gate down). */
@@ -140,4 +143,13 @@ export declare function refreshPolicyBundle(config: StepupConfig, opts?: {
     force?: boolean;
     ttlMs?: number;
 }): Promise<PolicyBundleRefreshOutcome>;
+/**
+ * Config-less refresh for the GateBackend seam (decision-audit pattern):
+ * when no Transcodes token is resolvable this is a silent skip — an
+ * unconfigured machine must boot exactly as before. Never throws.
+ */
+export declare function refreshPolicyBundleIfConfigured(opts?: {
+    force?: boolean;
+    ttlMs?: number;
+}): Promise<PolicyBundleRefreshOutcome | 'skipped'>;
 export {};

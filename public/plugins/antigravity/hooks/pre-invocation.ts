@@ -95,7 +95,7 @@ function userDoneNotice(pending: PendingState, matchedContent: string): string {
   ].join('\n');
 }
 
-function main(): void {
+async function main(): Promise<void> {
   if (
     !antigravityAdapter.parsePreInvocationStdin ||
     !antigravityAdapter.emitPreInvocation
@@ -139,12 +139,16 @@ function main(): void {
   }
 
   process.stdout.write(antigravityAdapter.emitPreInvocation(injectSteps));
+  // Policy bundle refresh (G2) AFTER the emit, on the SessionStart-equivalent
+  // invocation only — PreInvocation fires before every model call and the
+  // TTL gate must not be probed each turn.
+  if (input.invocationNum <= 1) {
+    await backend.refreshPolicyBundle();
+  }
   process.exit(0);
 }
 
-try {
-  main();
-} catch (err) {
+main().catch((err) => {
   process.stderr.write(`transcodes-guard pre-invocation hook error: ${err}\n`);
   process.exit(0);
-}
+});

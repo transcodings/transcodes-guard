@@ -15,7 +15,7 @@ import {
   objectType,
   removeUserPattern,
   updateUserPattern
-} from "../chunk-YQNYLQK4.js";
+} from "../chunk-FGVMHLUB.js";
 
 // ../../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17094,6 +17094,7 @@ function createServer(backend = getGateBackend()) {
     name: "transcodes-guard-mcp",
     version: PLUGIN_VERSION
   });
+  void backend.refreshPolicyBundle();
   server.registerResource("version-info", "version://info", {
     title: "Plugin version",
     description: "Returns the running plugin version. Use this to confirm which build is currently loaded after an update.",

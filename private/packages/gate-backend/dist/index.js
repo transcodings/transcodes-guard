@@ -1,5 +1,5 @@
 import { addUserToolRule, findFirstToolRule, getUserToolRulesPath, loadMergedToolRules, removeUserToolRule, ToolRuleValidationError, updateUserToolRule, } from '@transcodes-guard-private/danger-rules';
-import { clearPending, consumeVerified, createStepupSession, evaluatePreToolUse, findPendingBySid, firstActivePending, firstInFlightFpPending, inspectStepupState, isExpired, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, readPending, readVerified, resolveToken, sendGateDecisionAudit, sweepStepup, writePending, writeVerified, } from '@transcodes-guard-private/stepup-core';
+import { clearPending, consumeVerified, createStepupSession, evaluatePreToolUse, findPendingBySid, firstActivePending, firstInFlightFpPending, inspectStepupState, isExpired, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, readPending, readVerified, refreshPolicyBundleIfConfigured, resolveToken, sendGateDecisionAudit, sweepStepup, writePending, writeVerified, } from '@transcodes-guard-private/stepup-core';
 import { assertRbacCoordinate, RbacCoordinateError, registerAuditTools, registerAuthDeviceTools, registerJwkTools, registerMembershipTools, registerMemberTools, registerMetaTools, registerOrganizationTools, registerPasscodeTools, registerProjectTools, registerRbacTools, } from '@transcodes-guard-private/transcodes-mcp-tools';
 export const transcodesGateBackend = {
     // hook path — direct bindings
@@ -15,6 +15,9 @@ export const transcodesGateBackend = {
     sweepStepup,
     hasToken: () => Boolean(resolveToken().token),
     sendGateDecisionAudit,
+    refreshPolicyBundle: async () => {
+        await refreshPolicyBundleIfConfigured();
+    },
     // server path: step-up session — config loaded internally
     createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),
     pollStepupSession: (sid) => pollStepupSession(loadStepupConfig(), sid),

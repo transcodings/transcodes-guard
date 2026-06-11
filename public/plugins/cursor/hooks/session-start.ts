@@ -32,21 +32,25 @@ function carryoverBlock(): string | null {
   ].join('\n');
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const tokenNotice = getGateBackend().hasToken()
     ? null
     : formatNoTokenSessionNotice();
   const parts = [carryoverBlock(), tokenNotice].filter((s): s is string =>
     Boolean(s),
   );
-  if (parts.length === 0) process.exit(0);
-  process.stdout.write(cursorAdapter.emitSessionStartContext(parts.join('\n')));
+  if (parts.length > 0) {
+    process.stdout.write(
+      cursorAdapter.emitSessionStartContext(parts.join('\n')),
+    );
+  }
+  // Policy bundle refresh (G2) AFTER the context emit (post-emit ordering,
+  // same as the decision audit) — runs even when there is nothing to emit.
+  await getGateBackend().refreshPolicyBundle();
   process.exit(0);
 }
 
-try {
-  main();
-} catch (err) {
+main().catch((err) => {
   process.stderr.write(`transcodes-guard session-start hook error: ${err}\n`);
   process.exit(0);
-}
+});

@@ -19,6 +19,7 @@ import {
   policyBundleSha384,
   readCachedPolicyBundle,
   refreshPolicyBundle,
+  refreshPolicyBundleIfConfigured,
   verifyAndParsePolicyBundle,
   writeCachedPolicyBundle,
 } from '../src/policy-bundle.js';
@@ -282,5 +283,41 @@ describe('refreshPolicyBundle', () => {
     const outcome = await refreshPolicyBundle(configFor('http://127.0.0.1:1'));
     assert.equal(outcome, 'failed');
     assert.equal(readCachedPolicyBundle(ORG), null);
+  });
+
+  it('unwraps the backend response envelope (payload[0]) before verifying', async () => {
+    respond = () => ({
+      status: 200,
+      body: {
+        logId: 'log-1',
+        success: true,
+        statusCode: 200,
+        payload: [makeBundleResponse('rev-env')],
+        error: null,
+      },
+    });
+    const outcome = await refreshPolicyBundle(configFor(baseUrl));
+    assert.equal(outcome, 'refreshed');
+    assert.equal(readCachedPolicyBundle(ORG)?.bundle.revision, 'rev-env');
+  });
+
+  it('still accepts a bare (non-enveloped) bundle body', async () => {
+    respond = () => ({ status: 200, body: makeBundleResponse('rev-bare') });
+    const outcome = await refreshPolicyBundle(configFor(baseUrl));
+    assert.equal(outcome, 'refreshed');
+    assert.equal(readCachedPolicyBundle(ORG)?.bundle.revision, 'rev-bare');
+  });
+});
+
+describe('refreshPolicyBundleIfConfigured', () => {
+  it('skips silently when no token is resolvable', async () => {
+    const prev = process.env.TRANSCODES_TOKEN;
+    delete process.env.TRANSCODES_TOKEN;
+    try {
+      // HOME points at the test tmp dir, so no token file exists either.
+      assert.equal(await refreshPolicyBundleIfConfigured(), 'skipped');
+    } finally {
+      if (prev !== undefined) process.env.TRANSCODES_TOKEN = prev;
+    }
   });
 });
