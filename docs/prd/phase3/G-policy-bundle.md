@@ -9,7 +9,7 @@
 - **L (Large)** — 복수 PR + 백엔드 룰 저장소/API + 보안 임계(fail-closed) + 4호스트 smoke 갱신.
 - 내부 phasing(권장):
   - **G1 번들 계약 + 클라이언트 코어** — 번들 스키마/manifest 검증/캐시 읽기·쓰기. 백엔드 API와 병행 개발 가능(픽스처 우선). → 🎉 **PR #52** (`stepup-core/src/policy-bundle.ts`, 단위 테스트 18종)
-  - **G2 refresh 배선** — SessionStart 계열 훅 4종 + MCP 서버 기동 시 TTL refresh(비차단). G1 fetch에 envelope unwrap 보정 포함(§백엔드 구현 명세 B-1).
+  - **G2 refresh 배선** — SessionStart 계열 훅 4종 + MCP 서버 기동 시 TTL refresh(비차단). G1 fetch에 envelope unwrap 보정 포함(§백엔드 구현 명세 B-1). → 🎉 **구현 완료** (`GateBackend.refreshPolicyBundle` seam + 훅 4종 post-emit 배선 + `createServer()` fire-and-forget + 3s fetch timeout)
   - **G3 데이터 이관** — 시스템 tool-rules를 번들 소스-오브-트루스에서 내장 baseline/org 번들로 분리, `loadMergedToolRules()` 병합 순서 개편.
 
 ## 요구사항

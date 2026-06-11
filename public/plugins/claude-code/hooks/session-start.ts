@@ -57,7 +57,7 @@ function carryoverBlock(): string | null {
   ].join('\n');
 }
 
-function main(): void {
+async function main(): Promise<void> {
   process.stderr.write(`[transcodes-guard] v${PLUGIN_VERSION}\n`);
 
   const carry = carryoverBlock();
@@ -71,12 +71,14 @@ function main(): void {
   process.stdout.write(
     claudeCodeAdapter.emitSessionStartContext(additionalContext),
   );
+  // Policy bundle refresh (G2) AFTER the context emit — same post-emit
+  // ordering as the decision audit; a slow/unreachable backend can no longer
+  // affect what the session receives.
+  await getGateBackend().refreshPolicyBundle();
   process.exit(0);
 }
 
-try {
-  main();
-} catch (err) {
+main().catch((err) => {
   process.stderr.write(`transcodes-guard session-start hook error: ${err}\n`);
   process.exit(0);
-}
+});

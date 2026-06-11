@@ -52,6 +52,7 @@ export const denyByDefaultBackend: GateBackend = {
     return false;
   },
   async sendGateDecisionAudit() {},
+  async refreshPolicyBundle() {},
 
   // server path — call-shaped methods throw
   createStepupSession() {

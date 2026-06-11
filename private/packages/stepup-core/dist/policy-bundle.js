@@ -27,10 +27,14 @@ import { RBAC_ACTIONS } from '@transcodes-guard/danger-patterns';
 import { cacheDir } from '@transcodes-guard/plugin-paths';
 import { z } from 'zod';
 import { request } from './client.js';
+import { loadStepupConfig } from './config.js';
 /** Bundle refresh TTL. Policy changes are infrequent and refresh runs only on
  * session-start/server boot (never per tool call), so 1h is the PRD default.
  * OPA-style 10–120s polling assumes a resident daemon — hooks are short-lived. */
 export const POLICY_BUNDLE_TTL_MS = 60 * 60 * 1_000;
+/** Refresh runs at session-start/server boot where a hung backend would delay
+ * the session — keep the fetch bounded well under the host's hook timeout. */
+export const POLICY_BUNDLE_FETCH_TIMEOUT_MS = 3_000;
 /** Mirrors `ToolRule` in @transcodes-guard-private/danger-rules, as a zod
  * schema — backend responses are untrusted input like any other (a partially
  * corrupt bundle must never take the gate down). */
@@ -154,6 +158,21 @@ export function writeCachedPolicyBundle(organizationId, bundle) {
     writeFileSync(tmp, JSON.stringify(envelope), { mode: 0o600 });
     renameSync(tmp, file);
 }
+/** The backend wraps every response in `{ logId, success, statusCode,
+ * payload: [...] }` (response.interceptor) — the bundle is `payload[0]` and
+ * the manifest hash covers the bundle object, not the envelope. A bare body
+ * passes through untouched so fixtures and a future non-enveloped backend
+ * keep working. */
+function unwrapBundleBody(data) {
+    if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+        return data;
+    }
+    const env = data;
+    if (Array.isArray(env.payload) && ('success' in env || 'statusCode' in env)) {
+        return env.payload[0];
+    }
+    return data;
+}
 /**
  * GET /v1/guard/policy-bundle (org scope comes from the token). When
  * `currentRevision` is set the backend may answer 304. Never throws — every
@@ -164,6 +183,7 @@ export async function fetchPolicyBundle(config, currentRevision) {
         method: 'GET',
         path: '/guard/policy-bundle',
         query: { revision: currentRevision },
+        timeoutMs: POLICY_BUNDLE_FETCH_TIMEOUT_MS,
     });
     if (res.status === 304) {
         return { kind: 'not-modified' };
@@ -177,7 +197,10 @@ export async function fetchPolicyBundle(config, currentRevision) {
         };
     }
     try {
-        return { kind: 'fetched', bundle: verifyAndParsePolicyBundle(res.data) };
+        return {
+            kind: 'fetched',
+            bundle: verifyAndParsePolicyBundle(unwrapBundleBody(res.data)),
+        };
     }
     catch (err) {
         return {
@@ -218,5 +241,20 @@ export async function refreshPolicyBundle(config, opts = {}) {
         console.error(`transcodes-guard: policy bundle refresh failed — keeping cached bundle (${err instanceof Error ? err.message : String(err)})`);
         return 'failed';
     }
+}
+/**
+ * Config-less refresh for the GateBackend seam (decision-audit pattern):
+ * when no Transcodes token is resolvable this is a silent skip — an
+ * unconfigured machine must boot exactly as before. Never throws.
+ */
+export async function refreshPolicyBundleIfConfigured(opts = {}) {
+    let config;
+    try {
+        config = loadStepupConfig();
+    }
+    catch {
+        return 'skipped';
+    }
+    return refreshPolicyBundle(config, opts);
 }
 //# sourceMappingURL=policy-bundle.js.map

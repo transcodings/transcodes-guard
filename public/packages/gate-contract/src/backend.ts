@@ -56,6 +56,14 @@ export interface GateBackend {
    * a silent no-op for `pass` decisions or when no token is resolvable.
    */
   sendGateDecisionAudit(decision: GateDecision): Promise<void>;
+  /**
+   * TTL-gated policy bundle refresh (Phase3 v2 G2). Called from the
+   * SessionStart-equivalent hooks AFTER their stdout emit and from MCP server
+   * boot — never from PreToolUse (the hook critical path reads cache only).
+   * Never rejects; a silent no-op when no token is resolvable, and a failed
+   * fetch keeps the previous cache (last-known-good).
+   */
+  refreshPolicyBundle(): Promise<void>;
 
   // ── server path: step-up session (config loaded internally) ────────────
   createStepupSession(args: CreateStepupArgs): Promise<CreatedStepupSession>;

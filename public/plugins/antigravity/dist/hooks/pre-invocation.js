@@ -6,7 +6,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-YQNYLQK4.js";
+} from "../chunk-FGVMHLUB.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";
@@ -58,7 +58,7 @@ function userDoneNotice(pending, matchedContent) {
     '  - On `outcome: "verified"` retry the exact original command above.'
   ].join("\n");
 }
-function main() {
+async function main() {
   if (!antigravityAdapter.parsePreInvocationStdin || !antigravityAdapter.emitPreInvocation) {
     process.exit(0);
   }
@@ -87,12 +87,13 @@ function main() {
     }
   }
   process.stdout.write(antigravityAdapter.emitPreInvocation(injectSteps));
+  if (input.invocationNum <= 1) {
+    await backend.refreshPolicyBundle();
+  }
   process.exit(0);
 }
-try {
-  main();
-} catch (err) {
+main().catch((err) => {
   process.stderr.write(`transcodes-guard pre-invocation hook error: ${err}
 `);
   process.exit(0);
-}
+});

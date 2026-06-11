@@ -47,6 +47,10 @@ export function createServer(backend = getGateBackend()) {
         name: 'transcodes-guard-mcp',
         version: PLUGIN_VERSION,
     });
+    // Boot-time policy bundle refresh (Phase3 v2 G2) — fire-and-forget so
+    // transport connect is never delayed; failures keep the cached bundle and
+    // an unconfigured machine skips silently.
+    void backend.refreshPolicyBundle();
     server.registerResource('version-info', 'version://info', {
         title: 'Plugin version',
         description: 'Returns the running plugin version. Use this to confirm which build is currently loaded after an update.',

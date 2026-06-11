@@ -5,7 +5,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-SN5OKD4F.js";
+} from "../chunk-4CV2ZUBG.js";
 
 // hooks/session-start.ts
 function carryoverBlock() {
@@ -21,19 +21,21 @@ function carryoverBlock() {
     `  url     : ${pending.browserUrl}`
   ].join("\n");
 }
-function main() {
+async function main() {
   const tokenNotice = getGateBackend().hasToken() ? null : formatNoTokenSessionNotice();
   const parts = [carryoverBlock(), tokenNotice].filter(
     (s) => Boolean(s)
   );
-  if (parts.length === 0) process.exit(0);
-  process.stdout.write(codexAdapter.emitSessionStartContext(parts.join("\n")));
+  if (parts.length > 0) {
+    process.stdout.write(
+      codexAdapter.emitSessionStartContext(parts.join("\n"))
+    );
+  }
+  await getGateBackend().refreshPolicyBundle();
   process.exit(0);
 }
-try {
-  main();
-} catch (err) {
+main().catch((err) => {
   process.stderr.write(`transcodes-guard session-start hook error: ${err}
 `);
   process.exit(0);
-}
+});
