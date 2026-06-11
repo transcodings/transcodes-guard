@@ -2,7 +2,7 @@
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M3
 > 상태: 🗑 **Superseded (2026-06-10, v2 전환)** — 코드 로더가 폐기됨(`backend.ts` seam은 정적 import 그대로 유지). fail-closed·캐시·동시성 설계는 [Unit G](./G-policy-bundle.md)의 *정책 번들* fetch로 계승(코드가 아니라 데이터를 받는다). OQ1/3/4는 소멸 — 부모 §7 처분표. 이하는 기록용 원문.
-> ~~규모: **L** · 선행: [A](./A-obfuscate-build.md), [B](./B-cdn-deploy.md) · 외부 의존: **설계 결정(OQ1/3/4)** · 상태: ⚠️ Blocked (결정 선행)~~
+> ~~규모: **L** · 선행: [A](./A-obfuscate-build-done.md), [B](./B-cdn-deploy-cancel.md) · 외부 의존: **설계 결정(OQ1/3/4)** · 상태: ⚠️ Blocked (결정 선행)~~
 
 ## 규모 산정
 
@@ -36,7 +36,7 @@ HTTPS URL 직접 `import()` 불가 → **캐시 후 로컬 파일 `import()`가 
 
 ## docstring 번호 정정
 
-`backend.ts`·`registry.ts`의 "Phase 2 (CDN)" 번호를 phase3 기준으로 정정(부모 §1, [Unit E](./E-lint-promotion.md)와 함께).
+`backend.ts`·`registry.ts`의 "Phase 2 (CDN)" 번호를 phase3 기준으로 정정(부모 §1, [Unit E](./E-lint-promotion-done.md)와 함께).
 
 ## 미설계 세부
 

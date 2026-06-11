@@ -1,7 +1,7 @@
 # Phase 3 v2 / Unit J — 공개 전환
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M10
-> 규모: **S** (대부분 human) · 선행: [G](./G-policy-bundle.md)·[H](./H-server-decision.md)·[I](./I-license.md) · 외부 의존: D4 히스토리 처분 · 상태: 🚫 **Gated (최종 스위치)**
+> 규모: **S** (대부분 human) · 선행: [G](./G-policy-bundle.md)·[H](./H-server-decision-done.md)·[I](./I-license.md) · 외부 의존: D4 히스토리 처분 · 상태: 🚫 **Gated (최종 스위치)**
 
 ## 규모 산정
 
@@ -33,9 +33,9 @@
 
 ## 수용 기준
 
-- 리포 공개 상태에서 4호스트 설치 + 게이트 동작(번들 fetch 포함) 검증 기록.
-- 히스토리에 시크릿 0 (스캔 2종 + 수동 감사).
-- 공개 후 1주 모니터링: 이슈/포크에서 예상 밖 노출 신고 0.
+- [ ] 리포 공개 상태에서 4호스트 설치 + 게이트 동작(번들 fetch 포함) 검증 기록.
+- [ ] 히스토리에 시크릿 0 (스캔 2종 + 수동 감사).
+- [ ] 공개 후 1주 모니터링: 이슈/포크에서 예상 밖 노출 신고 0.
 
 ## 산출 파일(예상)
 

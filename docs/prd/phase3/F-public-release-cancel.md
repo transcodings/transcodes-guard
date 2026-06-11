@@ -8,7 +8,7 @@
 
 - **S (Small)** — 코드 작업은 적으나 **되돌릴 수 없는 human 스위치**.
 - 작업: repo 공개 전환 + 호스트별 설치 동작 확인 + CDN 로더 fetch 확인.
-- 리스크: 공개는 비가역 — A~E + [D 검증 체크리스트](./D-mirror-automation.md)가 전부 그린이어야 한다.
+- 리스크: 공개는 비가역 — A~E + [D 검증 체크리스트](./D-mirror-automation-cancel.md)가 전부 그린이어야 한다.
 
 ## 요구사항
 
@@ -16,8 +16,8 @@
 
 ## 선행 조건
 
-- [A](./A-obfuscate-build.md) · [B](./B-cdn-deploy.md) · [C](./C-cdn-loader.md) · [E](./E-lint-promotion.md) **전부 완료**.
-- [D](./D-mirror-automation.md) 검증 체크리스트 **그린**(private 히스토리/평문 누출 0, 수동 감사 통과).
+- [A](./A-obfuscate-build-done.md) · [B](./B-cdn-deploy-cancel.md) · [C](./C-cdn-loader-cancel.md) · [E](./E-lint-promotion-done.md) **전부 완료**.
+- [D](./D-mirror-automation-cancel.md) 검증 체크리스트 **그린**(private 히스토리/평문 누출 0, 수동 감사 통과).
 
 ## 배포 채널
 

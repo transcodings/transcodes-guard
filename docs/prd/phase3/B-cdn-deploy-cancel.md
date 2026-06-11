@@ -2,7 +2,7 @@
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M2
 > 상태: 🗑 **Superseded (2026-06-10, v2 전환)** — CDN 번들 배포 자체가 폐기됨. 무결성 검증·revision 개념은 [Unit G](./G-policy-bundle.md)의 정책 번들로 계승. 근거: [`boundary-redesign.md`](../../research/boundary-redesign.md). 이하는 기록용 원문.
-> ~~규모: **L** · 선행: [A](./A-obfuscate-build.md) · 외부 의존: **AWS 인프라·도메인·secrets** · 상태: ⚠️ Blocked (인프라)~~
+> ~~규모: **L** · 선행: [A](./A-obfuscate-build-done.md) · 외부 의존: **AWS 인프라·도메인·secrets** · 상태: ⚠️ Blocked (인프라)~~
 
 ## 규모 산정
 
@@ -14,8 +14,8 @@
 
 ## 요구사항
 
-[A](./A-obfuscate-build.md) 산출물(`guard-<version>.mjs`)의 SHA384를 계산해서:
-1. **로더 소스에 핀 상수로 박고** ([Unit C](./C-cdn-loader.md)와 연동)
+[A](./A-obfuscate-build-done.md) 산출물(`guard-<version>.mjs`)의 SHA384를 계산해서:
+1. **로더 소스에 핀 상수로 박고** ([Unit C](./C-cdn-loader-cancel.md)와 연동)
 2. 별도 **매니페스트(JSON)로도 게시**
 
 ## CDN 경로
