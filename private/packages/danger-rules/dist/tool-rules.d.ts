@@ -1,3 +1,16 @@
+/**
+ * Tool-rule registry — MCP-call counterpart of danger-patterns.
+ *
+ * `danger-patterns.ts` matches Bash command strings via regex; this module
+ * matches PreToolUse payloads where `tool_name` identifies an MCP tool that
+ * must trigger step-up MFA.
+ *
+ * Phase 3 v2: rules are organization/project policy managed in the Transcodes
+ * backend (Unit G). This module owns the **read/merge + validation** surface
+ * only — the built-in system baseline merged with the cached project bundle.
+ * Writes go to the backend (`@transcodes-guard-private/stepup-core`
+ * `addToolRule`/`updateToolRule`/`removeToolRule`), never to a local file.
+ */
 import { type RbacAction } from '@transcodes-guard/danger-patterns';
 export interface ToolRule {
     id: string;
@@ -15,31 +28,27 @@ export interface ToolRule {
     /** When true, the PreToolUse hook consumes the verified record itself on the
      * fast-path (Bash-like). When false, consume is deferred to the tool handler
      * via `withStepupVerifiedSid` (handler needs the sid for the backend header).
-     * Defaults per source in `loadMergedToolRules`: system=false, user=true. */
+     * Defaults per source in `loadMergedToolRules`: system=false, bundle=false. */
     consume_in_hook?: boolean;
 }
 export interface ToolRuleConfig {
     rules: ToolRule[];
 }
-export type ToolRuleSource = 'system' | 'bundle' | 'user';
+export type ToolRuleSource = 'system' | 'bundle';
 export interface MergedToolRule extends ToolRule {
     source: ToolRuleSource;
 }
-export declare function getUserToolRulesPath(): string;
 export declare function loadSystemToolRules(): ToolRuleConfig;
-export declare function loadUserToolRules(): ToolRuleConfig;
-export declare function saveUserToolRules(config: ToolRuleConfig): void;
-export declare function userToolRulesFileExists(): boolean;
 /**
- * Layered merge (Phase3 v2 G3): built-in baseline → org policy bundle →
- * user rules. Same `id` in a later layer replaces the earlier rule (the
- * replacement keeps the original position so rule precedence inside a layer
- * stays stable); user rules win over everything — the pre-bundle user-rule
- * semantics are preserved unchanged.
+ * Layered merge (Phase3 v2 G3): built-in baseline → org/project policy bundle.
+ * Same `id` in a later layer replaces the earlier rule (the replacement keeps
+ * the original position so precedence inside a layer stays stable). The
+ * per-user local layer was retired — rules are now centrally managed backend
+ * policy applied uniformly to every human/AI agent in the project.
  *
- * `bundleRules` is the cached org bundle's `rules` array (Unit G policy
- * bundle). Callers without a bundle (no token / no cache) pass nothing and
- * get the pre-G3 baseline+user behavior — fail-closed matrix row 3.
+ * `bundleRules` is the cached project bundle's `rules` array. Callers without a
+ * bundle (no token / no cache) pass nothing and get the baseline only —
+ * fail-closed matrix row 3.
  */
 export declare function loadMergedToolRules(bundleRules?: ToolRule[]): MergedToolRule[];
 export interface ToolRuleMatch {
@@ -59,13 +68,23 @@ export interface ToolRuleInput {
     stepupResource: string;
     consume_in_hook?: boolean;
 }
-export declare function validateNewToolRule(input: ToolRuleInput): ToolRule;
-export declare function addUserToolRule(input: ToolRuleInput): ToolRule;
-export declare function updateUserToolRule(id: string, changes: {
+/** Partial change set for an existing tool-rule (PUT semantics: an omitted
+ * field keeps the stored value, resolved against the cached bundle). */
+export interface ToolRuleChanges {
     toolName?: string;
     reason?: string;
     stepupAction?: string;
     stepupResource?: string;
     consume_in_hook?: boolean;
-}): ToolRule;
-export declare function removeUserToolRule(id: string): void;
+}
+/**
+ * Client-side validation shared by the backend write flows (fail fast before a
+ * network round-trip; the backend re-validates). Enforces the id/toolName/
+ * action/resource shape and reserves the system rule ids.
+ */
+export declare function validateNewToolRule(input: ToolRuleInput): ToolRule;
+/** Resolve a partial change set against an existing rule into a full validated
+ * rule (PUT body). System rules are immutable. */
+export declare function mergeToolRuleChanges(existing: ToolRule, changes: ToolRuleChanges): ToolRule;
+/** The system rule ids — reserved and immutable. */
+export declare function systemToolRuleIds(): Set<string>;

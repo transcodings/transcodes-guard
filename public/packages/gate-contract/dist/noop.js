@@ -61,17 +61,14 @@ export const denyByDefaultBackend = {
     findFirstToolRule() {
         return null;
     },
-    addUserToolRule() {
+    addToolRule() {
         return notInstalled();
     },
-    updateUserToolRule() {
+    updateToolRule() {
         return notInstalled();
     },
-    removeUserToolRule() {
+    removeToolRule() {
         return notInstalled();
-    },
-    getUserToolRulesPath() {
-        return '';
     },
     isToolRuleValidationError(_e) {
         return false;
