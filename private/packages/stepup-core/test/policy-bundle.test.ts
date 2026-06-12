@@ -26,7 +26,8 @@ import {
 
 process.env.HOME = mkdtempSync(path.join(os.tmpdir(), 'guard-policy-bundle-'));
 
-const ORG = 'org-test';
+// D5: the cache is project-scoped — this id is the config's projectId.
+const ORG = 'proj-test-scope';
 
 function makeBundleBody(revision = 'rev-001') {
   return {
@@ -53,8 +54,8 @@ function configFor(baseUrl: string): StepupConfig {
     backendUrl: baseUrl,
     apiBaseV1: `${baseUrl}/v1`,
     token: 'test-token',
-    organizationId: ORG,
-    projectId: 'proj-test',
+    organizationId: 'org-test',
+    projectId: ORG,
     memberId: 'member-test',
   };
 }

@@ -18,7 +18,7 @@ npm run format         # biome format --write (format only)
 npm run type-check     # turbo run type-check — tsc --noEmit across every package
 ```
 
-After any source change, run `npm run build:plugin` and commit every regenerated `dist/` (`public/packages/*` + `private/packages/*` + `public/plugins/*` + `private/cli`) in the same change. CI verifies plugin dist files exist (gitignore guard; the byte-identity drift gate was removed — bundles are not reproducible across environments) and runs the **21** hook smoke tests (claude-code 7 + codex 3 + antigravity 5 + cursor 6).
+After any source change, run `npm run build:plugin` and commit every regenerated `dist/` (`public/packages/*` + `private/packages/*` + `public/plugins/*` + `private/cli`) in the same change. CI verifies plugin dist files exist (gitignore guard; the byte-identity drift gate was removed — bundles are not reproducible across environments) and runs the **23** hook smoke tests (claude-code 9 + codex 3 + antigravity 5 + cursor 6).
 
 Lefthook is installed automatically on `npm install` (postinstall). It runs biome format+check on staged files at `pre-commit` and `npm run type-check` at `pre-push`. CI also runs `biome check --reporter=github` and a publish-surface gate that asserts every `private/packages/*` member stays marked `"private": true`.
 

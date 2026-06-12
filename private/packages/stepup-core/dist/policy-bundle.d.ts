@@ -99,17 +99,17 @@ export type CachedPolicyBundle = {
      * unreachable (fail-closed matrix row 2). */
     fresh: boolean;
 };
-export declare function policyBundleCachePath(organizationId: string): string;
+export declare function policyBundleCachePath(projectId: string): string;
 /**
  * Fail-open read: missing/corrupt/schema-invalid cache reads as absent (the
  * caller falls back to the built-in baseline — fail-closed matrix row 3).
  * Integrity was verified at write time and the write is atomic, so the read
  * path re-checks shape only, not the manifest hash.
  */
-export declare function readCachedPolicyBundle(organizationId: string, ttlMs?: number): CachedPolicyBundle | null;
+export declare function readCachedPolicyBundle(projectId: string, ttlMs?: number): CachedPolicyBundle | null;
 /** Atomic write (temp + rename): several hooks may boot concurrently and a
  * reader must never see a torn file. */
-export declare function writeCachedPolicyBundle(organizationId: string, bundle: PolicyBundle): void;
+export declare function writeCachedPolicyBundle(projectId: string, bundle: PolicyBundle): void;
 export type FetchPolicyBundleResult = {
     kind: 'fetched';
     bundle: PolicyBundle;
@@ -120,7 +120,7 @@ export type FetchPolicyBundleResult = {
     message: string;
 };
 /**
- * GET /v1/guard/policy-bundle (org scope comes from the token). When
+ * GET /v1/guard/policy-bundle (project scope comes from the token — D5). When
  * `currentRevision` is set the backend may answer 304. Never throws — every
  * failure mode collapses to `{ kind: 'error' }` so refresh stays non-fatal.
  */

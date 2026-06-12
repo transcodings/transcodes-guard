@@ -42,11 +42,11 @@ function bundleRule(overrides: Partial<ToolRule> = {}): ToolRule {
 
 /** Unsigned JWT-shaped token — signature verification is the backend's job
  * (jwt.ts policy), so tests only need a decodable payload. */
-function fakeToken(orgId: string): string {
+function fakeToken(projectId: string): string {
   const payload = Buffer.from(
     JSON.stringify({
-      oid: orgId,
-      pid: 'proj-test',
+      oid: 'org-test',
+      pid: projectId,
       mid: 'member-test',
       aud: ['transcodes-mcp'],
       exp: Math.floor(Date.now() / 1000) + 3600,
