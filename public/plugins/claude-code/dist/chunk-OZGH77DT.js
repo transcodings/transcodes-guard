@@ -16958,7 +16958,7 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // ../../packages/mcp-server-core/dist/build-info.js
-var PLUGIN_VERSION = "0.9.1";
+var PLUGIN_VERSION = "0.10.0";
 
 // ../../packages/mcp-server-core/dist/server.js
 var RBAC_ACTION_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first to fetch valid resource keys, then pass `stepupResource` (must match one of those keys; validated against the backend) and `stepupAction` (CRUD). System rules use resource `system`. This maps the rule onto the project's RBAC permission matrix and audit log.";
