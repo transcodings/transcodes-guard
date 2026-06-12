@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.13.0...transcodes-guard-v0.14.0) (2026-06-12)
+
+
+### Features
+
+* **cli:** transcodes policy refresh — 정책 번들 강제 갱신 명령 ([c0f656a](https://github.com/transcodings/ai-action-tracker-mcp/commit/c0f656a00d949bb2f69d084dde268e579b89abf1))
+
 ## [0.13.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.12.0...transcodes-guard-v0.13.0) (2026-06-12)
 
 
