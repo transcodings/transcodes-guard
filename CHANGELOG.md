@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.15.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.14.0...transcodes-guard-v0.15.0) (2026-06-12)
+
+
+### Features
+
+* **tool-rules:** MCP 룰 쓰기를 백엔드 정책으로 일원화 (로컬 파일 폐기) ([7f5e99c](https://github.com/transcodings/ai-action-tracker-mcp/commit/7f5e99c57280ce938fcbe510a62ccc9dc710ce47))
+* **tool-rules:** MCP 룰 쓰기를 백엔드 정책으로 일원화 (로컬 파일 폐기) ([47ba2f3](https://github.com/transcodings/ai-action-tracker-mcp/commit/47ba2f3b29dc47c57b1bfe1df07eef32dd8251ee))
+
+
+### Documentation
+
+* **prd:** phase3 문서를 잔여 작업 단일 문서로 통합 ([1a3462e](https://github.com/transcodings/ai-action-tracker-mcp/commit/1a3462e8b1fff9908e0128e90e095f360394cb77))
+* **prd:** phase3 문서를 잔여 작업 단일 문서로 통합 (완료·취소 전부 제거) ([057c9bf](https://github.com/transcodings/ai-action-tracker-mcp/commit/057c9bf89d3a0e5a01d0b18278d6fae925f097f0))
+* **prd:** 완료 단위 문서 제거 + 인덱스 취소선 + 잔여 작업 단일 PRD 신설 ([9a59831](https://github.com/transcodings/ai-action-tracker-mcp/commit/9a59831b8f03a3b2769be84a5fe1e57cbbab45a4))
+
 ## [0.14.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.13.0...transcodes-guard-v0.14.0) (2026-06-12)
 
 
