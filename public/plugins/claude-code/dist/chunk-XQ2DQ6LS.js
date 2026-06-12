@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "cursor";
+process.env.TRANSCODES_GUARD_HOST = "claude-code";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -6482,14 +6482,14 @@ function verifyAndParsePolicyBundle(raw) {
   }
   return parsed.data;
 }
-function policyBundleCachePath(organizationId) {
-  const safe = organizationId.replace(/[^A-Za-z0-9._-]/g, "_");
+function policyBundleCachePath(projectId) {
+  const safe = projectId.replace(/[^A-Za-z0-9._-]/g, "_");
   return path7.join(cacheDir(), `policy-bundle.${safe}.json`);
 }
-function readCachedPolicyBundle(organizationId, ttlMs = POLICY_BUNDLE_TTL_MS) {
+function readCachedPolicyBundle(projectId, ttlMs = POLICY_BUNDLE_TTL_MS) {
   let raw;
   try {
-    raw = readFileSync7(policyBundleCachePath(organizationId), "utf8");
+    raw = readFileSync7(policyBundleCachePath(projectId), "utf8");
   } catch {
     return null;
   }
@@ -6516,8 +6516,8 @@ function readCachedPolicyBundle(organizationId, ttlMs = POLICY_BUNDLE_TTL_MS) {
     fresh: Date.now() - envelope.fetchedAt < ttlMs
   };
 }
-function writeCachedPolicyBundle(organizationId, bundle) {
-  const file = policyBundleCachePath(organizationId);
+function writeCachedPolicyBundle(projectId, bundle) {
+  const file = policyBundleCachePath(projectId);
   mkdirSync8(path7.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   const envelope = { fetchedAt: Date.now(), bundle };
@@ -6565,17 +6565,17 @@ async function fetchPolicyBundle(config, currentRevision) {
 async function refreshPolicyBundle(config, opts = {}) {
   try {
     const ttlMs = opts.ttlMs ?? POLICY_BUNDLE_TTL_MS;
-    const cached = readCachedPolicyBundle(config.organizationId, ttlMs);
+    const cached = readCachedPolicyBundle(config.projectId, ttlMs);
     if (cached?.fresh && !opts.force) {
       return "fresh";
     }
     const result = await fetchPolicyBundle(config, cached?.bundle.revision);
     if (result.kind === "fetched") {
-      writeCachedPolicyBundle(config.organizationId, result.bundle);
+      writeCachedPolicyBundle(config.projectId, result.bundle);
       return "refreshed";
     }
     if (result.kind === "not-modified" && cached) {
-      writeCachedPolicyBundle(config.organizationId, cached.bundle);
+      writeCachedPolicyBundle(config.projectId, cached.bundle);
       return "not-modified";
     }
     if (result.kind === "error") {
@@ -6591,7 +6591,7 @@ function loadEffectiveToolRules() {
   let bundleRules = [];
   try {
     const config = loadStepupConfig();
-    bundleRules = readCachedPolicyBundle(config.organizationId)?.bundle.rules ?? [];
+    bundleRules = readCachedPolicyBundle(config.projectId)?.bundle.rules ?? [];
   } catch {
   }
   return loadMergedToolRules(bundleRules);

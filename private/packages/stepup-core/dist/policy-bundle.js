@@ -1,5 +1,5 @@
 /**
- * Org-scoped policy bundle — fetch / verify / cache (Phase 3 v2 Unit G, G1).
+ * Project-scoped policy bundle (D5) — fetch / verify / cache (Phase 3 v2 Unit G, G1).
  *
  * The backend distributes system/org tool-rules as a runtime bundle
  * (TLS + SHA-384 manifest — decision D3) instead of baking them into the
@@ -105,10 +105,10 @@ export function verifyAndParsePolicyBundle(raw) {
     }
     return parsed.data;
 }
-export function policyBundleCachePath(organizationId) {
-    // The org id lands in a filename; it comes from a JWT claim, so neutralize
+export function policyBundleCachePath(projectId) {
+    // The project id lands in a filename; it comes from a JWT claim, so neutralize
     // path separators and friends rather than trusting it.
-    const safe = organizationId.replace(/[^A-Za-z0-9._-]/g, '_');
+    const safe = projectId.replace(/[^A-Za-z0-9._-]/g, '_');
     return path.join(cacheDir(), `policy-bundle.${safe}.json`);
 }
 /**
@@ -117,10 +117,10 @@ export function policyBundleCachePath(organizationId) {
  * Integrity was verified at write time and the write is atomic, so the read
  * path re-checks shape only, not the manifest hash.
  */
-export function readCachedPolicyBundle(organizationId, ttlMs = POLICY_BUNDLE_TTL_MS) {
+export function readCachedPolicyBundle(projectId, ttlMs = POLICY_BUNDLE_TTL_MS) {
     let raw;
     try {
-        raw = readFileSync(policyBundleCachePath(organizationId), 'utf8');
+        raw = readFileSync(policyBundleCachePath(projectId), 'utf8');
     }
     catch {
         return null;
@@ -151,8 +151,8 @@ export function readCachedPolicyBundle(organizationId, ttlMs = POLICY_BUNDLE_TTL
 }
 /** Atomic write (temp + rename): several hooks may boot concurrently and a
  * reader must never see a torn file. */
-export function writeCachedPolicyBundle(organizationId, bundle) {
-    const file = policyBundleCachePath(organizationId);
+export function writeCachedPolicyBundle(projectId, bundle) {
+    const file = policyBundleCachePath(projectId);
     mkdirSync(path.dirname(file), { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
     const envelope = { fetchedAt: Date.now(), bundle };
@@ -175,7 +175,7 @@ function unwrapBundleBody(data) {
     return data;
 }
 /**
- * GET /v1/guard/policy-bundle (org scope comes from the token). When
+ * GET /v1/guard/policy-bundle (project scope comes from the token — D5). When
  * `currentRevision` is set the backend may answer 304. Never throws — every
  * failure mode collapses to `{ kind: 'error' }` so refresh stays non-fatal.
  */
@@ -219,18 +219,18 @@ export async function fetchPolicyBundle(config, currentRevision) {
 export async function refreshPolicyBundle(config, opts = {}) {
     try {
         const ttlMs = opts.ttlMs ?? POLICY_BUNDLE_TTL_MS;
-        const cached = readCachedPolicyBundle(config.organizationId, ttlMs);
+        const cached = readCachedPolicyBundle(config.projectId, ttlMs);
         if (cached?.fresh && !opts.force) {
             return 'fresh';
         }
         const result = await fetchPolicyBundle(config, cached?.bundle.revision);
         if (result.kind === 'fetched') {
-            writeCachedPolicyBundle(config.organizationId, result.bundle);
+            writeCachedPolicyBundle(config.projectId, result.bundle);
             return 'refreshed';
         }
         if (result.kind === 'not-modified' && cached) {
             // Same revision server-side — rewrite to restart the TTL window.
-            writeCachedPolicyBundle(config.organizationId, cached.bundle);
+            writeCachedPolicyBundle(config.projectId, cached.bundle);
             return 'not-modified';
         }
         if (result.kind === 'error') {
@@ -256,7 +256,7 @@ export function loadEffectiveToolRules() {
     try {
         const config = loadStepupConfig();
         bundleRules =
-            readCachedPolicyBundle(config.organizationId)?.bundle.rules ?? [];
+            readCachedPolicyBundle(config.projectId)?.bundle.rules ?? [];
     }
     catch {
         // no token → baseline + user only
