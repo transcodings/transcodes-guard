@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.12.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.11.1...transcodes-guard-v0.12.0) (2026-06-12)
+
+
+### Features
+
+* **policy:** D5 — 정책 번들 캐시를 project 스코프로 전환 + fail-closed smoke 행 1·2 ([a7a88f4](https://github.com/transcodings/ai-action-tracker-mcp/commit/a7a88f4c8d1a3c296c7d0d5cf3e91dc61fe9ce23))
+* **policy:** D5 project 스코프 캐시 + fail-closed smoke 행 1·2 ([0cbe455](https://github.com/transcodings/ai-action-tracker-mcp/commit/0cbe45552cc77864b226cd20e0fcac846f06edb0))
+
+
+### Documentation
+
+* **prd:** D2·D4·D5 결정 기록 ([687d3d6](https://github.com/transcodings/ai-action-tracker-mcp/commit/687d3d66af3c2685d8af97d140089c06730e8209))
+* **prd:** D2·D4·D5 결정 기록 — 시스템 룰 비밀 아님, 히스토리 클린 직접 공개, project 스코프 ([15da782](https://github.com/transcodings/ai-action-tracker-mcp/commit/15da782a4166329017d03dc635c37d884b0df13c))
+
 ## [0.11.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.11.0...transcodes-guard-v0.11.1) (2026-06-12)
 
 
