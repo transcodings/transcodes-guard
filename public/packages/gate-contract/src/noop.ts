@@ -84,17 +84,14 @@ export const denyByDefaultBackend: GateBackend = {
   findFirstToolRule() {
     return null;
   },
-  addUserToolRule() {
+  addToolRule() {
     return notInstalled();
   },
-  updateUserToolRule() {
+  updateToolRule() {
     return notInstalled();
   },
-  removeUserToolRule() {
+  removeToolRule() {
     return notInstalled();
-  },
-  getUserToolRulesPath() {
-    return '';
   },
   isToolRuleValidationError(_e: unknown): _e is Error {
     return false;

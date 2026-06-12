@@ -38,15 +38,12 @@ function formatPatternsMarkdown(patterns: MergedPattern[]): string {
   return lines.join('\n');
 }
 
-function formatToolRulesMarkdown(
-  rules: MergedToolRule[],
-  userRulesPath: string,
-): string {
+function formatToolRulesMarkdown(rules: MergedToolRule[]): string {
   const lines: string[] = [
     '# Step-up-protected MCP tool rules',
     '',
     `${rules.length} rule(s) gate MCP tool invocations via the PreToolUse hook.`,
-    `User rules live at \`${userRulesPath}\` and are editable through the \`add_tool_rule\`/\`update_tool_rule\`/\`remove_tool_rule\` tools. System rules are immutable.`,
+    'Project rules are managed in the Transcodes backend and editable through the `add_tool_rule`/`update_tool_rule`/`remove_tool_rule` tools. System rules are immutable.',
     '',
     '| source | id | toolName | reason | action | resource | consume_in_hook |',
     '| ------ | -- | -------- | ------ | ------ | -------- | --------------- |',
@@ -691,7 +688,8 @@ export function createServer(
     'tool-rules://list',
     {
       title: 'Step-up-protected MCP tool rules',
-      description: `Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with user rules (${backend.getUserToolRulesPath()}, JSONC), read fresh at every request.`,
+      description:
+        'Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with the project policy bundle distributed from the Transcodes backend, read fresh at every request.',
       mimeType: 'text/markdown',
     },
     async (uri) => ({
@@ -699,10 +697,7 @@ export function createServer(
         {
           uri: uri.href,
           mimeType: 'text/markdown',
-          text: formatToolRulesMarkdown(
-            backend.loadMergedToolRules(),
-            backend.getUserToolRulesPath(),
-          ),
+          text: formatToolRulesMarkdown(backend.loadMergedToolRules()),
         },
       ],
     }),
@@ -711,8 +706,8 @@ export function createServer(
   server.registerTool(
     'add_tool_rule',
     {
-      title: 'Add user MCP tool-rule',
-      description: `Register a new user-owned tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called", "block mcp__github__delete_repository".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push, an env-file move) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) → use this tool (exact tool_name match).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. RESOLVE the exact tool name. Tool names are host-specific (e.g. mcp__github__delete_repository, or mcp__plugin_<plugin>_<server>__<tool> for plugin-provided servers). Do not guess — confirm the exact string with the user or read it from the host's available tools. Regex/wildcards are NOT supported; the match is exact.\n  2. VERIFY with \`simulate_tool_call\` before saving to confirm the rule will match the intended tool name.\n  3. RESOLVE the RBAC coordinate: call \`get_resources\` to fetch valid resource keys, then set \`stepupResource\` (one of those keys — validated against the backend on save) and \`stepupAction\` (create|read|update|delete, matching what the tool does). Most rules use resource \`system\`.\n  4. CONFIRM the proposed id/toolName/reason/stepupResource/stepupAction with the user, then SAVE by calling this tool.\nid must be unique across both system and user rules; persisted to ${backend.getUserToolRulesPath()} (JSONC) and effective on the next hook invocation.`,
+      title: 'Add MCP tool-rule (project policy)',
+      description: `Register a new project tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called", "block mcp__github__delete_repository".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push, an env-file move) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) → use this tool (exact tool_name match).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. RESOLVE the exact tool name. Tool names are host-specific (e.g. mcp__github__delete_repository, or mcp__plugin_<plugin>_<server>__<tool> for plugin-provided servers). Do not guess — confirm the exact string with the user or read it from the host's available tools. Regex/wildcards are NOT supported; the match is exact.\n  2. VERIFY with \`simulate_tool_call\` before saving to confirm the rule will match the intended tool name.\n  3. RESOLVE the RBAC coordinate: call \`get_resources\` to fetch valid resource keys, then set \`stepupResource\` (one of those keys — validated against the backend on save) and \`stepupAction\` (create|read|update|delete, matching what the tool does). Most rules use resource \`system\`.\n  4. CONFIRM the proposed id/toolName/reason/stepupResource/stepupAction with the user, then SAVE by calling this tool.\nid must be unique across both system and project rules; persisted as project policy in the Transcodes backend (a project token is required) and effective on the next policy refresh.`,
       inputSchema: {
         id: z
           .string()
@@ -727,7 +722,7 @@ export function createServer(
           .boolean()
           .optional()
           .describe(
-            'When true (default for user rules), the PreToolUse hook consumes the verified record itself (Bash-like fast-path). Set false ONLY if the tool handler threads the sid via `withStepupVerifiedSid` to a backend that requires the X-Step-Up-Session-Id header.',
+            'When true (the default for added rules), the PreToolUse hook consumes the verified record itself (Bash-like fast-path). Set false ONLY if the tool handler threads the sid via `withStepupVerifiedSid` to a backend that requires the X-Step-Up-Session-Id header.',
           ),
       },
     },
@@ -737,9 +732,9 @@ export function createServer(
           input.stepupResource,
           input.stepupAction,
         );
-        const saved = backend.addUserToolRule(input);
+        const saved = await backend.addToolRule(input);
         return textResult(
-          `Added user tool-rule \`${saved.id}\`.\ntoolName: ${
+          `Added tool-rule \`${saved.id}\` to project policy.\ntoolName: ${
             saved.toolName
           }\nreason: ${saved.reason}\nresource: ${
             saved.stepupResource
@@ -762,9 +757,9 @@ export function createServer(
   server.registerTool(
     'update_tool_rule',
     {
-      title: 'Update user MCP tool-rule',
+      title: 'Update MCP tool-rule (project policy)',
       description:
-        'Modify fields of an existing user tool-rule by id. Call when the user asks to edit/change an MCP tool-rule — e.g. "change the reason of the github-delete rule", "point that tool rule at a different tool name". This is for MCP tool-rules (exact tool_name match); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified; attempts are rejected. Pass only the fields you want to change. When changing stepupResource, call `get_resources` first — the new resource is validated against the backend. stepupAction must be a CRUD action (create|read|update|delete).',
+        'Modify fields of an existing project tool-rule by id. Call when the user asks to edit/change an MCP tool-rule — e.g. "change the reason of the github-delete rule", "point that tool rule at a different tool name". This is for MCP tool-rules (exact tool_name match); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified; attempts are rejected. Pass only the fields you want to change. When changing stepupResource, call `get_resources` first — the new resource is validated against the backend. stepupAction must be a CRUD action (create|read|update|delete). The change is persisted to the Transcodes backend and effective on the next policy refresh.',
       inputSchema: {
         id: z.string().min(1),
         toolName: z.string().min(1).optional(),
@@ -813,7 +808,7 @@ export function createServer(
             stepupAction ?? 'update',
           );
         }
-        const saved = backend.updateUserToolRule(id, {
+        const saved = await backend.updateToolRule(id, {
           toolName,
           reason,
           stepupAction,
@@ -821,7 +816,7 @@ export function createServer(
           consume_in_hook,
         });
         return textResult(
-          `Updated user tool-rule \`${saved.id}\`.\ntoolName: ${
+          `Updated tool-rule \`${saved.id}\` in project policy.\ntoolName: ${
             saved.toolName
           }\nreason: ${saved.reason}\nresource: ${
             saved.stepupResource
@@ -844,15 +839,15 @@ export function createServer(
   server.registerTool(
     'remove_tool_rule',
     {
-      title: 'Remove user MCP tool-rule',
+      title: 'Remove MCP tool-rule (project policy)',
       description:
-        'Delete an existing user tool-rule by id. Call when the user asks to remove/delete/cancel an MCP tool-rule — e.g. "delete the github-delete tool rule", "stop requiring auth for that tool". This is for MCP tool-rules; to delete a Bash command pattern (regex) use `remove_user_pattern` instead. System rules cannot be removed; attempts are rejected.',
+        'Delete an existing project tool-rule by id. Call when the user asks to remove/delete/cancel an MCP tool-rule — e.g. "delete the github-delete tool rule", "stop requiring auth for that tool". This is for MCP tool-rules; to delete a Bash command pattern (regex) use `remove_user_pattern` instead. System rules cannot be removed; attempts are rejected. The deletion is persisted to the Transcodes backend and effective on the next policy refresh.',
       inputSchema: { id: z.string().min(1) },
     },
     async ({ id }) => {
       try {
-        backend.removeUserToolRule(id);
-        return textResult(`Removed user tool-rule \`${id}\`.`);
+        await backend.removeToolRule(id);
+        return textResult(`Removed tool-rule \`${id}\` from project policy.`);
       } catch (e) {
         if (backend.isToolRuleValidationError(e)) {
           return textResult(`Rejected: ${e.message}`, true);
@@ -867,7 +862,7 @@ export function createServer(
     {
       title: 'Simulate a tool-rule lookup',
       description:
-        "Given a tool_name (and optional tool_input), report whether any system or user tool-rule matches. Read-only — does not invoke the hook or call the backend. Use to verify a rule's coverage before relying on it.",
+        "Given a tool_name (and optional tool_input), report whether any system or project tool-rule matches. Read-only — does not invoke the hook or call the backend. Use to verify a rule's coverage before relying on it.",
       inputSchema: {
         tool_name: z.string().min(1),
         tool_input: z.unknown().optional(),

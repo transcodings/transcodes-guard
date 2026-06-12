@@ -42,6 +42,7 @@ export {
   type RequestResult,
   requestStepup,
 } from './gate.js';
+export { addToolRule, removeToolRule, updateToolRule } from './guard-rules.js';
 export {
   type BrowserLockInspection,
   inspectStepupState,
