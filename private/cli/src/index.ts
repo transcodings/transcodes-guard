@@ -19,9 +19,13 @@
 
 import {
   clearTokenFile,
+  loadStepupConfig,
   parseMemberAccessToken,
+  policyBundleCachePath,
+  readCachedPolicyBundle,
   readTokenFromFile,
   readTokenRecords,
+  refreshPolicyBundle,
   resolveToken,
   transcodesConfigFile,
   writeTokenToFile,
@@ -36,6 +40,7 @@ Usage:
   transcodes reset                Remove all saved tokens
   transcodes status               Show the active token source and expiry
   transcodes tokens               List all saved tokens (active one marked with *)
+  transcodes policy refresh       Force-refresh the org policy bundle cache now
   transcodes help                 Show this message
 
 The token is read by the transcodes-guard plugins/hooks with precedence:
@@ -157,6 +162,36 @@ function cmdTokens(): void {
   }
 }
 
+/**
+ * `transcodes policy refresh` — force a policy bundle fetch right now
+ * (PRD Unit G "캐시" — the hooks refresh on session start only; this is the
+ * human's way to pull a just-published rule change without restarting).
+ */
+async function cmdPolicy(args: string[]): Promise<void> {
+  if (args[0] !== 'refresh' || args.length > 1) {
+    fail('usage: transcodes policy refresh');
+  }
+  let config: ReturnType<typeof loadStepupConfig>;
+  try {
+    config = loadStepupConfig();
+  } catch (err) {
+    fail(err instanceof Error ? err.message : String(err));
+  }
+  const outcome = await refreshPolicyBundle(config, { force: true });
+  if (outcome === 'failed') {
+    // refreshPolicyBundle already logged the cause to stderr.
+    fail('policy bundle refresh failed — previous cache (if any) kept.');
+  }
+  const cached = readCachedPolicyBundle(config.projectId);
+  const detail = cached
+    ? ` revision=${cached.bundle.revision} rules=${cached.bundle.rules.length}`
+    : '';
+  process.stdout.write(
+    `Policy bundle ${outcome === 'not-modified' ? 'already current' : 'refreshed'}:${detail}\n  cache: ${policyBundleCachePath(config.projectId)}\n`,
+  );
+  process.exit(0);
+}
+
 async function cmdDashboard(args: string[]): Promise<void> {
   let port: number | undefined;
   let open = true;
@@ -197,6 +232,9 @@ function main(): void {
       break;
     case 'tokens':
       cmdTokens();
+      break;
+    case 'policy':
+      void cmdPolicy(rest);
       break;
     case 'help':
     case '--help':
