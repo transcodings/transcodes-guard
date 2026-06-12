@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.11.0...transcodes-guard-v0.11.1) (2026-06-12)
+
+
+### Documentation
+
+* **prd:** G·H 진행 상태 현행화 — G2/G3 클라이언트 완료 반영 ([85271f3](https://github.com/transcodings/ai-action-tracker-mcp/commit/85271f33cd9d3fbec8d7d36581074f3a2075023c))
+* **prd:** G·H 진행 상태 현행화 — G2/G3 클라이언트 완료 반영, H Done ([cf041df](https://github.com/transcodings/ai-action-tracker-mcp/commit/cf041df8abf5146334325cc266b526d271ae0f61))
+
 ## [0.11.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.10.0...transcodes-guard-v0.11.0) (2026-06-12)
 
 
