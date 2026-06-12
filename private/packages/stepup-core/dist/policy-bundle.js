@@ -255,8 +255,7 @@ export function loadEffectiveToolRules() {
     let bundleRules = [];
     try {
         const config = loadStepupConfig();
-        bundleRules =
-            readCachedPolicyBundle(config.projectId)?.bundle.rules ?? [];
+        bundleRules = readCachedPolicyBundle(config.projectId)?.bundle.rules ?? [];
     }
     catch {
         // no token → baseline + user only

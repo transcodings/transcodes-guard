@@ -1,6 +1,6 @@
 {
   "name": "@bigstrider/transcodes-guard-cursor",
-  "version": "0.11.1",
+  "version": "0.12.0",
   "description": "Risky-shell interceptor + step-up MFA audit MCP server — Cursor IDE plugin.",
   "type": "module",
   "main": "dist/src/stdio.js",
