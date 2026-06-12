@@ -2,7 +2,7 @@
 
 > Status: Proposal · Owner: huskyhoochu · Date: 2026-06-10
 > 선행 문서: [`public-private-split.md`](./public-private-split.md) (2026-06 초안) · [`public-private-mapping.md`](./public-private-mapping.md)
-> 본 문서는 phase3 v1(난독화 CDN 번들 + 미러) 노선을 폐기하고 v2(공개 클라이언트 + 정책 번들 + 라이선스)로 전환하는 근거를 정리한다. 실행 계획은 [`../prd/phase3-cdn-mirror-distribution.md`](../prd/phase3-cdn-mirror-distribution.md) v2 참조.
+> 본 문서는 phase3 v1(난독화 CDN 번들 + 미러) 노선을 폐기하고 v2(공개 클라이언트 + 정책 번들 + 라이선스)로 전환하는 근거를 정리한다. 잔여 실행 계획은 [`../prd/phase3-remaining.md`](../prd/phase3-remaining.md) 참조.
 
 ---
 
