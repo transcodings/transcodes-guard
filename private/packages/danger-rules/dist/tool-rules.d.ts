@@ -21,7 +21,7 @@ export interface ToolRule {
 export interface ToolRuleConfig {
     rules: ToolRule[];
 }
-export type ToolRuleSource = 'system' | 'user';
+export type ToolRuleSource = 'system' | 'bundle' | 'user';
 export interface MergedToolRule extends ToolRule {
     source: ToolRuleSource;
 }
@@ -30,7 +30,18 @@ export declare function loadSystemToolRules(): ToolRuleConfig;
 export declare function loadUserToolRules(): ToolRuleConfig;
 export declare function saveUserToolRules(config: ToolRuleConfig): void;
 export declare function userToolRulesFileExists(): boolean;
-export declare function loadMergedToolRules(): MergedToolRule[];
+/**
+ * Layered merge (Phase3 v2 G3): built-in baseline → org policy bundle →
+ * user rules. Same `id` in a later layer replaces the earlier rule (the
+ * replacement keeps the original position so rule precedence inside a layer
+ * stays stable); user rules win over everything — the pre-bundle user-rule
+ * semantics are preserved unchanged.
+ *
+ * `bundleRules` is the cached org bundle's `rules` array (Unit G policy
+ * bundle). Callers without a bundle (no token / no cache) pass nothing and
+ * get the pre-G3 baseline+user behavior — fail-closed matrix row 3.
+ */
+export declare function loadMergedToolRules(bundleRules?: ToolRule[]): MergedToolRule[];
 export interface ToolRuleMatch {
     matched: MergedToolRule;
 }

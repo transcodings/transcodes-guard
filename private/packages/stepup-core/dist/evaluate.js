@@ -15,10 +15,11 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { DEFAULT_RBAC_RESOURCE, findFirstMatch, loadMergedPatterns, } from '@transcodes-guard/danger-patterns';
-import { findFirstToolRule, loadMergedToolRules, } from '@transcodes-guard-private/danger-rules';
+import { findFirstToolRule, } from '@transcodes-guard-private/danger-rules';
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, requestStepup } from './gate.js';
 import { clearPending } from './pending.js';
+import { loadEffectiveToolRules } from './policy-bundle.js';
 import { checkRbacPermission } from './rbac-check.js';
 import { pollStepupSession } from './session.js';
 import { consumeVerified, readVerified } from './store.js';
@@ -197,7 +198,9 @@ function classifyToolCall(input) {
             return null;
         return { kind: 'bash', command: cmd, cwd: input.cwd };
     }
-    const rules = loadMergedToolRules();
+    // G3: baseline → cached org bundle → user rules. Cache-only read — the
+    // PreToolUse critical path stays network-free.
+    const rules = loadEffectiveToolRules();
     const match = findFirstToolRule(input.toolName, rules);
     if (!match)
         return null;

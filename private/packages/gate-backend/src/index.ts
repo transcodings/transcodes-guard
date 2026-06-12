@@ -16,7 +16,6 @@ import {
   addUserToolRule,
   findFirstToolRule,
   getUserToolRulesPath,
-  loadMergedToolRules,
   removeUserToolRule,
   ToolRuleValidationError,
   updateUserToolRule,
@@ -31,6 +30,7 @@ import {
   firstInFlightFpPending,
   inspectStepupState,
   isExpired,
+  loadEffectiveToolRules,
   loadStepupConfig,
   markVerified,
   pollStepupSession,
@@ -92,8 +92,9 @@ export const transcodesGateBackend: GateBackend = {
     assertRbacCoordinate(loadStepupConfig(), resource, action),
   isRbacCoordinateError: (e): e is Error => e instanceof RbacCoordinateError,
 
-  // server path: tool-rule registry
-  loadMergedToolRules,
+  // server path: tool-rule registry — the effective set includes the cached
+  // org policy bundle layer (G3): baseline → bundle → user.
+  loadMergedToolRules: loadEffectiveToolRules,
   findFirstToolRule,
   addUserToolRule,
   updateUserToolRule,

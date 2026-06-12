@@ -1,5 +1,5 @@
-import { addUserToolRule, findFirstToolRule, getUserToolRulesPath, loadMergedToolRules, removeUserToolRule, ToolRuleValidationError, updateUserToolRule, } from '@transcodes-guard-private/danger-rules';
-import { clearPending, consumeVerified, createStepupSession, evaluatePreToolUse, findPendingBySid, firstActivePending, firstInFlightFpPending, inspectStepupState, isExpired, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, readPending, readVerified, refreshPolicyBundleIfConfigured, resolveToken, sendGateDecisionAudit, sweepStepup, writePending, writeVerified, } from '@transcodes-guard-private/stepup-core';
+import { addUserToolRule, findFirstToolRule, getUserToolRulesPath, removeUserToolRule, ToolRuleValidationError, updateUserToolRule, } from '@transcodes-guard-private/danger-rules';
+import { clearPending, consumeVerified, createStepupSession, evaluatePreToolUse, findPendingBySid, firstActivePending, firstInFlightFpPending, inspectStepupState, isExpired, loadEffectiveToolRules, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, readPending, readVerified, refreshPolicyBundleIfConfigured, resolveToken, sendGateDecisionAudit, sweepStepup, writePending, writeVerified, } from '@transcodes-guard-private/stepup-core';
 import { assertRbacCoordinate, RbacCoordinateError, registerAuditTools, registerAuthDeviceTools, registerJwkTools, registerMembershipTools, registerMemberTools, registerMetaTools, registerOrganizationTools, registerPasscodeTools, registerProjectTools, registerRbacTools, } from '@transcodes-guard-private/transcodes-mcp-tools';
 export const transcodesGateBackend = {
     // hook path — direct bindings
@@ -29,8 +29,9 @@ export const transcodesGateBackend = {
     // server path: RBAC coordinate — config loaded internally, error wrapped
     assertRbacCoordinate: (resource, action) => assertRbacCoordinate(loadStepupConfig(), resource, action),
     isRbacCoordinateError: (e) => e instanceof RbacCoordinateError,
-    // server path: tool-rule registry
-    loadMergedToolRules,
+    // server path: tool-rule registry — the effective set includes the cached
+    // org policy bundle layer (G3): baseline → bundle → user.
+    loadMergedToolRules: loadEffectiveToolRules,
     findFirstToolRule,
     addUserToolRule,
     updateUserToolRule,

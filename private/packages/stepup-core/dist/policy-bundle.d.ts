@@ -1,3 +1,4 @@
+import { type MergedToolRule } from '@transcodes-guard-private/danger-rules';
 import { z } from 'zod';
 import { type StepupConfig } from './config.js';
 /** Bundle refresh TTL. Policy changes are infrequent and refresh runs only on
@@ -20,16 +21,16 @@ declare const bundleToolRuleSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     reason: string;
     id: string;
-    stepupResource: string;
-    stepupAction: "create" | "read" | "update" | "delete";
     toolName: string;
+    stepupAction: "create" | "read" | "update" | "delete";
+    stepupResource: string;
     consume_in_hook?: boolean | undefined;
 }, {
     reason: string;
     id: string;
-    stepupResource: string;
-    stepupAction: "create" | "read" | "update" | "delete";
     toolName: string;
+    stepupAction: "create" | "read" | "update" | "delete";
+    stepupResource: string;
     consume_in_hook?: boolean | undefined;
 }>;
 declare const policyBundleSchema: z.ZodObject<{
@@ -44,16 +45,16 @@ declare const policyBundleSchema: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         reason: string;
         id: string;
-        stepupResource: string;
-        stepupAction: "create" | "read" | "update" | "delete";
         toolName: string;
+        stepupAction: "create" | "read" | "update" | "delete";
+        stepupResource: string;
         consume_in_hook?: boolean | undefined;
     }, {
         reason: string;
         id: string;
-        stepupResource: string;
-        stepupAction: "create" | "read" | "update" | "delete";
         toolName: string;
+        stepupAction: "create" | "read" | "update" | "delete";
+        stepupResource: string;
         consume_in_hook?: boolean | undefined;
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
@@ -61,9 +62,9 @@ declare const policyBundleSchema: z.ZodObject<{
     rules: {
         reason: string;
         id: string;
-        stepupResource: string;
-        stepupAction: "create" | "read" | "update" | "delete";
         toolName: string;
+        stepupAction: "create" | "read" | "update" | "delete";
+        stepupResource: string;
         consume_in_hook?: boolean | undefined;
     }[];
 }, {
@@ -71,9 +72,9 @@ declare const policyBundleSchema: z.ZodObject<{
     rules: {
         reason: string;
         id: string;
-        stepupResource: string;
-        stepupAction: "create" | "read" | "update" | "delete";
         toolName: string;
+        stepupAction: "create" | "read" | "update" | "delete";
+        stepupResource: string;
         consume_in_hook?: boolean | undefined;
     }[];
 }>;
@@ -143,6 +144,15 @@ export declare function refreshPolicyBundle(config: StepupConfig, opts?: {
     force?: boolean;
     ttlMs?: number;
 }): Promise<PolicyBundleRefreshOutcome>;
+/**
+ * Effective tool-rule set (Phase3 v2 G3): built-in baseline → cached org
+ * bundle → user rules. Synchronous and cache-only — safe on the PreToolUse
+ * critical path (design invariant 2). Without a resolvable token or a cached
+ * bundle this degrades to the pre-G3 baseline+user merge. Staleness is
+ * deliberately ignored here: a stale bundle is last-known-good (fail-closed
+ * matrix row 2), and refresh happens elsewhere (G2 wiring).
+ */
+export declare function loadEffectiveToolRules(): MergedToolRule[];
 /**
  * Config-less refresh for the GateBackend seam (decision-audit pattern):
  * when no Transcodes token is resolvable this is a silent skip — an
