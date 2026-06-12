@@ -1,7 +1,7 @@
 # Phase 3 v2 / Unit J — 공개 전환
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M10
-> 규모: **S** (대부분 human) · 선행: [G](./G-policy-bundle.md)·[H](./H-server-decision-done.md)·[I](./I-license.md) · 외부 의존: D4 히스토리 처분 · 상태: 🚫 **Gated (최종 스위치)**
+> 규모: **S** (대부분 human) · 선행: [G](./G-policy-bundle.md)·~~H~~(완료, PR #54)·[I](./I-license.md) · 외부 의존: D4 히스토리 처분 · 상태: 🚫 **Gated (최종 스위치)**
 
 ## 규모 산정
 

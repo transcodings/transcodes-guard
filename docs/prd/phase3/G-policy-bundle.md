@@ -64,7 +64,7 @@ POST / PUT / DELETE /v1/guard/rules[/:id]
 
 ### 3. 만들지 않는 것 (명시적 비범위)
 
-- **결정 감사 수신 API** — 불필요. Unit H가 기존 `POST /v1/audit/logs`(`src/audit/`)를 재사용한다([H 문서](./H-server-decision-done.md) H2).
+- **결정 감사 수신 API** — 불필요. Unit H가 기존 `POST /v1/audit/logs`(`src/audit/`)를 재사용한다(~~H~~(완료, PR #54) H2).
 - **Ed25519 서명 인프라** — D3: 1차는 TLS + SHA-384 manifest. detached signature는 실위협 등장 시.
 - **위험 분류 API** — NG2: 분류는 로컬 평가. 백엔드는 데이터 배포·판정·승인·감사만.
 
