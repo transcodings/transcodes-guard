@@ -64,10 +64,15 @@ export interface GateBackend {
     isRbacCoordinateError(e: unknown): e is Error;
     loadMergedToolRules(): MergedToolRule[];
     findFirstToolRule(toolName: string, rules: MergedToolRule[]): ToolRuleMatch | null;
-    addUserToolRule(input: ToolRuleInput): ToolRule;
-    updateUserToolRule(id: string, changes: ToolRuleChanges): ToolRule;
-    removeUserToolRule(id: string): void;
-    getUserToolRulesPath(): string;
+    /**
+     * Tool-rule writes (Phase 3 v2): these persist to the Transcodes backend as
+     * project policy (`/v1/guard/rules`) and force-refresh the bundle cache — they
+     * are async network calls, not local-file writes. No token / backend failure
+     * throws a `ToolRuleValidationError` (caught via `isToolRuleValidationError`).
+     */
+    addToolRule(input: ToolRuleInput): Promise<ToolRule>;
+    updateToolRule(id: string, changes: ToolRuleChanges): Promise<ToolRule>;
+    removeToolRule(id: string): Promise<void>;
     isToolRuleValidationError(e: unknown): e is Error;
     registerBackendTools(server: McpServer): void;
 }

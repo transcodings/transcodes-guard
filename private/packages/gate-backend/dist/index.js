@@ -1,5 +1,5 @@
-import { addUserToolRule, findFirstToolRule, getUserToolRulesPath, removeUserToolRule, ToolRuleValidationError, updateUserToolRule, } from '@transcodes-guard-private/danger-rules';
-import { clearPending, consumeVerified, createStepupSession, evaluatePreToolUse, findPendingBySid, firstActivePending, firstInFlightFpPending, inspectStepupState, isExpired, loadEffectiveToolRules, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, readPending, readVerified, refreshPolicyBundleIfConfigured, resolveToken, sendGateDecisionAudit, sweepStepup, writePending, writeVerified, } from '@transcodes-guard-private/stepup-core';
+import { findFirstToolRule, ToolRuleValidationError, } from '@transcodes-guard-private/danger-rules';
+import { addToolRule, clearPending, consumeVerified, createStepupSession, evaluatePreToolUse, findPendingBySid, firstActivePending, firstInFlightFpPending, inspectStepupState, isExpired, loadEffectiveToolRules, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, readPending, readVerified, refreshPolicyBundleIfConfigured, removeToolRule, resolveToken, sendGateDecisionAudit, sweepStepup, updateToolRule, writePending, writeVerified, } from '@transcodes-guard-private/stepup-core';
 import { assertRbacCoordinate, RbacCoordinateError, registerAuditTools, registerAuthDeviceTools, registerJwkTools, registerMembershipTools, registerMemberTools, registerMetaTools, registerOrganizationTools, registerPasscodeTools, registerProjectTools, registerRbacTools, } from '@transcodes-guard-private/transcodes-mcp-tools';
 export const transcodesGateBackend = {
     // hook path — direct bindings
@@ -33,10 +33,9 @@ export const transcodesGateBackend = {
     // org policy bundle layer (G3): baseline → bundle → user.
     loadMergedToolRules: loadEffectiveToolRules,
     findFirstToolRule,
-    addUserToolRule,
-    updateUserToolRule,
-    removeUserToolRule,
-    getUserToolRulesPath,
+    addToolRule,
+    updateToolRule,
+    removeToolRule,
     isToolRuleValidationError: (e) => e instanceof ToolRuleValidationError,
     // server path: backend-coupled MCP tools
     registerBackendTools: (server) => {

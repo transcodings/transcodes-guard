@@ -209,17 +209,14 @@ var denyByDefaultBackend = {
   findFirstToolRule() {
     return null;
   },
-  addUserToolRule() {
+  addToolRule() {
     return notInstalled();
   },
-  updateUserToolRule() {
+  updateToolRule() {
     return notInstalled();
   },
-  removeUserToolRule() {
+  removeToolRule() {
     return notInstalled();
-  },
-  getUserToolRulesPath() {
-    return "";
   },
   isToolRuleValidationError(_e) {
     return false;
@@ -237,10 +234,6 @@ function setGateBackend(backend) {
 function getGateBackend() {
   return current ?? denyByDefaultBackend;
 }
-
-// ../../../private/packages/danger-rules/dist/tool-rules.js
-import { existsSync as existsSync3, mkdirSync as mkdirSync3, readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "fs";
-import path3 from "path";
 
 // ../../packages/danger-patterns/dist/danger-patterns.js
 import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync, writeFileSync } from "fs";
@@ -1494,31 +1487,9 @@ var tool_rules_default = {
 };
 
 // ../../../private/packages/danger-rules/dist/tool-rules.js
-var USER_TOOL_RULES_FILE = "user-tool-rules.json";
 var ID_REGEX2 = /^[a-z0-9][a-z0-9-]*$/;
-function getUserToolRulesPath() {
-  return path3.join(dataDir(), USER_TOOL_RULES_FILE);
-}
 function loadSystemToolRules() {
   return { rules: [...tool_rules_default.rules] };
-}
-function loadUserToolRules() {
-  migrateLegacyFile(USER_TOOL_RULES_FILE, "data");
-  try {
-    const raw = readFileSync2(getUserToolRulesPath(), "utf8");
-    const parsed = parse2(raw);
-    if (parsed && Array.isArray(parsed.rules)) {
-      return parsed;
-    }
-    return { rules: [] };
-  } catch {
-    return { rules: [] };
-  }
-}
-function saveUserToolRules(config) {
-  const file = getUserToolRulesPath();
-  mkdirSync3(path3.dirname(file), { recursive: true });
-  writeFileSync2(file, JSON.stringify(config, null, 2) + "\n", "utf8");
 }
 function loadMergedToolRules(bundleRules = []) {
   const coerce2 = (r) => ({
@@ -1537,18 +1508,11 @@ function loadMergedToolRules(bundleRules = []) {
   for (const r of bundleRules) {
     merged.set(r.id, {
       ...coerce2(r),
-      // Bundle rules are org/system policy — like system rules, the verified
-      // record is consumed by the tool handler (which needs the sid), not
-      // the hook, unless the rule says otherwise.
+      // Bundle rules are org/project policy — like system rules, the verified
+      // record is consumed by the tool handler (which needs the sid), not the
+      // hook, unless the rule says otherwise.
       consume_in_hook: r.consume_in_hook ?? false,
       source: "bundle"
-    });
-  }
-  for (const r of loadUserToolRules().rules) {
-    merged.set(r.id, {
-      ...coerce2(r),
-      consume_in_hook: r.consume_in_hook ?? true,
-      source: "user"
     });
   }
   return [...merged.values()];
@@ -1602,28 +1566,9 @@ function validateNewToolRule(input) {
     ...consume_in_hook === void 0 ? {} : { consume_in_hook }
   };
 }
-function addUserToolRule(input) {
-  const rule = validateNewToolRule(input);
-  const current2 = loadUserToolRules();
-  if (current2.rules.some((r) => r.id === rule.id)) {
-    throw new ToolRuleValidationError(`id "${rule.id}" already exists in user tool-rules; use update instead`);
-  }
-  current2.rules.push(rule);
-  saveUserToolRules(current2);
-  return rule;
-}
-function updateUserToolRule(id, changes) {
-  const systemIds = new Set(loadSystemToolRules().rules.map((r) => r.id));
-  if (systemIds.has(id)) {
-    throw new ToolRuleValidationError(`id "${id}" is a system tool-rule and cannot be modified`);
-  }
-  const current2 = loadUserToolRules();
-  const existing = current2.rules.find((r) => r.id === id);
-  if (!existing) {
-    throw new ToolRuleValidationError(`no user tool-rule with id "${id}"`);
-  }
-  const merged = {
-    id,
+function mergeToolRuleChanges(existing, changes) {
+  return validateNewToolRule({
+    id: existing.id,
     toolName: changes.toolName ?? existing.toolName,
     reason: changes.reason ?? existing.reason,
     // Coerce existing values that predate the CRUD constraint so an unrelated
@@ -1631,31 +1576,16 @@ function updateUserToolRule(id, changes) {
     stepupAction: changes.stepupAction ?? coerceRbacAction(existing.stepupAction),
     stepupResource: changes.stepupResource ?? coerceRbacResource(existing.stepupResource),
     consume_in_hook: changes.consume_in_hook ?? existing.consume_in_hook
-  };
-  const validated = validateNewToolRule(merged);
-  const idx = current2.rules.findIndex((r) => r.id === id);
-  current2.rules[idx] = validated;
-  saveUserToolRules(current2);
-  return validated;
+  });
 }
-function removeUserToolRule(id) {
-  const systemIds = new Set(loadSystemToolRules().rules.map((r) => r.id));
-  if (systemIds.has(id)) {
-    throw new ToolRuleValidationError(`id "${id}" is a system tool-rule and cannot be removed`);
-  }
-  const current2 = loadUserToolRules();
-  const idx = current2.rules.findIndex((r) => r.id === id);
-  if (idx === -1) {
-    throw new ToolRuleValidationError(`no user tool-rule with id "${id}"`);
-  }
-  current2.rules.splice(idx, 1);
-  saveUserToolRules(current2);
+function systemToolRuleIds() {
+  return new Set(loadSystemToolRules().rules.map((r) => r.id));
 }
 
 // ../../../private/packages/stepup-core/dist/client.js
 var REQUEST_TIMEOUT_MS = 3e4;
 async function request(config, input) {
-  const path9 = input.path.startsWith("/") ? input.path : `/${input.path}`;
+  const path8 = input.path.startsWith("/") ? input.path : `/${input.path}`;
   const params = new URLSearchParams();
   if (input.query) {
     for (const [k, v] of Object.entries(input.query)) {
@@ -1665,7 +1595,7 @@ async function request(config, input) {
     }
   }
   const qs = params.toString();
-  const url = `${config.apiBaseV1}${path9}${qs ? `?${qs}` : ""}`;
+  const url = `${config.apiBaseV1}${path8}${qs ? `?${qs}` : ""}`;
   const headers = {
     "x-transcodes-token": config.token,
     Accept: "application/json"
@@ -1810,21 +1740,21 @@ function parseMemberAccessToken(rawToken) {
 }
 
 // ../../../private/packages/stepup-core/dist/token-store.js
-import { mkdirSync as mkdirSync4, readFileSync as readFileSync3, rmSync, writeFileSync as writeFileSync3 } from "fs";
+import { mkdirSync as mkdirSync3, readFileSync as readFileSync2, rmSync, writeFileSync as writeFileSync2 } from "fs";
 import os2 from "os";
-import path4 from "path";
+import path3 from "path";
 var CONFIG_DIR_NAME = ".transcodes";
 var CONFIG_FILE_NAME = "config.json";
 function transcodesConfigDir() {
-  return path4.join(os2.homedir(), CONFIG_DIR_NAME);
+  return path3.join(os2.homedir(), CONFIG_DIR_NAME);
 }
 function transcodesConfigFile() {
-  return path4.join(transcodesConfigDir(), CONFIG_FILE_NAME);
+  return path3.join(transcodesConfigDir(), CONFIG_FILE_NAME);
 }
 function readRawConfig() {
   let raw;
   try {
-    raw = readFileSync3(transcodesConfigFile(), "utf8");
+    raw = readFileSync2(transcodesConfigFile(), "utf8");
   } catch {
     return null;
   }
@@ -1993,13 +1923,13 @@ async function sendGateDecisionAudit(decision) {
 
 // ../../../private/packages/stepup-core/dist/evaluate.js
 import { execFileSync } from "child_process";
-import path8 from "path";
+import path7 from "path";
 
 // ../../../private/packages/stepup-core/dist/gate.js
 import { spawn } from "child_process";
 import { createHash } from "crypto";
-import { mkdirSync as mkdirSync5, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
-import path5 from "path";
+import { mkdirSync as mkdirSync4, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
+import path4 from "path";
 
 // ../../../private/packages/stepup-core/dist/session.js
 var STEPUP_PATH = "/auth/temp-session/step-up/session";
@@ -2105,10 +2035,10 @@ function fingerprintOf(key) {
 }
 function claimBrowserLaunch(fingerprintKey) {
   migrateLegacyFile(BROWSER_LOCK_FILE, "cache");
-  const lockFile = path5.join(cacheDir(), BROWSER_LOCK_FILE);
+  const lockFile = path4.join(cacheDir(), BROWSER_LOCK_FILE);
   const fingerprint = fingerprintOf(fingerprintKey);
   try {
-    const raw = readFileSync4(lockFile, "utf8");
+    const raw = readFileSync3(lockFile, "utf8");
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       const obj = parsed;
@@ -2121,8 +2051,8 @@ function claimBrowserLaunch(fingerprintKey) {
   } catch {
   }
   try {
-    mkdirSync5(path5.dirname(lockFile), { recursive: true });
-    writeFileSync4(lockFile, JSON.stringify({ fingerprint, openedAt: Date.now() }), { mode: 384 });
+    mkdirSync4(path4.dirname(lockFile), { recursive: true });
+    writeFileSync3(lockFile, JSON.stringify({ fingerprint, openedAt: Date.now() }), { mode: 384 });
   } catch {
   }
   return true;
@@ -2190,7 +2120,7 @@ async function requestStepup(input) {
 }
 
 // ../../../private/packages/stepup-core/dist/pending.js
-import { mkdirSync as mkdirSync7, readFileSync as readFileSync6, rmSync as rmSync3, writeFileSync as writeFileSync6 } from "fs";
+import { mkdirSync as mkdirSync6, readFileSync as readFileSync5, rmSync as rmSync3, writeFileSync as writeFileSync5 } from "fs";
 
 // ../../../node_modules/zod/v3/external.js
 var external_exports = {};
@@ -2670,8 +2600,8 @@ function getErrorMap() {
 
 // ../../../node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path9, errorMaps, issueData } = params;
-  const fullPath = [...path9, ...issueData.path || []];
+  const { data, path: path8, errorMaps, issueData } = params;
+  const fullPath = [...path8, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -2787,11 +2717,11 @@ var errorUtil;
 
 // ../../../node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path9, key) {
+  constructor(parent, value, path8, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path9;
+    this._path = path8;
     this._key = key;
   }
   get path() {
@@ -6235,12 +6165,12 @@ var NEVER = INVALID;
 
 // ../../../private/packages/stepup-core/dist/stepup-files.js
 import { readdirSync } from "fs";
-import path6 from "path";
+import path5 from "path";
 function stepupFileName(base, fp) {
   return fp ? `${base}.${fp}.json` : `${base}.json`;
 }
 function stepupFilePath(base, fp) {
-  return path6.join(cacheDir(), stepupFileName(base, fp));
+  return path5.join(cacheDir(), stepupFileName(base, fp));
 }
 function stepupDir() {
   return cacheDir();
@@ -6269,7 +6199,7 @@ function isExpiredAt(createdAt, expiresAt, now, ttlMs = STEPUP_TTL_MS) {
 }
 
 // ../../../private/packages/stepup-core/dist/store.js
-import { mkdirSync as mkdirSync6, readFileSync as readFileSync5, rmSync as rmSync2, writeFileSync as writeFileSync5 } from "fs";
+import { mkdirSync as mkdirSync5, readFileSync as readFileSync4, rmSync as rmSync2, writeFileSync as writeFileSync4 } from "fs";
 var FILE_BASE = "stepup-verified";
 function storePath(fp) {
   return stepupFilePath(FILE_BASE, fp);
@@ -6280,7 +6210,7 @@ function readVerified(fp) {
   const file = storePath(fp);
   let raw;
   try {
-    raw = readFileSync5(file, "utf8");
+    raw = readFileSync4(file, "utf8");
   } catch {
     return null;
   }
@@ -6313,8 +6243,8 @@ function readVerified(fp) {
 }
 function writeVerified(v, fp) {
   const file = storePath(fp);
-  mkdirSync6(stepupDir(), { recursive: true });
-  writeFileSync5(file, JSON.stringify(v), { mode: 384 });
+  mkdirSync5(stepupDir(), { recursive: true });
+  writeFileSync4(file, JSON.stringify(v), { mode: 384 });
 }
 function consumeVerified(fp) {
   try {
@@ -6342,7 +6272,7 @@ function pendingPath(fp) {
 }
 function parsePendingRaw(file) {
   try {
-    const raw = readFileSync6(file, "utf8");
+    const raw = readFileSync5(file, "utf8");
     const parsed = PendingStateSchema.safeParse(JSON.parse(raw));
     return parsed.success ? parsed.data : null;
   } catch {
@@ -6356,8 +6286,8 @@ function readPending(fp) {
 }
 function writePending(state) {
   const file = pendingPath(state.fp);
-  mkdirSync7(stepupDir(), { recursive: true });
-  writeFileSync6(file, JSON.stringify(state), { mode: 384 });
+  mkdirSync6(stepupDir(), { recursive: true });
+  writeFileSync5(file, JSON.stringify(state), { mode: 384 });
 }
 function clearPending(fp) {
   try {
@@ -6428,8 +6358,8 @@ function sweepStepup(now = Date.now()) {
 
 // ../../../private/packages/stepup-core/dist/policy-bundle.js
 import { createHash as createHash2 } from "crypto";
-import { mkdirSync as mkdirSync8, readFileSync as readFileSync7, renameSync as renameSync2, writeFileSync as writeFileSync7 } from "fs";
-import path7 from "path";
+import { mkdirSync as mkdirSync7, readFileSync as readFileSync6, renameSync as renameSync2, writeFileSync as writeFileSync6 } from "fs";
+import path6 from "path";
 var POLICY_BUNDLE_TTL_MS = 60 * 60 * 1e3;
 var POLICY_BUNDLE_FETCH_TIMEOUT_MS = 3e3;
 var bundleToolRuleSchema = external_exports.object({
@@ -6484,12 +6414,12 @@ function verifyAndParsePolicyBundle(raw) {
 }
 function policyBundleCachePath(projectId) {
   const safe = projectId.replace(/[^A-Za-z0-9._-]/g, "_");
-  return path7.join(cacheDir(), `policy-bundle.${safe}.json`);
+  return path6.join(cacheDir(), `policy-bundle.${safe}.json`);
 }
 function readCachedPolicyBundle(projectId, ttlMs = POLICY_BUNDLE_TTL_MS) {
   let raw;
   try {
-    raw = readFileSync7(policyBundleCachePath(projectId), "utf8");
+    raw = readFileSync6(policyBundleCachePath(projectId), "utf8");
   } catch {
     return null;
   }
@@ -6518,10 +6448,10 @@ function readCachedPolicyBundle(projectId, ttlMs = POLICY_BUNDLE_TTL_MS) {
 }
 function writeCachedPolicyBundle(projectId, bundle) {
   const file = policyBundleCachePath(projectId);
-  mkdirSync8(path7.dirname(file), { recursive: true });
+  mkdirSync7(path6.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   const envelope = { fetchedAt: Date.now(), bundle };
-  writeFileSync7(tmp, JSON.stringify(envelope), { mode: 384 });
+  writeFileSync6(tmp, JSON.stringify(envelope), { mode: 384 });
   renameSync2(tmp, file);
 }
 function unwrapBundleBody(data) {
@@ -6676,15 +6606,15 @@ function extractRmTargets(command) {
 function checkTargetGitTracked(target, cwd) {
   if (/[*?{[]/.test(target))
     return null;
-  const abs = path8.resolve(cwd, target);
+  const abs = path7.resolve(cwd, target);
   let toplevel;
   try {
     toplevel = execFileSync("git", ["-C", cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
     return null;
   }
-  const rel = path8.relative(toplevel, abs);
-  if (rel.startsWith("..") || path8.isAbsolute(rel))
+  const rel = path7.relative(toplevel, abs);
+  if (rel.startsWith("..") || path7.isAbsolute(rel))
     return null;
   let tracked;
   try {
@@ -6852,8 +6782,96 @@ async function evaluatePreToolUse(input) {
   };
 }
 
+// ../../../private/packages/stepup-core/dist/guard-rules.js
+function requireConfig() {
+  try {
+    return loadStepupConfig();
+  } catch {
+    throw new ToolRuleValidationError("No Transcodes token configured \u2014 tool-rules are managed in the backend and require a project token.");
+  }
+}
+function extractBackendError(data) {
+  if (data && typeof data === "object" && "error" in data) {
+    const e = data.error;
+    if (typeof e === "string" && e.length > 0)
+      return e;
+  }
+  return void 0;
+}
+function backendWriteError(env, id, op) {
+  if (env.status === 409) {
+    return new ToolRuleValidationError(`tool-rule "${id}" already exists`);
+  }
+  if (env.status === 404) {
+    return new ToolRuleValidationError(`no tool-rule with id "${id}"`);
+  }
+  const detail = env.status === 0 ? "backend unreachable" : extractBackendError(env.data) ?? `backend responded ${env.status}`;
+  return new ToolRuleValidationError(`could not ${op} tool-rule: ${detail}`);
+}
+async function addToolRule(input) {
+  const config = requireConfig();
+  const rule = validateNewToolRule(input);
+  const consume_in_hook = rule.consume_in_hook ?? true;
+  const env = await request(config, {
+    method: "POST",
+    path: "/guard/rules",
+    body: {
+      rule_id: rule.id,
+      tool_name: rule.toolName,
+      reason: rule.reason,
+      stepup_action: rule.stepupAction,
+      stepup_resource: rule.stepupResource,
+      consume_in_hook
+    }
+  });
+  if (!env.ok)
+    throw backendWriteError(env, rule.id, "add");
+  await refreshPolicyBundle(config, { force: true });
+  return { ...rule, consume_in_hook };
+}
+async function updateToolRule(id, changes) {
+  const config = requireConfig();
+  if (systemToolRuleIds().has(id)) {
+    throw new ToolRuleValidationError(`id "${id}" is a system tool-rule and cannot be modified`);
+  }
+  const existing = readCachedPolicyBundle(config.projectId)?.bundle.rules.find((r) => r.id === id);
+  if (!existing) {
+    throw new ToolRuleValidationError(`no tool-rule with id "${id}"`);
+  }
+  const merged = mergeToolRuleChanges(existing, changes);
+  const env = await request(config, {
+    method: "PUT",
+    path: `/guard/rules/${encodeURIComponent(id)}`,
+    body: {
+      tool_name: merged.toolName,
+      reason: merged.reason,
+      stepup_action: merged.stepupAction,
+      stepup_resource: merged.stepupResource,
+      ...merged.consume_in_hook === void 0 ? {} : { consume_in_hook: merged.consume_in_hook }
+    }
+  });
+  if (!env.ok)
+    throw backendWriteError(env, id, "update");
+  await refreshPolicyBundle(config, { force: true });
+  return merged;
+}
+async function removeToolRule(id) {
+  const config = requireConfig();
+  if (systemToolRuleIds().has(id)) {
+    throw new ToolRuleValidationError(`id "${id}" is a system tool-rule and cannot be removed`);
+  }
+  const env = await request(config, {
+    method: "DELETE",
+    path: `/guard/rules/${encodeURIComponent(id)}`,
+    omitBody: true
+  });
+  if (!env.ok)
+    throw backendWriteError(env, id, "remove");
+  await refreshPolicyBundle(config, { force: true });
+}
+
 // ../../../private/packages/stepup-core/dist/inspector.js
-import { readFileSync as readFileSync8 } from "fs";
+import { readFileSync as readFileSync7 } from "fs";
 var VERIFIED_BASE = "stepup-verified";
 var PENDING_BASE = "stepup-pending";
 var BROWSER_LOCK_BASE = "stepup-browser-lock";
@@ -6861,7 +6879,7 @@ var BROWSER_LOCK_TTL_MS2 = 15e3;
 var COMMAND_PREVIEW_LIMIT = 120;
 function readJsonFile(file) {
   try {
-    const raw = readFileSync8(file, "utf8");
+    const raw = readFileSync7(file, "utf8");
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed;
@@ -7095,8 +7113,8 @@ async function req(config, input, toolName, pathSuffix) {
       message: `Tool '${toolName}' is not in this plugin's endpoint map.`
     }, null, 2);
   }
-  const path9 = pathSuffix ? `${base}${pathSuffix}` : base;
-  const envelope = await request(config, { ...input, path: path9 });
+  const path8 = pathSuffix ? `${base}${pathSuffix}` : base;
+  const envelope = await request(config, { ...input, path: path8 });
   return JSON.stringify(envelope, null, 2);
 }
 function blockedResult(message) {
@@ -7938,10 +7956,9 @@ var transcodesGateBackend = {
   // org policy bundle layer (G3): baseline → bundle → user.
   loadMergedToolRules: loadEffectiveToolRules,
   findFirstToolRule,
-  addUserToolRule,
-  updateUserToolRule,
-  removeUserToolRule,
-  getUserToolRulesPath,
+  addToolRule,
+  updateToolRule,
+  removeToolRule,
   isToolRuleValidationError: (e) => e instanceof ToolRuleValidationError,
   // server path: backend-coupled MCP tools
   registerBackendTools: (server) => {

@@ -146,7 +146,7 @@ export interface StepupStateInspection {
 }
 
 /** Tool-rule registry types. Mirror danger-rules tool-rules.ts. */
-export type ToolRuleSource = 'system' | 'bundle' | 'user';
+export type ToolRuleSource = 'system' | 'bundle';
 export interface ToolRule {
   id: string;
   toolName: string;

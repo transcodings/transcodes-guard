@@ -24,21 +24,21 @@ import {
 } from '@transcodes-guard/danger-patterns';
 import { buildAdminToolsPayload } from '@transcodes-guard/mcp-server-core/tool-catalog';
 import {
-  loadMergedToolRules,
   type MergedToolRule,
-  removeUserToolRule,
   ToolRuleValidationError,
-  updateUserToolRule,
 } from '@transcodes-guard-private/danger-rules';
 import {
+  loadEffectiveToolRules,
   parseMemberAccessToken,
   readTokenFromFile,
   readTokenList,
   readTokenRecords,
   removeTokenFromFile,
+  removeToolRule,
   setActiveToken,
   setTokenLabel,
   transcodesConfigFile,
+  updateToolRule,
   writeTokenToFile,
 } from '@transcodes-guard-private/stepup-core';
 import { LOGO_DATA_URI } from './logo.js';
@@ -137,13 +137,15 @@ function buildPatternsPayload(): PatternsPayload {
 }
 
 type ToolRulesPayload = {
-  user: MergedToolRule[];
+  project: MergedToolRule[];
 };
 
-/** User-owned tool rules for the Policies → MCP tools tab (system rules live in Manual). */
+/** Project-policy tool rules for the Policies → MCP tools tab (system rules
+ * live in Manual). Sourced from the cached backend bundle — edits route to the
+ * backend, not a local file. */
 function buildToolRulesPayload(): ToolRulesPayload {
   return {
-    user: loadMergedToolRules().filter((r) => r.source === 'user'),
+    project: loadEffectiveToolRules().filter((r) => r.source === 'bundle'),
   };
 }
 
@@ -162,7 +164,7 @@ function inferCatalogRbacAction(toolName: string): RbacAction {
 function buildAdminToolsPayloadEnriched() {
   const payload = buildAdminToolsPayload();
   const ruleByToolName = new Map(
-    loadMergedToolRules().map((r) => [r.toolName, r]),
+    loadEffectiveToolRules().map((r) => [r.toolName, r]),
   );
   const tools = payload.tools.map((t) => {
     const rule = ruleByToolName.get(t.mcpToolName);
@@ -1239,7 +1241,7 @@ function dashboardHtml(): string {
       setTimeout(() => toolToastEl.classList.remove("show"), 4000);
     }
 
-    let lastToolRules = { system: [], user: [] };
+    let lastToolRules = { project: [] };
     let toolEditingId = null;
 
     function toolRuleRow(r, readonly) {
@@ -1300,9 +1302,9 @@ function dashboardHtml(): string {
     function renderToolRules(s) {
       lastToolRules = s;
       toolUserListEl.innerHTML =
-        s.user && s.user.length
-          ? s.user.map((r) => toolRuleRow(r, false)).join("")
-          : '<div class="token-empty">No custom tool rules yet — ask your agent to add one</div>';
+        s.project && s.project.length
+          ? s.project.map((r) => toolRuleRow(r, false)).join("")
+          : '<div class="token-empty">No project tool rules yet — ask your agent to add one</div>';
       if (toolEditingId) {
         const el = toolUserListEl.querySelector(
           '[data-edit-treason="' + toolEditingId + '"]');
@@ -1608,7 +1610,7 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
             if (toolName !== undefined) {
               changes.toolName = toolName;
             }
-            const saved = updateUserToolRule(id, changes);
+            const saved = await updateToolRule(id, changes);
             sendJson(res, 200, { ok: true, saved, ...buildToolRulesPayload() });
           } catch (err) {
             if (err instanceof ToolRuleValidationError) {
@@ -1628,7 +1630,7 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
             return;
           }
           try {
-            removeUserToolRule(id);
+            await removeToolRule(id);
             sendJson(res, 200, { ok: true, ...buildToolRulesPayload() });
           } catch (err) {
             if (err instanceof ToolRuleValidationError) {

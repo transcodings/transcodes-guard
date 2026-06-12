@@ -1,12 +1,12 @@
 /**
  * Unit tests for the G3 layered tool-rule merge:
- *   built-in baseline → cached org policy bundle → user rules.
+ *   built-in baseline → cached project policy bundle.
  *
  * `loadMergedToolRules(bundleRules)` (danger-rules) carries the merge
  * semantics; `loadEffectiveToolRules()` (stepup-core) resolves the cached
- * bundle from the token's org claim. HOME is pointed at a throwaway tmp dir
- * so the user-rules file and the bundle cache never touch the real
- * `~/.transcodes`.
+ * bundle from the token's project claim. The per-user local layer was retired —
+ * rules are centrally managed backend policy. HOME is pointed at a throwaway
+ * tmp dir so the bundle cache never touches the real `~/.transcodes`.
  */
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -16,18 +16,18 @@ import { describe, it } from 'node:test';
 import {
   loadMergedToolRules,
   loadSystemToolRules,
-  saveUserToolRules,
   type ToolRule,
 } from '@transcodes-guard-private/danger-rules';
 import {
-  loadEffectiveToolRules,policyBundleSha384, 
+  loadEffectiveToolRules,
+  policyBundleSha384,
   verifyAndParsePolicyBundle,
-  writeCachedPolicyBundle
+  writeCachedPolicyBundle,
 } from '../src/policy-bundle.js';
 
 process.env.HOME = mkdtempSync(path.join(os.tmpdir(), 'guard-effective-rules-'));
 
-const ORG = 'org-effective';
+const PROJECT = 'proj-effective';
 
 function bundleRule(overrides: Partial<ToolRule> = {}): ToolRule {
   return {
@@ -84,41 +84,23 @@ describe('loadMergedToolRules with a bundle layer', () => {
     assert.equal(merged.filter((r) => r.id === target.id).length, 1);
   });
 
-  it('lets a user rule override a bundle rule with the same id (user wins)', () => {
-    saveUserToolRules({
-      rules: [
-        {
-          id: 'bundle-rule',
-          toolName: 'mcp__org__dangerous_tool',
-          reason: 'user override',
-          stepupAction: 'update',
-          stepupResource: 'system',
-        },
-      ],
-    });
-    try {
-      const merged = loadMergedToolRules([bundleRule()]);
-      const winner = merged.find((r) => r.id === 'bundle-rule');
-      assert.ok(winner);
-      assert.equal(winner.source, 'user');
-      assert.equal(winner.reason, 'user override');
-      assert.equal(winner.consume_in_hook, true);
-    } finally {
-      saveUserToolRules({ rules: [] });
-    }
+  it('is baseline-only when no bundle is passed', () => {
+    const merged = loadMergedToolRules();
+    assert.equal(merged.find((r) => r.id === 'bundle-rule'), undefined);
+    assert.ok(merged.every((r) => r.source === 'system'));
   });
 });
 
 describe('loadEffectiveToolRules', () => {
-  it('merges the cached bundle for the token org', () => {
+  it('merges the cached bundle for the token project', () => {
     const body = { revision: 'rev-eff', rules: [bundleRule()] };
     const bundle = verifyAndParsePolicyBundle({
       ...body,
       manifest: { sha384: policyBundleSha384(body) },
     });
-    writeCachedPolicyBundle(ORG, bundle);
+    writeCachedPolicyBundle(PROJECT, bundle);
     const prev = process.env.TRANSCODES_TOKEN;
-    process.env.TRANSCODES_TOKEN = fakeToken(ORG);
+    process.env.TRANSCODES_TOKEN = fakeToken(PROJECT);
     try {
       const merged = loadEffectiveToolRules();
       assert.equal(merged.find((r) => r.id === 'bundle-rule')?.source, 'bundle');
@@ -128,7 +110,7 @@ describe('loadEffectiveToolRules', () => {
     }
   });
 
-  it('degrades to baseline+user when no token is resolvable', () => {
+  it('degrades to the baseline when no token is resolvable', () => {
     const prev = process.env.TRANSCODES_TOKEN;
     delete process.env.TRANSCODES_TOKEN;
     try {

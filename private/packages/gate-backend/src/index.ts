@@ -13,14 +13,11 @@
  */
 import type { GateBackend } from '@transcodes-guard/gate-contract';
 import {
-  addUserToolRule,
   findFirstToolRule,
-  getUserToolRulesPath,
-  removeUserToolRule,
   ToolRuleValidationError,
-  updateUserToolRule,
 } from '@transcodes-guard-private/danger-rules';
 import {
+  addToolRule,
   clearPending,
   consumeVerified,
   createStepupSession,
@@ -38,9 +35,11 @@ import {
   readPending,
   readVerified,
   refreshPolicyBundleIfConfigured,
+  removeToolRule,
   resolveToken,
   sendGateDecisionAudit,
   sweepStepup,
+  updateToolRule,
   writePending,
   writeVerified,
 } from '@transcodes-guard-private/stepup-core';
@@ -96,10 +95,9 @@ export const transcodesGateBackend: GateBackend = {
   // org policy bundle layer (G3): baseline → bundle → user.
   loadMergedToolRules: loadEffectiveToolRules,
   findFirstToolRule,
-  addUserToolRule,
-  updateUserToolRule,
-  removeUserToolRule,
-  getUserToolRulesPath,
+  addToolRule,
+  updateToolRule,
+  removeToolRule,
   isToolRuleValidationError: (e): e is Error =>
     e instanceof ToolRuleValidationError,
 

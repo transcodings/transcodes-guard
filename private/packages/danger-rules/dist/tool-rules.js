@@ -3,62 +3,35 @@
  *
  * `danger-patterns.ts` matches Bash command strings via regex; this module
  * matches PreToolUse payloads where `tool_name` identifies an MCP tool that
- * must trigger step-up MFA. Two-layer source (system + user) and the
- * load/validate/CRUD surface mirror danger-patterns.ts deliberately so the
- * mental model is single.
+ * must trigger step-up MFA.
+ *
+ * Phase 3 v2: rules are organization/project policy managed in the Transcodes
+ * backend (Unit G). This module owns the **read/merge + validation** surface
+ * only — the built-in system baseline merged with the cached project bundle.
+ * Writes go to the backend (`@transcodes-guard-private/stepup-core`
+ * `addToolRule`/`updateToolRule`/`removeToolRule`), never to a local file.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
 import { coerceRbacAction, coerceRbacResource, isRbacAction, } from '@transcodes-guard/danger-patterns';
-import { dataDir, migrateLegacyFile } from '@transcodes-guard/plugin-paths';
-import { parse as parseJsonc } from 'jsonc-parser';
 // System rules embedded at build time — see the matching note in
 // danger-patterns.ts (bundlers inline this; a runtime path read breaks once the
 // plugin is bundled by tsup).
 import systemToolRulesData from './data/tool-rules.json' with { type: 'json' };
-const USER_TOOL_RULES_FILE = 'user-tool-rules.json';
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
-export function getUserToolRulesPath() {
-    return path.join(dataDir(), USER_TOOL_RULES_FILE);
-}
 export function loadSystemToolRules() {
     // Embedded at build time — see the static import above. Fresh shape per call
     // so callers cannot mutate the shared embedded array.
     return { rules: [...systemToolRulesData.rules] };
 }
-export function loadUserToolRules() {
-    migrateLegacyFile(USER_TOOL_RULES_FILE, 'data');
-    try {
-        const raw = readFileSync(getUserToolRulesPath(), 'utf8');
-        // JSONC parse: see loadUserPatterns for rationale.
-        const parsed = parseJsonc(raw);
-        if (parsed && Array.isArray(parsed.rules)) {
-            return parsed;
-        }
-        return { rules: [] };
-    }
-    catch {
-        return { rules: [] };
-    }
-}
-export function saveUserToolRules(config) {
-    const file = getUserToolRulesPath();
-    mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify(config, null, 2) + '\n', 'utf8');
-}
-export function userToolRulesFileExists() {
-    return existsSync(getUserToolRulesPath());
-}
 /**
- * Layered merge (Phase3 v2 G3): built-in baseline → org policy bundle →
- * user rules. Same `id` in a later layer replaces the earlier rule (the
- * replacement keeps the original position so rule precedence inside a layer
- * stays stable); user rules win over everything — the pre-bundle user-rule
- * semantics are preserved unchanged.
+ * Layered merge (Phase3 v2 G3): built-in baseline → org/project policy bundle.
+ * Same `id` in a later layer replaces the earlier rule (the replacement keeps
+ * the original position so precedence inside a layer stays stable). The
+ * per-user local layer was retired — rules are now centrally managed backend
+ * policy applied uniformly to every human/AI agent in the project.
  *
- * `bundleRules` is the cached org bundle's `rules` array (Unit G policy
- * bundle). Callers without a bundle (no token / no cache) pass nothing and
- * get the pre-G3 baseline+user behavior — fail-closed matrix row 3.
+ * `bundleRules` is the cached project bundle's `rules` array. Callers without a
+ * bundle (no token / no cache) pass nothing and get the baseline only —
+ * fail-closed matrix row 3.
  */
 export function loadMergedToolRules(bundleRules = []) {
     // Coerce action/resource on load so the gate always sees a valid RBAC
@@ -79,18 +52,11 @@ export function loadMergedToolRules(bundleRules = []) {
     for (const r of bundleRules) {
         merged.set(r.id, {
             ...coerce(r),
-            // Bundle rules are org/system policy — like system rules, the verified
-            // record is consumed by the tool handler (which needs the sid), not
-            // the hook, unless the rule says otherwise.
+            // Bundle rules are org/project policy — like system rules, the verified
+            // record is consumed by the tool handler (which needs the sid), not the
+            // hook, unless the rule says otherwise.
             consume_in_hook: r.consume_in_hook ?? false,
             source: 'bundle',
-        });
-    }
-    for (const r of loadUserToolRules().rules) {
-        merged.set(r.id, {
-            ...coerce(r),
-            consume_in_hook: r.consume_in_hook ?? true,
-            source: 'user',
         });
     }
     return [...merged.values()];
@@ -113,6 +79,11 @@ export class ToolRuleValidationError extends Error {
 function detectShellCommand(toolName) {
     return /[\s|&;<>$*()`\\/]/.test(toolName);
 }
+/**
+ * Client-side validation shared by the backend write flows (fail fast before a
+ * network round-trip; the backend re-validates). Enforces the id/toolName/
+ * action/resource shape and reserves the system rule ids.
+ */
 export function validateNewToolRule(input) {
     const { id, toolName, reason, stepupAction, stepupResource, consume_in_hook, } = input;
     if (!ID_REGEX.test(id)) {
@@ -152,28 +123,11 @@ export function validateNewToolRule(input) {
         ...(consume_in_hook === undefined ? {} : { consume_in_hook }),
     };
 }
-export function addUserToolRule(input) {
-    const rule = validateNewToolRule(input);
-    const current = loadUserToolRules();
-    if (current.rules.some((r) => r.id === rule.id)) {
-        throw new ToolRuleValidationError(`id "${rule.id}" already exists in user tool-rules; use update instead`);
-    }
-    current.rules.push(rule);
-    saveUserToolRules(current);
-    return rule;
-}
-export function updateUserToolRule(id, changes) {
-    const systemIds = new Set(loadSystemToolRules().rules.map((r) => r.id));
-    if (systemIds.has(id)) {
-        throw new ToolRuleValidationError(`id "${id}" is a system tool-rule and cannot be modified`);
-    }
-    const current = loadUserToolRules();
-    const existing = current.rules.find((r) => r.id === id);
-    if (!existing) {
-        throw new ToolRuleValidationError(`no user tool-rule with id "${id}"`);
-    }
-    const merged = {
-        id,
+/** Resolve a partial change set against an existing rule into a full validated
+ * rule (PUT body). System rules are immutable. */
+export function mergeToolRuleChanges(existing, changes) {
+    return validateNewToolRule({
+        id: existing.id,
         toolName: changes.toolName ?? existing.toolName,
         reason: changes.reason ?? existing.reason,
         // Coerce existing values that predate the CRUD constraint so an unrelated
@@ -181,24 +135,10 @@ export function updateUserToolRule(id, changes) {
         stepupAction: changes.stepupAction ?? coerceRbacAction(existing.stepupAction),
         stepupResource: changes.stepupResource ?? coerceRbacResource(existing.stepupResource),
         consume_in_hook: changes.consume_in_hook ?? existing.consume_in_hook,
-    };
-    const validated = validateNewToolRule(merged);
-    const idx = current.rules.findIndex((r) => r.id === id);
-    current.rules[idx] = validated;
-    saveUserToolRules(current);
-    return validated;
+    });
 }
-export function removeUserToolRule(id) {
-    const systemIds = new Set(loadSystemToolRules().rules.map((r) => r.id));
-    if (systemIds.has(id)) {
-        throw new ToolRuleValidationError(`id "${id}" is a system tool-rule and cannot be removed`);
-    }
-    const current = loadUserToolRules();
-    const idx = current.rules.findIndex((r) => r.id === id);
-    if (idx === -1) {
-        throw new ToolRuleValidationError(`no user tool-rule with id "${id}"`);
-    }
-    current.rules.splice(idx, 1);
-    saveUserToolRules(current);
+/** The system rule ids — reserved and immutable. */
+export function systemToolRuleIds() {
+    return new Set(loadSystemToolRules().rules.map((r) => r.id));
 }
 //# sourceMappingURL=tool-rules.js.map
