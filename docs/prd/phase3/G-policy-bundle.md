@@ -78,8 +78,8 @@ POST / PUT / DELETE /v1/guard/rules[/:id]
 
 ### 5. 걸린 결정
 
-- **D5 — 스코프 org vs project**: 본 문서는 org-scoped로 기술해 왔으나 백엔드 테넌트 패턴은 project 중심. 토큰 claim에 둘 다 있어 기술적으론 양쪽 가능 — **project 권고**. 채택 시 클라이언트 캐시 파일명은 `policy-bundle.<projectId>.json`(G2에서 반영).
-- **D2 — 시스템 룰 기밀성**: 권고(비밀 아님)대로면 baseline에 시스템 룰 전체를 둬도 됨 — 그 경우 번들의 역할은 "조직 커스텀 + 갱신 채널"로 좁아지고 G3의 "dist에서 제거" 범위도 줄어든다.
+- **D5 — 스코프 org vs project**: ✅ **결정 (2026-06-12, human): project 스코프 채택.** 백엔드 번들 뷰는 토큰 projectId claim으로 스코프하고, 클라이언트 캐시 파일명은 `policy-bundle.<projectId>.json`으로 변경(후속 PR — G2는 org 키로 구현돼 있어 보정 필요).
+- **D2 — 시스템 룰 기밀성**: ✅ **결정 (2026-06-12, human): 비밀 아님.** baseline에 시스템 룰 전체 유지 — 번들의 역할은 "조직 커스텀 + 갱신 채널"로 확정되고 G3의 "dist에서 제거"는 소멸한다(수용 기준 5항의 "baseline 최소셋" 분기 불요). 단서: **사용자 임의 수정 방지** — user 레이어의 시스템 id override 금지(기존 validation) + 번들 SHA-384 검증 유지, 로컬 dist 변조는 서버 결정 권한(Unit H)이 보상 통제.
 - **D3 — 무결성 방식**: 기본값(TLS+SHA-384)으로 확정 착수. blocker 아님.
 
 ## 캐시 (클라이언트)
