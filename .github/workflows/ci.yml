@@ -47,7 +47,7 @@ jobs:
       # result was a permanently-red `main` regardless of dist freshness.
       # Freshness is now guarded behind: (1) `npm run build:plugin` must succeed,
       # (2) the gitignore guard below (dist files physically exist), and (3) the
-      # host smoke tests (23) which exercise the freshly-built hook entries.
+      # host smoke tests (24) which exercise the freshly-built hook entries.
 
       # gitignore negation guard: after the public/private restructure, dist is
       # only tracked via `!public/**/dist/` negation globs. If a glob ever stops
@@ -96,7 +96,7 @@ jobs:
         run: npm test -w @transcodes-guard-private/stepup-core
 
       # ─────────────────────────────────────────────────────────
-      # Claude Code plugin smoke tests (9 scenarios).
+      # Claude Code plugin smoke tests (10 scenarios).
       # All inputs are static JSON literals; no GitHub event injection
       # surface exists in this job.
       # ─────────────────────────────────────────────────────────
@@ -244,6 +244,19 @@ jobs:
           echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Stale bundle cache was not used as last-known-good"; exit 1; }
           echo "$OUT" | grep -q 'ci-bundle-rule' || { echo "::error::Deny did not carry the bundle rule id"; exit 1; }
           rm -f "$HOME/.transcodes/state/policy-bundle.proj-ci.json" "$HOME/.transcodes/state/stepup-pending.json"
+
+      - name: claude-code · fail-closed row 3 — no cache + backend unreachable → baseline deny (G3)
+        run: |
+          set -e
+          # Baseline system rules (retire_member = id:tc-retire-member) must gate
+          # even when no policy-bundle cache exists and the backend is unreachable.
+          OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for baseline-only case"; exit 1; }
+          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Baseline system rules did not gate the tool without bundle cache"; exit 1; }
+          echo "$OUT" | grep -q 'tc-retire-member' || { echo "::error::Deny did not carry the baseline rule id"; exit 1; }
+          rm -f "$HOME/.transcodes/state/stepup-pending.json"
 
       # ─────────────────────────────────────────────────────────
       # Codex CLI plugin smoke tests (3 scenarios — minimum coverage that
