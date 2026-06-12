@@ -1,7 +1,7 @@
 # Phase 3 v2 / Unit G — 정책 번들 분리 (policy-as-data)
 
 > 부모: [`../phase3-cdn-mirror-distribution.md`](../phase3-cdn-mirror-distribution.md) · 마일스톤 M7
-> 규모: **L** · 선행: 없음 · 외부 의존: **백엔드 룰 저장소 + CRUD + 번들 읽기 뷰(사내) — §백엔드 구현 명세가 단일 소스** · 상태: 🔧 **In progress** (G1 → [#52](https://github.com/transcodings/ai-action-tracker-mcp/pull/52))
+> 규모: **L** · 선행: 없음 · 외부 의존: **백엔드 룰 저장소 + CRUD + 번들 읽기 뷰(사내) — §백엔드 구현 명세가 단일 소스** · 상태: 🔧 **In progress** — 클라이언트 측 완료: G1 [#52](https://github.com/transcodings/ai-action-tracker-mcp/pull/52) · G2 [#58](https://github.com/transcodings/ai-action-tracker-mcp/pull/58) · G3 [#60](https://github.com/transcodings/ai-action-tracker-mcp/pull/60). 잔여 = dist baseline 처분(D2 결정) + 백엔드(§구현 명세 룰 저장소·시드·엔드포인트 2종)
 > 근거: [`boundary-redesign.md`](../../research/boundary-redesign.md) §2 (OPA 번들 패턴 + 운영 파라미터)
 
 ## 규모 산정
@@ -123,10 +123,10 @@ POST / PUT / DELETE /v1/guard/rules[/:id]
 
 ## 수용 기준
 
-- [ ] PreToolUse 임계 경로에 네트워크 호출 0 (코드 검토 + smoke로 확인).
-- [ ] 번들 fetch → SHA-384 검증 → 원자적 캐시 → 다음 hook에서 반영.
-- [ ] 위 fail-closed 매트릭스 4행이 각각 smoke로 재현됨(특히 "캐시 없음+불가 → gated deny").
-- [ ] 손상/스키마 불일치 번들 → 활성화 거부 + 기존 캐시 유지.
+- [x] PreToolUse 임계 경로에 네트워크 호출 0 (코드 검토 + smoke로 확인). — G3 #60: `loadEffectiveToolRules()`는 캐시 동기 읽기만, refresh는 session-start 계열·서버 기동에서만.
+- [x] 번들 fetch → SHA-384 검증 → 원자적 캐시 → 다음 hook에서 반영. — G1 #52 + G2 #58(배선·envelope unwrap) + G3 #60(hook 반영), 단위 테스트 38종.
+- [ ] 위 fail-closed 매트릭스 4행이 각각 smoke로 재현됨(특히 "캐시 없음+불가 → gated deny"). — 행 1·2·4는 단위 테스트 커버; **행 3의 "baseline only → gated deny" smoke는 dist baseline 처분(D2)과 함께 미완**.
+- [x] 손상/스키마 불일치 번들 → 활성화 거부 + 기존 캐시 유지. — G1 #52 단위 테스트로 고정(tampered/schema-invalid → failed + 캐시 보존).
 - [ ] 시스템 tool-rules가 plugin dist에서 제거되고(또는 baseline 최소셋만 잔존) 23종 smoke 통과(번들 픽스처 주입 방식 갱신 포함).
 
 ## 산출 파일(예상)
