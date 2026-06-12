@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.10.0...transcodes-guard-v0.11.0) (2026-06-12)
+
+
+### Features
+
+* **policy:** Phase3-G3 정책 번들 3계층 병합 — baseline → org 번들 → user ([d96f6b2](https://github.com/transcodings/ai-action-tracker-mcp/commit/d96f6b27938c8bf96dcabcc04af81f71d567f46a))
+* **policy:** Phase3-G3 정책 번들 3계층 병합 — baseline → org 번들 → user ([948100f](https://github.com/transcodings/ai-action-tracker-mcp/commit/948100f527e198d086534ec4e17ce290a2b7ec70))
+
 ## [0.10.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.9.1...transcodes-guard-v0.10.0) (2026-06-11)
 
 
