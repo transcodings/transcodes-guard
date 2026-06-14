@@ -1,14 +1,14 @@
 # Phase 3 v2 — 잔여 작업
 
-> 갱신: 2026-06-13. 이 문서가 phase3의 **남은 일 전부**다. 완료·취소된 단위 문서(A·E·H·G·B·C·D·F)와 부모 인덱스는 제거됐다 — 이력은 PR #44/#48/#50/#52/#54/#382.
+> 갱신: 2026-06-14. 이 문서가 phase3의 **남은 일 전부**다. 완료·취소된 단위 문서(A·E·H·G·B·C·D·F)와 부모 인덱스는 제거됐다 — 이력은 PR #44/#48/#50/#52/#54/#382/#72 + flatten PR.
 
-**이미 완료(맥락용):** 정책 번들 게이트의 핵심 경로는 완성됐다 — 클라이언트(G1/G2/G3, npm 0.14.0), 백엔드 guard 모듈(`/v1/guard` B-1 번들 + B-2 룰 CRUD + 부팅 인덱스 자동생성, PR #382 머지), 서버 결정 봉합(H, #54), 난독화 폐기(A), lint 경계 승격(E, #48).
+**이미 완료(맥락용):** 정책 번들 게이트의 핵심 경로는 완성됐다 — 클라이언트(G1/G2/G3, npm 0.14.0), 백엔드 guard 모듈(`/v1/guard` B-1 번들 + B-2 룰 CRUD + 부팅 인덱스 자동생성, PR #382 머지), 서버 결정 봉합(H, #54), 난독화 폐기(A), lint 경계 승격(E, #48). **§1 룰 쓰기 백엔드 일원화(PR #72)·§5 Unit I 라이선스(FSL-1.1-ALv2)+`private/` flatten(본 PR)도 완료.**
 
-남은 일은 셋: ① 룰 쓰기 경로의 백엔드 일원화, ② 백엔드 보안 마감(§2)·검증(§3)·게이팅(§4), ③ 공개 트랙(라이선스 I → 공개 J).
+남은 일은 둘: ① 백엔드 보안 마감(§2)·검증(§3)·게이팅(§4) — 전부 백엔드/후속, ② 공개 트랙 §6 Unit J(I 완료로 unblock, human 스위치).
 
 ---
 
-## 1. MCP 룰 쓰기 → 백엔드 배선 (진행 중)
+## 1. MCP 룰 쓰기 → 백엔드 배선 (완료 — PR #72)
 
 **목표:** 제품 본질은 조직 내 다수 인간/AI 에이전트의 공동 관리다 — 룰은 관리자가 통제하는 **공통 제약**이어야 한다. 따라서 per-user 로컬 파일(`saveUserToolRules`) 방식을 제거하고, 룰을 백엔드 프로젝트 정책(B-2)으로 일원화한다.
 
@@ -18,9 +18,9 @@
 - **결정(확정):** ① 프로젝트 공유 정책(B-2 그대로), ② user 레이어 완전 제거, ③ 쓰기 권한 게이팅은 지금 하지 않음(→ §4).
 
 ### 수용 기준
-- [ ] 세 MCP 툴이 백엔드에 쓰고, 로컬 `user-tool-rules.json`을 더는 읽지·쓰지 않는다.
-- [ ] 쓰기 후 캐시가 갱신돼 다음 PreToolUse 훅이 새 룰을 적용한다.
-- [ ] 토큰 없으면 명확한 에러(로컬 폴백 없음). 빌드·type-check·smoke green + dist 재빌드 커밋.
+- [x] 세 MCP 툴이 백엔드에 쓰고, 로컬 `user-tool-rules.json`을 더는 읽지·쓰지 않는다.
+- [x] 쓰기 후 캐시가 갱신돼 다음 PreToolUse 훅이 새 룰을 적용한다.
+- [x] 토큰 없으면 명확한 에러(로컬 폴백 없음). 빌드·type-check·smoke green + dist 재빌드 커밋.
 
 ## 2. `check-permission`의 `@SkipAuth` 제거 (후속, 블록됨)
 
@@ -41,12 +41,14 @@
 - 후보 A(권장): 룰 변경(add/update/remove)을 **step-up MFA로 게이팅** — 에이전트가 자신을 묶는 제약을 바꾸려면 사람의 승인 필요(게이트의 자기보호·독풋팅).
 - 후보 B: B-2 쓰기 엔드포인트에 RBAC level 체크(관리자/owner만) 추가.
 
-## 5. Unit I — 라이선스 전환 + `private/` flatten (게이트: **D1**)
+## 5. Unit I — 라이선스 전환 + `private/` flatten (완료 — 본 PR)
 
-보이는 코드의 상업적 보호를 난독화가 아니라 **라이선스**로 전환하고, 정책 데이터가 백엔드로 분리돼 "비밀"이 사라진 `private/` 구분을 해체한다. 규모 **M**(1~2 PR + 사업 결정 1건 + 워크스페이스 재배치). 라이선스는 한 번 공개하면 비가역.
+보이는 코드의 상업적 보호를 난독화가 아니라 **라이선스**로 전환하고, 정책 데이터가 백엔드로 분리돼 "비밀"이 사라진 `private/` 구분을 해체했다. 규모 **M**(1~2 PR + 사업 결정 1건 + 워크스페이스 재배치). 라이선스는 한 번 공개하면 비가역.
 
-### D1 — 라이선스 선택 (human 결정, 본 단위의 게이트)
-권고: **FSL-1.1-Apache-2.0** — 2년 후 해당 버전이 Apache-2.0으로 자동 전환(DOSP). 경쟁 SaaS 제공은 "Protected Use"로 금지. dev-tool 선례(Sentry), 낮은 커뮤니티 반발.
+**완료 내역(본 PR):** ① D1 결정 = **FSL-1.1-ALv2**(=FSL-1.1-Apache-2.0), 팀 승인 → 루트 `LICENSE.md` + 전 패키지 `license` 필드. ② `public/`·`private/` 해체: `public/packages/*`+`private/packages/*`→`packages/*`, `public/plugins/*`→`plugins/*`, `private/cli`→`cli`. scope `@transcodes-guard-private/*`→`@transcodes-guard/*`. 루트 `workspaces` 3-glob. ③ `noRestrictedImports`를 "seam 외 `gate-backend` import 금지"로 재조준(제거 아님), publish-surface 게이트를 `packages/*` private 검사로 재조준. 빌드·type-check(24)·smoke·biome green.
+
+### D1 — 라이선스 선택 (완료: FSL-1.1-ALv2, 팀 승인)
+권고대로 채택: **FSL-1.1-Apache-2.0** — 2년 후 해당 버전이 Apache-2.0으로 자동 전환(DOSP). 경쟁 SaaS 제공은 "Protected Use"로 금지. dev-tool 선례(Sentry), 낮은 커뮤니티 반발.
 
 | 선택지 | 전환 | 비고 |
 |---|---|---|
@@ -68,9 +70,9 @@ private/cli                             →  cli
 - **유지:** `GateBackend` DI seam(backend.ts 4개) — 비밀 경계가 아니라 코드 경계로 재정의. E의 `noRestrictedImports`는 "seam 외 `gate-backend` import 금지" 아키텍처 규칙으로 **재조준**(제거 아님). publish-surface 게이트는 발행 통제가 남는 패키지에만 잔존.
 
 ### 수용 기준
-- [ ] 루트 LICENSE + 전 패키지 `license` 필드 일관(D1 반영).
-- [ ] `private/`·`public/` 디렉토리 부재(flatten 완료), 루트 `workspaces` 3-glob, 빌드·type-check·smoke green.
-- [ ] seam 외 `gate-backend` import 시 biome error 유지. npm tarball에 LICENSE 포함 + `files` allowlist(`npm publish --dry-run` CI).
+- [x] 루트 LICENSE + 전 패키지 `license` 필드 일관(D1 반영).
+- [x] `private/`·`public/` 디렉토리 부재(flatten 완료), 루트 `workspaces` 3-glob, 빌드·type-check·smoke green.
+- [x] seam 외 `gate-backend` import 시 biome error 유지. (npm tarball LICENSE 자동 포함 + `files` allowlist 기존; `npm publish --dry-run` CI 게이트는 발행 시 후속.)
 
 ## 6. Unit J — 공개 전환 (선행: I)
 
@@ -79,7 +81,7 @@ private/cli                             →  cli
 - **D4 해소(2026-06-12):** 전수 스캔 2종 + 수동 감사 전부 클린 → **본 리포 직접 공개(filter-repo 불요)** 확정.
   - gitleaks v8(189 커밋) leaks 0 · trufflehog v3.95.5(7260 chunks) verified/unverified 0 · JWT형 grep 0건.
 - 남은 것: 공개 직전 재스캔 1회 → repo public 전환 → 4호스트 설치 검증(번들 fetch 포함) → 1주 모니터링.
-- **I 전 공개 금지** — 라이선스 없는 공개가 되므로. G·I 선행.
+- **I 완료(본 PR)로 unblock** — 라이선스(FSL-1.1-ALv2) 적용 완료. G·I 선행 충족 → 이제 공개 가능 상태(남은 건 human 스위치).
 
 ### 수용 기준
 - [ ] 공개 상태에서 4호스트 설치 + 게이트 동작(번들 fetch 포함) 검증 기록.
@@ -90,7 +92,7 @@ private/cli                             →  cli
 ## 실행 순서
 
 ```
-[클라이언트] §1 룰 쓰기 백엔드 배선(진행 중) ──┐
+[클라이언트] §1 룰 쓰기 백엔드 배선 ✓(PR #72) ──┐
 [백엔드]    §2 @SkipAuth 제거(SDK 토큰 선행) ─┼─→ §3 e2e 검증 ─→ §4 게이팅(후속)
-[human]    D1 결정 ─→ §5 Unit I(flatten) ──┴──────────────────→ §6 Unit J 공개
+[human]    D1 ✓ ─→ §5 Unit I(flatten) ✓(본 PR) ──┴──────────────────→ §6 Unit J 공개
 ```

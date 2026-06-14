@@ -1,0 +1,34 @@
+{
+  "name": "@bigstrider/transcodes-cli",
+  "version": "0.3.0",
+  "description": "Transcodes CLI — manage transcodes-guard member tokens and the step-up gate (set/reset/status/tokens, enable/disable, dashboard).",
+  "type": "module",
+  "bin": {
+    "transcodes": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && chmod 755 dist/index.js",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@transcodes-guard/danger-patterns": "*",
+    "@transcodes-guard/mcp-server-core": "*",
+    "@transcodes-guard/danger-rules": "*",
+    "@transcodes-guard/stepup-core": "*",
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "FSL-1.1-ALv2"
+}

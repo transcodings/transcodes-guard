@@ -49,35 +49,35 @@ jobs:
       # (2) the gitignore guard below (dist files physically exist), and (3) the
       # host smoke tests (24) which exercise the freshly-built hook entries.
 
-      # gitignore negation guard: after the public/private restructure, dist is
-      # only tracked via `!public/**/dist/` negation globs. If a glob ever stops
+      # gitignore negation guard: after the workspace flatten, dist is only
+      # tracked via `!packages/*/dist/` + `!plugins/*/dist/` negation globs. If a glob ever stops
       # matching, `git diff --exit-code` above silently passes (no diff) while
       # the dist is actually ignored — and hosts that clone get no runnable
       # files. Assert the compiled hook entries physically exist.
       - name: Verify plugin dist files exist (gitignore guard)
         run: |
-          for f in public/plugins/*/dist/hooks/pre-tool-use.js; do
+          for f in plugins/*/dist/hooks/pre-tool-use.js; do
             test -f "$f" || { echo "::error::missing $f — dist may be gitignored"; exit 1; }
           done
 
       # ─────────────────────────────────────────────────────────
       # Biome lint + format check (no --write).
       # Fails if any source file deviates from biome.json conventions or
-      # contains lint errors. noRestrictedImports (public→private boundary)
-      # is an error: only the public/plugins/*/backend.ts seams may import
-      # @transcodes-guard-private/gate-backend (biome.json overrides).
+      # contains lint errors. noRestrictedImports (gate-backend seam boundary)
+      # is an error: only the plugins/*/backend.ts seams may import
+      # @transcodes-guard/gate-backend (biome.json overrides).
       - name: Biome check
         run: npx biome check --reporter=github
 
       # ─────────────────────────────────────────────────────────
-      # Public-mirror surface gate.
-      # Asserts each private-packages/* member keeps "private": true so
-      # nothing in private-packages/ can leak out as a separate tarball.
+      # Publish-surface gate.
+      # Asserts each packages/* member keeps "private": true so no internal
+      # workspace library can leak out as a separate npm tarball.
       # If a future commit drops the flag, this step fails loudly.
-      - name: Public-mirror surface — private packages must stay isolated
+      - name: Publish-surface — internal packages must stay private
         run: |
           MISSING=0
-          for dir in private/packages/*/; do
+          for dir in packages/*/; do
             pkg=$(node -p "require('./${dir}package.json').name")
             is_private=$(node -p "require('./${dir}package.json').private === true")
             if [ "$is_private" != "true" ]; then
@@ -93,7 +93,7 @@ jobs:
       # Unit tests (node:test via tsx). Currently stepup-core only —
       # policy-bundle fetch/verify/cache core (Phase 3 v2 Unit G1).
       - name: stepup-core unit tests
-        run: npm test -w @transcodes-guard-private/stepup-core
+        run: npm test -w @transcodes-guard/stepup-core
 
       # ─────────────────────────────────────────────────────────
       # Claude Code plugin smoke tests (10 scenarios).
@@ -105,7 +105,7 @@ jobs:
         run: |
           set -e
           OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
-            | node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for danger command"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Deny JSON missing"; exit 1; }
@@ -114,7 +114,7 @@ jobs:
         run: |
           set -e
           OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"ls"},"cwd":"'"$PWD"'"}' \
-            | node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow safe command"; exit 1; }
 
@@ -122,7 +122,7 @@ jobs:
         run: |
           set -e
           OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
-            | node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for protected MCP tool"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Deny JSON missing for protected MCP tool"; exit 1; }
@@ -132,7 +132,7 @@ jobs:
         run: |
           set -e
           OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__get_member","tool_input":{"member_id":"x"}}' \
-            | node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow unprotected MCP tool"; exit 1; }
           if echo "$OUT" | grep -q '"permissionDecision"'; then
@@ -146,7 +146,7 @@ jobs:
           NOW=$(node -e 'console.log(Date.now())')
           echo "{\"sid\":\"ci-test-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
           OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__retire_member","tool_input":{"body":{"member_id":"x"}}}' \
-            | node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 with verified record"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"allow"' || { echo "::error::Explicit allow JSON missing despite verified record"; exit 1; }
@@ -171,7 +171,7 @@ jobs:
           FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'mcp__ci_consume_tool:{"arg":"v"}')
           echo "{\"sid\":\"ci-consume-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
           OUT=$(echo '{"tool_name":"mcp__ci_consume_tool","tool_input":{"arg":"v"}}' \
-            | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for bundle rule fast-path"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"allow"' || { echo "::error::Explicit allow JSON missing for bundle rule consume path"; exit 1; }
@@ -192,7 +192,7 @@ jobs:
           cat > "$HOME/.transcodes/state/stepup-pending.json" <<JSON
           {"sid":"orphan-sid","command":"ci-orphan-test","reason":"orphan test","browserUrl":"http://localhost/x","createdAt":$NOW,"expiresAt":"$EXP","status":"verified"}
           JSON
-          OUT=$(printf '' | node public/plugins/claude-code/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
+          OUT=$(printf '' | node plugins/claude-code/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Stop hook did not exit 0"; exit 1; }
           if echo "$OUT" | grep -q '"decision":"block"'; then
@@ -214,7 +214,7 @@ jobs:
           printf '{"fetchedAt":%s,"bundle":{"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","toolName":"mcp__ci_bundle_tool","reason":"CI bundle smoke","stepupAction":"delete","stepupResource":"system"}]}}' "$NOW" \
             > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
           OUT=$(echo '{"tool_name":"mcp__ci_bundle_tool","tool_input":{"a":1}}' \
-            | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for bundle-gated tool"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Fresh bundle cache did not gate the tool"; exit 1; }
@@ -230,7 +230,7 @@ jobs:
           printf '{"fetchedAt":%s,"bundle":{"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","toolName":"mcp__ci_bundle_tool","reason":"CI bundle smoke","stepupAction":"delete","stepupResource":"system"}]}}' "$OLD" \
             > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
           OUT=$(echo '{"tool_name":"mcp__ci_bundle_tool","tool_input":{"a":1}}' \
-            | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for stale-bundle case"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Stale bundle cache was not used as last-known-good"; exit 1; }
@@ -243,7 +243,7 @@ jobs:
           # Baseline system rules (retire_member = id:tc-retire-member) must gate
           # even when no policy-bundle cache exists and the backend is unreachable.
           OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
-            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for baseline-only case"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Baseline system rules did not gate the tool without bundle cache"; exit 1; }
@@ -261,7 +261,7 @@ jobs:
         run: |
           set -e
           OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
-            | node public/plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex hook did not exit 0 for danger command"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Codex deny JSON missing"; exit 1; }
@@ -276,7 +276,7 @@ jobs:
           FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'rm -rf /tmp/x')
           echo "{\"sid\":\"codex-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
           OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"},"cwd":"'"$PWD"'"}' \
-            | node public/plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex hook did not exit 0 with verified record"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"allow"' || { echo "::error::Codex explicit allow JSON missing despite verified record"; exit 1; }
@@ -290,7 +290,7 @@ jobs:
           set -e
           rm -f "$HOME/.transcodes/state/stepup-verified.json"
           rm -f "$HOME/.transcodes/state/stepup-pending.json"
-          OUT=$(printf '' | node public/plugins/codex/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
+          OUT=$(printf '' | node plugins/codex/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex Stop hook did not exit 0"; exit 1; }
           if echo "$OUT" | grep -q '"decision":"block"'; then
@@ -311,7 +311,7 @@ jobs:
         run: |
           set -e
           OUT=$(echo '{"toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /","Cwd":"'"$PWD"'"}},"stepIdx":0,"conversationId":"ag-ci","workspacePaths":["'"$PWD"'"]}' \
-            | node public/plugins/antigravity/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/antigravity/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity hook did not exit 0 for danger command"; exit 1; }
           echo "$OUT" | grep -q '"decision":"deny"' || { echo "::error::Antigravity deny JSON missing (expected top-level decision, not hookSpecificOutput)"; exit 1; }
@@ -329,7 +329,7 @@ jobs:
           FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'rm -rf /tmp/x')
           echo "{\"sid\":\"ag-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
           OUT=$(echo '{"toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /tmp/x","Cwd":"'"$PWD"'"}},"stepIdx":0,"conversationId":"ag-ci","workspacePaths":["'"$PWD"'"]}' \
-            | node public/plugins/antigravity/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/antigravity/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity hook did not exit 0 with verified record"; exit 1; }
           echo "$OUT" | grep -q '"decision":"allow"' || { echo "::error::Antigravity explicit allow JSON missing despite verified record"; exit 1; }
@@ -343,7 +343,7 @@ jobs:
           set -e
           rm -f "$HOME/.transcodes/state/stepup-verified.json"
           rm -f "$HOME/.transcodes/state/stepup-pending.json"
-          OUT=$(printf '' | node public/plugins/antigravity/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
+          OUT=$(printf '' | node plugins/antigravity/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity Stop hook did not exit 0"; exit 1; }
           if echo "$OUT" | grep -q '"decision":"continue"'; then
@@ -354,7 +354,7 @@ jobs:
         run: |
           set -e
           OUT=$(echo '{"invocationNum":1,"initialNumSteps":0,"conversationId":"ag-ci","transcriptPath":"/tmp/ag-ci-nonexistent.jsonl","workspacePaths":["'"$PWD"'"]}' \
-            | node public/plugins/antigravity/dist/hooks/pre-invocation.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/antigravity/dist/hooks/pre-invocation.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0"; exit 1; }
           echo "$OUT" | grep -q '"injectSteps"' || { echo "::error::Antigravity PreInvocation missed primer injectSteps on invocationNum=1"; exit 1; }
@@ -364,7 +364,7 @@ jobs:
         run: |
           set -e
           OUT=$(echo '{"invocationNum":5,"initialNumSteps":10,"conversationId":"ag-ci"}' \
-            | node public/plugins/antigravity/dist/hooks/pre-invocation.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/antigravity/dist/hooks/pre-invocation.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0 (n=5)"; exit 1; }
           if echo "$OUT" | grep -q '"injectSteps"'; then
@@ -384,7 +384,7 @@ jobs:
         run: |
           set -e
           OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
-            | node public/plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not exit 0 for danger command"; exit 1; }
           echo "$OUT" | grep -q '"permission":"deny"' || { echo "::error::Cursor flat deny JSON missing"; exit 1; }
@@ -396,7 +396,7 @@ jobs:
         run: |
           set -e
           OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"ls"},"cwd":"'"$PWD"'"}' \
-            | node public/plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not allow safe command"; exit 1; }
 
@@ -409,7 +409,7 @@ jobs:
           FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'rm -rf /tmp/x')
           echo "{\"sid\":\"cursor-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
           OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"rm -rf /tmp/x"},"cwd":"'"$PWD"'"}' \
-            | node public/plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not exit 0 with verified record"; exit 1; }
           echo "$OUT" | grep -q '"permission":"allow"' || { echo "::error::Cursor explicit allow JSON missing despite verified record"; exit 1; }
@@ -427,7 +427,7 @@ jobs:
           cat > "$HOME/.transcodes/state/stepup-pending.json" <<JSON
           {"sid":"cursor-ss-test","command":"rm -rf /","reason":"ci test","browserUrl":"http://x","createdAt":$NOW,"expiresAt":"$EXP","status":"pending"}
           JSON
-          OUT=$(printf '' | node public/plugins/cursor/dist/hooks/session-start.js 2>&1; printf '\nEXIT:%s' "$?")
+          OUT=$(printf '' | node plugins/cursor/dist/hooks/session-start.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor sessionStart hook did not exit 0"; exit 1; }
           echo "$OUT" | grep -q '"additional_context"' || { echo "::error::Cursor sessionStart missing flat additional_context"; exit 1; }
@@ -441,7 +441,7 @@ jobs:
           set -e
           rm -f "$HOME/.transcodes/state/stepup-verified.json"
           rm -f "$HOME/.transcodes/state/stepup-pending.json"
-          OUT=$(printf '' | node public/plugins/cursor/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
+          OUT=$(printf '' | node plugins/cursor/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor Stop hook did not exit 0"; exit 1; }
           if echo "$OUT" | grep -q '"followup_message"'; then
@@ -459,7 +459,7 @@ jobs:
           {"sid":"cursor-bsp-sid","command":"rm","reason":"r","browserUrl":"http://x","createdAt":$NOW,"expiresAt":"$EXP","status":"verified"}
           JSON
           OUT=$(echo '{"prompt":"인증 완료"}' \
-            | node public/plugins/cursor/dist/hooks/before-submit-prompt.js 2>&1; printf '\nEXIT:%s' "$?")
+            | node plugins/cursor/dist/hooks/before-submit-prompt.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor beforeSubmitPrompt did not exit 0"; exit 1; }
           echo "$OUT" | grep -q '"continue":true' || { echo "::error::Cursor beforeSubmitPrompt missed continue:true"; exit 1; }

@@ -17,7 +17,7 @@ Active when editing plugin packaging, tsup configs, or the turbo pipeline. Code 
 
 ## Self-contained bundling
 
-Each plugin's `tsup.config.ts` sets `noExternal: [/^@transcodes-guard(-private)?\//]` — both the public (`@transcodes-guard/*`) and private (`@transcodes-guard-private/*`) workspace packages are **bundled in**, never published as separate npm modules. Real runtime deps (`@modelcontextprotocol/sdk`, `zod`, in `dependencies`) stay external. Internal packages therefore live in `devDependencies` on each plugin (tsup auto-bundles devDeps) and stay `private`. The regex's `(-private)?` alternation is the safety net: if a future commit moves a private package into a plugin's `dependencies`, it would otherwise externalize and break the published tarball.
+Each plugin's `tsup.config.ts` sets `noExternal: [/^@transcodes-guard(-private)?\//]` — the `@transcodes-guard/*` workspace packages are **bundled in**, never published as separate npm modules. Real runtime deps (`@modelcontextprotocol/sdk`, `zod`, in `dependencies`) stay external. Internal packages therefore live in `devDependencies` on each plugin (tsup auto-bundles devDeps) and stay `private`. The regex's `(-private)?` alternation is a vestigial safety net from the now-dissolved dual-scope split — only `@transcodes-guard/*` exists post-flatten, but it stays harmless and would still catch a stray legacy import.
 
 ## `files` must ship the host manifest
 
@@ -36,17 +36,17 @@ Every plugin has a one-line `host.ts`: `process.env.TRANSCODES_GUARD_HOST = "<ho
 
 ## Dist sync (CI-enforced)
 
-After any source change, `npm run build:plugin` and commit all six `dist/` locations in the same change: `packages/*/dist/` + `private-packages/*/dist/` + each `plugins/*/dist/`. CI runs `git diff --exit-code` on all six and fails on drift. Never hand-edit `dist/`.
+After any source change, `npm run build:plugin` and commit the regenerated `dist/` under `packages/*/dist/` + `plugins/*/dist/` in the same change. The byte-identity drift gate was removed (bundles are not reproducible across environments); freshness is guarded by the build succeeding, the gitignore-negation guard (dist files physically exist), and the host smoke tests. Never hand-edit `dist/`.
 
 ## Lint + format
 
-`biome.json` at the repo root governs linting and formatting; `npm run check` runs `biome check --write` (lint + format + organize-imports). Lefthook (installed by `npm install` via postinstall) runs the same biome step on staged files at `pre-commit` and `npm run type-check` at `pre-push`. CI runs `npx biome check --reporter=github` non-destructively. Warnings (incl. `noRestrictedImports` for public→private boundary violations) do not fail the build in phase 1; errors do.
+`biome.json` at the repo root governs linting and formatting; `npm run check` runs `biome check --write` (lint + format + organize-imports). Lefthook (installed by `npm install` via postinstall) runs the same biome step on staged files at `pre-commit` and `npm run type-check` at `pre-push`. CI runs `npx biome check --reporter=github` non-destructively. Warnings do not fail the build; errors do — including `noRestrictedImports`, an **error** that forbids importing the concrete `@transcodes-guard/gate-backend` anywhere outside the `plugins/*/backend.ts` seams.
 
 ## Adding a new host
 
 1. Implement an adapter in `packages/hook-adapters/src/<host>.ts` (the `HookAdapter` interface).
-2. Add `plugins/<host>-ai-action-tracker/` with a manifest + thin hook entries sized to the host's event set.
-3. Add `plugins/<host>-ai-action-tracker/host.ts` (the single env line); make it every entry's first import.
+2. Add `plugins/<host>/` with a manifest + thin hook entries sized to the host's event set.
+3. Add `plugins/<host>/host.ts` (the single env line); make it every entry's first import.
 4. Add CI smoke tests for the host.
 
 No new `stepup-core` / `mcp-server-core` / `danger-patterns` / `transcodes-mcp-tools` / `danger-rules` code — a host is an adapter + a thin shell only.

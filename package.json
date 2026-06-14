@@ -4,16 +4,15 @@
   "version": "0.15.0",
   "description": "Monorepo orchestrator for transcodes-guard plugins + marketplace. Root is the release-please train coordinator (never published).",
   "workspaces": [
-    "public/packages/*",
-    "public/plugins/*",
-    "private/packages/*",
-    "private/cli"
+    "packages/*",
+    "plugins/*",
+    "cli"
   ],
   "scripts": {
     "build": "turbo run build",
     "prebuild:plugin": "node scripts/stamp-build-info.mjs",
     "build:plugin": "turbo run build:plugin",
-    "prebuild:cdn": "turbo run build --filter=@transcodes-guard-private/gate-backend...",
+    "prebuild:cdn": "turbo run build --filter=@transcodes-guard/gate-backend...",
     "build:cdn": "node scripts/build-cdn.mjs",
     "dev:stdio": "npm run dev:stdio -w @bigstrider/transcodes-guard-claude-code",
     "dev:http": "npm run dev:http -w @bigstrider/transcodes-guard-claude-code",
@@ -35,5 +34,6 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "npm@10.0.0"
+  "packageManager": "npm@10.0.0",
+  "license": "FSL-1.1-ALv2"
 }
