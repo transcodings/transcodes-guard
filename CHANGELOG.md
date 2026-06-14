@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.15.0...transcodes-guard-v0.15.1) (2026-06-14)
+
+
+### Code Refactoring
+
+* workspace flatten (public/private 해체) + FSL-1.1-ALv2 라이선스 (Unit I) ([db8c33b](https://github.com/transcodings/ai-action-tracker-mcp/commit/db8c33b662ad97760534145816aa7e84e961b07f))
+* workspace flatten (public/private 해체) + FSL-1.1-ALv2 라이선스 (Unit I) ([812cd17](https://github.com/transcodings/ai-action-tracker-mcp/commit/812cd1756b84d91d5d9609855921a7b49c0bd8db))
+
 ## [0.15.0](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.14.0...transcodes-guard-v0.15.0) (2026-06-12)
 
 

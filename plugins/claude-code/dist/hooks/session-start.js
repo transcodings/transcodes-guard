@@ -8,7 +8,7 @@ import {
 } from "../chunk-CRPVB5TO.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.15.0";
+var PLUGIN_VERSION = "0.15.1";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
