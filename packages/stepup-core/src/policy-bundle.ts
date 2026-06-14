@@ -15,10 +15,8 @@
  *
  * Integrity contract (must match the backend): `manifest.sha384` is the hex
  * SHA-384 of the canonical JSON of the response body WITHOUT the `manifest`
- * field — canonical = object keys sorted recursively (RFC 8785 spirit),
- * arrays in order, no whitespace. Unknown body fields are covered by the
- * hash (forward compatibility) but stripped by the schema parse, so a newer
- * backend can add fields without breaking older clients.
+ * field — `{ schemaVersion, revision, rules }`. Canonical = object keys sorted
+ * recursively (RFC 8785 spirit), arrays in order, no whitespace.
  */
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -27,11 +25,15 @@ import { RBAC_ACTIONS } from '@transcodes-guard/danger-patterns';
 import {
   loadMergedToolRules,
   type MergedToolRule,
+  type ToolRule,
 } from '@transcodes-guard/danger-rules';
 import { cacheDir } from '@transcodes-guard/plugin-paths';
 import { z } from 'zod';
 import { request } from './client.js';
 import { loadStepupConfig, type StepupConfig } from './config.js';
+
+/** Policy bundle wire schema version — bump on breaking bundle shape changes. */
+export const GUARD_POLICY_BUNDLE_SCHEMA_VERSION = 2;
 
 /** Bundle refresh TTL. Policy changes are infrequent and refresh runs only on
  * session-start/server boot (never per tool call), so 1h is the PRD default.
@@ -42,21 +44,21 @@ export const POLICY_BUNDLE_TTL_MS = 60 * 60 * 1_000;
  * the session — keep the fetch bounded well under the host's hook timeout. */
 export const POLICY_BUNDLE_FETCH_TIMEOUT_MS = 3_000;
 
-/** Mirrors `ToolRule` in @transcodes-guard/danger-rules, as a zod
- * schema — backend responses are untrusted input like any other (a partially
- * corrupt bundle must never take the gate down). */
+/** Mirrors backend `GuardBundleRuleResponseDto` — active rules only, no status/metadata. */
 const bundleToolRuleSchema = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
-  toolName: z.string().min(1),
-  reason: z.string().min(1),
-  stepupAction: z.enum(RBAC_ACTIONS),
-  stepupResource: z.string().min(1),
-  consume_in_hook: z.boolean().optional(),
+  type: z.literal('mcp'),
+  label: z.string().min(1),
+  description: z.string().min(1),
+  name: z.string().min(1),
+  matcher: z.enum(['exact', 'glob']),
+  provider: z.enum(['claude', 'codex', 'cursor', 'antigravity']).optional(),
+  action: z.enum(RBAC_ACTIONS).optional(),
+  resource: z.string().min(1).optional(),
 });
 
-// First-phase scope is tool-rules only (PRD G "미설계 세부" recommendation);
-// a future `patterns` field arrives as an unknown key: hashed, then stripped.
 const policyBundleSchema = z.object({
+  schemaVersion: z.literal(GUARD_POLICY_BUNDLE_SCHEMA_VERSION),
   revision: z.string().min(1),
   rules: z.array(bundleToolRuleSchema),
 });
@@ -322,7 +324,7 @@ export async function refreshPolicyBundle(
  * matrix row 2), and refresh happens elsewhere (G2 wiring).
  */
 export function loadEffectiveToolRules(): MergedToolRule[] {
-  let bundleRules: PolicyBundleRule[] = [];
+  let bundleRules: ToolRule[] = [];
   try {
     const config = loadStepupConfig();
     bundleRules = readCachedPolicyBundle(config.projectId)?.bundle.rules ?? [];

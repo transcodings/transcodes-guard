@@ -18,13 +18,14 @@ import { req } from './transcodes-client.js';
 export class RbacCoordinateError extends Error {}
 
 /** Pull resource keys out of the (loosely-typed) get_resources body. */
-function extractResourceKeys(data: unknown): string[] {
+export function extractResourceKeys(data: unknown): string[] {
   const items: unknown[] = Array.isArray(data)
     ? data
     : data && typeof data === 'object'
       ? ((): unknown[] => {
           const rec = data as Record<string, unknown>;
-          for (const k of ['resources', 'data', 'items', 'result']) {
+          // NestJS NormalizedResponse uses `payload`; legacy shapes use the rest.
+          for (const k of ['payload', 'resources', 'data', 'items', 'result']) {
             if (Array.isArray(rec[k])) return rec[k] as unknown[];
           }
           return [];
@@ -97,8 +98,10 @@ export async function assertRbacCoordinate(
   const keys = await fetchRbacResourceKeys(config);
   if (keys === null) {
     throw new RbacCoordinateError(
-      'could not fetch RBAC resources from the backend to validate `resource`. ' +
-        'Ensure TRANSCODES_TOKEN is set and the backend is reachable, then retry. ' +
+      'could not fetch RBAC resources from the backend to validate `resource` ' +
+        '(network failure, auth error, empty project resources, or unparseable response). ' +
+        'Token is read from TRANSCODES_TOKEN or ~/.transcodes/config.json — not env-only. ' +
+        'If `get_resources` already succeeded, retry after updating the plugin build. ' +
         'Inspect valid resources with the `get_resources` tool.',
     );
   }

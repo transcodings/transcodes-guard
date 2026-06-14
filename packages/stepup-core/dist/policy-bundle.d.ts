@@ -1,6 +1,8 @@
 import { type MergedToolRule } from '@transcodes-guard/danger-rules';
 import { z } from 'zod';
 import { type StepupConfig } from './config.js';
+/** Policy bundle wire schema version — bump on breaking bundle shape changes. */
+export declare const GUARD_POLICY_BUNDLE_SCHEMA_VERSION = 2;
 /** Bundle refresh TTL. Policy changes are infrequent and refresh runs only on
  * session-start/server boot (never per tool call), so 1h is the PRD default.
  * OPA-style 10–120s polling assumes a resident daemon — hooks are short-lived. */
@@ -8,74 +10,99 @@ export declare const POLICY_BUNDLE_TTL_MS: number;
 /** Refresh runs at session-start/server boot where a hung backend would delay
  * the session — keep the fetch bounded well under the host's hook timeout. */
 export declare const POLICY_BUNDLE_FETCH_TIMEOUT_MS = 3000;
-/** Mirrors `ToolRule` in @transcodes-guard/danger-rules, as a zod
- * schema — backend responses are untrusted input like any other (a partially
- * corrupt bundle must never take the gate down). */
+/** Mirrors backend `GuardBundleRuleResponseDto` — active rules only, no status/metadata. */
 declare const bundleToolRuleSchema: z.ZodObject<{
     id: z.ZodString;
-    toolName: z.ZodString;
-    reason: z.ZodString;
-    stepupAction: z.ZodEnum<["create", "read", "update", "delete"]>;
-    stepupResource: z.ZodString;
-    consume_in_hook: z.ZodOptional<z.ZodBoolean>;
+    type: z.ZodLiteral<"mcp">;
+    label: z.ZodString;
+    description: z.ZodString;
+    name: z.ZodString;
+    matcher: z.ZodEnum<["exact", "glob"]>;
+    provider: z.ZodOptional<z.ZodEnum<["claude", "codex", "cursor", "antigravity"]>>;
+    action: z.ZodOptional<z.ZodEnum<["create", "read", "update", "delete"]>>;
+    resource: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    reason: string;
+    label: string;
+    type: "mcp";
     id: string;
-    toolName: string;
-    stepupAction: "create" | "read" | "update" | "delete";
-    stepupResource: string;
-    consume_in_hook?: boolean | undefined;
+    description: string;
+    name: string;
+    matcher: "exact" | "glob";
+    provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
+    action?: "create" | "read" | "update" | "delete" | undefined;
+    resource?: string | undefined;
 }, {
-    reason: string;
+    label: string;
+    type: "mcp";
     id: string;
-    toolName: string;
-    stepupAction: "create" | "read" | "update" | "delete";
-    stepupResource: string;
-    consume_in_hook?: boolean | undefined;
+    description: string;
+    name: string;
+    matcher: "exact" | "glob";
+    provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
+    action?: "create" | "read" | "update" | "delete" | undefined;
+    resource?: string | undefined;
 }>;
 declare const policyBundleSchema: z.ZodObject<{
+    schemaVersion: z.ZodLiteral<2>;
     revision: z.ZodString;
     rules: z.ZodArray<z.ZodObject<{
         id: z.ZodString;
-        toolName: z.ZodString;
-        reason: z.ZodString;
-        stepupAction: z.ZodEnum<["create", "read", "update", "delete"]>;
-        stepupResource: z.ZodString;
-        consume_in_hook: z.ZodOptional<z.ZodBoolean>;
+        type: z.ZodLiteral<"mcp">;
+        label: z.ZodString;
+        description: z.ZodString;
+        name: z.ZodString;
+        matcher: z.ZodEnum<["exact", "glob"]>;
+        provider: z.ZodOptional<z.ZodEnum<["claude", "codex", "cursor", "antigravity"]>>;
+        action: z.ZodOptional<z.ZodEnum<["create", "read", "update", "delete"]>>;
+        resource: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
-        reason: string;
+        label: string;
+        type: "mcp";
         id: string;
-        toolName: string;
-        stepupAction: "create" | "read" | "update" | "delete";
-        stepupResource: string;
-        consume_in_hook?: boolean | undefined;
+        description: string;
+        name: string;
+        matcher: "exact" | "glob";
+        provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
+        action?: "create" | "read" | "update" | "delete" | undefined;
+        resource?: string | undefined;
     }, {
-        reason: string;
+        label: string;
+        type: "mcp";
         id: string;
-        toolName: string;
-        stepupAction: "create" | "read" | "update" | "delete";
-        stepupResource: string;
-        consume_in_hook?: boolean | undefined;
+        description: string;
+        name: string;
+        matcher: "exact" | "glob";
+        provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
+        action?: "create" | "read" | "update" | "delete" | undefined;
+        resource?: string | undefined;
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
+    schemaVersion: 2;
     revision: string;
     rules: {
-        reason: string;
+        label: string;
+        type: "mcp";
         id: string;
-        toolName: string;
-        stepupAction: "create" | "read" | "update" | "delete";
-        stepupResource: string;
-        consume_in_hook?: boolean | undefined;
+        description: string;
+        name: string;
+        matcher: "exact" | "glob";
+        provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
+        action?: "create" | "read" | "update" | "delete" | undefined;
+        resource?: string | undefined;
     }[];
 }, {
+    schemaVersion: 2;
     revision: string;
     rules: {
-        reason: string;
+        label: string;
+        type: "mcp";
         id: string;
-        toolName: string;
-        stepupAction: "create" | "read" | "update" | "delete";
-        stepupResource: string;
-        consume_in_hook?: boolean | undefined;
+        description: string;
+        name: string;
+        matcher: "exact" | "glob";
+        provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
+        action?: "create" | "read" | "update" | "delete" | undefined;
+        resource?: string | undefined;
     }[];
 }>;
 export type PolicyBundleRule = z.infer<typeof bundleToolRuleSchema>;

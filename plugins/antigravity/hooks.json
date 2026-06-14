@@ -2,7 +2,7 @@
   "transcodes-guard-stepup": {
     "PreToolUse": [
       {
-        "matcher": "run_command",
+        "matcher": "run_command|mcp_.*",
         "hooks": [
           {
             "type": "command",

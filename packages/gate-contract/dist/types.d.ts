@@ -129,14 +129,22 @@ export interface StepupStateInspection {
     verified: InspectionRecord;
     pending: InspectionRecord;
 }
-/** Tool-rule registry types. Mirror danger-rules tool-rules.ts. */
+/** Tool-rule registry types. Mirror danger-rules tool-rules.ts (schema v2). */
+export type GuardMatcher = 'exact' | 'glob';
+export type GuardProvider = 'claude' | 'codex' | 'cursor' | 'antigravity';
 export type ToolRuleSource = 'system' | 'bundle';
 export interface ToolRule {
     id: string;
-    toolName: string;
-    reason: string;
-    stepupAction: RbacAction;
-    stepupResource: string;
+    type: 'mcp';
+    label: string;
+    description: string;
+    name: string;
+    matcher: GuardMatcher;
+    /** Optional MCP host label — stored for future use; does not affect matching today. */
+    provider?: GuardProvider;
+    action?: RbacAction;
+    resource?: string;
+    /** Hook consumes FP-keyed verified record when true (default: bundle=true, system=false). */
     consume_in_hook?: boolean;
 }
 export interface MergedToolRule extends ToolRule {
@@ -147,16 +155,26 @@ export interface ToolRuleMatch {
 }
 export interface ToolRuleInput {
     id: string;
-    toolName: string;
-    reason: string;
-    stepupAction: string;
-    stepupResource: string;
-    consume_in_hook?: boolean;
+    type?: 'mcp';
+    label: string;
+    description: string;
+    name: string;
+    matcher?: GuardMatcher;
+    provider?: GuardProvider;
+    action?: string;
+    resource?: string;
+    status?: 'active' | 'inactive';
+    metadata?: Record<string, unknown>;
 }
 export interface ToolRuleChanges {
-    toolName?: string;
-    reason?: string;
-    stepupAction?: string;
-    stepupResource?: string;
-    consume_in_hook?: boolean;
+    type?: 'mcp';
+    label?: string;
+    description?: string;
+    name?: string;
+    matcher?: GuardMatcher;
+    provider?: GuardProvider;
+    action?: string;
+    resource?: string;
+    status?: 'active' | 'inactive';
+    metadata?: Record<string, unknown>;
 }

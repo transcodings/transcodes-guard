@@ -3,7 +3,10 @@
  * Hook is first line; this re-checks on handler run (stdio/curl bypass backstop).
  * Matrix: 0=block, 1=pass (no sid), 2=step-up (verified sid required).
  */
-import { loadMergedToolRules } from '@transcodes-guard/danger-rules';
+import {
+  loadMergedToolRules,
+  toolNameMatchesRule,
+} from '@transcodes-guard/danger-rules';
 import {
   checkRbacPermission,
   clearPending,
@@ -38,19 +41,15 @@ export async function execProtectedTool(
   content: { type: 'text'; text: string }[];
 }> {
   const verified = readVerified();
-  const rule = loadMergedToolRules().find(
-    (r) => r.toolName === toolName || r.toolName.endsWith(`__${toolName}`),
+  const rule = loadMergedToolRules().find((r) =>
+    toolNameMatchesRule(toolName, r),
   );
 
-  if (rule) {
+  if (rule?.action !== undefined && rule.resource !== undefined) {
     let level: RbacLevel = 2;
     try {
       const config = loadStepupConfig();
-      level = await getCachedRbacLevel(
-        config,
-        rule.stepupResource,
-        rule.stepupAction,
-      );
+      level = await getCachedRbacLevel(config, rule.resource, rule.action);
     } catch {
       level = 2;
     }
@@ -61,7 +60,7 @@ export async function execProtectedTool(
         content: [
           {
             type: 'text',
-            text: `transcodes-guard: BLOCKED (rbac-denied ${rule.stepupResource}/${rule.stepupAction}) — ${toolName}`,
+            text: `transcodes-guard: BLOCKED (rbac-denied ${rule.resource}/${rule.action}) — ${toolName}`,
           },
         ],
       };
@@ -74,7 +73,7 @@ export async function execProtectedTool(
           {
             type: 'text',
             text:
-              `transcodes-guard: step-up MFA required (${rule.stepupResource}/${rule.stepupAction}) — ${toolName}. ` +
+              `transcodes-guard: step-up MFA required (${rule.resource}/${rule.action}) — ${toolName}. ` +
               'Complete WebAuthn (create_stepup_session → poll_stepup_session) or use the IDE MCP tool path.',
           },
         ],

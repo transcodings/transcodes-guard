@@ -3,7 +3,7 @@
  * Hook is first line; this re-checks on handler run (stdio/curl bypass backstop).
  * Matrix: 0=block, 1=pass (no sid), 2=step-up (verified sid required).
  */
-import { loadMergedToolRules } from '@transcodes-guard/danger-rules';
+import { loadMergedToolRules, toolNameMatchesRule, } from '@transcodes-guard/danger-rules';
 import { checkRbacPermission, clearPending, consumeVerified, loadStepupConfig, readVerified, } from '@transcodes-guard/stepup-core';
 const RBAC_TTL_MS = 5 * 60_000;
 const rbacCache = new Map();
@@ -18,12 +18,12 @@ async function getCachedRbacLevel(config, resource, action) {
 }
 export async function execProtectedTool(toolName, run) {
     const verified = readVerified();
-    const rule = loadMergedToolRules().find((r) => r.toolName === toolName || r.toolName.endsWith(`__${toolName}`));
-    if (rule) {
+    const rule = loadMergedToolRules().find((r) => toolNameMatchesRule(toolName, r));
+    if (rule?.action !== undefined && rule.resource !== undefined) {
         let level = 2;
         try {
             const config = loadStepupConfig();
-            level = await getCachedRbacLevel(config, rule.stepupResource, rule.stepupAction);
+            level = await getCachedRbacLevel(config, rule.resource, rule.action);
         }
         catch {
             level = 2;
@@ -34,7 +34,7 @@ export async function execProtectedTool(toolName, run) {
                 content: [
                     {
                         type: 'text',
-                        text: `transcodes-guard: BLOCKED (rbac-denied ${rule.stepupResource}/${rule.stepupAction}) — ${toolName}`,
+                        text: `transcodes-guard: BLOCKED (rbac-denied ${rule.resource}/${rule.action}) — ${toolName}`,
                     },
                 ],
             };
@@ -45,7 +45,7 @@ export async function execProtectedTool(toolName, run) {
                 content: [
                     {
                         type: 'text',
-                        text: `transcodes-guard: step-up MFA required (${rule.stepupResource}/${rule.stepupAction}) — ${toolName}. ` +
+                        text: `transcodes-guard: step-up MFA required (${rule.resource}/${rule.action}) — ${toolName}. ` +
                             'Complete WebAuthn (create_stepup_session → poll_stepup_session) or use the IDE MCP tool path.',
                     },
                 ],

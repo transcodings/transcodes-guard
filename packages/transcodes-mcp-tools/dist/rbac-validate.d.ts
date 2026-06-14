@@ -13,6 +13,8 @@
 import type { StepupConfig } from '@transcodes-guard/stepup-core';
 export declare class RbacCoordinateError extends Error {
 }
+/** Pull resource keys out of the (loosely-typed) get_resources body. */
+export declare function extractResourceKeys(data: unknown): string[];
 /**
  * Fetch the project's RBAC resource keys. Returns `null` when the backend is
  * unreachable, returns a non-2xx envelope, or the body can't be parsed into a

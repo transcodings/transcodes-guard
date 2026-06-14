@@ -55,7 +55,7 @@ Build, dist sync, and packaging → `.claude/rules/plugin-build.md`. Release and
 
 `@bigstrider/transcodes-cli` is a workspace member (`cli/`, bin `transcodes`) and the human's control plane for the gate. It is **excluded from the `transcodes-guard` brand rename** — it keeps its `@bigstrider/transcodes-cli` name and `transcodes` bin — but it consumes the shared `@transcodes-guard/*` packages like the plugins do. It owns the shared `~/.transcodes/` directory:
 
-- `~/.transcodes/config.json` — the `enabled` kill-switch flag (CLI-owned; hooks read it). Absent/corrupt = enabled.
+- `~/.transcodes/config.json` — token pool written by the CLI; hooks and MCP read via `resolveToken()`.
 - `~/.transcodes/state/` — consolidated local plugin state.
 - Commands: `transcodes enable | disable | status | tokens | set | reset`, plus the no-arg GUI dashboard.
 

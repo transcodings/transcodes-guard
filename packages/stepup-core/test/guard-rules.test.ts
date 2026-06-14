@@ -1,12 +1,5 @@
 /**
- * Unit tests for the guard tool-rule backend write flows
- * (`addToolRule`/`updateToolRule`/`removeToolRule`).
- *
- * These replace the retired local-file writes: each validates client-side, hits
- * the backend CRUD (`/v1/guard/rules`), then force-refreshes the bundle cache.
- * A throwaway HTTP server stands in for the backend; HOME is redirected so the
- * cache never touches the real `~/.transcodes`. The token + backend URL are
- * supplied via env (how `loadStepupConfig` resolves them).
+ * Unit tests for the guard tool-rule backend write flows.
  */
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -21,7 +14,11 @@ import {
   removeToolRule,
   updateToolRule,
 } from '../src/guard-rules.js';
-import { policyBundleSha384, writeCachedPolicyBundle } from '../src/policy-bundle.js';
+import {
+  GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
+  policyBundleSha384,
+  writeCachedPolicyBundle,
+} from '../src/policy-bundle.js';
 
 process.env.HOME = mkdtempSync(path.join(os.tmpdir(), 'guard-rules-flow-'));
 
@@ -43,10 +40,11 @@ function fakeToken(projectId: string): string {
 
 const validInput = {
   id: 'gh-delete-repo',
-  toolName: 'mcp__github__delete_repository',
-  reason: 'Destructive repo deletion',
-  stepupAction: 'delete',
-  stepupResource: 'system',
+  label: 'Delete repository',
+  description: 'Destructive repo deletion',
+  name: 'mcp__github__delete_repository',
+  action: 'delete',
+  resource: 'system',
 };
 
 type Captured = { method: string; pathname: string; body: unknown };
@@ -54,7 +52,6 @@ type Captured = { method: string; pathname: string; body: unknown };
 describe('guard tool-rule backend write flows', () => {
   let server: Server;
   let lastWrite: Captured | null = null;
-  // Per-test program for the write endpoints.
   let writeRespond: () => { status: number; body?: unknown };
 
   before(async () => {
@@ -65,10 +62,12 @@ describe('guard tool-rule backend write flows', () => {
         raw += c;
       });
       req.on('end', () => {
-        // The post-write force-refresh fetches the bundle — answer with a valid
-        // empty bundle so the flow's cache write succeeds.
         if (url.pathname === '/v1/guard/policy-bundle') {
-          const body = { revision: '1', rules: [] };
+          const body = {
+            schemaVersion: GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
+            revision: '1',
+            rules: [],
+          };
           res.statusCode = 200;
           res.setHeader('content-type', 'application/json');
           res.end(
@@ -109,17 +108,16 @@ describe('guard tool-rule backend write flows', () => {
     writeRespond = () => ({ status: 200, body: { payload: [{ revision: '2' }] } });
   });
 
-  it('POSTs a validated rule and defaults consume_in_hook to true', async () => {
+  it('POSTs a validated v2 rule body', async () => {
     const rule = await addToolRule({ ...validInput });
     assert.equal(lastWrite?.method, 'POST');
     assert.equal(lastWrite?.pathname, '/v1/guard/rules');
-    assert.equal(
-      (lastWrite?.body as { rule_id?: string }).rule_id,
-      'gh-delete-repo',
-    );
-    // Arbitrary MCP tool → the hook must consume (no transcodes handler).
-    assert.equal((lastWrite?.body as { consume_in_hook?: boolean }).consume_in_hook, true);
-    assert.equal(rule.consume_in_hook, true);
+    const body = lastWrite?.body as Record<string, unknown>;
+    assert.equal(body.rule_id, 'gh-delete-repo');
+    assert.equal(body.type, 'mcp');
+    assert.equal(body.name, 'mcp__github__delete_repository');
+    assert.equal(body.status, 'active');
+    assert.equal(rule.name, 'mcp__github__delete_repository');
   });
 
   it('rejects a duplicate id (backend 409)', async () => {
@@ -133,9 +131,8 @@ describe('guard tool-rule backend write flows', () => {
       hit = true;
       return { status: 200 };
     };
-    // A Bash command pasted as a tool name fails client-side validation.
     await assert.rejects(
-      addToolRule({ ...validInput, toolName: 'rm -rf /' }),
+      addToolRule({ ...validInput, name: 'rm -rf /' }),
       /looks like a Bash command/,
     );
     assert.equal(hit, false);
@@ -151,38 +148,40 @@ describe('guard tool-rule backend write flows', () => {
 
   it('rejects an update for an id absent from the cached bundle', async () => {
     await assert.rejects(
-      updateToolRule('not-in-cache', { reason: 'x' }),
+      updateToolRule('not-in-cache', { description: 'x' }),
       /no tool-rule with id/,
     );
   });
 
   it('merges changes onto the cached rule and PUTs the full replacement', async () => {
     const body = {
+      schemaVersion: GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
       revision: '5',
       rules: [
         {
           id: 'gh-delete-repo',
-          toolName: 'mcp__github__delete_repository',
-          reason: 'old reason',
-          stepupAction: 'delete' as const,
-          stepupResource: 'system',
+          type: 'mcp' as const,
+          label: 'Delete repository',
+          description: 'old description',
+          name: 'mcp__github__delete_repository',
+          matcher: 'exact' as const,
+          action: 'delete' as const,
+          resource: 'system',
         },
       ],
     };
-    writeCachedPolicyBundle(PROJECT, {
-      ...body,
-      // schema parse happens in writeCachedPolicyBundle's caller; here the shape
-      // already matches PolicyBundle.
-    } as never);
+    writeCachedPolicyBundle(PROJECT, body as never);
     writeRespond = () => ({ status: 200, body: { payload: [{ revision: '6' }] } });
 
-    const updated = await updateToolRule('gh-delete-repo', { reason: 'new reason' });
+    const updated = await updateToolRule('gh-delete-repo', {
+      description: 'new description',
+    });
     assert.equal(lastWrite?.method, 'PUT');
     assert.equal(lastWrite?.pathname, '/v1/guard/rules/gh-delete-repo');
-    // Unchanged fields are carried from the cached rule (PUT = full replace).
-    assert.equal((lastWrite?.body as { tool_name?: string }).tool_name, 'mcp__github__delete_repository');
-    assert.equal((lastWrite?.body as { reason?: string }).reason, 'new reason');
-    assert.equal(updated.reason, 'new reason');
+    const putBody = lastWrite?.body as Record<string, unknown>;
+    assert.equal(putBody.name, 'mcp__github__delete_repository');
+    assert.equal(putBody.description, 'new description');
+    assert.equal(updated.description, 'new description');
   });
 
   it('throws when no token is configured (no local fallback)', async () => {
