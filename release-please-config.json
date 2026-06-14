@@ -21,37 +21,37 @@
       "extra-files": [
         {
           "type": "json",
-          "path": "public/plugins/claude-code/package.json",
+          "path": "plugins/claude-code/package.json",
           "jsonpath": "$.version"
         },
         {
           "type": "json",
-          "path": "public/plugins/claude-code/.claude-plugin/plugin.json",
+          "path": "plugins/claude-code/.claude-plugin/plugin.json",
           "jsonpath": "$.version"
         },
         {
           "type": "json",
-          "path": "public/plugins/codex/package.json",
+          "path": "plugins/codex/package.json",
           "jsonpath": "$.version"
         },
         {
           "type": "json",
-          "path": "public/plugins/codex/plugin.json",
+          "path": "plugins/codex/plugin.json",
           "jsonpath": "$.version"
         },
         {
           "type": "json",
-          "path": "public/plugins/antigravity/package.json",
+          "path": "plugins/antigravity/package.json",
           "jsonpath": "$.version"
         },
         {
           "type": "json",
-          "path": "public/plugins/antigravity/plugin.json",
+          "path": "plugins/antigravity/plugin.json",
           "jsonpath": "$.version"
         },
         {
           "type": "json",
-          "path": "public/plugins/cursor/package.json",
+          "path": "plugins/cursor/package.json",
           "jsonpath": "$.version"
         }
       ]

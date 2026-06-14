@@ -1,0 +1,34 @@
+{
+  "name": "@transcodes-guard/gate-contract",
+  "version": "0.1.0",
+  "description": "Public DI contract for the transcodes-guard step-up gate. Defines the GateBackend interface, shared wire types, and host-agnostic message formatters so the public side (hooks + mcp-server-core) builds without importing private backend code. The real implementation is injected at runtime via setGateBackend().",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@transcodes-guard/danger-patterns": "*",
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "FSL-1.1-ALv2"
+}

@@ -1,6 +1,6 @@
 /**
  * CDN bundle build: produces a single obfuscated ESM of the private
- * @transcodes-guard-private/gate-backend at cdn-dist/guard-<version>.mjs.
+ * @transcodes-guard/gate-backend at cdn-dist/guard-<version>.mjs.
  *
  * Phase 3 / Unit A. This is the artifact a later CDN loader (Unit C) fetches
  * and a deploy step (Unit B) uploads + SHA384-pins. This script only BUILDS it:
@@ -28,7 +28,7 @@ import { build } from "esbuild";
 import JavaScriptObfuscator from "javascript-obfuscator";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const ENTRY = "private/packages/gate-backend/src/index.ts";
+const ENTRY = "packages/gate-backend/src/index.ts";
 const OUT_DIR = "cdn-dist";
 
 /**
@@ -56,11 +56,11 @@ const CDN_OBFUSCATION_OPTIONS = {
 /**
  * Workspace source prefixes allowed into the CDN bundle. Third-party
  * node_modules deps are bundled wholesale (noExternal) and not checked — the
- * leak we guard against is WORKSPACE source: only the private + public library
- * packages may enter the graph, never a plugin entry (`public/plugins/`) or the
- * CLI (`private/cli/`) leaking backwards into the backend bundle.
+ * leak we guard against is WORKSPACE source: only the workspace library
+ * packages may enter the graph, never a plugin entry (`plugins/`) or the
+ * CLI (`cli/`) leaking backwards into the backend bundle.
  */
-const ALLOWED_WORKSPACE_PREFIXES = ["private/packages/", "public/packages/"];
+const ALLOWED_WORKSPACE_PREFIXES = ["packages/"];
 
 /** esbuild bundle -> { code, metafile }. */
 async function bundle() {

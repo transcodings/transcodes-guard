@@ -52,10 +52,7 @@
           "level": "error",
           "options": {
             "paths": {
-              "@transcodes-guard-private/stepup-core": "Public code must not import @transcodes-guard-private/* directly. The GateBackend DI boundary is in place — call getGateBackend() from @transcodes-guard/gate-contract instead.",
-              "@transcodes-guard-private/transcodes-mcp-tools": "Public code must not import @transcodes-guard-private/* directly. Backend tools are registered through GateBackend.registerBackendTools() — call getGateBackend() from @transcodes-guard/gate-contract instead.",
-              "@transcodes-guard-private/danger-rules": "Public code must not import @transcodes-guard-private/* directly. Tool rules are exposed through the GateBackend tool-rule methods — call getGateBackend() from @transcodes-guard/gate-contract instead.",
-              "@transcodes-guard-private/gate-backend": "Public code must not import the private gate backend directly. The only allowed import sites are the plugin backend.ts seams (public/plugins/*/backend.ts, exempted via biome overrides); everything else calls getGateBackend() from @transcodes-guard/gate-contract."
+              "@transcodes-guard/gate-backend": "Only the plugin backend.ts seams (plugins/*/backend.ts, exempted via biome overrides) may import the concrete gate backend. Everything else must call getGateBackend() from @transcodes-guard/gate-contract."
             }
           }
         }
@@ -64,30 +61,11 @@
   },
   "overrides": [
     {
-      "includes": ["private/**"],
+      "includes": ["plugins/*/backend.ts"],
       "linter": {
         "rules": {
           "style": {
             "noRestrictedImports": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["public/plugins/*/backend.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noRestrictedImports": {
-              "level": "error",
-              "options": {
-                "paths": {
-                  "@transcodes-guard-private/stepup-core": "Even the backend.ts seam may only import @transcodes-guard-private/gate-backend — gate logic stays behind the GateBackend interface.",
-                  "@transcodes-guard-private/transcodes-mcp-tools": "Even the backend.ts seam may only import @transcodes-guard-private/gate-backend — backend tools are registered via GateBackend.registerBackendTools().",
-                  "@transcodes-guard-private/danger-rules": "Even the backend.ts seam may only import @transcodes-guard-private/gate-backend — tool rules are exposed through the GateBackend tool-rule methods."
-                }
-              }
-            }
           }
         }
       }
