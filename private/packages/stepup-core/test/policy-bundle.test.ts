@@ -15,6 +15,7 @@ import path from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import type { StepupConfig } from '../src/config.js';
 import {
+  GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
   policyBundleCachePath,
   policyBundleSha384,
   readCachedPolicyBundle,
@@ -31,14 +32,18 @@ const ORG = 'proj-test-scope';
 
 function makeBundleBody(revision = 'rev-001') {
   return {
+    schemaVersion: GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
     revision,
     rules: [
       {
         id: 'retire-member',
-        toolName: 'mcp__transcodes__retire_member',
-        reason: 'destructive member operation',
-        stepupAction: 'delete',
-        stepupResource: 'member',
+        type: 'mcp' as const,
+        label: 'Retire member',
+        description: 'destructive member operation',
+        name: 'mcp__transcodes__retire_member',
+        matcher: 'exact' as const,
+        action: 'delete' as const,
+        resource: 'member',
       },
     ],
   };
@@ -47,6 +52,14 @@ function makeBundleBody(revision = 'rev-001') {
 function makeBundleResponse(revision = 'rev-001') {
   const body = makeBundleBody(revision);
   return { ...body, manifest: { sha384: policyBundleSha384(body) } };
+}
+
+/** Tamper helper — bundle fixture types narrow `action` to literal `delete`. */
+function tamperBundleAction(
+  raw: ReturnType<typeof makeBundleResponse>,
+  action: string,
+): void {
+  (raw.rules[0] as { action?: string }).action = action;
 }
 
 function configFor(baseUrl: string): StepupConfig {
@@ -66,26 +79,50 @@ function clearCache() {
 
 describe('policyBundleSha384 (canonicalization contract)', () => {
   it('matches the pinned hash for the reference body', () => {
-    // Pinned regression value — if canonicalization ever changes, this fails
-    // and the backend contract must be renegotiated, not silently drifted.
     assert.equal(
       policyBundleSha384(makeBundleBody()),
-      '589999f3da7c581e50ef646ecf4d641036fd9e6574569cfc13fa950960417d672c5a5aa80a405594de50aab7b3ddd029',
+      '6c8d36a438fe47a9af1f850693ad2c72480e8e60e5c9ec20a3c05a3cbd676d7e3b2c7ca9f7fd35b45ee31354da93e6d1',
+    );
+  });
+
+  it('matches the backend cross-repo fixture digest', () => {
+    const body = {
+      schemaVersion: GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
+      revision: '3',
+      rules: [
+        {
+          id: 'tc-create-member',
+          type: 'mcp' as const,
+          label: 'Create member',
+          description: 'New member provisioning',
+          action: 'create' as const,
+          resource: 'system',
+          name: 'mcp__plugin_transcodes-guard_transcodes-guard__create_member',
+          matcher: 'exact' as const,
+        },
+        {
+          id: 'tc-retire-member',
+          type: 'mcp' as const,
+          label: 'Retire member',
+          description: 'Permanent member deletion',
+          action: 'delete' as const,
+          resource: 'system',
+          name: 'mcp__plugin_transcodes-guard_transcodes-guard__retire_member',
+          matcher: 'exact' as const,
+        },
+      ],
+    };
+    assert.equal(
+      policyBundleSha384(body),
+      'c435eceb76c3b5da548e82d5e27d468c70c6346ae56228716c80200837aab3c46668e162cd9ac50f475ef774e9409ef3',
     );
   });
 
   it('is insensitive to object key order', () => {
     const reordered = {
-      rules: [
-        {
-          stepupResource: 'member',
-          stepupAction: 'delete',
-          reason: 'destructive member operation',
-          toolName: 'mcp__transcodes__retire_member',
-          id: 'retire-member',
-        },
-      ],
+      rules: makeBundleBody().rules,
       revision: 'rev-001',
+      schemaVersion: GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
     };
     assert.equal(
       policyBundleSha384(reordered),
@@ -99,7 +136,7 @@ describe('verifyAndParsePolicyBundle', () => {
     const bundle = verifyAndParsePolicyBundle(makeBundleResponse());
     assert.equal(bundle.revision, 'rev-001');
     assert.equal(bundle.rules.length, 1);
-    assert.equal(bundle.rules[0].stepupAction, 'delete');
+    assert.equal(bundle.rules[0].action, 'delete');
   });
 
   it('hashes unknown body fields but strips them from the parse', () => {
@@ -111,7 +148,7 @@ describe('verifyAndParsePolicyBundle', () => {
 
   it('rejects a tampered body (hash mismatch)', () => {
     const raw = makeBundleResponse();
-    raw.rules[0].stepupAction = 'read';
+    tamperBundleAction(raw, 'read');
     assert.throws(() => verifyAndParsePolicyBundle(raw), /sha384 mismatch/);
   });
 
@@ -133,8 +170,9 @@ describe('verifyAndParsePolicyBundle', () => {
 
   it('rejects a schema-invalid bundle even with a correct hash', () => {
     const body = {
+      schemaVersion: GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
       revision: 'rev-001',
-      rules: [{ id: 'broken-rule', toolName: 'x' }],
+      rules: [{ id: 'Broken-Rule', type: 'mcp', label: 'x', description: 'x', name: 'x', matcher: 'exact' }],
     };
     const raw = { ...body, manifest: { sha384: policyBundleSha384(body) } };
     assert.throws(() => verifyAndParsePolicyBundle(raw), /schema invalid/);
@@ -172,7 +210,7 @@ describe('cache read/write', () => {
     assert.equal(readCachedPolicyBundle(ORG), null);
     writeFileSync(
       policyBundleCachePath(ORG),
-      JSON.stringify({ fetchedAt: Date.now(), bundle: { revision: '' } }),
+      JSON.stringify({ fetchedAt: Date.now(), bundle: { schemaVersion: GUARD_POLICY_BUNDLE_SCHEMA_VERSION, revision: '' } }),
     );
     assert.equal(readCachedPolicyBundle(ORG), null);
   });
@@ -270,7 +308,7 @@ describe('refreshPolicyBundle', () => {
     await refreshPolicyBundle(configFor(baseUrl));
     respond = () => {
       const tampered = makeBundleResponse('rev-002');
-      tampered.rules[0].stepupAction = 'read';
+      tamperBundleAction(tampered, 'read');
       return { status: 200, body: tampered };
     };
     const outcome = await refreshPolicyBundle(configFor(baseUrl), {

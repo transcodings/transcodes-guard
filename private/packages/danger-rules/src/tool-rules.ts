@@ -1,15 +1,8 @@
 /**
  * Tool-rule registry — MCP-call counterpart of danger-patterns.
  *
- * `danger-patterns.ts` matches Bash command strings via regex; this module
- * matches PreToolUse payloads where `tool_name` identifies an MCP tool that
- * must trigger step-up MFA.
- *
- * Phase 3 v2: rules are organization/project policy managed in the Transcodes
- * backend (Unit G). This module owns the **read/merge + validation** surface
- * only — the built-in system baseline merged with the cached project bundle.
- * Writes go to the backend (`@transcodes-guard-private/stepup-core`
- * `addToolRule`/`updateToolRule`/`removeToolRule`), never to a local file.
+ * Phase 3 v2: rules mirror the backend guard bundle wire shape (`id`, `type`,
+ * `label`, `description`, `name`, `matcher`, optional `action`/`resource`).
  */
 import {
   coerceRbacAction,
@@ -17,28 +10,38 @@ import {
   isRbacAction,
   type RbacAction,
 } from '@transcodes-guard/danger-patterns';
-// System rules embedded at build time — see the matching note in
-// danger-patterns.ts (bundlers inline this; a runtime path read breaks once the
-// plugin is bundled by tsup).
 import systemToolRulesData from './data/tool-rules.json' with { type: 'json' };
+
+export type GuardMatcher = 'exact' | 'glob';
+
+export const GUARD_PROVIDERS = [
+  'claude',
+  'codex',
+  'cursor',
+  'antigravity',
+] as const;
+
+export type GuardProvider = (typeof GUARD_PROVIDERS)[number];
 
 export interface ToolRule {
   id: string;
-  /** Exact tool_name match. Regex is intentionally not supported — keeps the
-   * gate's scope explicit and auditable. */
-  toolName: string;
-  reason: string;
-  /** RBAC CRUD action this rule maps onto (create/read/update/delete). Feeds
-   * `createStepupSession({ action })` so the step-up audit log + the project's
-   * RBAC permission matrix share coordinates. */
-  stepupAction: RbacAction;
-  /** RBAC resource key (e.g. "system"), validated against the live backend at
-   * add time. Feeds `createStepupSession({ resource })`. */
-  stepupResource: string;
-  /** When true, the PreToolUse hook consumes the verified record itself on the
-   * fast-path (Bash-like). When false, consume is deferred to the tool handler
-   * via `withStepupVerifiedSid` (handler needs the sid for the backend header).
-   * Defaults per source in `loadMergedToolRules`: system=false, bundle=false. */
+  type: 'mcp';
+  label: string;
+  description: string;
+  /** Full MCP tool name or glob pattern when `matcher` is `glob`. */
+  name: string;
+  matcher: GuardMatcher;
+  /** Optional MCP host label — stored for future use; does not affect matching today. */
+  provider?: GuardProvider;
+  /** Step-up RBAC verb — omitted when the rule only gates tool access. */
+  action?: RbacAction;
+  /** Step-up resource key — omitted when the rule only gates tool access. */
+  resource?: string;
+  /**
+   * When true, the hook consumes the verified record (FP-keyed, single-shot).
+   * When false, the MCP tool handler passes sid via X-Step-Up-Session-Id.
+   * Default: `true` for bundle (project) rules, `false` for system rules.
+   */
   consume_in_hook?: boolean;
 }
 
@@ -55,49 +58,35 @@ export interface MergedToolRule extends ToolRule {
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 
 export function loadSystemToolRules(): ToolRuleConfig {
-  // Embedded at build time — see the static import above. Fresh shape per call
-  // so callers cannot mutate the shared embedded array.
   return { rules: [...(systemToolRulesData as ToolRuleConfig).rules] };
 }
 
+function normalizeRule(r: ToolRule): ToolRule {
+  return {
+    ...r,
+    type: 'mcp',
+    matcher: r.matcher ?? 'exact',
+    ...(r.provider !== undefined ? { provider: r.provider } : {}),
+    ...(r.action !== undefined ? { action: coerceRbacAction(r.action) } : {}),
+    ...(r.resource !== undefined
+      ? { resource: coerceRbacResource(r.resource) }
+      : {}),
+  };
+}
+
 /**
- * Layered merge (Phase3 v2 G3): built-in baseline → org/project policy bundle.
- * Same `id` in a later layer replaces the earlier rule (the replacement keeps
- * the original position so precedence inside a layer stays stable). The
- * per-user local layer was retired — rules are now centrally managed backend
- * policy applied uniformly to every human/AI agent in the project.
- *
- * `bundleRules` is the cached project bundle's `rules` array. Callers without a
- * bundle (no token / no cache) pass nothing and get the baseline only —
- * fail-closed matrix row 3.
+ * Layered merge: built-in baseline → org/project policy bundle.
+ * Same `id` in a later layer replaces the earlier rule.
  */
 export function loadMergedToolRules(
   bundleRules: ToolRule[] = [],
 ): MergedToolRule[] {
-  // Coerce action/resource on load so the gate always sees a valid RBAC
-  // coordinate even for rows written before these fields existed.
-  const coerce = (r: ToolRule) => ({
-    ...r,
-    stepupAction: coerceRbacAction(r.stepupAction),
-    stepupResource: coerceRbacResource(r.stepupResource),
-  });
   const merged = new Map<string, MergedToolRule>();
   for (const r of loadSystemToolRules().rules) {
-    merged.set(r.id, {
-      ...coerce(r),
-      consume_in_hook: r.consume_in_hook ?? false,
-      source: 'system',
-    });
+    merged.set(r.id, { ...normalizeRule(r), source: 'system' });
   }
   for (const r of bundleRules) {
-    merged.set(r.id, {
-      ...coerce(r),
-      // Bundle rules are org/project policy — like system rules, the verified
-      // record is consumed by the tool handler (which needs the sid), not the
-      // hook, unless the rule says otherwise.
-      consume_in_hook: r.consume_in_hook ?? false,
-      source: 'bundle',
-    });
+    merged.set(r.id, { ...normalizeRule(r), source: 'bundle' });
   }
   return [...merged.values()];
 }
@@ -106,63 +95,90 @@ export interface ToolRuleMatch {
   matched: MergedToolRule;
 }
 
+function globMatches(pattern: string, toolName: string): boolean {
+  const escaped = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.');
+  return new RegExp(`^${escaped}$`).test(toolName);
+}
+
+export function toolNameMatchesRule(toolName: string, rule: ToolRule): boolean {
+  // Case-insensitive: hosts emit wire names with mixed case
+  // (e.g. mcp__claude_ai_Google_Calendar__create_event) while stored rule
+  // names may differ in casing. Normalize both sides so matching is robust.
+  const target = toolName.toLowerCase();
+  const name = rule.name.toLowerCase();
+  return rule.matcher === 'glob' ? globMatches(name, target) : name === target;
+}
+
 export function findFirstToolRule(
   toolName: string,
   rules: MergedToolRule[],
 ): ToolRuleMatch | null {
   for (const r of rules) {
-    if (r.toolName === toolName) return { matched: r };
+    if (toolNameMatchesRule(toolName, r)) return { matched: r };
   }
   return null;
+}
+
+/** Whether PreToolUse should consume the verified record for this MCP rule. */
+export function mcpConsumesInHook(rule: MergedToolRule): boolean {
+  if (rule.consume_in_hook !== undefined) return rule.consume_in_hook;
+  // Project rules (add_tool_rule / policy bundle) → FP-keyed hook path.
+  // Built-in system rules → GLOBAL; handler needs sid for the backend header.
+  return rule.source === 'bundle';
 }
 
 export class ToolRuleValidationError extends Error {}
 
 export interface ToolRuleInput {
   id: string;
-  toolName: string;
-  reason: string;
-  /** Must be a CRUD action (create/read/update/delete). */
-  stepupAction: string;
-  /** RBAC resource key. Backend existence is validated by the caller (MCP
-   * handler) before this runs — this layer only enforces non-empty. */
-  stepupResource: string;
-  consume_in_hook?: boolean;
+  type?: 'mcp';
+  label: string;
+  description: string;
+  name: string;
+  matcher?: GuardMatcher;
+  provider?: GuardProvider;
+  action?: string;
+  resource?: string;
+  status?: 'active' | 'inactive';
+  metadata?: Record<string, unknown>;
 }
 
-/** Partial change set for an existing tool-rule (PUT semantics: an omitted
- * field keeps the stored value, resolved against the cached bundle). */
+/** Partial change set for an existing tool-rule (PUT semantics). */
 export interface ToolRuleChanges {
-  toolName?: string;
-  reason?: string;
-  stepupAction?: string;
-  stepupResource?: string;
-  consume_in_hook?: boolean;
+  type?: 'mcp';
+  label?: string;
+  description?: string;
+  name?: string;
+  matcher?: GuardMatcher;
+  provider?: GuardProvider;
+  action?: string;
+  resource?: string;
+  status?: 'active' | 'inactive';
+  metadata?: Record<string, unknown>;
 }
 
-// Heuristic guard: a tool rule matches a tool_name exactly. A Bash COMMAND
-// STRING (e.g. "rm -rf /", "git push") pasted in as a toolName is a mis-bucketed
-// command pattern — it would never fire here because the hook matches tool rules
-// against tool_name, not Bash commands. A valid MCP tool name is a single
-// identifier (alnum + `_` `.` `:` `-`, with `__`/`:` namespacing). Anything with
-// whitespace or shell metacharacters is a command, not a tool name.
-function detectShellCommand(toolName: string): boolean {
-  return /[\s|&;<>$*()`\\/]/.test(toolName);
+function detectShellCommand(name: string): boolean {
+  return /[\s|&;<>$*()`\\/]/.test(name);
 }
 
-/**
- * Client-side validation shared by the backend write flows (fail fast before a
- * network round-trip; the backend re-validates). Enforces the id/toolName/
- * action/resource shape and reserves the system rule ids.
- */
+function isGuardProvider(v: string): v is GuardProvider {
+  return (GUARD_PROVIDERS as readonly string[]).includes(v);
+}
+
 export function validateNewToolRule(input: ToolRuleInput): ToolRule {
   const {
     id,
-    toolName,
-    reason,
-    stepupAction,
-    stepupResource,
-    consume_in_hook,
+    type = 'mcp',
+    label,
+    description,
+    name,
+    matcher = 'exact',
+    provider,
+    action,
+    resource,
   } = input;
 
   if (!ID_REGEX.test(id)) {
@@ -178,67 +194,103 @@ export function validateNewToolRule(input: ToolRuleInput): ToolRule {
     );
   }
 
-  const trimmedToolName = toolName.trim();
-  if (!trimmedToolName) {
-    throw new ToolRuleValidationError('toolName must not be empty');
+  if (type !== 'mcp') {
+    throw new ToolRuleValidationError('type must be "mcp"');
   }
 
-  if (detectShellCommand(trimmedToolName)) {
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new ToolRuleValidationError('name must not be empty');
+  }
+
+  if (detectShellCommand(trimmedName)) {
     throw new ToolRuleValidationError(
-      `"${trimmedToolName}" looks like a Bash command, not an MCP tool name. ` +
-        'Tool rules match a tool_name exactly (e.g. mcp__github__delete_repository); ' +
-        'they never match Bash commands. Use add_user_pattern (regex) instead.',
+      `"${trimmedName}" looks like a Bash command, not an MCP tool name. ` +
+        'Tool rules match a tool_name exactly or via glob; use add_user_pattern (regex) for Bash.',
     );
   }
 
-  const trimmedReason = reason.trim();
-  if (!trimmedReason) {
-    throw new ToolRuleValidationError('reason must not be empty');
+  const trimmedLabel = label.trim();
+  if (!trimmedLabel) {
+    throw new ToolRuleValidationError('label must not be empty');
   }
 
-  const trimmedAction = stepupAction.trim();
-  if (!isRbacAction(trimmedAction)) {
-    throw new ToolRuleValidationError(
-      `stepupAction must be one of create|read|update|delete (got: "${stepupAction}")`,
-    );
+  const trimmedDescription = description.trim();
+  if (!trimmedDescription) {
+    throw new ToolRuleValidationError('description must not be empty');
   }
 
-  const trimmedResource = stepupResource.trim();
-  if (!trimmedResource) {
-    throw new ToolRuleValidationError('stepupResource must not be empty');
+  if (matcher !== 'exact' && matcher !== 'glob') {
+    throw new ToolRuleValidationError('matcher must be exact or glob');
   }
 
-  return {
+  if (provider !== undefined) {
+    const trimmedProvider = provider.trim();
+    if (!isGuardProvider(trimmedProvider)) {
+      throw new ToolRuleValidationError(
+        `provider must be one of ${GUARD_PROVIDERS.join('|')} (got: "${provider}")`,
+      );
+    }
+  }
+
+  const rule: ToolRule = {
     id,
-    toolName: trimmedToolName,
-    reason: trimmedReason,
-    stepupAction: trimmedAction,
-    stepupResource: trimmedResource,
-    ...(consume_in_hook === undefined ? {} : { consume_in_hook }),
+    type: 'mcp',
+    label: trimmedLabel,
+    description: trimmedDescription,
+    name: trimmedName,
+    matcher,
+    ...(provider !== undefined
+      ? { provider: provider.trim() as GuardProvider }
+      : {}),
   };
+
+  if (action !== undefined) {
+    const trimmedAction = action.trim();
+    if (!isRbacAction(trimmedAction)) {
+      throw new ToolRuleValidationError(
+        `action must be one of create|read|update|delete (got: "${action}")`,
+      );
+    }
+    rule.action = trimmedAction;
+  }
+
+  if (resource !== undefined) {
+    const trimmedResource = resource.trim();
+    if (!trimmedResource) {
+      throw new ToolRuleValidationError('resource must not be empty');
+    }
+    rule.resource = trimmedResource;
+  }
+
+  return rule;
 }
 
-/** Resolve a partial change set against an existing rule into a full validated
- * rule (PUT body). System rules are immutable. */
 export function mergeToolRuleChanges(
   existing: ToolRule,
   changes: ToolRuleChanges,
 ): ToolRule {
   return validateNewToolRule({
     id: existing.id,
-    toolName: changes.toolName ?? existing.toolName,
-    reason: changes.reason ?? existing.reason,
-    // Coerce existing values that predate the CRUD constraint so an unrelated
-    // edit (e.g. reason only) of a legacy rule doesn't fail validation.
-    stepupAction:
-      changes.stepupAction ?? coerceRbacAction(existing.stepupAction),
-    stepupResource:
-      changes.stepupResource ?? coerceRbacResource(existing.stepupResource),
-    consume_in_hook: changes.consume_in_hook ?? existing.consume_in_hook,
+    type: changes.type ?? existing.type,
+    label: changes.label ?? existing.label,
+    description: changes.description ?? existing.description,
+    name: changes.name ?? existing.name,
+    matcher: changes.matcher ?? existing.matcher,
+    provider: changes.provider ?? existing.provider,
+    action:
+      changes.action ??
+      (existing.action !== undefined
+        ? coerceRbacAction(existing.action)
+        : undefined),
+    resource:
+      changes.resource ??
+      (existing.resource !== undefined
+        ? coerceRbacResource(existing.resource)
+        : undefined),
   });
 }
 
-/** The system rule ids — reserved and immutable. */
 export function systemToolRuleIds(): Set<string> {
   return new Set(loadSystemToolRules().rules.map((r) => r.id));
 }

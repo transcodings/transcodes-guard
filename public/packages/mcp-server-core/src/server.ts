@@ -22,6 +22,12 @@ import { PLUGIN_VERSION } from './build-info.js';
 const RBAC_ACTION_GUIDANCE =
   "RBAC step-up coordinate. WORKFLOW: call `get_resources` first to fetch valid resource keys, then pass `stepupResource` (must match one of those keys; validated against the backend) and `stepupAction` (CRUD). System rules use resource `system`. This maps the rule onto the project's RBAC permission matrix and audit log.";
 
+const TOOL_RULE_RBAC_GUIDANCE =
+  'RBAC step-up coordinate. WORKFLOW: call `get_resources` first, then pass `resource` (must match a valid key) and `action` (create|read|update|delete). System rules use resource `system`.';
+
+const MCP_TOOL_NAME_GUIDANCE =
+  'MCP tool name as emitted by the host PreToolUse hook (full wire name). Call simulate_tool_call with the same string to verify before saving.';
+
 function formatPatternsMarkdown(patterns: MergedPattern[]): string {
   const lines: string[] = [
     '# Blocked Bash command patterns',
@@ -45,14 +51,14 @@ function formatToolRulesMarkdown(rules: MergedToolRule[]): string {
     `${rules.length} rule(s) gate MCP tool invocations via the PreToolUse hook.`,
     'Project rules are managed in the Transcodes backend and editable through the `add_tool_rule`/`update_tool_rule`/`remove_tool_rule` tools. System rules are immutable.',
     '',
-    '| source | id | toolName | reason | action | resource | consume_in_hook |',
-    '| ------ | -- | -------- | ------ | ------ | -------- | --------------- |',
+    '| source | id | name | label | description | action | resource | matcher |',
+    '| ------ | -- | ---- | ----- | ----------- | ------ | -------- | ------- |',
   ];
   for (const r of rules) {
     lines.push(
-      `| ${r.source} | \`${r.id}\` | \`${r.toolName}\` | ${r.reason} | ${
-        r.stepupAction
-      } | ${r.stepupResource} | ${r.consume_in_hook ?? false} |`,
+      `| ${r.source} | \`${r.id}\` | \`${r.name}\` | ${r.label} | ${
+        r.description
+      } | ${r.action ?? '—'} | ${r.resource ?? '—'} | ${r.matcher} |`,
     );
   }
   return lines.join('\n');
@@ -707,39 +713,52 @@ export function createServer(
     'add_tool_rule',
     {
       title: 'Add MCP tool-rule (project policy)',
-      description: `Register a new project tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called", "block mcp__github__delete_repository".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push, an env-file move) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) → use this tool (exact tool_name match).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. RESOLVE the exact tool name. Tool names are host-specific (e.g. mcp__github__delete_repository, or mcp__plugin_<plugin>_<server>__<tool> for plugin-provided servers). Do not guess — confirm the exact string with the user or read it from the host's available tools. Regex/wildcards are NOT supported; the match is exact.\n  2. VERIFY with \`simulate_tool_call\` before saving to confirm the rule will match the intended tool name.\n  3. RESOLVE the RBAC coordinate: call \`get_resources\` to fetch valid resource keys, then set \`stepupResource\` (one of those keys — validated against the backend on save) and \`stepupAction\` (create|read|update|delete, matching what the tool does). Most rules use resource \`system\`.\n  4. CONFIRM the proposed id/toolName/reason/stepupResource/stepupAction with the user, then SAVE by calling this tool.\nid must be unique across both system and project rules; persisted as project policy in the Transcodes backend (a project token is required) and effective on the next policy refresh.`,
+      description: `Register a new project tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL → use this tool (\`name\` must match the hook's full wire tool name).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. RESOLVE the exact wire tool name from the host (e.g. mcp__github__delete_repository, mcp__plugin_<plugin>_<server>__<tool>). Do not guess — confirm with the user or read it from the host's available tools list.\n  2. VERIFY with \`simulate_tool_call\` using that full \`name\` string before saving.\n  3. RESOLVE the RBAC coordinate: call \`get_resources\`, then set \`resource\` and \`action\` (create|read|update|delete). Most rules use resource \`system\`.\n  4. CONFIRM id, name, label, description, resource, action, and matcher with the user, then SAVE via this tool.\n\`id\` is your stable rule key (lowercase slug, unique per project). \`name\` is what the hook matches — always the full MCP wire name when matcher=exact. Persisted in the Transcodes backend; effective on the next policy refresh.`,
       inputSchema: {
         id: z
           .string()
           .regex(/^[a-z0-9][a-z0-9-]*$/, 'lowercase alphanumeric + hyphen'),
-        toolName: z.string().min(1),
-        reason: z.string().min(1),
-        stepupResource: z.string().min(1).describe(RBAC_ACTION_GUIDANCE),
-        stepupAction: z
-          .enum(['create', 'read', 'update', 'delete'])
-          .describe('RBAC CRUD action this tool maps onto.'),
-        consume_in_hook: z
-          .boolean()
+        type: z.literal('mcp').default('mcp'),
+        label: z.string().min(1),
+        description: z.string().min(1),
+        name: z.string().min(1).describe(MCP_TOOL_NAME_GUIDANCE),
+        matcher: z
+          .enum(['exact', 'glob'])
+          .default('exact')
+          .describe(
+            'exact = full wire name equality; glob = * and ? wildcards in name',
+          ),
+        provider: z
+          .enum(['claude', 'codex', 'cursor', 'antigravity'])
           .optional()
           .describe(
-            'When true (the default for added rules), the PreToolUse hook consumes the verified record itself (Bash-like fast-path). Set false ONLY if the tool handler threads the sid via `withStepupVerifiedSid` to a backend that requires the X-Step-Up-Session-Id header.',
+            'Optional MCP host label (claude/codex/cursor/antigravity). Stored for future use; does not affect matching today.',
           ),
+        resource: z.string().min(1).describe(TOOL_RULE_RBAC_GUIDANCE),
+        action: z
+          .enum(['create', 'read', 'update', 'delete'])
+          .describe('RBAC CRUD action this tool maps onto.'),
+        status: z.enum(['active', 'inactive']).default('active'),
       },
     },
     async (input) => {
       try {
-        await backend.assertRbacCoordinate(
-          input.stepupResource,
-          input.stepupAction,
-        );
+        if (input.resource !== undefined) {
+          await backend.assertRbacCoordinate(
+            input.resource,
+            input.action ?? 'update',
+          );
+        }
         const saved = await backend.addToolRule(input);
         return textResult(
-          `Added tool-rule \`${saved.id}\` to project policy.\ntoolName: ${
-            saved.toolName
-          }\nreason: ${saved.reason}\nresource: ${
-            saved.stepupResource
-          }\naction: ${saved.stepupAction}\nconsume_in_hook: ${
-            saved.consume_in_hook ?? true
+          `Added tool-rule \`${saved.id}\` to project policy.\nname: ${
+            saved.name
+          }\nlabel: ${saved.label}\ndescription: ${
+            saved.description
+          }\nresource: ${saved.resource ?? '—'}\naction: ${
+            saved.action ?? '—'
+          }\nmatcher: ${saved.matcher}${
+            saved.provider ? `\nprovider: ${saved.provider}` : ''
           }`,
         );
       } catch (e) {
@@ -759,69 +778,87 @@ export function createServer(
     {
       title: 'Update MCP tool-rule (project policy)',
       description:
-        'Modify fields of an existing project tool-rule by id. Call when the user asks to edit/change an MCP tool-rule — e.g. "change the reason of the github-delete rule", "point that tool rule at a different tool name". This is for MCP tool-rules (exact tool_name match); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified; attempts are rejected. Pass only the fields you want to change. When changing stepupResource, call `get_resources` first — the new resource is validated against the backend. stepupAction must be a CRUD action (create|read|update|delete). The change is persisted to the Transcodes backend and effective on the next policy refresh.',
+        'Modify fields of an existing project tool-rule by id. Call when the user asks to edit/change an MCP tool-rule — e.g. "change the description of the github-delete rule", "point that tool rule at a different MCP wire name". This is for MCP tool-rules (`name` = full wire tool name); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified. Pass only the fields you want to change. When changing resource, call `get_resources` first. Changes persist to the Transcodes backend and take effect on the next policy refresh.',
       inputSchema: {
         id: z.string().min(1),
-        toolName: z.string().min(1).optional(),
-        reason: z.string().min(1).optional(),
-        stepupResource: z
+        type: z.literal('mcp').optional(),
+        label: z.string().min(1).optional(),
+        description: z.string().min(1).optional(),
+        name: z.string().min(1).optional().describe(MCP_TOOL_NAME_GUIDANCE),
+        matcher: z
+          .enum(['exact', 'glob'])
+          .optional()
+          .describe('exact = full wire name; glob = wildcards in name'),
+        provider: z
+          .enum(['claude', 'codex', 'cursor', 'antigravity'])
+          .optional()
+          .describe(
+            'Optional MCP host label. Stored for future use; does not affect matching today.',
+          ),
+        resource: z
           .string()
           .min(1)
           .optional()
-          .describe(RBAC_ACTION_GUIDANCE),
-        stepupAction: z
+          .describe(TOOL_RULE_RBAC_GUIDANCE),
+        action: z
           .enum(['create', 'read', 'update', 'delete'])
           .optional()
           .describe('RBAC CRUD action this tool maps onto.'),
-        consume_in_hook: z
-          .boolean()
-          .optional()
-          .describe(
-            'Override the hook-side consume behavior. true = hook consumes immediately (no wrapper needed); false = handler consumes via withStepupVerifiedSid.',
-          ),
+        status: z.enum(['active', 'inactive']).optional(),
       },
     },
     async ({
       id,
-      toolName,
-      reason,
-      stepupAction,
-      stepupResource,
-      consume_in_hook,
+      type,
+      label,
+      description,
+      name,
+      matcher,
+      provider,
+      action,
+      resource,
+      status,
     }) => {
       if (
-        toolName === undefined &&
-        reason === undefined &&
-        stepupAction === undefined &&
-        stepupResource === undefined &&
-        consume_in_hook === undefined
+        type === undefined &&
+        label === undefined &&
+        description === undefined &&
+        name === undefined &&
+        matcher === undefined &&
+        provider === undefined &&
+        action === undefined &&
+        resource === undefined &&
+        status === undefined
       ) {
         return textResult(
-          'Rejected: provide at least one of `toolName`, `reason`, `stepupAction`, `stepupResource`, or `consume_in_hook` to update.',
+          'Rejected: provide at least one of `type`, `label`, `description`, `name`, `matcher`, `provider`, `action`, `resource`, or `status` to update.',
           true,
         );
       }
       try {
-        if (stepupResource !== undefined) {
-          await backend.assertRbacCoordinate(
-            stepupResource,
-            stepupAction ?? 'update',
-          );
+        if (resource !== undefined) {
+          await backend.assertRbacCoordinate(resource, action ?? 'update');
         }
         const saved = await backend.updateToolRule(id, {
-          toolName,
-          reason,
-          stepupAction,
-          stepupResource,
-          consume_in_hook,
+          type,
+          label,
+          description,
+          name,
+          matcher,
+          provider,
+          action,
+          resource,
+          status,
         });
         return textResult(
-          `Updated tool-rule \`${saved.id}\` in project policy.\ntoolName: ${
-            saved.toolName
-          }\nreason: ${saved.reason}\nresource: ${
-            saved.stepupResource
-          }\naction: ${saved.stepupAction}\nconsume_in_hook: ${
-            saved.consume_in_hook ?? true
+          `Updated tool-rule \`${saved.id}\` in project policy.\nname: ${
+            saved.name
+          }\nlabel: ${saved.label}\ndescription: ${
+            saved.description
+          }\nresource: ${saved.resource ?? '—'}\naction: ${
+            saved.action ?? '—'
+          }\nmatcher: ${saved.matcher}${
+            saved.provider ? `\nprovider: ${saved.provider}` : ''
           }`,
         );
       } catch (e) {
@@ -862,9 +899,9 @@ export function createServer(
     {
       title: 'Simulate a tool-rule lookup',
       description:
-        "Given a tool_name (and optional tool_input), report whether any system or project tool-rule matches. Read-only — does not invoke the hook or call the backend. Use to verify a rule's coverage before relying on it.",
+        'Given the full MCP wire tool name from a PreToolUse hook (e.g. mcp__github__delete_repository), report whether any system or project tool-rule matches. Read-only — does not invoke the hook or call the backend. Use to verify a rule name before calling add_tool_rule.',
       inputSchema: {
-        tool_name: z.string().min(1),
+        tool_name: z.string().min(1).describe(MCP_TOOL_NAME_GUIDANCE),
         tool_input: z.unknown().optional(),
       },
     },
@@ -889,10 +926,14 @@ export function createServer(
             rule: {
               id: r.id,
               source: r.source,
-              toolName: r.toolName,
-              reason: r.reason,
-              stepupAction: r.stepupAction,
-              stepupResource: r.stepupResource,
+              type: r.type,
+              label: r.label,
+              description: r.description,
+              name: r.name,
+              matcher: r.matcher,
+              provider: r.provider,
+              action: r.action,
+              resource: r.resource,
             },
           },
           null,

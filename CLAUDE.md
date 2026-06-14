@@ -40,7 +40,7 @@ private/packages/                    PRIVATE business logic (Transcodes backend 
   danger-rules/            MCP tool-rule registry (toolName ↔ stepupAction/Resource policy mapping)
   gate-backend/            the concrete GateBackend implementation the seams inject
 
-private/cli/                         @bigstrider/transcodes-cli — human control plane (kill-switch, tokens, dashboard)
+private/cli/                         @bigstrider/transcodes-cli — human control plane (tokens, rules dashboard)
 
 public/plugins/                      per-host deploy units (thin manifest + entry points)
   claude-code/       marketplace plugin; 4 hooks; stdio + http transports
@@ -57,7 +57,7 @@ Build, dist sync, and packaging → `.claude/rules/plugin-build.md`. Release and
 
 `@bigstrider/transcodes-cli` is a workspace member (`private/cli/`, bin `transcodes`) and the human's control plane for the gate. It is **excluded from the `transcodes-guard` brand rename** — it keeps its `@bigstrider/transcodes-cli` name and `transcodes` bin — but it consumes the shared `@transcodes-guard/*` packages like the plugins do. It owns the shared `~/.transcodes/` directory:
 
-- `~/.transcodes/config.json` — the `enabled` kill-switch flag (CLI-owned; hooks read it). Absent/corrupt = enabled.
+- `~/.transcodes/config.json` — token pool written by the CLI; hooks and MCP read via `resolveToken()`.
 - `~/.transcodes/state/` — consolidated local plugin state.
 - Commands: `transcodes enable | disable | status | tokens | set | reset`, plus the no-arg GUI dashboard.
 

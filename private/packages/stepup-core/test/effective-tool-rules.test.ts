@@ -1,12 +1,5 @@
 /**
- * Unit tests for the G3 layered tool-rule merge:
- *   built-in baseline → cached project policy bundle.
- *
- * `loadMergedToolRules(bundleRules)` (danger-rules) carries the merge
- * semantics; `loadEffectiveToolRules()` (stepup-core) resolves the cached
- * bundle from the token's project claim. The per-user local layer was retired —
- * rules are centrally managed backend policy. HOME is pointed at a throwaway
- * tmp dir so the bundle cache never touches the real `~/.transcodes`.
+ * Unit tests for the G3 layered tool-rule merge.
  */
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -19,6 +12,7 @@ import {
   type ToolRule,
 } from '@transcodes-guard-private/danger-rules';
 import {
+  GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
   loadEffectiveToolRules,
   policyBundleSha384,
   verifyAndParsePolicyBundle,
@@ -32,16 +26,17 @@ const PROJECT = 'proj-effective';
 function bundleRule(overrides: Partial<ToolRule> = {}): ToolRule {
   return {
     id: 'bundle-rule',
-    toolName: 'mcp__org__dangerous_tool',
-    reason: 'org policy',
-    stepupAction: 'delete',
-    stepupResource: 'system',
+    type: 'mcp',
+    label: 'Org policy',
+    description: 'org policy',
+    name: 'mcp__org__dangerous_tool',
+    matcher: 'exact',
+    action: 'delete',
+    resource: 'system',
     ...overrides,
   };
 }
 
-/** Unsigned JWT-shaped token — signature verification is the backend's job
- * (jwt.ts policy), so tests only need a decodable payload. */
 function fakeToken(projectId: string): string {
   const payload = Buffer.from(
     JSON.stringify({
@@ -57,13 +52,11 @@ function fakeToken(projectId: string): string {
 }
 
 describe('loadMergedToolRules with a bundle layer', () => {
-  it('appends bundle rules after the baseline with system-like defaults', () => {
+  it('appends bundle rules after the baseline', () => {
     const merged = loadMergedToolRules([bundleRule()]);
     const fromBundle = merged.find((r) => r.id === 'bundle-rule');
     assert.ok(fromBundle);
     assert.equal(fromBundle.source, 'bundle');
-    assert.equal(fromBundle.consume_in_hook, false);
-    // Baseline is intact alongside the bundle layer.
     const systemCount = loadSystemToolRules().rules.length;
     assert.equal(merged.filter((r) => r.source === 'system').length, systemCount);
   });
@@ -72,15 +65,13 @@ describe('loadMergedToolRules with a bundle layer', () => {
     const systemRules = loadSystemToolRules().rules;
     const target = systemRules[0];
     const merged = loadMergedToolRules([
-      bundleRule({ id: target.id, reason: 'org override' }),
+      bundleRule({ id: target.id, description: 'org override' }),
     ]);
     const overridden = merged.find((r) => r.id === target.id);
     assert.ok(overridden);
     assert.equal(overridden.source, 'bundle');
-    assert.equal(overridden.reason, 'org override');
-    // Replacement keeps the original position (first-insertion order).
+    assert.equal(overridden.description, 'org override');
     assert.equal(merged[0].id, target.id);
-    // No duplicate id survives the merge.
     assert.equal(merged.filter((r) => r.id === target.id).length, 1);
   });
 
@@ -93,7 +84,11 @@ describe('loadMergedToolRules with a bundle layer', () => {
 
 describe('loadEffectiveToolRules', () => {
   it('merges the cached bundle for the token project', () => {
-    const body = { revision: 'rev-eff', rules: [bundleRule()] };
+    const body = {
+      schemaVersion: GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
+      revision: 'rev-eff',
+      rules: [bundleRule()],
+    };
     const bundle = verifyAndParsePolicyBundle({
       ...body,
       manifest: { sha384: policyBundleSha384(body) },

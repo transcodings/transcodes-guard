@@ -1,8 +1,12 @@
 export {
   findFirstToolRule,
+  GUARD_PROVIDERS,
+  type GuardMatcher,
+  type GuardProvider,
   loadMergedToolRules,
   loadSystemToolRules,
   type MergedToolRule,
+  mcpConsumesInHook,
   mergeToolRuleChanges,
   systemToolRuleIds,
   type ToolRule,
@@ -12,5 +16,6 @@ export {
   type ToolRuleMatch,
   type ToolRuleSource,
   ToolRuleValidationError,
+  toolNameMatchesRule,
   validateNewToolRule,
 } from './tool-rules.js';

@@ -1,34 +1,32 @@
 /**
  * Tool-rule registry — MCP-call counterpart of danger-patterns.
  *
- * `danger-patterns.ts` matches Bash command strings via regex; this module
- * matches PreToolUse payloads where `tool_name` identifies an MCP tool that
- * must trigger step-up MFA.
- *
- * Phase 3 v2: rules are organization/project policy managed in the Transcodes
- * backend (Unit G). This module owns the **read/merge + validation** surface
- * only — the built-in system baseline merged with the cached project bundle.
- * Writes go to the backend (`@transcodes-guard-private/stepup-core`
- * `addToolRule`/`updateToolRule`/`removeToolRule`), never to a local file.
+ * Phase 3 v2: rules mirror the backend guard bundle wire shape (`id`, `type`,
+ * `label`, `description`, `name`, `matcher`, optional `action`/`resource`).
  */
 import { type RbacAction } from '@transcodes-guard/danger-patterns';
+export type GuardMatcher = 'exact' | 'glob';
+export declare const GUARD_PROVIDERS: readonly ["claude", "codex", "cursor", "antigravity"];
+export type GuardProvider = (typeof GUARD_PROVIDERS)[number];
 export interface ToolRule {
     id: string;
-    /** Exact tool_name match. Regex is intentionally not supported — keeps the
-     * gate's scope explicit and auditable. */
-    toolName: string;
-    reason: string;
-    /** RBAC CRUD action this rule maps onto (create/read/update/delete). Feeds
-     * `createStepupSession({ action })` so the step-up audit log + the project's
-     * RBAC permission matrix share coordinates. */
-    stepupAction: RbacAction;
-    /** RBAC resource key (e.g. "system"), validated against the live backend at
-     * add time. Feeds `createStepupSession({ resource })`. */
-    stepupResource: string;
-    /** When true, the PreToolUse hook consumes the verified record itself on the
-     * fast-path (Bash-like). When false, consume is deferred to the tool handler
-     * via `withStepupVerifiedSid` (handler needs the sid for the backend header).
-     * Defaults per source in `loadMergedToolRules`: system=false, bundle=false. */
+    type: 'mcp';
+    label: string;
+    description: string;
+    /** Full MCP tool name or glob pattern when `matcher` is `glob`. */
+    name: string;
+    matcher: GuardMatcher;
+    /** Optional MCP host label — stored for future use; does not affect matching today. */
+    provider?: GuardProvider;
+    /** Step-up RBAC verb — omitted when the rule only gates tool access. */
+    action?: RbacAction;
+    /** Step-up resource key — omitted when the rule only gates tool access. */
+    resource?: string;
+    /**
+     * When true, the hook consumes the verified record (FP-keyed, single-shot).
+     * When false, the MCP tool handler passes sid via X-Step-Up-Session-Id.
+     * Default: `true` for bundle (project) rules, `false` for system rules.
+     */
     consume_in_hook?: boolean;
 }
 export interface ToolRuleConfig {
@@ -40,51 +38,45 @@ export interface MergedToolRule extends ToolRule {
 }
 export declare function loadSystemToolRules(): ToolRuleConfig;
 /**
- * Layered merge (Phase3 v2 G3): built-in baseline → org/project policy bundle.
- * Same `id` in a later layer replaces the earlier rule (the replacement keeps
- * the original position so precedence inside a layer stays stable). The
- * per-user local layer was retired — rules are now centrally managed backend
- * policy applied uniformly to every human/AI agent in the project.
- *
- * `bundleRules` is the cached project bundle's `rules` array. Callers without a
- * bundle (no token / no cache) pass nothing and get the baseline only —
- * fail-closed matrix row 3.
+ * Layered merge: built-in baseline → org/project policy bundle.
+ * Same `id` in a later layer replaces the earlier rule.
  */
 export declare function loadMergedToolRules(bundleRules?: ToolRule[]): MergedToolRule[];
 export interface ToolRuleMatch {
     matched: MergedToolRule;
 }
+export declare function toolNameMatchesRule(toolName: string, rule: ToolRule): boolean;
 export declare function findFirstToolRule(toolName: string, rules: MergedToolRule[]): ToolRuleMatch | null;
+/** Whether PreToolUse should consume the verified record for this MCP rule. */
+export declare function mcpConsumesInHook(rule: MergedToolRule): boolean;
 export declare class ToolRuleValidationError extends Error {
 }
 export interface ToolRuleInput {
     id: string;
-    toolName: string;
-    reason: string;
-    /** Must be a CRUD action (create/read/update/delete). */
-    stepupAction: string;
-    /** RBAC resource key. Backend existence is validated by the caller (MCP
-     * handler) before this runs — this layer only enforces non-empty. */
-    stepupResource: string;
-    consume_in_hook?: boolean;
+    type?: 'mcp';
+    label: string;
+    description: string;
+    name: string;
+    matcher?: GuardMatcher;
+    provider?: GuardProvider;
+    action?: string;
+    resource?: string;
+    status?: 'active' | 'inactive';
+    metadata?: Record<string, unknown>;
 }
-/** Partial change set for an existing tool-rule (PUT semantics: an omitted
- * field keeps the stored value, resolved against the cached bundle). */
+/** Partial change set for an existing tool-rule (PUT semantics). */
 export interface ToolRuleChanges {
-    toolName?: string;
-    reason?: string;
-    stepupAction?: string;
-    stepupResource?: string;
-    consume_in_hook?: boolean;
+    type?: 'mcp';
+    label?: string;
+    description?: string;
+    name?: string;
+    matcher?: GuardMatcher;
+    provider?: GuardProvider;
+    action?: string;
+    resource?: string;
+    status?: 'active' | 'inactive';
+    metadata?: Record<string, unknown>;
 }
-/**
- * Client-side validation shared by the backend write flows (fail fast before a
- * network round-trip; the backend re-validates). Enforces the id/toolName/
- * action/resource shape and reserves the system rule ids.
- */
 export declare function validateNewToolRule(input: ToolRuleInput): ToolRule;
-/** Resolve a partial change set against an existing rule into a full validated
- * rule (PUT body). System rules are immutable. */
 export declare function mergeToolRuleChanges(existing: ToolRule, changes: ToolRuleChanges): ToolRule;
-/** The system rule ids — reserved and immutable. */
 export declare function systemToolRuleIds(): Set<string>;

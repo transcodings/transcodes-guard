@@ -1,2 +1,2 @@
-export { findFirstToolRule, loadMergedToolRules, loadSystemToolRules, mergeToolRuleChanges, systemToolRuleIds, ToolRuleValidationError, validateNewToolRule, } from './tool-rules.js';
+export { findFirstToolRule, GUARD_PROVIDERS, loadMergedToolRules, loadSystemToolRules, mcpConsumesInHook, mergeToolRuleChanges, systemToolRuleIds, toolNameMatchesRule, ToolRuleValidationError, validateNewToolRule, } from './tool-rules.js';
 //# sourceMappingURL=index.js.map

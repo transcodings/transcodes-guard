@@ -154,34 +154,6 @@ jobs:
           rm -f "$HOME/.transcodes/state/stepup-verified.json"
           rm -f "$HOME/.transcodes/state/stepup-pending.json"
 
-      - name: claude-code · bundle rule fast-path consumes verified in hook (consume_in_hook true)
-        run: |
-          set -e
-          mkdir -p "$HOME/.transcodes/state"
-          NOW=$(node -e 'console.log(Date.now())')
-          # Project policy now lives in the backend bundle (user-file layer retired).
-          # A bundle rule with consume_in_hook:true takes the hook-side fast-path.
-          TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
-          printf '{"fetchedAt":%s,"bundle":{"revision":"rev-ci","rules":[{"id":"ci-consume-rule","toolName":"mcp__ci_consume_tool","reason":"CI consume_in_hook smoke","stepupAction":"delete","stepupResource":"system","consume_in_hook":true}]}}' "$NOW" \
-            > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
-          # consume_in_hook=true → the verified record is CONTENT-ADDRESSED by the
-          # command fingerprint (fp = sha256("<toolName>:<JSON.stringify(tool_input)>").slice(0,16)).
-          # Backend is unreachable (127.0.0.1:9 → status 0) so recheckVerifiedSid
-          # returns "trust" (availability fallback), exercising the consume path.
-          FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'mcp__ci_consume_tool:{"arg":"v"}')
-          echo "{\"sid\":\"ci-consume-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
-          OUT=$(echo '{"tool_name":"mcp__ci_consume_tool","tool_input":{"arg":"v"}}' \
-            | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
-          echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for bundle rule fast-path"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"allow"' || { echo "::error::Explicit allow JSON missing for bundle rule consume path"; exit 1; }
-          if [ -f "$HOME/.transcodes/state/stepup-verified.$FP.json" ]; then
-            echo "::error::Bundle rule fast-path did NOT consume fp-keyed verified record (consume_in_hook=true expected)"; exit 1
-          fi
-          rm -f "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
-          rm -f "$HOME/.transcodes/state/stepup-verified.$FP.json"
-          rm -f "$HOME/.transcodes/state/stepup-pending.json"
-
       - name: claude-code · Stop hook reaps orphan verified+pending(verified) silently
         run: |
           set -e
@@ -211,7 +183,7 @@ jobs:
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
           NOW=$(node -e 'console.log(Date.now())')
-          printf '{"fetchedAt":%s,"bundle":{"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","toolName":"mcp__ci_bundle_tool","reason":"CI bundle smoke","stepupAction":"delete","stepupResource":"system"}]}}' "$NOW" \
+          printf '{"fetchedAt":%s,"bundle":{"schemaVersion":2,"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","type":"mcp","label":"CI bundle","description":"CI bundle smoke","name":"mcp__ci_bundle_tool","matcher":"exact","action":"delete","resource":"system"}]}}' "$NOW" \
             > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
           OUT=$(echo '{"tool_name":"mcp__ci_bundle_tool","tool_input":{"a":1}}' \
             | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
@@ -227,7 +199,7 @@ jobs:
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
           OLD=$(node -e 'console.log(Date.now()-7200000)')
-          printf '{"fetchedAt":%s,"bundle":{"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","toolName":"mcp__ci_bundle_tool","reason":"CI bundle smoke","stepupAction":"delete","stepupResource":"system"}]}}' "$OLD" \
+          printf '{"fetchedAt":%s,"bundle":{"schemaVersion":2,"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","type":"mcp","label":"CI bundle","description":"CI bundle smoke","name":"mcp__ci_bundle_tool","matcher":"exact","action":"delete","resource":"system"}]}}' "$OLD" \
             > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
           OUT=$(echo '{"tool_name":"mcp__ci_bundle_tool","tool_input":{"a":1}}' \
             | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")

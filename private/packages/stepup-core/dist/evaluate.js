@@ -15,7 +15,7 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { DEFAULT_RBAC_RESOURCE, findFirstMatch, loadMergedPatterns, } from '@transcodes-guard/danger-patterns';
-import { findFirstToolRule, } from '@transcodes-guard-private/danger-rules';
+import { findFirstToolRule, mcpConsumesInHook, } from '@transcodes-guard-private/danger-rules';
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, requestStepup } from './gate.js';
 import { clearPending } from './pending.js';
@@ -239,32 +239,27 @@ export async function evaluatePreToolUse(input) {
         ? (checkPatternMatch(classified.command) ??
             checkRmGitTracked(classified.command, classified.cwd))
         : {
-            reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` — ${classified.rule.reason}`,
+            reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` — ${classified.rule.description}`,
             command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
             ruleId: classified.rule.id,
-            stepupResource: classified.rule.stepupResource,
-            stepupAction: classified.rule.stepupAction,
+            stepupResource: classified.rule.resource ?? DEFAULT_RBAC_RESOURCE,
+            stepupAction: classified.rule.action ?? 'update',
         };
     if (!block)
         return { kind: 'pass' };
-    // consume_in_hook decides the storage flavour:
-    //   true  (Bash + user tool-rules) → FP-KEYED store, content-addressed by
-    //          this command's fingerprint, so parallel sub-agents never pick up
-    //          one another's verified record.
-    //   false (MCP system rules)       → GLOBAL store; the tool handler consumes
-    //          later via withStepupVerifiedSid and cannot recompute the fp.
-    const consumeHere = classified.kind === 'bash' || classified.rule.consume_in_hook === true;
+    // Consume semantics (see stepup-gate.md):
+    //   Bash + bundle MCP rules → FP-keyed verified file, hook consumes on allow.
+    //   System MCP rules → GLOBAL verified; handler passes sid to the backend.
+    const consumeHere = classified.kind === 'bash' ||
+        (classified.kind === 'mcp' && mcpConsumesInHook(classified.rule));
     const fingerprintKey = classified.kind === 'bash'
         ? classified.command
         : `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
     const fp = consumeHere ? fingerprintOf(fingerprintKey) : undefined;
     const verified = readVerified(fp);
     if (verified) {
-        // Only the FP path (Bash + user rules) needs the backend re-check: it has
-        // no other backstop, so a forged local record would otherwise pass. The
-        // MCP system (GLOBAL) path skips it — its handler re-validates the sid via
-        // the X-Step-Up-Session-Id header, so a forged record there just yields a
-        // failed backend call, not an unauthorized action.
+        // FP-keyed path (Bash + bundle MCP rules) needs backend re-check. GLOBAL
+        // path (system MCP rules) skips it — handler re-validates sid via header.
         if (!consumeHere || (await recheckVerifiedSid(verified.sid)) === 'trust') {
             return { kind: 'allow', block, consumeHere, fp };
         }
@@ -281,15 +276,20 @@ export async function evaluatePreToolUse(input) {
     // is already resolved on `block` (both producers fill it), so ask the matrix
     // directly: 0=deny, 1=allow (no step-up), 2=allow+step-up.
     const { stepupResource: resource, stepupAction: action } = block;
+    const hasRbacCoord = classified.kind === 'bash' ||
+        (classified.rule.action !== undefined &&
+            classified.rule.resource !== undefined);
     // Fail-closed: any failure to determine the level (network/parse/config) is
     // treated as step-up required (2) — never silently allowed.
     let level = 2;
-    try {
-        const config = loadStepupConfig();
-        level = (await checkRbacPermission(config, resource, action)) ?? 2;
-    }
-    catch {
-        level = 2;
+    if (hasRbacCoord) {
+        try {
+            const config = loadStepupConfig();
+            level = (await checkRbacPermission(config, resource, action)) ?? 2;
+        }
+        catch {
+            level = 2;
+        }
     }
     if (level === 0) {
         return { kind: 'deny-rbac-denied', block, resource, action };
@@ -306,7 +306,7 @@ export async function evaluatePreToolUse(input) {
         fingerprintKey,
         comment: classified.kind === 'bash'
             ? `Confirm danger command: ${block.reason}`
-            : `Confirm ${classified.rule.id}: ${classified.rule.reason}`,
+            : `Confirm ${classified.rule.id}: ${classified.rule.label}`,
     };
     const req = await requestStepup(gateInput);
     if (!req.ok) {

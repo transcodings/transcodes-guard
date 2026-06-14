@@ -9,7 +9,8 @@
 import { parseMemberAccessToken } from './jwt.js';
 import { resolveToken } from './token-store.js';
 /** Backend default — matches transcodes-mcp-server constants. Override with TRANSCODES_BACKEND_URL. */
-export const DEFAULT_BACKEND_URL = 'https://api.transcodesapis.com';
+// export const DEFAULT_BACKEND_URL = 'https://api.transcodesapis.com';
+export const DEFAULT_BACKEND_URL = 'http://localhost:3500';
 /** Step-up validity window. Mirrors the backend TTL used by transcodes. */
 export const STEPUP_TTL_MS = 10 * 60 * 1_000;
 /**

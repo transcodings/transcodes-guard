@@ -140,9 +140,9 @@ type ToolRulesPayload = {
   project: MergedToolRule[];
 };
 
-/** Project-policy tool rules for the Policies → MCP tools tab (system rules
- * live in Manual). Sourced from the cached backend bundle — edits route to the
- * backend, not a local file. */
+/** Project-policy tool rules for the Rules → MCP tools tab (system rules
+ * live under Rules → Admin MCP). Sourced from the cached backend bundle —
+ * edits route to the backend, not a local file. */
 function buildToolRulesPayload(): ToolRulesPayload {
   return {
     project: loadEffectiveToolRules().filter((r) => r.source === 'bundle'),
@@ -163,16 +163,14 @@ function inferCatalogRbacAction(toolName: string): RbacAction {
 /** Admin MCP catalog enriched with RBAC coordinates from tool-rules (when gated). */
 function buildAdminToolsPayloadEnriched() {
   const payload = buildAdminToolsPayload();
-  const ruleByToolName = new Map(
-    loadEffectiveToolRules().map((r) => [r.toolName, r]),
-  );
+  const ruleByName = new Map(loadEffectiveToolRules().map((r) => [r.name, r]));
   const tools = payload.tools.map((t) => {
-    const rule = ruleByToolName.get(t.mcpToolName);
+    const rule = ruleByName.get(t.mcpToolName);
     return {
       ...t,
       rbacGated: !!rule,
-      rbacResource: rule?.stepupResource ?? DEFAULT_RBAC_RESOURCE,
-      rbacAction: rule?.stepupAction ?? inferCatalogRbacAction(t.name),
+      rbacResource: rule?.resource ?? DEFAULT_RBAC_RESOURCE,
+      rbacAction: rule?.action ?? inferCatalogRbacAction(t.name),
     };
   });
   tools.sort((a, b) => {
@@ -687,10 +685,9 @@ function dashboardHtml(): string {
       </div>
     </div>
     <div class="tabs">
-      <button type="button" class="tab active" data-tab="guideline">Guideline</button>
-      <button type="button" class="tab" data-tab="tokens">Tokens</button>
-      <button type="button" class="tab" data-tab="patterns">Policies</button>
-      <button type="button" class="tab" data-tab="manual">Manual</button>
+      <button type="button" class="tab active" data-tab="tokens">Tokens</button>
+      <button type="button" class="tab" data-tab="rules">Rules</button>
+      <button type="button" class="tab" data-tab="cli">CLI Commands</button>
     </div>
 
     <div class="panel active" id="panel-tokens">
@@ -708,63 +705,24 @@ function dashboardHtml(): string {
       <p class="hint">Saved to <code>{{HOME_DIR}}/.transcodes/config.json</code><br />Press Ctrl+C in the terminal to stop</p>
     </div>
 
-    <div class="panel" id="panel-guideline">
-      <p class="section-title">Guideline</p>
-      <p class="section-sub">A quick overview of each section in this dashboard.</p>
-      <div class="guide-list">
-        <div class="guide-item">
-          <div class="guide-tab">Tokens</div>
-          <p class="guide-desc">Register and manage MCP agent tokens (TRANSCODES_TOKEN). Paste a token from the Transcodes console, label it, and choose which one is active. Required before step-up policies and Admin MCP tools can talk to the backend.</p>
-        </div>
-        <div class="guide-item">
-          <div class="guide-tab">Policies</div>
-          <p class="guide-desc">Configure when step-up MFA is triggered. <strong>Bash Command</strong> lists your regex patterns for shell commands; <strong>MCP tools</strong> lists your custom tool-name rules. System MCP tools are catalogued under <strong>Manual → Transcodes Admin MCP</strong>. Adding rules is done through your coding agent — review and edit saved rules here.</p>
-        </div>
-        <div class="guide-item">
-          <div class="guide-tab">Manual</div>
-          <p class="guide-desc"><strong>Transcodes Admin MCP</strong> is a read-only catalog of backend API tools the plugin exposes. Tools with a <strong>Role permission check</strong> badge follow your Transcodes console role matrix (block / allow / step-up MFA). <strong>Commands</strong> lists terminal shortcuts such as <code>transcodes set</code> and <code>transcodes tokens</code>.</p>
-        </div>
+    <div class="panel" id="panel-cli">
+      <p class="section-title">CLI Commands</p>
+      <p class="section-sub">Run these from your terminal — the dashboard wraps the same actions</p>
+      <div class="cmd-list">
+        <div class="cmd"><code>transcodes</code><span class="cmd-desc">Open this dashboard (default, same as transcodes dashboard)</span></div>
+        <div class="cmd"><code>transcodes set &lt;token&gt; -l &lt;label&gt;</code><span class="cmd-desc">Validate and save a token with a label, then make it active</span></div>
+        <div class="cmd"><code>transcodes tokens</code><span class="cmd-desc">List all saved tokens (active one marked with *)</span></div>
+        <div class="cmd"><code>transcodes reset</code><span class="cmd-desc">Remove all saved tokens</span></div>
+        <div class="cmd"><code>transcodes help</code><span class="cmd-desc">Show the full command list and how to use each one</span></div>
       </div>
     </div>
 
-    <div class="panel" id="panel-manual">
-      <div class="tabs sub-tabs" role="tablist" aria-label="Manual">
-        <button type="button" class="tab active" data-manual="admin" role="tab">Transcodes Admin MCP</button>
-        <button type="button" class="tab" data-manual="commands" role="tab">Commands</button>
-      </div>
-      <div class="policy-pane active" id="manual-pane-admin">
-        <p class="section-title">Transcodes Admin MCP</p>
-        <p class="section-sub">Backend API tools exposed via MCP — agents call these through the transcodes-guard plugin. This page is a read-only reference.</p>
-        <div class="rbac-legend">
-          <p class="rbac-legend-title">Role permission check</p>
-          <p class="rbac-legend-desc">Tools with the <strong>Role permission check</strong> badge are gated: your role in Transcodes console (<strong>Roles</strong> tab) decides block / allow / step-up MFA at call time. Other tools run with your MCP token only — no RBAC coordinate is shown because none applies.</p>
-          <ul class="rbac-legend-levels">
-            <li><span class="perm-chip perm-chip-0">0 · Block</span> Denied — the tool does not run</li>
-            <li><span class="perm-chip perm-chip-1">1 · Allow</span> Runs immediately — no step-up MFA</li>
-            <li><span class="perm-chip perm-chip-2">2 · Step-up</span> Step-up MFA required before the tool runs</li>
-          </ul>
-        </div>
-        <p class="admin-tools-count" id="admin-tools-count"></p>
-        <div class="token-list" id="admin-tools-list"></div>
-      </div>
-      <div class="policy-pane" id="manual-pane-commands">
-        <p class="section-title">Commands</p>
-        <p class="section-sub">Run these from your terminal — the dashboard wraps the same actions</p>
-        <div class="cmd-list">
-          <div class="cmd"><code>transcodes</code><span class="cmd-desc">Open this dashboard (default, same as transcodes dashboard)</span></div>
-          <div class="cmd"><code>transcodes set &lt;token&gt; -l &lt;label&gt;</code><span class="cmd-desc">Validate and save a token with a label, then make it active</span></div>
-          <div class="cmd"><code>transcodes tokens</code><span class="cmd-desc">List all saved tokens (active one marked with *)</span></div>
-          <div class="cmd"><code>transcodes reset</code><span class="cmd-desc">Remove all saved tokens</span></div>
-          <div class="cmd"><code>transcodes help</code><span class="cmd-desc">Show the full command list and how to use each one</span></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel" id="panel-patterns">
+    <div class="panel" id="panel-rules">
       <p id="policy-token-warning" class="policy-token-warning" hidden>transcodes를 로컬 에이전트에서 이용하기 위해선 토큰이 하나 이상 등록이 되어야 합니다</p>
-      <div class="tabs sub-tabs" role="tablist" aria-label="Policy type">
+      <div class="tabs sub-tabs" role="tablist" aria-label="Rule type">
         <button type="button" class="tab active" data-policy="bash" role="tab">Bash Command</button>
         <button type="button" class="tab" data-policy="mcp" role="tab">MCP tools</button>
+        <button type="button" class="tab" data-policy="admin" role="tab">Admin MCP</button>
       </div>
       <div class="policy-pane active" id="policy-pane-bash">
         <p class="section-title">Step-up Auth Policies</p>
@@ -790,12 +748,12 @@ function dashboardHtml(): string {
 
       <div class="policy-pane" id="policy-pane-mcp">
         <p class="section-title">MCP Tool Rules</p>
-        <p class="section-sub">Trigger step-up when the agent calls a specific MCP tool. Matched by the exact tool name — no regex. Review, edit, or delete here — adding is done through your agent</p>
+        <p class="section-sub">Trigger step-up when the agent calls a matching MCP tool (<code>name</code> = full wire tool name from the host hook). Review, edit, or delete here — adding is done through your agent</p>
         <div class="usage">
           <p class="usage-title">Adding is done through your agent</p>
           <ol class="usage-steps">
-            <li>Ask your coding agent to register an MCP tool rule. It knows the exact <code>mcp__server__tool</code> names and derives the audit action &amp; resource automatically.</li>
-            <li>Below you can review, edit, or delete the saved tool rules.</li>
+            <li>Ask your coding agent to call <code>add_tool_rule</code> with the full MCP tool name in <code>name</code> (same string the PreToolUse hook receives).</li>
+            <li>Below you can review, edit <code>name</code> / <code>description</code>, or delete saved project rules.</li>
           </ol>
           <div class="usage-prompt">
             <span class="q">Ask your agent →</span><br />
@@ -806,6 +764,22 @@ function dashboardHtml(): string {
         <div id="tool-toast" class="toast"></div>
         <p class="list-label">Your tool rules</p>
         <div class="token-list" id="tool-user-list"></div>
+      </div>
+
+      <div class="policy-pane" id="policy-pane-admin">
+        <p class="section-title">Transcodes Admin MCP</p>
+        <p class="section-sub">Backend API tools exposed via MCP — agents call these through the transcodes-guard plugin. Read-only reference for system tool-rules.</p>
+        <div class="rbac-legend">
+          <p class="rbac-legend-title">Role permission check</p>
+          <p class="rbac-legend-desc">Tools with the <strong>Role permission check</strong> badge are gated: your role in Transcodes console (<strong>Roles</strong> tab) decides block / allow / step-up MFA at call time. Other tools run with your MCP token only — no RBAC coordinate is shown because none applies.</p>
+          <ul class="rbac-legend-levels">
+            <li><span class="perm-chip perm-chip-0">0 · Block</span> Denied — the tool does not run</li>
+            <li><span class="perm-chip perm-chip-1">1 · Allow</span> Runs immediately — no step-up MFA</li>
+            <li><span class="perm-chip perm-chip-2">2 · Step-up</span> Step-up MFA required before the tool runs</li>
+          </ul>
+        </div>
+        <p class="admin-tools-count" id="admin-tools-count"></p>
+        <div class="token-list" id="admin-tools-list"></div>
       </div>
     </div>
   </div>
@@ -830,35 +804,25 @@ function dashboardHtml(): string {
           t.classList.toggle("active", t === tab));
         document.querySelectorAll(".panel").forEach((p) =>
           p.classList.toggle("active", p.id === "panel-" + name));
-        if (name === "manual") loadAdminTools();
-        if (name === "patterns") {
+        if (name === "rules") {
           updatePolicyTokenWarning();
           loadPatterns();
           loadToolRules();
+          loadAdminTools();
         }
       });
     });
 
-    document.querySelectorAll("#panel-manual .tab[data-manual]").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        const name = tab.getAttribute("data-manual");
-        document.querySelectorAll("#panel-manual .tab[data-manual]").forEach((t) =>
-          t.classList.toggle("active", t === tab));
-        document.querySelectorAll("#panel-manual .policy-pane").forEach((p) =>
-          p.classList.toggle("active", p.id === "manual-pane-" + name));
-        if (name === "admin") loadAdminTools();
-      });
-    });
-
-    document.querySelectorAll("#panel-patterns .tab[data-policy]").forEach((tab) => {
+    document.querySelectorAll("#panel-rules .tab[data-policy]").forEach((tab) => {
       tab.addEventListener("click", () => {
         const name = tab.getAttribute("data-policy");
-        document.querySelectorAll("#panel-patterns .tab[data-policy]").forEach((t) =>
+        document.querySelectorAll("#panel-rules .tab[data-policy]").forEach((t) =>
           t.classList.toggle("active", t === tab));
-        document.querySelectorAll("#panel-patterns .policy-pane").forEach((p) =>
+        document.querySelectorAll("#panel-rules .policy-pane").forEach((p) =>
           p.classList.toggle("active", p.id === "policy-pane-" + name));
         if (name === "bash") loadPatterns();
         if (name === "mcp") loadToolRules();
+        if (name === "admin") loadAdminTools();
       });
     });
 
@@ -1216,7 +1180,7 @@ function dashboardHtml(): string {
               badgeHtml +
               '<p class="tool-desc">' + esc(t.description) + '</p>' +
               rbacFields +
-              '<div class="field"><span class="k">name</span> <code>' + esc(t.name) + '</code></div>' +
+              '<div class="field"><span class="k">name</span> <code>' + esc(t.mcpToolName) + '</code></div>' +
             '</div>' +
           '</div>' +
         '</div>'
@@ -1248,18 +1212,21 @@ function dashboardHtml(): string {
       const editing = !readonly && r.id === toolEditingId;
       const idField = '<div class="field"><span class="k">id</span> <code>' +
         esc(r.id) + '</code></div>';
+      const labelField = r.label
+        ? '<div class="field"><span class="k">label</span> ' + esc(r.label) + '</div>'
+        : '';
 
       if (editing) {
         return (
           '<div class="token-row active" data-id="' + esc(r.id) + '">' +
             '<div class="token-info">' +
-              '<input type="text" class="label-edit tool-edit-reason" ' +
-                'data-edit-treason="' + esc(r.id) + '" value="' + esc(r.reason || "") +
-                '" placeholder="Reason" />' +
+              '<input type="text" class="label-edit tool-edit-description" ' +
+                'data-edit-tdescription="' + esc(r.id) + '" value="' + esc(r.description || "") +
+                '" placeholder="Description" />' +
               '<input type="text" class="label-edit pattern-edit-regex tool-edit-name" ' +
-                'data-edit-tname="' + esc(r.id) + '" value="' + esc(r.toolName) +
-                '" placeholder="Tool name" spellcheck="false" />' +
-              idField +
+                'data-edit-tname="' + esc(r.id) + '" value="' + esc(r.name) +
+                '" placeholder="Full MCP tool name" spellcheck="false" />' +
+              idField + labelField +
             '</div>' +
             '<div class="token-actions">' +
               '<button type="button" class="btn-set" data-save-tool="' +
@@ -1270,18 +1237,21 @@ function dashboardHtml(): string {
         );
       }
 
-      const reason = r.reason
-        ? '<div class="label">' + esc(r.reason) + '</div>'
+      const description = r.description
+        ? '<div class="label">' + esc(r.description) + '</div>'
         : '';
       const tool =
-        '<div class="field"><span class="k">tool</span> <code>' +
-        esc(r.toolName) + '</code></div>';
+        '<div class="field"><span class="k">name</span> <code>' +
+        esc(r.name) + '</code></div>';
+      const matcher =
+        '<div class="field"><span class="k">matcher</span> <code>' +
+        esc(r.matcher || 'exact') + '</code></div>';
       const action =
         '<div class="field"><span class="k">action</span> <code>' +
-        esc(r.stepupAction) + '</code></div>';
+        esc(r.action || '—') + '</code></div>';
       const resource =
         '<div class="field"><span class="k">resource</span> <code>' +
-        esc(r.stepupResource) + '</code></div>';
+        esc(r.resource || '—') + '</code></div>';
       const actions = readonly
         ? ''
         : '<div class="token-actions">' +
@@ -1293,7 +1263,7 @@ function dashboardHtml(): string {
       return (
         '<div class="token-row">' +
           '<div class="token-top">' +
-            '<div class="token-info">' + reason + idField + tool + action + resource + '</div>' +
+            '<div class="token-info">' + description + idField + labelField + tool + matcher + action + resource + '</div>' +
           '</div>' + actions +
         '</div>'
       );
@@ -1307,7 +1277,7 @@ function dashboardHtml(): string {
           : '<div class="token-empty">No project tool rules yet — ask your agent to add one</div>';
       if (toolEditingId) {
         const el = toolUserListEl.querySelector(
-          '[data-edit-treason="' + toolEditingId + '"]');
+          '[data-edit-tdescription="' + toolEditingId + '"]');
         if (el) { el.focus(); el.select(); }
       }
     }
@@ -1318,19 +1288,19 @@ function dashboardHtml(): string {
     }
 
     async function saveToolRuleEdit(id) {
-      const reasonEl = toolUserListEl.querySelector(
-        '[data-edit-treason="' + id + '"]');
+      const descriptionEl = toolUserListEl.querySelector(
+        '[data-edit-tdescription="' + id + '"]');
       const nameEl = toolUserListEl.querySelector(
         '[data-edit-tname="' + id + '"]');
-      const reason = reasonEl ? reasonEl.value.trim() : "";
-      const toolName = nameEl ? nameEl.value.trim() : "";
-      if (!toolName) { showToolToast("Tool name cannot be empty", "error"); return; }
-      if (!reason) { showToolToast("Reason cannot be empty", "error"); return; }
+      const description = descriptionEl ? descriptionEl.value.trim() : "";
+      const name = nameEl ? nameEl.value.trim() : "";
+      if (!name) { showToolToast("name cannot be empty", "error"); return; }
+      if (!description) { showToolToast("description cannot be empty", "error"); return; }
       try {
         const res = await fetch("/api/tool-rules/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, toolName, reason }),
+          body: JSON.stringify({ id, name, description }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Update failed");
@@ -1369,7 +1339,7 @@ function dashboardHtml(): string {
     });
 
     toolUserListEl.addEventListener("keydown", (e) => {
-      const input = e.target.closest(".tool-edit-reason, .tool-edit-name");
+      const input = e.target.closest(".tool-edit-description, .tool-edit-name");
       if (!input || !toolEditingId) return;
       if (e.key === "Enter") { e.preventDefault(); saveToolRuleEdit(toolEditingId); }
       else if (e.key === "Escape") { toolEditingId = null; renderToolRules(lastToolRules); }
@@ -1578,37 +1548,36 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
         if (method === 'POST' && url === '/api/tool-rules/update') {
           const body = (await readJsonBody(req)) as {
             id?: unknown;
-            toolName?: unknown;
-            reason?: unknown;
+            name?: unknown;
+            description?: unknown;
           };
           const id = typeof body.id === 'string' ? body.id : '';
-          const toolName =
-            typeof body.toolName === 'string'
-              ? body.toolName.trim()
+          const name =
+            typeof body.name === 'string' ? body.name.trim() : undefined;
+          const description =
+            typeof body.description === 'string'
+              ? body.description.trim()
               : undefined;
-          const reason =
-            typeof body.reason === 'string' ? body.reason.trim() : undefined;
           if (!id) {
             sendJson(res, 400, { error: 'id is required' });
             return;
           }
-          if (toolName === undefined && reason === undefined) {
+          if (name === undefined && description === undefined) {
             sendJson(res, 400, {
-              error: 'provide at least one of tool name or reason',
+              error: 'provide at least one of name or description',
             });
             return;
           }
           try {
-            // toolName/reason are the only fields editable from the dashboard.
-            // The RBAC coordinate (stepupResource/stepupAction) is set when the
-            // rule is added via the agent (validated against the backend) and
-            // left untouched here.
             const changes: {
-              toolName?: string;
-              reason?: string;
-            } = { reason };
-            if (toolName !== undefined) {
-              changes.toolName = toolName;
+              name?: string;
+              description?: string;
+            } = {};
+            if (description !== undefined) {
+              changes.description = description;
+            }
+            if (name !== undefined) {
+              changes.name = name;
             }
             const saved = await updateToolRule(id, changes);
             sendJson(res, 200, { ok: true, saved, ...buildToolRulesPayload() });
