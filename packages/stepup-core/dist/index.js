@@ -15,7 +15,7 @@ export { DEFAULT_BACKEND_URL, loadStepupConfig, STEPUP_TTL_MS, } from './config.
 export { DECISION_AUDIT_TAG, DECISION_AUDIT_TIMEOUT_MS, decisionAuditEventOf, sendDecisionAudit, sendGateDecisionAudit, } from './decision-audit.js';
 export { evaluatePreToolUse, } from './evaluate.js';
 export { fingerprintOf, requestStepup, } from './gate.js';
-export { addToolRule, removeToolRule, updateToolRule } from './guard-rules.js';
+export { addToolRule, listGuardRules, removeToolRule, updateToolRule } from './guard-rules.js';
 export { inspectStepupState, } from './inspector.js';
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
 export { clearPending, findPendingBySid, firstActivePending, firstInFlightFpPending, isExpired, listFpPendings, markVerified, readPending, sweepStepup, writePending, } from './pending.js';

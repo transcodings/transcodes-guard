@@ -31,7 +31,7 @@ function formatPatternsMarkdown(patterns: MergedPattern[]): string {
     '# Blocked Bash command patterns',
     '',
     `${patterns.length} pattern(s) intercept Bash invocations before execution.`,
-    'System patterns are immutable. Project bash patterns are stored in the Transcodes backend (policy bundle) and editable through `add_user_pattern` / `update_user_pattern` / `remove_user_pattern`.',
+    'System patterns are immutable. Project bash patterns are stored in the Transcodes backend (policy bundle); register via `add_user_pattern` / edit via `update_user_pattern`. Patterns are created inactive and can only be activated or deleted in the Next.js console.',
     '',
     '| source | id | reason | regex |',
     '| ------ | -- | ------ | ----- |',
@@ -53,7 +53,7 @@ function formatToolRulesMarkdown(rules: MergedToolRule[]): string {
     '# Step-up-protected MCP tool rules',
     '',
     `${rules.length} rule(s) gate MCP tool invocations via the PreToolUse hook.`,
-    'Project rules are managed in the Transcodes backend and editable through the `add_tool_rule`/`update_tool_rule`/`remove_tool_rule` tools. System rules are immutable.',
+    'Project rules are stored in the Transcodes backend; register via `add_tool_rule` / edit via `update_tool_rule`. Rules are created inactive and can only be activated or deleted in the Next.js console. System rules are immutable.',
     '',
     '| source | id | name | label | description | action | resource | matcher |',
     '| ------ | -- | ---- | ----- | ----------- | ------ | -------- | ------- |',
@@ -295,39 +295,6 @@ export function createServer(
           backend.isToolRuleValidationError(e) ||
           backend.isRbacCoordinateError(e)
         ) {
-          return textResult(`Rejected: ${e.message}`, true);
-        }
-        throw e;
-      }
-    },
-  );
-
-  server.registerTool(
-    'remove_user_pattern',
-    {
-      title: 'Remove user danger pattern',
-      description:
-        "Delete an existing user pattern by id. Call when the user asks to remove/삭제/제거/취소 a pattern — e.g. 'no-sudo 패턴 삭제해줘', '내가 추가한 거 빼줘'. System patterns cannot be removed; attempts are rejected.",
-      inputSchema: { id: z.string().min(1) },
-    },
-    async ({ id }) => {
-      try {
-        if (
-          !backend
-            .loadEffectivePatterns()
-            .some((p) => p.id === id && p.source === 'bundle')
-        ) {
-          return textResult(
-            `Rejected: no project bash pattern with id "${id}"`,
-            true,
-          );
-        }
-        await backend.removeToolRule(id);
-        return textResult(
-          `Removed bash pattern \`${id}\` from project policy.`,
-        );
-      } catch (e) {
-        if (backend.isToolRuleValidationError(e)) {
           return textResult(`Rejected: ${e.message}`, true);
         }
         throw e;
@@ -851,7 +818,7 @@ export function createServer(
                 }. ${
                   rolledBack
                     ? `Rolled back the MCP rule \`${saved.id}\`; nothing was saved.`
-                    : `WARNING: could not roll back the MCP rule \`${saved.id}\` — it may still exist. Remove it with remove_tool_rule if unintended.`
+                    : `WARNING: could not roll back the MCP rule \`${saved.id}\` — it may still exist (inactive). Delete it from the Next.js console if unintended.`
                 }`,
                 true,
               );
@@ -984,27 +951,6 @@ export function createServer(
           backend.isToolRuleValidationError(e) ||
           backend.isRbacCoordinateError(e)
         ) {
-          return textResult(`Rejected: ${e.message}`, true);
-        }
-        throw e;
-      }
-    },
-  );
-
-  server.registerTool(
-    'remove_tool_rule',
-    {
-      title: 'Remove MCP tool-rule (project policy)',
-      description:
-        'Delete an existing project tool-rule by id. Call when the user asks to remove/delete/cancel an MCP tool-rule — e.g. "delete the github-delete tool rule", "stop requiring auth for that tool". This is for MCP tool-rules; to delete a Bash command pattern (regex) use `remove_user_pattern` instead. System rules cannot be removed; attempts are rejected. The deletion is persisted to the Transcodes backend and effective on the next policy refresh.',
-      inputSchema: { id: z.string().min(1) },
-    },
-    async ({ id }) => {
-      try {
-        await backend.removeToolRule(id);
-        return textResult(`Removed tool-rule \`${id}\` from project policy.`);
-      } catch (e) {
-        if (backend.isToolRuleValidationError(e)) {
           return textResult(`Rejected: ${e.message}`, true);
         }
         throw e;

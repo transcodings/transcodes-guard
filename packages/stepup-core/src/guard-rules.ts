@@ -17,6 +17,15 @@ import {
   refreshPolicyBundle,
 } from './policy-bundle.js';
 
+/** Full guard rule from `GET /guard/rules` (includes management fields). */
+export type GuardRuleRecord = ToolRule & {
+  status: 'active' | 'inactive';
+  memberId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  metadata?: Record<string, unknown> | null;
+};
+
 function requireConfig(): StepupConfig {
   try {
     return loadStepupConfig();
@@ -38,7 +47,7 @@ function extractBackendError(data: unknown): string | undefined {
 function backendWriteError(
   env: Envelope,
   id: string,
-  op: 'add' | 'update' | 'remove',
+  op: 'add' | 'update' | 'remove' | 'list',
 ): ToolRuleValidationError {
   if (env.status === 409) {
     return new ToolRuleValidationError(`tool-rule "${id}" already exists`);
@@ -94,6 +103,100 @@ function ruleToUpdateBody(
   return body;
 }
 
+function unwrapPayloadArray(data: unknown): unknown[] {
+  if (Array.isArray(data)) return data;
+  if (data !== null && typeof data === 'object' && !Array.isArray(data)) {
+    const payload = (data as { payload?: unknown }).payload;
+    if (Array.isArray(payload)) return payload;
+  }
+  return [];
+}
+
+function parseGuardRuleRecord(raw: unknown): GuardRuleRecord | null {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return null;
+  }
+  const r = raw as Record<string, unknown>;
+  const id = typeof r.id === 'string' ? r.id : '';
+  const type = r.type === 'mcp' || r.type === 'bash' ? r.type : null;
+  const label = typeof r.label === 'string' ? r.label : '';
+  const description = typeof r.description === 'string' ? r.description : '';
+  const name = typeof r.name === 'string' ? r.name : '';
+  const matcher =
+    r.matcher === 'exact' || r.matcher === 'glob' || r.matcher === 'regex'
+      ? r.matcher
+      : type === 'bash'
+        ? 'regex'
+        : 'exact';
+  const status =
+    r.status === 'active' || r.status === 'inactive' ? r.status : null;
+  if (!id || !type || !label || !description || !name || !status) return null;
+  const record: GuardRuleRecord = {
+    id,
+    type,
+    label,
+    description,
+    name,
+    matcher,
+    status,
+  };
+  if (typeof r.action === 'string')
+    record.action = r.action as GuardRuleRecord['action'];
+  if (typeof r.resource === 'string') record.resource = r.resource;
+  if (
+    r.provider === 'claude' ||
+    r.provider === 'codex' ||
+    r.provider === 'cursor' ||
+    r.provider === 'antigravity'
+  ) {
+    record.provider = r.provider;
+  }
+  if (typeof r.memberId === 'string') record.memberId = r.memberId;
+  if (typeof r.createdAt === 'string') record.createdAt = r.createdAt;
+  if (typeof r.updatedAt === 'string') record.updatedAt = r.updatedAt;
+  if (
+    r.metadata !== undefined &&
+    r.metadata !== null &&
+    typeof r.metadata === 'object'
+  ) {
+    record.metadata = r.metadata as Record<string, unknown>;
+  }
+  return record;
+}
+
+/** List every project guard rule (active + inactive) from the backend. */
+export async function listGuardRules(): Promise<GuardRuleRecord[]> {
+  const config = requireConfig();
+  const env = await request(config, {
+    method: 'GET',
+    path: '/guard/rules',
+  });
+  if (!env.ok) {
+    throw backendWriteError(env, '', 'list');
+  }
+  return unwrapPayloadArray(env.data)
+    .map(parseGuardRuleRecord)
+    .filter((r): r is GuardRuleRecord => r !== null);
+}
+
+async function findProjectRule(
+  config: StepupConfig,
+  id: string,
+): Promise<GuardRuleRecord | undefined> {
+  if (systemToolRuleIds().has(id)) return undefined;
+  const cached = readCachedPolicyBundle(config.projectId)?.bundle.rules.find(
+    (r) => r.id === id,
+  );
+  if (cached) {
+    return {
+      ...cached,
+      type: cached.type,
+      status: 'active',
+    };
+  }
+  return (await listGuardRules()).find((r) => r.id === id);
+}
+
 export async function addToolRule(input: ToolRuleInput): Promise<ToolRule> {
   const config = requireConfig();
   const rule = validateNewToolRule(input);
@@ -117,9 +220,7 @@ export async function updateToolRule(
       `id "${id}" is a system tool-rule and cannot be modified`,
     );
   }
-  const existing = readCachedPolicyBundle(config.projectId)?.bundle.rules.find(
-    (r) => r.id === id,
-  );
+  const existing = await findProjectRule(config, id);
   if (!existing) {
     throw new ToolRuleValidationError(`no tool-rule with id "${id}"`);
   }
