@@ -81,6 +81,9 @@ export const denyByDefaultBackend: GateBackend = {
   loadMergedToolRules() {
     return [];
   },
+  loadEffectivePatterns() {
+    return [];
+  },
   findFirstToolRule() {
     return null;
   },

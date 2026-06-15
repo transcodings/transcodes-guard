@@ -106,6 +106,14 @@ export async function pollStepupSessionWait(config, sid, options = {}) {
                 attempts,
             };
         }
+        if (result.status === 'rejected') {
+            return {
+                envelope: result.envelope,
+                outcome: 'rejected',
+                elapsedMs: maxWaitMs - Math.max(0, deadline - Date.now()),
+                attempts,
+            };
+        }
         const remaining = deadline - Date.now();
         if (remaining <= 0) {
             return {

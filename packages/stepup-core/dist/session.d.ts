@@ -37,8 +37,8 @@ export declare function pollStepupSession(config: StepupConfig, sid: string): Pr
 export type WaitStepupResult = {
     /** Last poll's envelope — useful for diagnostics. */
     envelope: Envelope;
-    /** "verified" if reached before deadline, otherwise "timeout". */
-    outcome: 'verified' | 'timeout';
+    /** "verified" | "rejected" if terminal before deadline, otherwise "timeout". */
+    outcome: 'verified' | 'rejected' | 'timeout';
     /** Total elapsed time in ms across all polls. */
     elapsedMs: number;
     /** Number of poll requests issued. */

@@ -22,6 +22,7 @@ import type {
   CreatedStepupSession,
   CreateStepupArgs,
   GateDecision,
+  MergedPattern,
   MergedToolRule,
   PendingState,
   PollStepupResult,
@@ -83,6 +84,8 @@ export interface GateBackend {
 
   // ── server path: tool-rule registry ────────────────────────────────────
   loadMergedToolRules(): MergedToolRule[];
+  /** System baseline + cached bundle bash rules (`type:'bash'`). */
+  loadEffectivePatterns(): MergedPattern[];
   findFirstToolRule(
     toolName: string,
     rules: MergedToolRule[],

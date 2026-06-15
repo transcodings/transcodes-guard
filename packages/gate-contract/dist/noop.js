@@ -58,6 +58,9 @@ export const denyByDefaultBackend = {
     loadMergedToolRules() {
         return [];
     },
+    loadEffectivePatterns() {
+        return [];
+    },
     findFirstToolRule() {
         return null;
     },

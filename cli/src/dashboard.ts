@@ -15,12 +15,8 @@ import {
 import {
   DEFAULT_RBAC_ACTION,
   DEFAULT_RBAC_RESOURCE,
-  loadMergedPatterns,
   type MergedPattern,
-  PatternValidationError,
   type RbacAction,
-  removeUserPattern,
-  updateUserPattern,
 } from '@transcodes-guard/danger-patterns';
 import {
   type MergedToolRule,
@@ -28,6 +24,7 @@ import {
 } from '@transcodes-guard/danger-rules';
 import { buildAdminToolsPayload } from '@transcodes-guard/mcp-server-core/tool-catalog';
 import {
+  loadEffectivePatterns,
   loadEffectiveToolRules,
   parseMemberAccessToken,
   readTokenFromFile,
@@ -127,12 +124,12 @@ type PatternsPayload = {
   user: MergedPattern[];
 };
 
-/** Split the merged danger patterns by source for the dashboard UI. */
+/** Split effective bash patterns by source for the dashboard UI. */
 function buildPatternsPayload(): PatternsPayload {
-  const merged = loadMergedPatterns();
+  const merged = loadEffectivePatterns();
   return {
     system: merged.filter((p) => p.source === 'system'),
-    user: merged.filter((p) => p.source === 'user'),
+    user: merged.filter((p) => p.source === 'bundle'),
   };
 }
 
@@ -1502,11 +1499,35 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
             });
             return;
           }
+          if (
+            !loadEffectivePatterns().some(
+              (p) => p.id === id && p.source === 'bundle',
+            )
+          ) {
+            sendJson(res, 400, {
+              error: `no project bash pattern with id "${id}"`,
+            });
+            return;
+          }
           try {
-            const saved = updateUserPattern(id, { regex, reason });
-            sendJson(res, 200, { ok: true, saved, ...buildPatternsPayload() });
+            const saved = await updateToolRule(id, {
+              type: 'bash',
+              ...(regex !== undefined ? { name: regex, matcher: 'regex' } : {}),
+              ...(reason !== undefined
+                ? { label: reason, description: reason }
+                : {}),
+            });
+            sendJson(res, 200, {
+              ok: true,
+              saved: {
+                id: saved.id,
+                regex: saved.name,
+                reason: saved.description,
+              },
+              ...buildPatternsPayload(),
+            });
           } catch (err) {
-            if (err instanceof PatternValidationError) {
+            if (err instanceof ToolRuleValidationError) {
               sendJson(res, 400, { error: err.message });
               return;
             }
@@ -1522,11 +1543,21 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
             sendJson(res, 400, { error: 'id is required' });
             return;
           }
+          if (
+            !loadEffectivePatterns().some(
+              (p) => p.id === id && p.source === 'bundle',
+            )
+          ) {
+            sendJson(res, 400, {
+              error: `no project bash pattern with id "${id}"`,
+            });
+            return;
+          }
           try {
-            removeUserPattern(id);
+            await removeToolRule(id);
             sendJson(res, 200, { ok: true, ...buildPatternsPayload() });
           } catch (err) {
-            if (err instanceof PatternValidationError) {
+            if (err instanceof ToolRuleValidationError) {
               sendJson(res, 400, { error: err.message });
               return;
             }

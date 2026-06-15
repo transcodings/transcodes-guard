@@ -1,20 +1,14 @@
 import {
-  PatternValidationError,
   ZodFirstPartyTypeKind,
   ZodOptional,
   __commonJS,
   __export,
   __toESM,
-  addUserPattern,
   external_exports,
   findFirstMatch,
   getGateBackend,
-  getUserPatternsPath,
-  loadMergedPatterns,
-  objectType,
-  removeUserPattern,
-  updateUserPattern
-} from "./chunk-LTATFLNO.js";
+  objectType
+} from "./chunk-IKZV3WQJ.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -16970,7 +16964,7 @@ function formatPatternsMarkdown(patterns) {
     "# Blocked Bash command patterns",
     "",
     `${patterns.length} pattern(s) intercept Bash invocations before execution.`,
-    `User patterns live at \`${getUserPatternsPath()}\` and are editable through the \`add_user_pattern\`/\`update_user_pattern\`/\`remove_user_pattern\` tools. System patterns are immutable.`,
+    "System patterns are immutable. Project bash patterns are stored in the Transcodes backend (policy bundle) and editable through `add_user_pattern` / `update_user_pattern` / `remove_user_pattern`.",
     "",
     "| source | id | reason | regex |",
     "| ------ | -- | ------ | ----- |"
@@ -16979,6 +16973,11 @@ function formatPatternsMarkdown(patterns) {
     lines.push(`| ${source} | \`${id}\` | ${reason} | \`${regex}\` |`);
   }
   return lines.join("\n");
+}
+function dismissPendingSession(backend, sid) {
+  const found = backend.findPendingBySid(sid);
+  if (found)
+    backend.clearPending(found.fp);
 }
 function formatToolRulesMarkdown(rules) {
   const lines = [
@@ -17022,14 +17021,14 @@ function createServer(backend = getGateBackend()) {
   }));
   server.registerResource("danger-patterns", "danger-patterns://list", {
     title: "Blocked Bash patterns",
-    description: `Regex patterns the PreToolUse hook uses to block dangerous Bash commands. Merges immutable system patterns (hooks/danger-patterns.json) with user patterns (${getUserPatternsPath()}, JSONC \u2014 comments allowed for hand-edits), read fresh at every request.`,
+    description: "Regex patterns the PreToolUse hook uses to block dangerous Bash commands. Merges immutable system patterns with project bash rules from the signed policy bundle (Transcodes backend).",
     mimeType: "text/markdown"
   }, async (uri) => ({
     contents: [
       {
         uri: uri.href,
         mimeType: "text/markdown",
-        text: formatPatternsMarkdown(loadMergedPatterns())
+        text: formatPatternsMarkdown(backend.loadEffectivePatterns())
       }
     ]
   }));
@@ -17038,7 +17037,7 @@ function createServer(backend = getGateBackend()) {
     description: "Check whether a specific Bash command would be blocked by the PreToolUse hook's regex layer. Call this whenever the user mentions a concrete command and asks if it is dangerous, safe, blocked, intercepted, allowed, or whether the hook/danger-patterns would catch it \u2014 including Korean phrasings like '\uC774 \uBA85\uB839 \uCC28\uB2E8\uB420\uAE4C', '\uC774\uAC70 hook\uC5D0 \uAC78\uB824?', 'rm -rf src \uC2E4\uD589\uD574\uB3C4 \uB3FC?', '\uBBF8\uB9AC \uAC80\uC0AC\uD574\uC918'. ALSO use this as the mandatory verification step (step 2) of the `add_user_pattern` natural-language \u2192 regex workflow: before saving a regex you inferred from a plain-language intent, simulate a should-match example and a should-NOT-match example to catch false positives. Runs against the union of system and user patterns. Does NOT simulate the second-layer `rm -rf` git-tracked check (cwd-dependent), so the hook may still block commands this tool reports as allowed.",
     inputSchema: { command: external_exports.string().min(1) }
   }, async ({ command }) => {
-    const patterns = loadMergedPatterns();
+    const patterns = backend.loadEffectivePatterns();
     const hit = findFirstMatch(command, patterns);
     if (!hit) {
       return textResult(JSON.stringify({
@@ -17055,23 +17054,18 @@ function createServer(backend = getGateBackend()) {
       pattern_id: m.id,
       reason: m.reason,
       regex: m.regex,
-      will_trigger_hook: m.source === "system",
-      note: m.source === "user" ? "User patterns are matched by the simulator but do NOT reliably trigger Claude Code's actual PreToolUse hook. Use only system patterns for live verification." : "System pattern: Claude Code will route a matching Bash command through the PreToolUse hook."
+      will_trigger_hook: true
     }, null, 2));
   });
   server.registerTool("add_user_pattern", {
     title: "Add user danger pattern",
-    description: `Register a new user-owned block pattern that the PreToolUse hook will enforce. Call when the user asks to add/register/block a new pattern, ban a command, or extend danger-patterns \u2014 e.g. '\uD328\uD134 \uCD94\uAC00\uD574\uC918', 'sudo \uB9C9\uC544\uC918', '\uC774\uB7F0 \uBA85\uB839\uB3C4 \uCC28\uB2E8\uB418\uAC8C \uD574\uC918', or a natural-language intent like 'env \uD30C\uC77C \uC62E\uAE30\uB294 \uBA85\uB839 \uB9C9\uC544\uC918' / 'git pull \uD560 \uB54C \uD2B8\uB9AC\uAC70\uD574\uC918'.
+    description: `Register a new project bash block pattern (type bash, regex stored in \`name\`) that the PreToolUse hook enforces. Persisted to the Transcodes backend policy bundle \u2014 not a local file. Call when the user asks to add/register/block a Bash command pattern.
 
-DISAMBIGUATION \u2014 this gate has two registries; pick by what is being matched: a free-form Bash COMMAND STRING (sudo, rm -rf, git push) \u2192 use this tool (regex matching); a specific MCP TOOL CALL identified by its tool name (mcp__<server>__<tool>) \u2192 use \`add_tool_rule\` instead (exact tool_name match). If the user just says "add a rule" without specifying, ask which they mean before calling either tool.
+DISAMIGUATION \u2014 pick by what is being matched: Bash COMMAND STRING \u2192 this tool; MCP TOOL CALL \u2192 \`add_tool_rule\`.
 
-NATURAL-LANGUAGE \u2192 REGEX WORKFLOW (follow in order; you are the translator \u2014 there is no separate conversion engine):
-  1. TRANSLATE the user's plain-language intent into a concrete regex yourself. Anchor on the command's intent (e.g. 'env \uC62E\uAE30\uAE30' \u2192 \\\\b(mv|cp|scp)\\\\b.*\\\\.env\\\\b), not a bare word that is also a common identifier.
-  2. VERIFY with the \`simulate_command\` tool BEFORE saving: run at least one example that SHOULD match and one that should NOT, to confirm the regex catches the intent without false positives.
-  3. CONFIRM with the user: show the proposed regex + reason verbatim and get explicit approval. Never silently save an inferred regex.
-  4. RESOLVE the RBAC coordinate: call \`get_resources\` to fetch valid resource keys, then set \`stepupResource\` (one of those keys) and \`stepupAction\` (create|read|update|delete). The resource is validated against the backend on save.
-  5. SAVE by calling this tool only after approval.
-id must be unique across both system and user patterns; regex must compile. Persisted to ${getUserPatternsPath()} (JSONC) and effective on the next hook invocation.`,
+When adding an MCP tool rule and the same action can be reached via CLI (e.g. \`gh\`, \`git\`, \`curl\`), also register the CLI equivalent here as a separate rule (same id prefix with \`-cli\` suffix is fine).
+
+WORKFLOW: translate intent \u2192 \`simulate_command\` \u2192 confirm with user \u2192 \`get_resources\` for RBAC \u2192 save.`,
     inputSchema: {
       id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
       regex: external_exports.string().min(1),
@@ -17082,14 +17076,23 @@ id must be unique across both system and user patterns; regex must compile. Pers
   }, async (input) => {
     try {
       await backend.assertRbacCoordinate(input.stepupResource, input.stepupAction);
-      const saved = addUserPattern(input);
-      return textResult(`Added user pattern \`${saved.id}\`.
-regex: ${saved.regex}
-reason: ${saved.reason}
-resource: ${saved.stepupResource}
-action: ${saved.stepupAction}`);
+      const saved = await backend.addToolRule({
+        id: input.id,
+        type: "bash",
+        label: input.reason,
+        description: input.reason,
+        name: input.regex,
+        matcher: "regex",
+        resource: input.stepupResource,
+        action: input.stepupAction
+      });
+      return textResult(`Added bash pattern \`${saved.id}\` to project policy.
+regex: ${saved.name}
+reason: ${saved.description}
+resource: ${saved.resource ?? "\u2014"}
+action: ${saved.action ?? "\u2014"}`);
     } catch (e) {
-      if (e instanceof PatternValidationError || backend.isRbacCoordinateError(e)) {
+      if (backend.isToolRuleValidationError(e) || backend.isRbacCoordinateError(e)) {
         return textResult(`Rejected: ${e.message}`, true);
       }
       throw e;
@@ -17097,7 +17100,7 @@ action: ${saved.stepupAction}`);
   });
   server.registerTool("update_user_pattern", {
     title: "Update user danger pattern",
-    description: "Modify regex, reason, or the RBAC step-up coordinate (stepupResource/stepupAction) of an existing user pattern. Call when the user asks to edit/change/\uC218\uC815 a pattern by id \u2014 e.g. 'no-sudo \uD328\uD134 reason \uBC14\uAFD4\uC918', 'regex \uC218\uC815\uD574\uC918'. When changing stepupResource, call `get_resources` first \u2014 the new resource is validated against the backend. System patterns cannot be modified; attempts are rejected. Pass only the fields you want to change.",
+    description: "Modify a project bash pattern (Transcodes backend). System patterns cannot be modified.",
     inputSchema: {
       id: external_exports.string().min(1),
       regex: external_exports.string().min(1).optional(),
@@ -17110,22 +17113,26 @@ action: ${saved.stepupAction}`);
       return textResult("Rejected: provide at least one of `regex`, `reason`, `stepupResource`, or `stepupAction` to update.", true);
     }
     try {
+      if (!backend.loadEffectivePatterns().some((p) => p.id === id && p.source === "bundle")) {
+        return textResult(`Rejected: no project bash pattern with id "${id}"`, true);
+      }
       if (stepupResource !== void 0) {
         await backend.assertRbacCoordinate(stepupResource, stepupAction ?? "update");
       }
-      const saved = updateUserPattern(id, {
-        regex,
-        reason,
-        stepupResource,
-        stepupAction
+      const saved = await backend.updateToolRule(id, {
+        type: "bash",
+        ...regex !== void 0 ? { name: regex, matcher: "regex" } : {},
+        ...reason !== void 0 ? { label: reason, description: reason } : {},
+        ...stepupResource !== void 0 ? { resource: stepupResource } : {},
+        ...stepupAction !== void 0 ? { action: stepupAction } : {}
       });
-      return textResult(`Updated user pattern \`${saved.id}\`.
-regex: ${saved.regex}
-reason: ${saved.reason}
-resource: ${saved.stepupResource}
-action: ${saved.stepupAction}`);
+      return textResult(`Updated bash pattern \`${saved.id}\`.
+regex: ${saved.name}
+reason: ${saved.description}
+resource: ${saved.resource ?? "\u2014"}
+action: ${saved.action ?? "\u2014"}`);
     } catch (e) {
-      if (e instanceof PatternValidationError || backend.isRbacCoordinateError(e)) {
+      if (backend.isToolRuleValidationError(e) || backend.isRbacCoordinateError(e)) {
         return textResult(`Rejected: ${e.message}`, true);
       }
       throw e;
@@ -17137,10 +17144,13 @@ action: ${saved.stepupAction}`);
     inputSchema: { id: external_exports.string().min(1) }
   }, async ({ id }) => {
     try {
-      removeUserPattern(id);
-      return textResult(`Removed user pattern \`${id}\`.`);
+      if (!backend.loadEffectivePatterns().some((p) => p.id === id && p.source === "bundle")) {
+        return textResult(`Rejected: no project bash pattern with id "${id}"`, true);
+      }
+      await backend.removeToolRule(id);
+      return textResult(`Removed bash pattern \`${id}\` from project policy.`);
     } catch (e) {
-      if (e instanceof PatternValidationError) {
+      if (backend.isToolRuleValidationError(e)) {
         return textResult(`Rejected: ${e.message}`, true);
       }
       throw e;
@@ -17180,7 +17190,7 @@ action: ${saved.stepupAction}`);
   });
   server.registerTool("poll_stepup_session", {
     title: "Poll Step-up MFA Session",
-    description: "Single GET against the step-up backend. Returns status 'pending' or 'verified'. On verified the result is cached cross-platform so a subsequent danger command in the hook can pass without re-prompting. Prefer `poll_stepup_session_wait` for the deny-recovery loop \u2014 it blocks until verified in one call instead of requiring 60 manual iterations.",
+    description: "Single GET against the step-up backend. Returns status 'pending', 'verified', or 'rejected'. On verified the result is cached cross-platform so a subsequent danger command in the hook can pass without re-prompting. On rejected the local pending record is cleared so Stop hooks stop reminding. Prefer `poll_stepup_session_wait` for the deny-recovery loop \u2014 it blocks until a terminal status in one call instead of requiring 60 manual iterations.",
     inputSchema: {
       sid: external_exports.string().min(1).describe("Session id returned from create_stepup_session.")
     }
@@ -17190,6 +17200,8 @@ action: ${saved.stepupAction}`);
       const fp = backend.findPendingBySid(sid)?.fp;
       backend.writeVerified({ sid, verifiedAt: Date.now() }, fp);
       backend.markVerified(sid);
+    } else if (result.status === "rejected") {
+      dismissPendingSession(backend, sid);
     }
     return {
       content: [
@@ -17207,7 +17219,7 @@ action: ${saved.stepupAction}`);
   });
   server.registerTool("poll_stepup_session_wait", {
     title: "Wait for Step-up MFA Session",
-    description: 'Block until the step-up session reaches `verified` or the wait window elapses (default 60s, polling every 1s). Use this \u2014 NOT the single-shot `poll_stepup_session` \u2014 as the next action after a PreToolUse deny carrying a step-up sid. One call replaces the 60-iteration polling loop. On `outcome: "verified"` retry the original Bash command; on `outcome: "timeout"` ask the user to complete WebAuthn and call this tool again. Do NOT ask the user to confirm completion before calling this tool \u2014 it waits on the user\'s behalf.',
+    description: 'Block until the step-up session reaches `verified`, `rejected`, or the wait window elapses (default 60s, polling every 1s). Use this \u2014 NOT the single-shot `poll_stepup_session` \u2014 as the next action after a PreToolUse deny carrying a step-up sid. One call replaces the 60-iteration polling loop. On `outcome: "verified"` retry the original Bash command; on `outcome: "timeout"` ask the user to complete WebAuthn and call this tool again; on `outcome: "rejected"` tell the user they declined step-up and do NOT retry the command. Do NOT ask the user to confirm completion before calling this tool \u2014 it waits on the user\'s behalf.',
     inputSchema: {
       sid: external_exports.string().min(1).describe("Session id returned from create_stepup_session."),
       max_wait_ms: external_exports.number().int().positive().max(3e5).optional().describe("Maximum time to wait in ms. Defaults to 60_000."),
@@ -17222,6 +17234,8 @@ action: ${saved.stepupAction}`);
       const fp = backend.findPendingBySid(sid)?.fp;
       backend.writeVerified({ sid, verifiedAt: Date.now() }, fp);
       backend.markVerified(sid);
+    } else if (result.outcome === "rejected") {
+      dismissPendingSession(backend, sid);
     }
     return {
       content: [
@@ -17370,6 +17384,7 @@ WORKFLOW (follow in order):
   3. VERIFY with \`simulate_tool_call\` using that full \`name\` string before saving.
   4. RESOLVE the RBAC coordinate: call \`get_resources\`, then set \`resource\` and \`action\` (create|read|update|delete). Most rules use resource \`system\`.
   5. CONFIRM id, name, label, description, resource, action, and matcher with the user, then SAVE via this tool.
+  6. If the same action can be reached via CLI (gh, git, curl, etc.), pass \`cliRegex\` so a Bash companion rule (\`<id>-cli\`) is registered ATOMICALLY in the same call \u2014 closing the CLI bypass without a second tool call. The companion reuses this rule's label/description/resource/action. (Standalone Bash patterns unrelated to an MCP tool still go through \`add_user_pattern\`.)
 \`id\` is your stable rule key (lowercase slug, unique per project). \`name\` is what the hook matches \u2014 always the full MCP wire name when matcher=exact. Persisted in the Transcodes backend; effective on the next policy refresh.`,
     inputSchema: {
       id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
@@ -17381,22 +17396,67 @@ WORKFLOW (follow in order):
       provider: external_exports.enum(["claude", "codex", "cursor", "antigravity"]).optional().describe("Optional MCP host label (claude/codex/cursor/antigravity). Stored for future use; does not affect matching today."),
       resource: external_exports.string().min(1).describe(TOOL_RULE_RBAC_GUIDANCE),
       action: external_exports.enum(["create", "read", "update", "delete"]).describe("RBAC CRUD action this tool maps onto."),
-      status: external_exports.enum(["active", "inactive"]).default("active")
+      status: external_exports.enum(["active", "inactive"]).default("active"),
+      cliRegex: external_exports.string().min(1).optional().describe("Optional CLI companion. When the same action is reachable via a shell command (gh, git, curl, \u2026), pass a JavaScript regex here and a second Bash rule (id `<id>-cli`, type bash, matcher regex) is created atomically alongside the MCP rule, reusing this rule's label/description/resource/action. If either write fails the pair is rolled back so nothing partial is saved.")
     }
   }, async (input) => {
-    try {
-      if (input.resource !== void 0) {
-        await backend.assertRbacCoordinate(input.resource, input.action ?? "update");
+    const { cliRegex, ...mcpInput } = input;
+    if (cliRegex !== void 0) {
+      try {
+        new RegExp(cliRegex);
+      } catch (e) {
+        return textResult(`Rejected: cliRegex is not a valid JavaScript regex: ${e.message}`, true);
       }
-      const saved = await backend.addToolRule(input);
-      return textResult(`Added tool-rule \`${saved.id}\` to project policy.
+    }
+    try {
+      if (mcpInput.resource !== void 0) {
+        await backend.assertRbacCoordinate(mcpInput.resource, mcpInput.action ?? "update");
+      }
+      const saved = await backend.addToolRule(mcpInput);
+      let companion;
+      if (cliRegex !== void 0) {
+        const companionId = `${saved.id}-cli`;
+        try {
+          companion = await backend.addToolRule({
+            id: companionId,
+            type: "bash",
+            label: saved.label,
+            description: saved.description,
+            name: cliRegex,
+            matcher: "regex",
+            ...saved.resource !== void 0 ? { resource: saved.resource } : {},
+            ...saved.action !== void 0 ? { action: saved.action } : {}
+          });
+        } catch (companionErr) {
+          let rolledBack = true;
+          try {
+            await backend.removeToolRule(saved.id);
+          } catch {
+            rolledBack = false;
+          }
+          if (backend.isToolRuleValidationError(companionErr) || backend.isRbacCoordinateError(companionErr)) {
+            return textResult(`Rejected: CLI companion rule \`${companionId}\` failed \u2014 ${companionErr.message}. ${rolledBack ? `Rolled back the MCP rule \`${saved.id}\`; nothing was saved.` : `WARNING: could not roll back the MCP rule \`${saved.id}\` \u2014 it may still exist. Remove it with remove_tool_rule if unintended.`}`, true);
+          }
+          throw companionErr;
+        }
+      }
+      const mcpLine = `Added tool-rule \`${saved.id}\` to project policy.
 name: ${saved.name}
 label: ${saved.label}
 description: ${saved.description}
 resource: ${saved.resource ?? "\u2014"}
 action: ${saved.action ?? "\u2014"}
 matcher: ${saved.matcher}${saved.provider ? `
-provider: ${saved.provider}` : ""}`);
+provider: ${saved.provider}` : ""}`;
+      if (companion) {
+        return textResult(`${mcpLine}
+
+Also registered CLI companion bash rule \`${companion.id}\` (atomic):
+regex: ${companion.name}
+resource: ${companion.resource ?? "\u2014"}
+action: ${companion.action ?? "\u2014"}`);
+      }
+      return textResult(mcpLine);
     } catch (e) {
       if (backend.isToolRuleValidationError(e) || backend.isRbacCoordinateError(e)) {
         return textResult(`Rejected: ${e.message}`, true);
@@ -17406,7 +17466,7 @@ provider: ${saved.provider}` : ""}`);
   });
   server.registerTool("update_tool_rule", {
     title: "Update MCP tool-rule (project policy)",
-    description: `Modify fields of an existing project tool-rule by id. Call when the user asks to edit/change an MCP tool-rule \u2014 e.g. "change the description of the github-delete rule", "point that tool rule at a different MCP wire name". This is for MCP tool-rules (\`name\` = full wire tool name); to edit a Bash command pattern (regex) use \`update_user_pattern\` instead. System rules cannot be modified. Pass only the fields you want to change. When changing \`name\` to a different MCP tool, FIRST run the existence pre-check: ${MCP_EXISTENCE_PRECHECK} When changing resource, call \`get_resources\` first. Changes persist to the Transcodes backend and take effect on the next policy refresh.`,
+    description: 'Modify fields of an existing project tool-rule by id. Call when the user asks to edit/change an MCP tool-rule \u2014 e.g. "change the description of the github-delete rule", "point that tool rule at a different MCP wire name". This is for MCP tool-rules (`name` = full wire tool name); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified. Pass only the fields you want to change. When changing resource, call `get_resources` first. Changes persist to the Transcodes backend and take effect on the next policy refresh.',
     inputSchema: {
       id: external_exports.string().min(1),
       type: external_exports.literal("mcp").optional(),

@@ -81,7 +81,7 @@ describe('policyBundleSha384 (canonicalization contract)', () => {
   it('matches the pinned hash for the reference body', () => {
     assert.equal(
       policyBundleSha384(makeBundleBody()),
-      '6c8d36a438fe47a9af1f850693ad2c72480e8e60e5c9ec20a3c05a3cbd676d7e3b2c7ca9f7fd35b45ee31354da93e6d1',
+      '6f161609b787b39c6fbf6dc0971ed5c282b23ef3a6586ad4f35f4d4d23d16ebff9bd799464325252ad2c6336d072e8af',
     );
   });
 
@@ -114,7 +114,7 @@ describe('policyBundleSha384 (canonicalization contract)', () => {
     };
     assert.equal(
       policyBundleSha384(body),
-      'c435eceb76c3b5da548e82d5e27d468c70c6346ae56228716c80200837aab3c46668e162cd9ac50f475ef774e9409ef3',
+      'aa0a4f15f86d23977de78e94e758b387569a894c495110e0a9ae7cbb5850ca0295b0a0adb827e8b286298643db471292',
     );
   });
 

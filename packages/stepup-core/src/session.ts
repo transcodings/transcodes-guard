@@ -128,8 +128,8 @@ export async function pollStepupSession(
 export type WaitStepupResult = {
   /** Last poll's envelope — useful for diagnostics. */
   envelope: Envelope;
-  /** "verified" if reached before deadline, otherwise "timeout". */
-  outcome: 'verified' | 'timeout';
+  /** "verified" | "rejected" if terminal before deadline, otherwise "timeout". */
+  outcome: 'verified' | 'rejected' | 'timeout';
   /** Total elapsed time in ms across all polls. */
   elapsedMs: number;
   /** Number of poll requests issued. */
@@ -166,6 +166,14 @@ export async function pollStepupSessionWait(
       return {
         envelope: result.envelope,
         outcome: 'verified',
+        elapsedMs: maxWaitMs - Math.max(0, deadline - Date.now()),
+        attempts,
+      };
+    }
+    if (result.status === 'rejected') {
+      return {
+        envelope: result.envelope,
+        outcome: 'rejected',
         elapsedMs: maxWaitMs - Math.max(0, deadline - Date.now()),
         attempts,
       };

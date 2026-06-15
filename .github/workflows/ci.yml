@@ -183,7 +183,7 @@ jobs:
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
           NOW=$(node -e 'console.log(Date.now())')
-          printf '{"fetchedAt":%s,"bundle":{"schemaVersion":2,"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","type":"mcp","label":"CI bundle","description":"CI bundle smoke","name":"mcp__ci_bundle_tool","matcher":"exact","action":"delete","resource":"system"}]}}' "$NOW" \
+          printf '{"fetchedAt":%s,"bundle":{"schemaVersion":3,"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","type":"mcp","label":"CI bundle","description":"CI bundle smoke","name":"mcp__ci_bundle_tool","matcher":"exact","action":"delete","resource":"system"}]}}' "$NOW" \
             > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
           OUT=$(echo '{"tool_name":"mcp__ci_bundle_tool","tool_input":{"a":1}}' \
             | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
@@ -199,7 +199,7 @@ jobs:
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
           OLD=$(node -e 'console.log(Date.now()-7200000)')
-          printf '{"fetchedAt":%s,"bundle":{"schemaVersion":2,"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","type":"mcp","label":"CI bundle","description":"CI bundle smoke","name":"mcp__ci_bundle_tool","matcher":"exact","action":"delete","resource":"system"}]}}' "$OLD" \
+          printf '{"fetchedAt":%s,"bundle":{"schemaVersion":3,"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","type":"mcp","label":"CI bundle","description":"CI bundle smoke","name":"mcp__ci_bundle_tool","matcher":"exact","action":"delete","resource":"system"}]}}' "$OLD" \
             > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
           OUT=$(echo '{"tool_name":"mcp__ci_bundle_tool","tool_input":{"a":1}}' \
             | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node public/plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")

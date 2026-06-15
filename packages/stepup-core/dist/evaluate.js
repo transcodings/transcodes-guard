@@ -14,18 +14,18 @@
  */
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { DEFAULT_RBAC_RESOURCE, findFirstMatch, loadMergedPatterns, } from '@transcodes-guard/danger-patterns';
+import { DEFAULT_RBAC_RESOURCE, findFirstMatch, } from '@transcodes-guard/danger-patterns';
 import { findFirstToolRule, mcpConsumesInHook, } from '@transcodes-guard/danger-rules';
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, requestStepup } from './gate.js';
 import { clearPending } from './pending.js';
-import { loadEffectiveToolRules } from './policy-bundle.js';
+import { loadEffectivePatterns, loadEffectiveToolRules, } from './policy-bundle.js';
 import { checkRbacPermission } from './rbac-check.js';
 import { pollStepupSession } from './session.js';
 import { consumeVerified, readVerified } from './store.js';
 import { resolveToken } from './token-store.js';
 function checkPatternMatch(command) {
-    const hit = findFirstMatch(command, loadMergedPatterns());
+    const hit = findFirstMatch(command, loadEffectivePatterns());
     if (!hit)
         return null;
     const { source, id, reason, stepupResource, stepupAction } = hit.matched;
