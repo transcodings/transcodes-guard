@@ -1,4 +1,3 @@
-import { coerceRbacAction, coerceRbacResource, } from './rbac.js';
 // System rules are embedded at build time (static import → bundler inlines the
 // JSON). This is mandatory because plugins ship as tsup bundles where a runtime
 // `import.meta.url`-relative read would resolve to the bundle's location, not
@@ -6,6 +5,7 @@ import { coerceRbacAction, coerceRbacResource, } from './rbac.js';
 import systemPatternsData from './data/danger-patterns.json' with {
     type: 'json'
 };
+import { coerceRbacAction, coerceRbacResource, } from './rbac.js';
 export function loadSystemPatterns() {
     return { patterns: [...systemPatternsData.patterns] };
 }

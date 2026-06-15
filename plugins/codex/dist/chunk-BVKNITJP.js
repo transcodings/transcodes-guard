@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "claude-code";
+process.env.TRANSCODES_GUARD_HOST = "codex";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -238,20 +238,6 @@ function getGateBackend() {
   return current ?? denyByDefaultBackend;
 }
 
-// ../../packages/danger-patterns/dist/rbac.js
-var RBAC_ACTIONS = ["create", "read", "update", "delete"];
-var DEFAULT_RBAC_RESOURCE = "system";
-var DEFAULT_RBAC_ACTION = "update";
-function isRbacAction(value) {
-  return typeof value === "string" && RBAC_ACTIONS.includes(value);
-}
-function coerceRbacAction(value) {
-  return isRbacAction(value) ? value : DEFAULT_RBAC_ACTION;
-}
-function coerceRbacResource(value) {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : DEFAULT_RBAC_RESOURCE;
-}
-
 // ../../packages/danger-patterns/dist/data/danger-patterns.json
 var danger_patterns_default = {
   patterns: [
@@ -306,6 +292,20 @@ var danger_patterns_default = {
     }
   ]
 };
+
+// ../../packages/danger-patterns/dist/rbac.js
+var RBAC_ACTIONS = ["create", "read", "update", "delete"];
+var DEFAULT_RBAC_RESOURCE = "system";
+var DEFAULT_RBAC_ACTION = "update";
+function isRbacAction(value) {
+  return typeof value === "string" && RBAC_ACTIONS.includes(value);
+}
+function coerceRbacAction(value) {
+  return isRbacAction(value) ? value : DEFAULT_RBAC_ACTION;
+}
+function coerceRbacResource(value) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : DEFAULT_RBAC_RESOURCE;
+}
 
 // ../../packages/danger-patterns/dist/danger-patterns.js
 function loadSystemPatterns() {

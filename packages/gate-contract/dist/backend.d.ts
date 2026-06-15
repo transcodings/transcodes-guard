@@ -18,7 +18,7 @@
  * (instanceof would require exporting the class).
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { CreatedStepupSession, CreateStepupArgs, GateDecision, MergedToolRule, PendingState, PollStepupResult, MergedPattern, StepupStateInspection, ToolCallInput, ToolRule, ToolRuleChanges, ToolRuleInput, ToolRuleMatch, VerifiedStepup, WaitStepupResult } from './types.js';
+import type { CreatedStepupSession, CreateStepupArgs, GateDecision, MergedPattern, MergedToolRule, PendingState, PollStepupResult, StepupStateInspection, ToolCallInput, ToolRule, ToolRuleChanges, ToolRuleInput, ToolRuleMatch, VerifiedStepup, WaitStepupResult } from './types.js';
 export interface GateBackend {
     evaluatePreToolUse(input: ToolCallInput): Promise<GateDecision>;
     /** Caller writes the pending record AFTER emitting deny (fail-safe order). */

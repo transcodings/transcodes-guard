@@ -12,8 +12,8 @@
  * The public side (hooks + mcp-server-core) imports only these types, never the
  * private packages, so it type-checks and builds standalone.
  */
-import type { RbacAction, MergedPattern } from '@transcodes-guard/danger-patterns';
-export type { RbacAction, MergedPattern };
+import type { MergedPattern, RbacAction } from '@transcodes-guard/danger-patterns';
+export type { MergedPattern, RbacAction };
 /** A parsed PreToolUse tool call (host-neutral). Mirrors evaluate.ts. */
 export interface ToolCallInput {
     toolName: string;

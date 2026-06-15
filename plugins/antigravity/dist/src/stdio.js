@@ -9,7 +9,7 @@ import {
   findFirstMatch,
   getGateBackend,
   objectType
-} from "../chunk-W6IOIEC7.js";
+} from "../chunk-2YS7DGWV.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17150,13 +17150,7 @@ function createServer(backend = getGateBackend()) {
   });
   server.registerTool("add_user_pattern", {
     title: "Add user danger pattern",
-    description: `Register a new project bash block pattern (type bash, regex stored in \`name\`) that the PreToolUse hook enforces. Persisted to the Transcodes backend policy bundle \u2014 not a local file. Call when the user asks to add/register/block a Bash command pattern.
-
-DISAMIGUATION \u2014 pick by what is being matched: Bash COMMAND STRING \u2192 this tool; MCP TOOL CALL \u2192 \`add_tool_rule\`.
-
-When adding an MCP tool rule and the same action can be reached via CLI (e.g. \`gh\`, \`git\`, \`curl\`), also register the CLI equivalent here as a separate rule (same id prefix with \`-cli\` suffix is fine).
-
-WORKFLOW: translate intent \u2192 \`simulate_command\` \u2192 confirm with user \u2192 \`get_resources\` for RBAC \u2192 save.`,
+    description: "Register a new project bash block pattern (type bash, regex stored in `name`) that the PreToolUse hook enforces. Persisted to the Transcodes backend policy bundle \u2014 not a local file. Call when the user asks to add/register/block a Bash command pattern.\n\nDISAMIGUATION \u2014 pick by what is being matched: Bash COMMAND STRING \u2192 this tool; MCP TOOL CALL \u2192 `add_tool_rule`.\n\nWhen adding an MCP tool rule and the same action can be reached via CLI (e.g. `gh`, `git`, `curl`), also register the CLI equivalent here as a separate rule (same id prefix with `-cli` suffix is fine).\n\nWORKFLOW: translate intent \u2192 `simulate_command` \u2192 confirm with user \u2192 `get_resources` for RBAC \u2192 save.",
     inputSchema: {
       id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
       regex: external_exports.string().min(1),
@@ -17325,7 +17319,7 @@ action: ${saved.action ?? "\u2014"}`);
       const fp = backend.findPendingBySid(sid)?.fp;
       backend.writeVerified({ sid, verifiedAt: Date.now() }, fp);
       backend.markVerified(sid);
-    } else if (result.outcome === "rejected") {
+    } else {
       dismissPendingSession(backend, sid);
     }
     return {

@@ -113,7 +113,7 @@ export function createServer(backend = getGateBackend()) {
     });
     server.registerTool('add_user_pattern', {
         title: 'Add user danger pattern',
-        description: `Register a new project bash block pattern (type bash, regex stored in \`name\`) that the PreToolUse hook enforces. Persisted to the Transcodes backend policy bundle — not a local file. Call when the user asks to add/register/block a Bash command pattern.\n\nDISAMIGUATION — pick by what is being matched: Bash COMMAND STRING → this tool; MCP TOOL CALL → \`add_tool_rule\`.\n\nWhen adding an MCP tool rule and the same action can be reached via CLI (e.g. \`gh\`, \`git\`, \`curl\`), also register the CLI equivalent here as a separate rule (same id prefix with \`-cli\` suffix is fine).\n\nWORKFLOW: translate intent → \`simulate_command\` → confirm with user → \`get_resources\` for RBAC → save.`,
+        description: 'Register a new project bash block pattern (type bash, regex stored in `name`) that the PreToolUse hook enforces. Persisted to the Transcodes backend policy bundle — not a local file. Call when the user asks to add/register/block a Bash command pattern.\n\nDISAMIGUATION — pick by what is being matched: Bash COMMAND STRING → this tool; MCP TOOL CALL → `add_tool_rule`.\n\nWhen adding an MCP tool rule and the same action can be reached via CLI (e.g. `gh`, `git`, `curl`), also register the CLI equivalent here as a separate rule (same id prefix with `-cli` suffix is fine).\n\nWORKFLOW: translate intent → `simulate_command` → confirm with user → `get_resources` for RBAC → save.',
         inputSchema: {
             id: z
                 .string()
@@ -150,7 +150,7 @@ export function createServer(backend = getGateBackend()) {
     });
     server.registerTool('update_user_pattern', {
         title: 'Update user danger pattern',
-        description: "Modify a project bash pattern (Transcodes backend). System patterns cannot be modified.",
+        description: 'Modify a project bash pattern (Transcodes backend). System patterns cannot be modified.',
         inputSchema: {
             id: z.string().min(1),
             regex: z.string().min(1).optional(),
@@ -321,7 +321,7 @@ export function createServer(backend = getGateBackend()) {
             '`outcome: "timeout"` ask the user to complete WebAuthn and call this ' +
             'tool again; on `outcome: "rejected"` tell the user they declined step-up ' +
             'and do NOT retry the command. Do NOT ask the user to confirm completion ' +
-            'before calling this tool — it waits on the user\'s behalf.',
+            "before calling this tool — it waits on the user's behalf.",
         inputSchema: {
             sid: z
                 .string()
@@ -352,7 +352,9 @@ export function createServer(backend = getGateBackend()) {
             backend.writeVerified({ sid, verifiedAt: Date.now() }, fp);
             backend.markVerified(sid);
         }
-        else if (result.outcome === 'rejected') {
+        else {
+            // rejected OR timeout: drop the pending record so the Stop hook
+            // stops re-emitting the "still PENDING" reminder every turn.
             dismissPendingSession(backend, sid);
         }
         return {
@@ -570,7 +572,7 @@ export function createServer(backend = getGateBackend()) {
                 .string()
                 .min(1)
                 .optional()
-                .describe('Optional CLI companion. When the same action is reachable via a shell command (gh, git, curl, …), pass a JavaScript regex here and a second Bash rule (id `<id>-cli`, type bash, matcher regex) is created atomically alongside the MCP rule, reusing this rule\'s label/description/resource/action. If either write fails the pair is rolled back so nothing partial is saved.'),
+                .describe("Optional CLI companion. When the same action is reachable via a shell command (gh, git, curl, …), pass a JavaScript regex here and a second Bash rule (id `<id>-cli`, type bash, matcher regex) is created atomically alongside the MCP rule, reusing this rule's label/description/resource/action. If either write fails the pair is rolled back so nothing partial is saved."),
         },
     }, async (input) => {
         const { cliRegex, ...mcpInput } = input;

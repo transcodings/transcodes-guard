@@ -206,7 +206,11 @@ export function createServer(
           action: input.stepupAction,
         });
         return textResult(
-          `Added bash pattern \`${saved.id}\` to project policy.\nregex: ${saved.name}\nreason: ${saved.description}\nresource: ${saved.resource ?? '—'}\naction: ${saved.action ?? '—'}`,
+          `Added bash pattern \`${saved.id}\` to project policy.\nregex: ${
+            saved.name
+          }\nreason: ${saved.description}\nresource: ${
+            saved.resource ?? '—'
+          }\naction: ${saved.action ?? '—'}`,
         );
       } catch (e) {
         if (
@@ -280,7 +284,11 @@ export function createServer(
           ...(stepupAction !== undefined ? { action: stepupAction } : {}),
         });
         return textResult(
-          `Updated bash pattern \`${saved.id}\`.\nregex: ${saved.name}\nreason: ${saved.description}\nresource: ${saved.resource ?? '—'}\naction: ${saved.action ?? '—'}`,
+          `Updated bash pattern \`${saved.id}\`.\nregex: ${
+            saved.name
+          }\nreason: ${saved.description}\nresource: ${
+            saved.resource ?? '—'
+          }\naction: ${saved.action ?? '—'}`,
         );
       } catch (e) {
         if (
@@ -484,7 +492,9 @@ export function createServer(
         const fp = backend.findPendingBySid(sid)?.fp;
         backend.writeVerified({ sid, verifiedAt: Date.now() }, fp);
         backend.markVerified(sid);
-      } else if (result.outcome === 'rejected') {
+      } else {
+        // rejected OR timeout: drop the pending record so the Stop hook
+        // stops re-emitting the "still PENDING" reminder every turn.
         dismissPendingSession(backend, sid);
       }
       return {
@@ -850,13 +860,13 @@ export function createServer(
           }
         }
 
-        const mcpLine = `Added tool-rule \`${saved.id}\` to project policy.\nname: ${
-          saved.name
-        }\nlabel: ${saved.label}\ndescription: ${
-          saved.description
-        }\nresource: ${saved.resource ?? '—'}\naction: ${
-          saved.action ?? '—'
-        }\nmatcher: ${saved.matcher}${
+        const mcpLine = `Added tool-rule \`${
+          saved.id
+        }\` to project policy.\nname: ${saved.name}\nlabel: ${
+          saved.label
+        }\ndescription: ${saved.description}\nresource: ${
+          saved.resource ?? '—'
+        }\naction: ${saved.action ?? '—'}\nmatcher: ${saved.matcher}${
           saved.provider ? `\nprovider: ${saved.provider}` : ''
         }`;
         if (companion) {
