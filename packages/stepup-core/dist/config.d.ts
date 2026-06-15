@@ -1,5 +1,5 @@
 /** Backend default — matches transcodes-mcp-server constants. Override with TRANSCODES_BACKEND_URL. */
-export declare const DEFAULT_BACKEND_URL = "https://api.transcodesapis.com";
+export declare const DEFAULT_BACKEND_URL = "http://localhost:3500";
 /** Step-up validity window. Mirrors the backend TTL used by transcodes. */
 export declare const STEPUP_TTL_MS: number;
 export type StepupConfig = {

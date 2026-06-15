@@ -14,7 +14,7 @@ import {
   objectType,
   removeUserPattern,
   updateUserPattern
-} from "./chunk-DVYUMYYI.js";
+} from "./chunk-LTATFLNO.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -16963,7 +16963,8 @@ var PLUGIN_VERSION = "0.15.1";
 // ../../packages/mcp-server-core/dist/server.js
 var RBAC_ACTION_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first to fetch valid resource keys, then pass `stepupResource` (must match one of those keys; validated against the backend) and `stepupAction` (CRUD). System rules use resource `system`. This maps the rule onto the project's RBAC permission matrix and audit log.";
 var TOOL_RULE_RBAC_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first, then pass `resource` (must match a valid key) and `action` (create|read|update|delete). System rules use resource `system`.";
-var MCP_TOOL_NAME_GUIDANCE = "MCP tool name as emitted by the host PreToolUse hook (full wire name). Call simulate_tool_call with the same string to verify before saving.";
+var MCP_TOOL_NAME_GUIDANCE = "MCP tool name as emitted by the host PreToolUse hook (full wire name). Call simulate_tool_call with the same string to verify before saving. Before saving, also confirm this MCP tool is actually connected to the host (see the add_tool_rule existence pre-check) \u2014 never register a rule for an MCP that is not available.";
+var MCP_EXISTENCE_PRECHECK = "MCP EXISTENCE PRE-CHECK (mandatory, do this FIRST): a rule must only be registered for an MCP tool that is actually connected to THIS host. Inspect your own available-tools list and confirm the target MCP server/tool is present \u2014 e.g. before adding a Google Calendar rule, verify a Google Calendar MCP tool (mcp__..._google_calendar__...) is actually available in this agent (this applies to every host: Claude Code / Codex / Cursor / Antigravity). If the MCP is NOT connected, you MUST REFUSE: do not call add_tool_rule, and tell the user the rule was rejected because the MCP is not connected to this host. Only proceed when the MCP is confirmed present.";
 function formatPatternsMarkdown(patterns) {
   const lines = [
     "# Blocked Bash command patterns",
@@ -17364,10 +17365,11 @@ DISAMBIGUATION \u2014 this gate has two registries; pick by what is being matche
 If the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.
 
 WORKFLOW (follow in order):
-  1. RESOLVE the exact wire tool name from the host (e.g. mcp__github__delete_repository, mcp__plugin_<plugin>_<server>__<tool>). Do not guess \u2014 confirm with the user or read it from the host's available tools list.
-  2. VERIFY with \`simulate_tool_call\` using that full \`name\` string before saving.
-  3. RESOLVE the RBAC coordinate: call \`get_resources\`, then set \`resource\` and \`action\` (create|read|update|delete). Most rules use resource \`system\`.
-  4. CONFIRM id, name, label, description, resource, action, and matcher with the user, then SAVE via this tool.
+  1. ${MCP_EXISTENCE_PRECHECK}
+  2. RESOLVE the exact wire tool name from the host (e.g. mcp__github__delete_repository, mcp__plugin_<plugin>_<server>__<tool>). Do not guess \u2014 confirm with the user or read it from the host's available tools list.
+  3. VERIFY with \`simulate_tool_call\` using that full \`name\` string before saving.
+  4. RESOLVE the RBAC coordinate: call \`get_resources\`, then set \`resource\` and \`action\` (create|read|update|delete). Most rules use resource \`system\`.
+  5. CONFIRM id, name, label, description, resource, action, and matcher with the user, then SAVE via this tool.
 \`id\` is your stable rule key (lowercase slug, unique per project). \`name\` is what the hook matches \u2014 always the full MCP wire name when matcher=exact. Persisted in the Transcodes backend; effective on the next policy refresh.`,
     inputSchema: {
       id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
@@ -17404,7 +17406,7 @@ provider: ${saved.provider}` : ""}`);
   });
   server.registerTool("update_tool_rule", {
     title: "Update MCP tool-rule (project policy)",
-    description: 'Modify fields of an existing project tool-rule by id. Call when the user asks to edit/change an MCP tool-rule \u2014 e.g. "change the description of the github-delete rule", "point that tool rule at a different MCP wire name". This is for MCP tool-rules (`name` = full wire tool name); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified. Pass only the fields you want to change. When changing resource, call `get_resources` first. Changes persist to the Transcodes backend and take effect on the next policy refresh.',
+    description: `Modify fields of an existing project tool-rule by id. Call when the user asks to edit/change an MCP tool-rule \u2014 e.g. "change the description of the github-delete rule", "point that tool rule at a different MCP wire name". This is for MCP tool-rules (\`name\` = full wire tool name); to edit a Bash command pattern (regex) use \`update_user_pattern\` instead. System rules cannot be modified. Pass only the fields you want to change. When changing \`name\` to a different MCP tool, FIRST run the existence pre-check: ${MCP_EXISTENCE_PRECHECK} When changing resource, call \`get_resources\` first. Changes persist to the Transcodes backend and take effect on the next policy refresh.`,
     inputSchema: {
       id: external_exports.string().min(1),
       type: external_exports.literal("mcp").optional(),
