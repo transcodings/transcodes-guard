@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.15.2](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.15.1...transcodes-guard-v0.15.2) (2026-06-16)
+
+
+### Bug Fixes
+
+* **ci:** repoint smoke + publish-surface paths after public/private flatten ([fb65c6a](https://github.com/transcodings/ai-action-tracker-mcp/commit/fb65c6a6f48accb81a50feb5177140b59b9bb947))
+* **plugins:** align host manifests + unify FSL-1.1-ALv2 license ([aa7f658](https://github.com/transcodings/ai-action-tracker-mcp/commit/aa7f658641ce8a2d0c65a2dd168c2555a24fa339))
+* **plugins:** 호스트 매니페스트·라이선스 정합 + flatten 잔재 CI 경로 복구 ([15bb268](https://github.com/transcodings/ai-action-tracker-mcp/commit/15bb2683ce9fa713e979c28896a6dd058480a5e9))
+
 ## [0.15.1](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.15.0...transcodes-guard-v0.15.1) (2026-06-14)
 
 
