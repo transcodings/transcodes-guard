@@ -47,6 +47,9 @@ import { LOGO_DATA_URI } from './logo.js';
 
 const DEFAULT_PORT = 3847;
 const HOST = '127.0.0.1';
+/** Temporary Mux playback id for the Guideline onboarding video. */
+const GUIDELINE_MUX_PLAYBACK_ID =
+  'casfZaFga7qFXY00101kC8SvfIezi6GC01LuelfCjvpxog';
 
 type TokenEntry = {
   /** Short fingerprint — used as the client-side id so full JWTs need not be
@@ -734,6 +737,81 @@ function dashboardHtml(): string {
       line-height: 1.5;
       margin: 0;
     }
+    .guide-video {
+      margin: 0 0 22px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #000;
+      aspect-ratio: 16 / 9;
+      box-shadow: 0 8px 28px rgba(22, 22, 26, 0.08);
+    }
+    .guide-video mux-player {
+      width: 100%;
+      height: 100%;
+      display: block;
+      --media-accent-color: #5b54e6;
+      --controls-backdrop-color: transparent;
+      --media-control-background: transparent;
+      --media-control-hover-background: rgb(0 0 0 / 25%);
+    }
+    /* Letterbox only — do not touch video or controls backdrop in normal view */
+    .guide-video mux-player:fullscreen,
+    .guide-video mux-player:-webkit-full-screen {
+      --media-background-color: #f4f4f6;
+      background: #f4f4f6;
+    }
+    .guide-steps {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .guide-step {
+      display: flex;
+      gap: 14px;
+      padding: 14px 16px;
+      background: #fbfbfc;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+    .guide-step-num {
+      flex: 0 0 28px;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .guide-step-body { min-width: 0; }
+    .guide-step-title {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--ink);
+      margin: 0 0 4px;
+    }
+    .guide-step-desc {
+      font-size: var(--text-sm);
+      color: var(--muted);
+      line-height: 1.5;
+      margin: 0;
+    }
+    .guide-step-desc code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: var(--text-2xs);
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
     .toast {
       margin-top: 14px;
       padding: 12px 16px;
@@ -760,6 +838,7 @@ function dashboardHtml(): string {
       color: #8a8a94;
     }
   </style>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
 </head>
 <body>
   <div class="card">
@@ -771,12 +850,79 @@ function dashboardHtml(): string {
       </div>
     </div>
     <div class="tabs">
-      <button type="button" class="tab active" data-tab="tokens">Tokens</button>
+      <button type="button" class="tab active" data-tab="guideline">Guideline</button>
+      <button type="button" class="tab" data-tab="tokens">Tokens</button>
       <button type="button" class="tab" data-tab="rules">Rules</button>
       <button type="button" class="tab" data-tab="cli">CLI Commands</button>
     </div>
 
-    <div class="panel active" id="panel-tokens">
+    <div class="panel active" id="panel-guideline">
+      <p class="section-title">Getting Started</p>
+      <p class="section-sub">New to Transcodes? Watch the walkthrough, then follow the steps below</p>
+      <div class="guide-video">
+        <mux-player
+          playback-id="${GUIDELINE_MUX_PLAYBACK_ID}"
+          stream-type="on-demand"
+          accent-color="#5b54e6"
+          primary-color="#ffffff"
+          metadata-video-title="Transcodes CLI onboarding"
+        ></mux-player>
+      </div>
+      <p class="list-label">Quick setup</p>
+      <ol class="guide-steps">
+        <li class="guide-step">
+          <span class="guide-step-num">1</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Create a project</p>
+            <p class="guide-step-desc">In the Transcodes web console, create a new project for your app</p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">2</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Create an authentication cluster</p>
+            <p class="guide-step-desc">Add an authentication cluster to the project to define how members sign in and authenticate</p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">3</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Add a member</p>
+            <p class="guide-step-desc">Invite or add a member to the project so they can be issued an access token</p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">4</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Issue an access token</p>
+            <p class="guide-step-desc">Open the member detail page and issue a Member Access Token (MAT) for the agent</p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">5</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Add it here in the CLI dashboard</p>
+            <p class="guide-step-desc">Paste the token in the Tokens tab with a label (e.g. <code>transcodes-myapp-dev</code>) — the plugin reads it from <code>~/.transcodes/config.json</code></p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">6</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Ask your local agent to add a custom rule</p>
+            <p class="guide-step-desc">From your agent, request a guard rule (e.g. <code>add_tool_rule</code> / <code>add_user_pattern</code>) — it is registered as <code>inactive</code></p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">7</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Approve it in the console</p>
+            <p class="guide-step-desc">Switch the rule to <code>active</code> in the Transcodes web console — only then is it enforced</p>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="panel" id="panel-tokens">
       <p class="section-title">MCP Agent Token</p>
       <p class="section-sub">Paste the token from your Transcodes console member detail page</p>
       <textarea id="token" placeholder="eyJhbGciOi…" spellcheck="false" autocomplete="off"></textarea>
@@ -806,24 +952,23 @@ function dashboardHtml(): string {
     <div class="panel" id="panel-rules">
       <p id="policy-token-warning" class="policy-token-warning" hidden>transcodes를 로컬 에이전트에서 이용하기 위해선 토큰이 하나 이상 등록이 되어야 합니다</p>
       <div class="tabs sub-tabs" role="tablist" aria-label="Rule type">
-        <button type="button" class="tab active" data-policy="project" role="tab">Project rules</button>
+        <button type="button" class="tab active" data-policy="project" role="tab">Project Rules</button>
         <button type="button" class="tab" data-policy="admin" role="tab">Admin MCP</button>
       </div>
       <div class="policy-pane active" id="policy-pane-project">
         <p class="section-title">Step-up Guard Rules</p>
-        <p class="section-sub">When an active rule matches an agent action, Transcodes step-up authentication is triggered. Rules are registered only from your local agent; activating and deleting them is done in the Transcodes web console.</p>
+        <p class="section-sub">When an active rule matches an agent action, Transcodes step-up authentication is triggered. Rules are registered only from your local agent; activating and deleting them is done in the Transcodes web console</p>
         <div class="usage">
           <p class="usage-title">How rules work</p>
           <ol class="usage-steps">
-            <li><strong>Register from the local agent only.</strong> Ask your agent to call <code>add_tool_rule</code> (MCP tool, full wire name in <code>name</code>) or <code>add_user_pattern</code> (Bash regex, verified with <code>simulate_command</code>). The console cannot create rules.</li>
-            <li><strong>New rules are inactive.</strong> A registered rule has no effect until you switch it to <code>active</code> in the Transcodes web console — only then is it enforced.</li>
-            <li><strong>Deleting is web-console-only.</strong> Neither the agent nor this dashboard can delete rules; remove them in the Transcodes web console.</li>
-            <li><strong>Bash pairs with MCP only when bypassable.</strong> A Bash rule is registered alongside an MCP tool rule only when the same action can be invoked through a CLI (e.g. <code>gh</code>, <code>git</code>, <code>curl</code>); otherwise just the MCP rule is created.</li>
+            <li><strong>Register from the local agent only</strong> Ask your agent to call <code>add_tool_rule</code> (MCP tool, full wire name in <code>name</code>) or <code>add_user_pattern</code> (Bash regex, verified with <code>simulate_command</code>). The console cannot create rules</li>
+            <li><strong>New rules are inactive</strong> A registered rule has no effect until you switch it to <code>active</code> in the Transcodes web console — only then is it enforced</li>
+            <li><strong>Deleting is web-console-only</strong> Neither the agent nor this dashboard can delete rules; remove them in the Transcodes web console</li>
+            <li><strong>Bash pairs with MCP only when bypassable</strong> A Bash rule is registered alongside an MCP tool rule only when the same action can be invoked through a CLI (e.g. <code>gh</code>, <code>git</code>, <code>curl</code>); otherwise just the MCP rule is created</li>
           </ol>
           <div class="usage-prompt">
             <span class="q">Just say this to your agent in plain language →</span><br />
-            <strong class="usage-example">"Google Calendar 일정 추가하는 transcodes custom rule 을 만들어줘"</strong><br />
-            <span class="q">(or "make a transcodes rule for Google Calendar create_event")</span><br />
+            <strong class="usage-example">"Create a transcodes custom rule for adding a Google Calendar event"</strong><br />
             <span class="q">→ the agent registers it as <code>inactive</code>; activate it in the Transcodes web console to start enforcing</span>
           </div>
         </div>
