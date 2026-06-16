@@ -122,7 +122,9 @@ function parseGuardRuleRecord(raw) {
         record.createdAt = r.createdAt;
     if (typeof r.updatedAt === 'string')
         record.updatedAt = r.updatedAt;
-    if (r.metadata !== undefined && r.metadata !== null && typeof r.metadata === 'object') {
+    if (r.metadata !== undefined &&
+        r.metadata !== null &&
+        typeof r.metadata === 'object') {
         record.metadata = r.metadata;
     }
     return record;

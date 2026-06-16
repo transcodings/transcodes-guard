@@ -49,7 +49,7 @@ const DEFAULT_PORT = 3847;
 const HOST = '127.0.0.1';
 /** Temporary Mux playback id for the Guideline onboarding video. */
 const GUIDELINE_MUX_PLAYBACK_ID =
-  'casfZaFga7qFXY00101kC8SvfIezi6GC01LuelfCjvpxog';
+  'kGqw1lDd4stSZmYsswFuw02EeFnCtBwgGj6HCJxIb4Vc';
 
 type TokenEntry = {
   /** Short fingerprint — used as the client-side id so full JWTs need not be
@@ -812,6 +812,26 @@ function dashboardHtml(): string {
       padding: 1px 6px;
       border-radius: 6px;
     }
+    .guide-help {
+      margin: 0 0 18px;
+      padding: 16px 18px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(91, 84, 230, 0.18);
+      border-radius: 14px;
+    }
+    .guide-help-line {
+      margin: 0;
+      font-size: var(--text-sm);
+      color: #4a4a52;
+      line-height: 1.6;
+    }
+    .guide-help-line + .guide-help-line { margin-top: 6px; }
+    .guide-help-line a {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .guide-help-line a:hover { text-decoration: underline; }
     .toast {
       margin-top: 14px;
       padding: 12px 16px;
@@ -859,6 +879,10 @@ function dashboardHtml(): string {
     <div class="panel active" id="panel-guideline">
       <p class="section-title">Getting Started</p>
       <p class="section-sub">New to Transcodes? Watch the walkthrough, then follow the steps below</p>
+      <div class="guide-help">
+        <p class="guide-help-line">Questions or trouble setting up? <a href="https://www.transcodes.io/booking" target="_blank" rel="noopener noreferrer">Book a schedule with us →</a></p>
+        <p class="guide-help-line">Full documentation: <a href="https://www.transcodes.io/docs" target="_blank" rel="noopener noreferrer">https://www.transcodes.io/docs</a></p>
+      </div>
       <div class="guide-video">
         <mux-player
           playback-id="${GUIDELINE_MUX_PLAYBACK_ID}"
@@ -1673,7 +1697,9 @@ function waitForDashboardShutdown(
       server.close((err) => {
         if (err) {
           process.stderr.write(
-            `Shutdown error: ${err instanceof Error ? err.message : String(err)}\n`,
+            `Shutdown error: ${
+              err instanceof Error ? err.message : String(err)
+            }\n`,
           );
         }
         finish();
