@@ -8,7 +8,7 @@ import {
 } from "../chunk-LTATFLNO.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.15.1";
+var PLUGIN_VERSION = "0.15.2";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [

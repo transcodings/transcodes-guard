@@ -17049,7 +17049,7 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // ../../packages/mcp-server-core/dist/build-info.js
-var PLUGIN_VERSION = "0.15.1";
+var PLUGIN_VERSION = "0.15.2";
 
 // ../../packages/mcp-server-core/dist/server.js
 var RBAC_ACTION_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first to fetch valid resource keys, then pass `stepupResource` (must match one of those keys; validated against the backend) and `stepupAction` (CRUD). System rules use resource `system`. This maps the rule onto the project's RBAC permission matrix and audit log.";
@@ -17497,7 +17497,7 @@ provider: ${saved.provider}` : ""}`);
   });
   server.registerTool("update_tool_rule", {
     title: "Update MCP tool-rule (project policy)",
-    description: `Modify fields of an existing project tool-rule by id. Call when the user asks to edit/change an MCP tool-rule \u2014 e.g. "change the description of the github-delete rule", "point that tool rule at a different MCP wire name". This is for MCP tool-rules (\`name\` = full wire tool name); to edit a Bash command pattern (regex) use \`update_user_pattern\` instead. System rules cannot be modified. Pass only the fields you want to change. When changing \`name\` to a different MCP tool, FIRST run the existence pre-check: ${MCP_EXISTENCE_PRECHECK} When changing resource, call \`get_resources\` first. Changes persist to the Transcodes backend and take effect on the next policy refresh.`,
+    description: 'Modify fields of an existing project tool-rule by id. Call when the user asks to edit/change an MCP tool-rule \u2014 e.g. "change the description of the github-delete rule", "point that tool rule at a different MCP wire name". This is for MCP tool-rules (`name` = full wire tool name); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified. Pass only the fields you want to change. When changing resource, call `get_resources` first. Changes persist to the Transcodes backend and take effect on the next policy refresh.',
     inputSchema: {
       id: external_exports.string().min(1),
       type: external_exports.literal("mcp").optional(),
