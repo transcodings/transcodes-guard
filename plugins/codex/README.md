@@ -24,13 +24,16 @@ Without this flag Codex silently ignores `plugin.json`'s `hooks` field — the g
 
 Either:
 
+The plugin manifest lives at `plugins/codex/.codex-plugin/plugin.json`, and the repo ships a Codex marketplace catalog at `.agents/plugins/marketplace.json` (a `git-subdir` source pointing at `./plugins/codex`).
+
 ```bash
-# Marketplace (preferred once published)
-codex plugin install ai-action-tracker
+# Marketplace (reads the repo's .agents/plugins/marketplace.json catalog)
+codex plugin marketplace add transcodings/ai-action-tracker-mcp
+# then open Codex → /plugins and install "transcodes-guard"
 
 # Or local clone (for development / pre-release)
 git clone https://github.com/transcodings/ai-action-tracker-mcp.git
-codex plugin install file://$PWD/ai-action-tracker-mcp/plugins/codex-ai-action-tracker
+codex plugin marketplace add ./ai-action-tracker-mcp
 ```
 
 ### 3. Trust the hook on first run

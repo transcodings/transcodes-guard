@@ -24,7 +24,7 @@ Each plugin's `tsup.config.ts` sets `noExternal: [/^@transcodes-guard(-private)?
 A plugin's npm `files` array (or what a host reads from the repo) must include not just `dist/` but the host registration files, or the installed plugin is non-functional:
 
 - claude-code: `dist`, `README.md`, `.claude-plugin`, `.mcp.json`, `hooks/hooks.json`
-- codex: `dist`, `AGENTS.md`, `README.md`, `plugin.json`, `.mcp.json`, `hooks/hooks.json`
+- codex: `dist`, `AGENTS.md`, `README.md`, `.codex-plugin` (manifest at `.codex-plugin/plugin.json`), `.mcp.json`, `hooks/hooks.json`
 - antigravity: `dist`, `README.md`, `rules`, `plugin.json`, `mcp_config.json`, `hooks.json`
 - cursor: `dist`, `README.md`, `.cursor`, `mcp.json`, `install.sh`
 
