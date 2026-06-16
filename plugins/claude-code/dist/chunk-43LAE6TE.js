@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "cursor";
+process.env.TRANSCODES_GUARD_HOST = "claude-code";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -292,7 +292,7 @@ function migrateLegacyFile(name, kind) {
     }
     mkdirSync(target, { recursive: true });
     copyFileSync(oldPath, newPath);
-    renameSync(oldPath, oldPath + ".bak");
+    renameSync(oldPath, `${oldPath}.bak`);
   } catch {
   }
 }
@@ -1250,7 +1250,8 @@ function loadUserPatterns() {
 function saveUserPatterns(config) {
   const file = getUserPatternsPath();
   mkdirSync2(path2.dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+  writeFileSync(file, `${JSON.stringify(config, null, 2)}
+`, "utf8");
 }
 function loadMergedPatterns() {
   const system = loadSystemPatterns().patterns.map((p) => ({
@@ -6753,7 +6754,7 @@ function stringifyToolInput(input) {
     const s = JSON.stringify(input);
     if (s === void 0)
       return "[unserializable]";
-    return s.length > 200 ? s.slice(0, 197) + "..." : s;
+    return s.length > 200 ? `${s.slice(0, 197)}...` : s;
   } catch {
     return "[unserializable]";
   }

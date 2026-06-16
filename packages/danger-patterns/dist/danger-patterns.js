@@ -43,7 +43,7 @@ export function loadUserPatterns() {
 export function saveUserPatterns(config) {
     const file = getUserPatternsPath();
     mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify(config, null, 2) + '\n', 'utf8');
+    writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 }
 export function userPatternsFileExists() {
     return existsSync(getUserPatternsPath());

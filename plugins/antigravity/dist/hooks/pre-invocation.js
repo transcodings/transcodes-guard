@@ -6,7 +6,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-X7G57FVU.js";
+} from "../chunk-2UFTPPXN.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";
@@ -44,7 +44,7 @@ function primerMessage(pending) {
   return base.join("\n");
 }
 function userDoneNotice(pending, matchedContent) {
-  const trimmed = matchedContent.length > 80 ? matchedContent.slice(0, 77) + "..." : matchedContent;
+  const trimmed = matchedContent.length > 80 ? `${matchedContent.slice(0, 77)}...` : matchedContent;
   const statusNote = pending.status === "verified" ? "already verified \u2014 just retry the original command." : "still pending \u2014 call poll_stepup_session_wait now to block until verified.";
   return [
     `transcodes-guard: user message matched completion pattern ("${trimmed}").`,

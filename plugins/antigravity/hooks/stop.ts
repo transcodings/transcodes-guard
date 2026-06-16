@@ -56,7 +56,7 @@ async function main(): Promise<void> {
   // Orphan reap: GLOBAL verified record exists without an in-flight pending →
   // silently consume (the gate's fast-path didn't get a chance to). This
   // is the same backstop as the Claude Code / Codex Stop hooks.
-  if (verified && (!pending || pending.status !== 'pending')) {
+  if (verified && pending?.status !== 'pending') {
     backend.consumeVerified();
     if (pending) backend.clearPending();
     process.exit(0);
