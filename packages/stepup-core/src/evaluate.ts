@@ -219,7 +219,7 @@ function stringifyToolInput(input: unknown): string {
   try {
     const s = JSON.stringify(input);
     if (s === undefined) return '[unserializable]';
-    return s.length > 200 ? s.slice(0, 197) + '...' : s;
+    return s.length > 200 ? `${s.slice(0, 197)}...` : s;
   } catch {
     return '[unserializable]';
   }

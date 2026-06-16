@@ -4,7 +4,7 @@ import {
 } from "../chunk-ODK4KW7V.js";
 import {
   getGateBackend
-} from "../chunk-F3GSFAQE.js";
+} from "../chunk-MNSXX4F6.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";

@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "cursor";
+process.env.TRANSCODES_GUARD_HOST = "antigravity";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -1062,7 +1062,7 @@ function migrateLegacyFile(name, kind) {
     }
     mkdirSync2(target, { recursive: true });
     copyFileSync(oldPath, newPath);
-    renameSync(oldPath, oldPath + ".bak");
+    renameSync(oldPath, `${oldPath}.bak`);
   } catch {
   }
 }
@@ -5828,7 +5828,7 @@ function stringifyToolInput(input) {
     const s = JSON.stringify(input);
     if (s === void 0)
       return "[unserializable]";
-    return s.length > 200 ? s.slice(0, 197) + "..." : s;
+    return s.length > 200 ? `${s.slice(0, 197)}...` : s;
   } catch {
     return "[unserializable]";
   }
@@ -6014,6 +6014,81 @@ function ruleToUpdateBody(merged, changes) {
   }
   return body;
 }
+function unwrapPayloadArray(data) {
+  if (Array.isArray(data))
+    return data;
+  if (data !== null && typeof data === "object" && !Array.isArray(data)) {
+    const payload = data.payload;
+    if (Array.isArray(payload))
+      return payload;
+  }
+  return [];
+}
+function parseGuardRuleRecord(raw) {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const r = raw;
+  const id = typeof r.id === "string" ? r.id : "";
+  const type = r.type === "mcp" || r.type === "bash" ? r.type : null;
+  const label = typeof r.label === "string" ? r.label : "";
+  const description = typeof r.description === "string" ? r.description : "";
+  const name = typeof r.name === "string" ? r.name : "";
+  const matcher = r.matcher === "exact" || r.matcher === "glob" || r.matcher === "regex" ? r.matcher : type === "bash" ? "regex" : "exact";
+  const status = r.status === "active" || r.status === "inactive" ? r.status : null;
+  if (!id || !type || !label || !description || !name || !status)
+    return null;
+  const record = {
+    id,
+    type,
+    label,
+    description,
+    name,
+    matcher,
+    status
+  };
+  if (typeof r.action === "string")
+    record.action = r.action;
+  if (typeof r.resource === "string")
+    record.resource = r.resource;
+  if (r.provider === "claude" || r.provider === "codex" || r.provider === "cursor" || r.provider === "antigravity") {
+    record.provider = r.provider;
+  }
+  if (typeof r.memberId === "string")
+    record.memberId = r.memberId;
+  if (typeof r.createdAt === "string")
+    record.createdAt = r.createdAt;
+  if (typeof r.updatedAt === "string")
+    record.updatedAt = r.updatedAt;
+  if (r.metadata !== void 0 && r.metadata !== null && typeof r.metadata === "object") {
+    record.metadata = r.metadata;
+  }
+  return record;
+}
+async function listGuardRules() {
+  const config = requireConfig();
+  const env = await request(config, {
+    method: "GET",
+    path: "/guard/rules"
+  });
+  if (!env.ok) {
+    throw backendWriteError(env, "", "list");
+  }
+  return unwrapPayloadArray(env.data).map(parseGuardRuleRecord).filter((r) => r !== null);
+}
+async function findProjectRule(config, id) {
+  if (systemToolRuleIds().has(id))
+    return void 0;
+  const cached = readCachedPolicyBundle(config.projectId)?.bundle.rules.find((r) => r.id === id);
+  if (cached) {
+    return {
+      ...cached,
+      type: cached.type,
+      status: "active"
+    };
+  }
+  return (await listGuardRules()).find((r) => r.id === id);
+}
 async function addToolRule(input) {
   const config = requireConfig();
   const rule = validateNewToolRule(input);
@@ -6032,7 +6107,7 @@ async function updateToolRule(id, changes) {
   if (systemToolRuleIds().has(id)) {
     throw new ToolRuleValidationError(`id "${id}" is a system tool-rule and cannot be modified`);
   }
-  const existing = readCachedPolicyBundle(config.projectId)?.bundle.rules.find((r) => r.id === id);
+  const existing = await findProjectRule(config, id);
   if (!existing) {
     throw new ToolRuleValidationError(`no tool-rule with id "${id}"`);
   }

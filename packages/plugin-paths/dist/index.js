@@ -128,7 +128,7 @@ export function migrateLegacyFile(name, kind) {
         }
         mkdirSync(target, { recursive: true });
         copyFileSync(oldPath, newPath);
-        renameSync(oldPath, oldPath + '.bak');
+        renameSync(oldPath, `${oldPath}.bak`);
     }
     catch {
         // Fail open. Caller treats missing/unreadable file as empty state.

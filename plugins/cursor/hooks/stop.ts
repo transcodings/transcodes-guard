@@ -46,7 +46,7 @@ async function main(): Promise<void> {
   const pending = backend.readPending();
   const verified = backend.readVerified();
 
-  if (verified && (!pending || pending.status !== 'pending')) {
+  if (verified && pending?.status !== 'pending') {
     backend.consumeVerified();
     if (pending) backend.clearPending();
     process.exit(0);
