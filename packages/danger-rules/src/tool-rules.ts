@@ -12,7 +12,7 @@ import {
 } from '@transcodes-guard/danger-patterns';
 import systemToolRulesData from './data/tool-rules.json' with { type: 'json' };
 
-export type GuardMatcher = 'exact' | 'glob';
+export type GuardMatcher = 'exact' | 'glob' | 'regex';
 
 export const GUARD_PROVIDERS = [
   'claude',
@@ -25,10 +25,10 @@ export type GuardProvider = (typeof GUARD_PROVIDERS)[number];
 
 export interface ToolRule {
   id: string;
-  type: 'mcp';
+  type: 'mcp' | 'bash';
   label: string;
   description: string;
-  /** Full MCP tool name or glob pattern when `matcher` is `glob`. */
+  /** MCP wire name/glob, or Bash regex when `type` is `bash`. */
   name: string;
   matcher: GuardMatcher;
   /** Optional MCP host label — stored for future use; does not affect matching today. */
@@ -62,6 +62,15 @@ export function loadSystemToolRules(): ToolRuleConfig {
 }
 
 function normalizeRule(r: ToolRule): ToolRule {
+  if (r.type === 'bash') {
+    return {
+      ...r,
+      type: 'bash',
+      matcher: 'regex',
+      action: coerceRbacAction(r.action),
+      resource: coerceRbacResource(r.resource),
+    };
+  }
   return {
     ...r,
     type: 'mcp',
@@ -104,6 +113,7 @@ function globMatches(pattern: string, toolName: string): boolean {
 }
 
 export function toolNameMatchesRule(toolName: string, rule: ToolRule): boolean {
+  if (rule.type === 'bash') return false;
   // Case-insensitive: hosts emit wire names with mixed case
   // (e.g. mcp__claude_ai_Google_Calendar__create_event) while stored rule
   // names may differ in casing. Normalize both sides so matching is robust.
@@ -134,7 +144,7 @@ export class ToolRuleValidationError extends Error {}
 
 export interface ToolRuleInput {
   id: string;
-  type?: 'mcp';
+  type?: 'mcp' | 'bash';
   label: string;
   description: string;
   name: string;
@@ -148,7 +158,7 @@ export interface ToolRuleInput {
 
 /** Partial change set for an existing tool-rule (PUT semantics). */
 export interface ToolRuleChanges {
-  type?: 'mcp';
+  type?: 'mcp' | 'bash';
   label?: string;
   description?: string;
   name?: string;
@@ -175,7 +185,7 @@ export function validateNewToolRule(input: ToolRuleInput): ToolRule {
     label,
     description,
     name,
-    matcher = 'exact',
+    matcher = type === 'bash' ? 'regex' : 'exact',
     provider,
     action,
     resource,
@@ -194,22 +204,6 @@ export function validateNewToolRule(input: ToolRuleInput): ToolRule {
     );
   }
 
-  if (type !== 'mcp') {
-    throw new ToolRuleValidationError('type must be "mcp"');
-  }
-
-  const trimmedName = name.trim();
-  if (!trimmedName) {
-    throw new ToolRuleValidationError('name must not be empty');
-  }
-
-  if (detectShellCommand(trimmedName)) {
-    throw new ToolRuleValidationError(
-      `"${trimmedName}" looks like a Bash command, not an MCP tool name. ` +
-        'Tool rules match a tool_name exactly or via glob; use add_user_pattern (regex) for Bash.',
-    );
-  }
-
   const trimmedLabel = label.trim();
   if (!trimmedLabel) {
     throw new ToolRuleValidationError('label must not be empty');
@@ -220,8 +214,59 @@ export function validateNewToolRule(input: ToolRuleInput): ToolRule {
     throw new ToolRuleValidationError('description must not be empty');
   }
 
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new ToolRuleValidationError('name must not be empty');
+  }
+
+  if (type === 'bash') {
+    if (matcher !== 'regex') {
+      throw new ToolRuleValidationError('bash rules require matcher "regex"');
+    }
+    try {
+      new RegExp(trimmedName);
+    } catch (e) {
+      throw new ToolRuleValidationError(
+        `name must be a valid regex: ${(e as Error).message}`,
+      );
+    }
+    const trimmedAction = (action ?? '').trim();
+    if (!isRbacAction(trimmedAction)) {
+      throw new ToolRuleValidationError(
+        `action must be one of create|read|update|delete (got: "${action ?? ''}")`,
+      );
+    }
+    const trimmedResource = (resource ?? '').trim();
+    if (!trimmedResource) {
+      throw new ToolRuleValidationError('resource must not be empty');
+    }
+    return {
+      id,
+      type: 'bash',
+      label: trimmedLabel,
+      description: trimmedDescription,
+      name: trimmedName,
+      matcher: 'regex',
+      action: trimmedAction,
+      resource: trimmedResource,
+    };
+  }
+
+  if (type !== 'mcp') {
+    throw new ToolRuleValidationError('type must be "mcp" or "bash"');
+  }
+
+  if (detectShellCommand(trimmedName)) {
+    throw new ToolRuleValidationError(
+      `"${trimmedName}" looks like a Bash command, not an MCP tool name. ` +
+        'Tool rules match a tool_name exactly or via glob; use add_user_pattern (type bash) for Bash.',
+    );
+  }
+
   if (matcher !== 'exact' && matcher !== 'glob') {
-    throw new ToolRuleValidationError('matcher must be exact or glob');
+    throw new ToolRuleValidationError(
+      'mcp rules require matcher exact or glob',
+    );
   }
 
   if (provider !== undefined) {

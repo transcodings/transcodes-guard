@@ -17,7 +17,6 @@ import path from 'node:path';
 import {
   DEFAULT_RBAC_RESOURCE,
   findFirstMatch,
-  loadMergedPatterns,
   type RbacAction,
 } from '@transcodes-guard/danger-patterns';
 import {
@@ -28,7 +27,10 @@ import {
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, type RequestResult, requestStepup } from './gate.js';
 import { clearPending, type PendingState } from './pending.js';
-import { loadEffectiveToolRules } from './policy-bundle.js';
+import {
+  loadEffectivePatterns,
+  loadEffectiveToolRules,
+} from './policy-bundle.js';
 import { checkRbacPermission, type RbacLevel } from './rbac-check.js';
 import { pollStepupSession } from './session.js';
 import { consumeVerified, readVerified } from './store.js';
@@ -96,7 +98,7 @@ export type GateDecision =
     };
 
 function checkPatternMatch(command: string): BlockResult | null {
-  const hit = findFirstMatch(command, loadMergedPatterns());
+  const hit = findFirstMatch(command, loadEffectivePatterns());
   if (!hit) return null;
   const { source, id, reason, stepupResource, stepupAction } = hit.matched;
   return {

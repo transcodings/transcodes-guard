@@ -12,9 +12,12 @@
  * The public side (hooks + mcp-server-core) imports only these types, never the
  * private packages, so it type-checks and builds standalone.
  */
-import type { RbacAction } from '@transcodes-guard/danger-patterns';
+import type {
+  MergedPattern,
+  RbacAction,
+} from '@transcodes-guard/danger-patterns';
 
-export type { RbacAction };
+export type { MergedPattern, RbacAction };
 
 /** A parsed PreToolUse tool call (host-neutral). Mirrors evaluate.ts. */
 export interface ToolCallInput {
@@ -125,7 +128,7 @@ export type PollStepupResult = {
 /** Mirrors session.ts `WaitStepupResult`. */
 export type WaitStepupResult = {
   envelope: Envelope;
-  outcome: 'verified' | 'timeout';
+  outcome: 'verified' | 'rejected' | 'timeout';
   elapsedMs: number;
   attempts: number;
 };
@@ -146,12 +149,12 @@ export interface StepupStateInspection {
 }
 
 /** Tool-rule registry types. Mirror danger-rules tool-rules.ts (schema v2). */
-export type GuardMatcher = 'exact' | 'glob';
+export type GuardMatcher = 'exact' | 'glob' | 'regex';
 export type GuardProvider = 'claude' | 'codex' | 'cursor' | 'antigravity';
 export type ToolRuleSource = 'system' | 'bundle';
 export interface ToolRule {
   id: string;
-  type: 'mcp';
+  type: 'mcp' | 'bash';
   label: string;
   description: string;
   name: string;
@@ -171,7 +174,7 @@ export interface ToolRuleMatch {
 }
 export interface ToolRuleInput {
   id: string;
-  type?: 'mcp';
+  type?: 'mcp' | 'bash';
   label: string;
   description: string;
   name: string;
@@ -183,7 +186,7 @@ export interface ToolRuleInput {
   metadata?: Record<string, unknown>;
 }
 export interface ToolRuleChanges {
-  type?: 'mcp';
+  type?: 'mcp' | 'bash';
   label?: string;
   description?: string;
   name?: string;

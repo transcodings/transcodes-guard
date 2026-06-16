@@ -13,28 +13,30 @@ import {
   type ServerResponse,
 } from 'node:http';
 import {
+  coerceRbacAction,
+  coerceRbacResource,
   DEFAULT_RBAC_ACTION,
   DEFAULT_RBAC_RESOURCE,
-  loadMergedPatterns,
   type MergedPattern,
-  PatternValidationError,
   type RbacAction,
-  removeUserPattern,
-  updateUserPattern,
 } from '@transcodes-guard/danger-patterns';
 import {
   type MergedToolRule,
+  type ToolRuleChanges,
   ToolRuleValidationError,
 } from '@transcodes-guard/danger-rules';
 import { buildAdminToolsPayload } from '@transcodes-guard/mcp-server-core/tool-catalog';
 import {
+  listGuardRules,
+  loadEffectivePatterns,
   loadEffectiveToolRules,
+  loadStepupConfig,
   parseMemberAccessToken,
   readTokenFromFile,
   readTokenList,
   readTokenRecords,
+  refreshPolicyBundle,
   removeTokenFromFile,
-  removeToolRule,
   setActiveToken,
   setTokenLabel,
   transcodesConfigFile,
@@ -45,6 +47,9 @@ import { LOGO_DATA_URI } from './logo.js';
 
 const DEFAULT_PORT = 3847;
 const HOST = '127.0.0.1';
+/** Temporary Mux playback id for the Guideline onboarding video. */
+const GUIDELINE_MUX_PLAYBACK_ID =
+  'kGqw1lDd4stSZmYsswFuw02EeFnCtBwgGj6HCJxIb4Vc';
 
 type TokenEntry = {
   /** Short fingerprint — used as the client-side id so full JWTs need not be
@@ -122,31 +127,106 @@ function tokenById(id: string): string | undefined {
   return readTokenList().find((t) => fingerprint(t) === id);
 }
 
-type PatternsPayload = {
-  system: MergedPattern[];
-  user: MergedPattern[];
+type DashboardProjectRule = {
+  id: string;
+  type: 'mcp' | 'bash';
+  label: string;
+  description: string;
+  name: string;
+  matcher: string;
+  action?: string;
+  resource?: string;
+  status?: 'active' | 'inactive';
+  provider?: string;
 };
 
-/** Split the merged danger patterns by source for the dashboard UI. */
-function buildPatternsPayload(): PatternsPayload {
-  const merged = loadMergedPatterns();
+type ProjectRulesPayload = {
+  project: DashboardProjectRule[];
+  system: MergedPattern[];
+  error?: string;
+};
+
+function guardRecordToDashboardRule(
+  r: Awaited<ReturnType<typeof listGuardRules>>[number],
+): DashboardProjectRule {
   return {
-    system: merged.filter((p) => p.source === 'system'),
-    user: merged.filter((p) => p.source === 'user'),
+    id: r.id,
+    type: r.type,
+    label: r.label,
+    description: r.description,
+    name: r.name,
+    matcher: r.matcher,
+    status: r.status,
+    ...(r.action !== undefined ? { action: r.action } : {}),
+    ...(r.resource !== undefined
+      ? { resource: coerceRbacResource(r.resource) }
+      : {}),
+    ...(r.provider !== undefined ? { provider: r.provider } : {}),
   };
 }
 
-type ToolRulesPayload = {
-  project: MergedToolRule[];
-};
+/** Project rules from cache-only fallback. */
+function buildProjectRulesFromCache(): ProjectRulesPayload {
+  const system = loadEffectivePatterns().filter((p) => p.source === 'system');
+  const mcp = loadEffectiveToolRules()
+    .filter((r) => r.source === 'bundle')
+    .map(
+      (r): DashboardProjectRule => ({
+        id: r.id,
+        type: 'mcp',
+        label: r.label,
+        description: r.description,
+        name: r.name,
+        matcher: r.matcher,
+        ...(r.action !== undefined ? { action: r.action } : {}),
+        ...(r.resource !== undefined ? { resource: r.resource } : {}),
+        ...(r.provider !== undefined ? { provider: r.provider } : {}),
+      }),
+    );
+  const bash = loadEffectivePatterns()
+    .filter((p) => p.source === 'bundle')
+    .map(
+      (p): DashboardProjectRule => ({
+        id: p.id,
+        type: 'bash',
+        label: p.id,
+        description: p.reason,
+        name: p.regex,
+        matcher: 'regex',
+        action: p.stepupAction,
+        resource: p.stepupResource,
+      }),
+    );
+  return { project: [...mcp, ...bash], system };
+}
 
-/** Project-policy tool rules for the Rules → MCP tools tab (system rules
- * live under Rules → Admin MCP). Sourced from the cached backend bundle —
- * edits route to the backend, not a local file. */
-function buildToolRulesPayload(): ToolRulesPayload {
-  return {
-    project: loadEffectiveToolRules().filter((r) => r.source === 'bundle'),
-  };
+/** Fetch project guard rules (MCP + bash) from the backend, refresh bundle cache. */
+async function fetchProjectRulesFromBackend(): Promise<ProjectRulesPayload> {
+  const fallback = buildProjectRulesFromCache();
+  try {
+    const config = loadStepupConfig();
+    await refreshPolicyBundle(config, { force: true });
+    const rules = await listGuardRules();
+    return {
+      project: rules.map(guardRecordToDashboardRule),
+      system: fallback.system,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ...fallback, error: message };
+  }
+}
+
+async function findProjectRule(
+  id: string,
+): Promise<DashboardProjectRule | undefined> {
+  try {
+    const rules = await listGuardRules();
+    const found = rules.find((r) => r.id === id);
+    return found ? guardRecordToDashboardRule(found) : undefined;
+  } catch {
+    return buildProjectRulesFromCache().project.find((r) => r.id === id);
+  }
 }
 
 /** Display-only CRUD hint for catalog tools not in tool-rules.json. */
@@ -606,6 +686,15 @@ function dashboardHtml(): string {
       line-height: 1.5;
     }
     .usage-prompt .q { color: var(--muted); font-style: italic; }
+    .usage-example {
+      display: inline-block;
+      margin: 6px 0;
+      padding: 4px 8px;
+      background: rgba(91, 84, 230, 0.10);
+      border-radius: 6px;
+      color: var(--accent, #5b54e6);
+      font-weight: 600;
+    }
     .cmd-list { display: flex; flex-direction: column; gap: 10px; }
     .cmd {
       padding: 14px 16px;
@@ -648,6 +737,101 @@ function dashboardHtml(): string {
       line-height: 1.5;
       margin: 0;
     }
+    .guide-video {
+      margin: 0 0 22px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #000;
+      aspect-ratio: 16 / 9;
+      box-shadow: 0 8px 28px rgba(22, 22, 26, 0.08);
+    }
+    .guide-video mux-player {
+      width: 100%;
+      height: 100%;
+      display: block;
+      --media-accent-color: #5b54e6;
+      --controls-backdrop-color: transparent;
+      --media-control-background: transparent;
+      --media-control-hover-background: rgb(0 0 0 / 25%);
+    }
+    /* Letterbox only — do not touch video or controls backdrop in normal view */
+    .guide-video mux-player:fullscreen,
+    .guide-video mux-player:-webkit-full-screen {
+      --media-background-color: #f4f4f6;
+      background: #f4f4f6;
+    }
+    .guide-steps {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .guide-step {
+      display: flex;
+      gap: 14px;
+      padding: 14px 16px;
+      background: #fbfbfc;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+    .guide-step-num {
+      flex: 0 0 28px;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .guide-step-body { min-width: 0; }
+    .guide-step-title {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--ink);
+      margin: 0 0 4px;
+    }
+    .guide-step-desc {
+      font-size: var(--text-sm);
+      color: var(--muted);
+      line-height: 1.5;
+      margin: 0;
+    }
+    .guide-step-desc code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: var(--text-2xs);
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+    .guide-help {
+      margin: 0 0 18px;
+      padding: 16px 18px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(91, 84, 230, 0.18);
+      border-radius: 14px;
+    }
+    .guide-help-line {
+      margin: 0;
+      font-size: var(--text-sm);
+      color: #4a4a52;
+      line-height: 1.6;
+    }
+    .guide-help-line + .guide-help-line { margin-top: 6px; }
+    .guide-help-line a {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .guide-help-line a:hover { text-decoration: underline; }
     .toast {
       margin-top: 14px;
       padding: 12px 16px;
@@ -674,6 +858,7 @@ function dashboardHtml(): string {
       color: #8a8a94;
     }
   </style>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
 </head>
 <body>
   <div class="card">
@@ -685,12 +870,83 @@ function dashboardHtml(): string {
       </div>
     </div>
     <div class="tabs">
-      <button type="button" class="tab active" data-tab="tokens">Tokens</button>
+      <button type="button" class="tab active" data-tab="guideline">Guideline</button>
+      <button type="button" class="tab" data-tab="tokens">Tokens</button>
       <button type="button" class="tab" data-tab="rules">Rules</button>
       <button type="button" class="tab" data-tab="cli">CLI Commands</button>
     </div>
 
-    <div class="panel active" id="panel-tokens">
+    <div class="panel active" id="panel-guideline">
+      <p class="section-title">Getting Started</p>
+      <p class="section-sub">New to Transcodes? Watch the walkthrough, then follow the steps below</p>
+      <div class="guide-help">
+        <p class="guide-help-line">Questions or trouble setting up? <a href="https://www.transcodes.io/booking" target="_blank" rel="noopener noreferrer">Book a schedule with us →</a></p>
+        <p class="guide-help-line">Full documentation: <a href="https://www.transcodes.io/docs" target="_blank" rel="noopener noreferrer">https://www.transcodes.io/docs</a></p>
+      </div>
+      <div class="guide-video">
+        <mux-player
+          playback-id="${GUIDELINE_MUX_PLAYBACK_ID}"
+          stream-type="on-demand"
+          accent-color="#5b54e6"
+          primary-color="#ffffff"
+          metadata-video-title="Transcodes CLI onboarding"
+        ></mux-player>
+      </div>
+      <p class="list-label">Quick setup</p>
+      <ol class="guide-steps">
+        <li class="guide-step">
+          <span class="guide-step-num">1</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Create a project</p>
+            <p class="guide-step-desc">In the Transcodes web console, create a new project for your app</p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">2</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Create an authentication cluster</p>
+            <p class="guide-step-desc">Add an authentication cluster to the project to define how members sign in and authenticate</p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">3</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Add a member</p>
+            <p class="guide-step-desc">Invite or add a member to the project so they can be issued an access token</p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">4</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Issue an access token</p>
+            <p class="guide-step-desc">Open the member detail page and issue a Member Access Token (MAT) for the agent</p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">5</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Add it here in the CLI dashboard</p>
+            <p class="guide-step-desc">Paste the token in the Tokens tab with a label (e.g. <code>transcodes-myapp-dev</code>) — the plugin reads it from <code>~/.transcodes/config.json</code></p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">6</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Ask your local agent to add a custom rule</p>
+            <p class="guide-step-desc">From your agent, request a guard rule (e.g. <code>add_tool_rule</code> / <code>add_user_pattern</code>) — it is registered as <code>inactive</code></p>
+          </div>
+        </li>
+        <li class="guide-step">
+          <span class="guide-step-num">7</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Approve it in the console</p>
+            <p class="guide-step-desc">Switch the rule to <code>active</code> in the Transcodes web console — only then is it enforced</p>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="panel" id="panel-tokens">
       <p class="section-title">MCP Agent Token</p>
       <p class="section-sub">Paste the token from your Transcodes console member detail page</p>
       <textarea id="token" placeholder="eyJhbGciOi…" spellcheck="false" autocomplete="off"></textarea>
@@ -720,50 +976,31 @@ function dashboardHtml(): string {
     <div class="panel" id="panel-rules">
       <p id="policy-token-warning" class="policy-token-warning" hidden>transcodes를 로컬 에이전트에서 이용하기 위해선 토큰이 하나 이상 등록이 되어야 합니다</p>
       <div class="tabs sub-tabs" role="tablist" aria-label="Rule type">
-        <button type="button" class="tab active" data-policy="bash" role="tab">Bash Command</button>
-        <button type="button" class="tab" data-policy="mcp" role="tab">MCP tools</button>
+        <button type="button" class="tab active" data-policy="project" role="tab">Project Rules</button>
         <button type="button" class="tab" data-policy="admin" role="tab">Admin MCP</button>
       </div>
-      <div class="policy-pane active" id="policy-pane-bash">
-        <p class="section-title">Step-up Auth Policies</p>
-        <p class="section-sub">When an agent action matches one of these rules, Transcodes step-up authentication is triggered. Review, edit, or delete your rules here — adding is done through your agent</p>
+      <div class="policy-pane active" id="policy-pane-project">
+        <p class="section-title">Step-up Guard Rules</p>
+        <p class="section-sub">When an active rule matches an agent action, Transcodes step-up authentication is triggered. Rules are registered only from your local agent; activating and deleting them is done in the Transcodes web console</p>
         <div class="usage">
-          <p class="usage-title">Adding is done through your agent</p>
+          <p class="usage-title">How rules work</p>
           <ol class="usage-steps">
-            <li>Ask your coding agent (Cursor, Claude, etc.) to add a command pattern. It translates plain language into a <strong>regex</strong>, verifies it with <code>simulate_command</code>, and saves it for you.</li>
-            <li>Below you can review, edit, or delete the saved patterns.</li>
+            <li><strong>Register from the local agent only</strong> Ask your agent to call <code>add_tool_rule</code> (MCP tool, full wire name in <code>name</code>) or <code>add_user_pattern</code> (Bash regex, verified with <code>simulate_command</code>). The console cannot create rules</li>
+            <li><strong>New rules are inactive</strong> A registered rule has no effect until you switch it to <code>active</code> in the Transcodes web console — only then is it enforced</li>
+            <li><strong>Deleting is web-console-only</strong> Neither the agent nor this dashboard can delete rules; remove them in the Transcodes web console</li>
+            <li><strong>Bash pairs with MCP only when bypassable</strong> A Bash rule is registered alongside an MCP tool rule only when the same action can be invoked through a CLI (e.g. <code>gh</code>, <code>git</code>, <code>curl</code>); otherwise just the MCP rule is created</li>
           </ol>
           <div class="usage-prompt">
-            <span class="q">Ask your agent →</span><br />
-            "Add a command pattern that blocks sudo"<br />
-            <span class="q">→ the agent saves it and it shows up below</span>
+            <span class="q">Just say this to your agent in plain language →</span><br />
+            <strong class="usage-example">"Create a transcodes custom rule for adding a Google Calendar event"</strong><br />
+            <span class="q">→ the agent registers it as <code>inactive</code>; activate it in the Transcodes web console to start enforcing</span>
           </div>
         </div>
-        <div id="pattern-toast" class="toast"></div>
-        <p class="list-label">Your patterns</p>
-        <div class="token-list" id="pattern-user-list"></div>
-        <p class="list-label">System patterns (read-only)</p>
-        <div class="token-list" id="pattern-system-list"></div>
-      </div>
-
-      <div class="policy-pane" id="policy-pane-mcp">
-        <p class="section-title">MCP Tool Rules</p>
-        <p class="section-sub">Trigger step-up when the agent calls a matching MCP tool (<code>name</code> = full wire tool name from the host hook). Review, edit, or delete here — adding is done through your agent</p>
-        <div class="usage">
-          <p class="usage-title">Adding is done through your agent</p>
-          <ol class="usage-steps">
-            <li>Ask your coding agent to call <code>add_tool_rule</code> with the full MCP tool name in <code>name</code> (same string the PreToolUse hook receives).</li>
-            <li>Below you can review, edit <code>name</code> / <code>description</code>, or delete saved project rules.</li>
-          </ol>
-          <div class="usage-prompt">
-            <span class="q">Ask your agent →</span><br />
-            "Add an MCP tool rule for GitHub repo deletion"<br />
-            <span class="q">→ the agent saves it and it shows up below</span>
-          </div>
-        </div>
-        <div id="tool-toast" class="toast"></div>
-        <p class="list-label">Your tool rules</p>
-        <div class="token-list" id="tool-user-list"></div>
+        <div id="rules-toast" class="toast"></div>
+        <p class="list-label">Your project rules</p>
+        <div class="token-list" id="project-rules-list"></div>
+        <p class="list-label">System bash patterns (read-only)</p>
+        <div class="token-list" id="system-patterns-list"></div>
       </div>
 
       <div class="policy-pane" id="policy-pane-admin">
@@ -806,8 +1043,7 @@ function dashboardHtml(): string {
           p.classList.toggle("active", p.id === "panel-" + name));
         if (name === "rules") {
           updatePolicyTokenWarning();
-          loadPatterns();
-          loadToolRules();
+          loadProjectRules();
           loadAdminTools();
         }
       });
@@ -820,8 +1056,7 @@ function dashboardHtml(): string {
           t.classList.toggle("active", t === tab));
         document.querySelectorAll("#panel-rules .policy-pane").forEach((p) =>
           p.classList.toggle("active", p.id === "policy-pane-" + name));
-        if (name === "bash") loadPatterns();
-        if (name === "mcp") loadToolRules();
+        if (name === "project") loadProjectRules();
         if (name === "admin") loadAdminTools();
       });
     });
@@ -1008,159 +1243,160 @@ function dashboardHtml(): string {
       tokenEl.focus();
     });
 
-    const patternToastEl = document.getElementById("pattern-toast");
-    const patternUserListEl = document.getElementById("pattern-user-list");
-    const patternSystemListEl = document.getElementById("pattern-system-list");
+    const rulesToastEl = document.getElementById("rules-toast");
+    const projectRulesListEl = document.getElementById("project-rules-list");
+    const systemPatternsListEl = document.getElementById("system-patterns-list");
+    const adminToolsListEl = document.getElementById("admin-tools-list");
+    const adminToolsCountEl = document.getElementById("admin-tools-count");
 
-    function showPatternToast(msg, kind) {
-      patternToastEl.textContent = msg;
-      patternToastEl.className = "toast show " + (kind || "success");
-      setTimeout(() => patternToastEl.classList.remove("show"), 4000);
+    function showRulesToast(msg, kind) {
+      rulesToastEl.textContent = msg;
+      rulesToastEl.className = "toast show " + (kind || "success");
+      setTimeout(() => rulesToastEl.classList.remove("show"), 4000);
     }
 
-    let lastPatterns = { system: [], user: [] };
-    let patternEditingId = null;
+    let lastProjectRules = { project: [], system: [] };
+    let ruleEditingId = null;
 
-    function patternRow(p, readonly) {
-      const editing = !readonly && p.id === patternEditingId;
-      const idField = '<div class="field"><span class="k">id</span> <code>' +
-        esc(p.id) + '</code></div>';
+    function systemPatternRow(p) {
+      return (
+        '<div class="token-row">' +
+          '<div class="token-top">' +
+            '<div class="token-info">' +
+              (p.reason ? '<div class="label">' + esc(p.reason) + '</div>' : '') +
+              '<div class="field"><span class="k">id</span> <code>' + esc(p.id) + '</code></div>' +
+              '<div class="field"><span class="k">pattern</span> <code>' + esc(p.regex) + '</code></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    function projectRuleRow(r) {
+      const editing = r.id === ruleEditingId;
+      const idField = '<div class="field"><span class="k">id</span> <code>' + esc(r.id) + '</code></div>';
+      const typeField = '<div class="field"><span class="k">type</span> <code>' + esc(r.type) + '</code></div>';
+      const labelField = r.label
+        ? '<div class="field"><span class="k">label</span> ' + esc(r.label) + '</div>'
+        : '';
 
       if (editing) {
-        // Reason is shown verbatim in an editable field so a non-ASCII
-        // (e.g. Korean) reason can be corrected even though its id is a slug.
         return (
-          '<div class="token-row active" data-id="' + esc(p.id) + '">' +
+          '<div class="token-row active" data-id="' + esc(r.id) + '">' +
             '<div class="token-info">' +
-              '<input type="text" class="label-edit pattern-edit-reason" ' +
-                'data-edit-reason="' + esc(p.id) + '" value="' + esc(p.reason || "") +
-                '" placeholder="Reason" />' +
-              '<input type="text" class="label-edit pattern-edit-regex" ' +
-                'data-edit-regex="' + esc(p.id) + '" value="' + esc(p.regex) +
-                '" placeholder="Pattern" spellcheck="false" />' +
-              idField +
+              typeField +
+              '<input type="text" class="label-edit rule-edit-description" ' +
+                'data-edit-description="' + esc(r.id) + '" value="' + esc(r.description || "") +
+                '" placeholder="Description" />' +
+              '<input type="hidden" class="rule-edit-name" data-edit-name="' + esc(r.id) +
+                '" value="' + esc(r.name) + '" />' +
+              idField + labelField +
             '</div>' +
             '<div class="token-actions">' +
-              '<button type="button" class="btn-set" data-save-pattern="' +
-                esc(p.id) + '">SAVE</button>' +
-              '<button type="button" class="btn-cancel" data-cancel-pattern="1">CANCEL</button>' +
+              '<button type="button" class="btn-set" data-save-rule="' + esc(r.id) + '">SAVE</button>' +
+              '<button type="button" class="btn-cancel" data-cancel-rule="1">CANCEL</button>' +
             '</div>' +
           '</div>'
         );
       }
 
-      const reason = p.reason
-        ? '<div class="label">' + esc(p.reason) + '</div>'
+      const description = r.description
+        ? '<div class="label">' + esc(r.description) + '</div>'
         : '';
-      const regex =
-        '<div class="field"><span class="k">pattern</span> <code>' +
-        esc(p.regex) + '</code></div>';
+      const matcher =
+        '<div class="field"><span class="k">matcher</span> <code>' + esc(r.matcher || (r.type === 'bash' ? 'regex' : 'exact')) + '</code></div>';
       const action =
-        '<div class="field"><span class="k">action</span> <code>' +
-        esc(p.stepupAction || 'update') + '</code></div>';
+        '<div class="field"><span class="k">action</span> <code>' + esc(r.action || '—') + '</code></div>';
       const resource =
-        '<div class="field"><span class="k">resource</span> <code>' +
-        esc(p.stepupResource || 'system') + '</code></div>';
-      const actions = readonly
-        ? ''
-        : '<div class="token-actions">' +
-            '<button type="button" class="btn-edit" data-edit-pattern="' +
-            esc(p.id) + '">EDIT</button>' +
-            '<button type="button" class="btn-del" data-del-pattern="' +
-            esc(p.id) + '">DELETE</button>' +
-          '</div>';
+        '<div class="field"><span class="k">resource</span> <code>' + esc(r.resource || '—') + '</code></div>';
+      const status = r.status
+        ? '<div class="field"><span class="k">status</span> <code>' + esc(r.status) + '</code></div>'
+        : '';
       return (
         '<div class="token-row">' +
           '<div class="token-top">' +
-            '<div class="token-info">' + reason + idField + regex + action + resource + '</div>' +
-          '</div>' + actions +
+            '<div class="token-info">' + description + typeField + idField + labelField + matcher + action + resource + status + '</div>' +
+          '</div>' +
+          '<div class="token-actions">' +
+            '<button type="button" class="btn-edit" data-edit-rule="' + esc(r.id) + '">EDIT</button>' +
+          '</div>' +
         '</div>'
       );
     }
 
-    function renderPatterns(s) {
-      lastPatterns = s;
-      patternUserListEl.innerHTML =
-        s.user && s.user.length
-          ? s.user.map((p) => patternRow(p, false)).join("")
-          : '<div class="token-empty">No custom patterns yet — ask your agent to add one</div>';
-      patternSystemListEl.innerHTML = (s.system || [])
-        .map((p) => patternRow(p, true))
+    function renderProjectRules(s) {
+      lastProjectRules = s;
+      if (s.error && (!s.project || !s.project.length)) {
+        projectRulesListEl.innerHTML =
+          '<div class="token-empty">' + esc(s.error) + '</div>';
+      } else {
+        projectRulesListEl.innerHTML =
+          s.project && s.project.length
+            ? s.project.map((r) => projectRuleRow(r)).join("")
+            : '<div class="token-empty">No project rules yet — ask your agent to add one</div>';
+      }
+      systemPatternsListEl.innerHTML = (s.system || [])
+        .map((p) => systemPatternRow(p))
         .join("");
-      if (patternEditingId) {
-        const el = patternUserListEl.querySelector(
-          '[data-edit-reason="' + patternEditingId + '"]');
+      if (ruleEditingId) {
+        const el = projectRulesListEl.querySelector(
+          '[data-edit-description="' + ruleEditingId + '"]');
         if (el) { el.focus(); el.select(); }
       }
     }
 
-    async function loadPatterns() {
-      const res = await fetch("/api/patterns");
-      renderPatterns(await res.json());
+    async function loadProjectRules() {
+      const res = await fetch("/api/project-rules");
+      renderProjectRules(await res.json());
     }
 
-    async function savePatternEdit(id) {
-      const reasonEl = patternUserListEl.querySelector(
-        '[data-edit-reason="' + id + '"]');
-      const regexEl = patternUserListEl.querySelector(
-        '[data-edit-regex="' + id + '"]');
-      const reason = reasonEl ? reasonEl.value.trim() : "";
-      const regex = regexEl ? regexEl.value.trim() : "";
-      if (!regex) { showPatternToast("Pattern cannot be empty", "error"); return; }
-      if (!reason) { showPatternToast("Reason cannot be empty", "error"); return; }
+    function findEditingRule(id) {
+      return (lastProjectRules.project || []).find((r) => r.id === id);
+    }
+
+    async function saveRuleEdit(id) {
+      const rule = findEditingRule(id);
+      if (!rule) return;
+      const descriptionEl = projectRulesListEl.querySelector(
+        '[data-edit-description="' + id + '"]');
+      const nameEl = projectRulesListEl.querySelector(
+        '[data-edit-name="' + id + '"]');
+      const description = descriptionEl ? descriptionEl.value.trim() : "";
+      const name = nameEl ? nameEl.value.trim() : "";
+      if (!name) { showRulesToast("name/pattern cannot be empty", "error"); return; }
+      if (!description) { showRulesToast("description cannot be empty", "error"); return; }
       try {
-        const res = await fetch("/api/patterns/update", {
+        const res = await fetch("/api/project-rules/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, regex, reason }),
+          body: JSON.stringify({ id, type: rule.type, name, description }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Update failed");
-        patternEditingId = null;
-        showPatternToast("Pattern updated", "success");
-        renderPatterns(data);
+        ruleEditingId = null;
+        showRulesToast("Rule updated", "success");
+        renderProjectRules(data);
       } catch (e) {
-        showPatternToast(e.message || "Update failed", "error");
+        showRulesToast(e.message || "Update failed", "error");
       }
     }
 
-    patternUserListEl.addEventListener("click", async (e) => {
-      const editId = e.target.getAttribute("data-edit-pattern");
-      if (editId) { patternEditingId = editId; renderPatterns(lastPatterns); return; }
-      const saveId = e.target.getAttribute("data-save-pattern");
-      if (saveId) { savePatternEdit(saveId); return; }
-      if (e.target.getAttribute("data-cancel-pattern")) {
-        patternEditingId = null; renderPatterns(lastPatterns); return;
-      }
-      const id = e.target.getAttribute("data-del-pattern");
-      if (!id) return;
-      if (!confirm("Delete this pattern?")) return;
-      try {
-        const res = await fetch("/api/patterns", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Delete failed");
-        showPatternToast("Pattern deleted", "success");
-        renderPatterns(data);
-      } catch (e2) {
-        showPatternToast(e2.message || "Delete failed", "error");
+    projectRulesListEl.addEventListener("click", async (e) => {
+      const editId = e.target.getAttribute("data-edit-rule");
+      if (editId) { ruleEditingId = editId; renderProjectRules(lastProjectRules); return; }
+      const saveId = e.target.getAttribute("data-save-rule");
+      if (saveId) { saveRuleEdit(saveId); return; }
+      if (e.target.getAttribute("data-cancel-rule")) {
+        ruleEditingId = null; renderProjectRules(lastProjectRules); return;
       }
     });
 
-    patternUserListEl.addEventListener("keydown", (e) => {
-      const input = e.target.closest(".pattern-edit-reason, .pattern-edit-regex");
-      if (!input || !patternEditingId) return;
-      if (e.key === "Enter") { e.preventDefault(); savePatternEdit(patternEditingId); }
-      else if (e.key === "Escape") { patternEditingId = null; renderPatterns(lastPatterns); }
+    projectRulesListEl.addEventListener("keydown", (e) => {
+      const input = e.target.closest(".rule-edit-description, .rule-edit-name");
+      if (!input || !ruleEditingId) return;
+      if (e.key === "Enter") { e.preventDefault(); saveRuleEdit(ruleEditingId); }
+      else if (e.key === "Escape") { ruleEditingId = null; renderProjectRules(lastProjectRules); }
     });
-
-    const toolToastEl = document.getElementById("tool-toast");
-    const toolUserListEl = document.getElementById("tool-user-list");
-    const adminToolsListEl = document.getElementById("admin-tools-list");
-    const adminToolsCountEl = document.getElementById("admin-tools-count");
 
     function adminToolRow(t) {
       const badgeHtml = t.rbacGated
@@ -1198,152 +1434,6 @@ function dashboardHtml(): string {
       const res = await fetch("/api/admin-tools");
       renderAdminTools(await res.json());
     }
-
-    function showToolToast(msg, kind) {
-      toolToastEl.textContent = msg;
-      toolToastEl.className = "toast show " + (kind || "success");
-      setTimeout(() => toolToastEl.classList.remove("show"), 4000);
-    }
-
-    let lastToolRules = { project: [] };
-    let toolEditingId = null;
-
-    function toolRuleRow(r, readonly) {
-      const editing = !readonly && r.id === toolEditingId;
-      const idField = '<div class="field"><span class="k">id</span> <code>' +
-        esc(r.id) + '</code></div>';
-      const labelField = r.label
-        ? '<div class="field"><span class="k">label</span> ' + esc(r.label) + '</div>'
-        : '';
-
-      if (editing) {
-        return (
-          '<div class="token-row active" data-id="' + esc(r.id) + '">' +
-            '<div class="token-info">' +
-              '<input type="text" class="label-edit tool-edit-description" ' +
-                'data-edit-tdescription="' + esc(r.id) + '" value="' + esc(r.description || "") +
-                '" placeholder="Description" />' +
-              '<input type="text" class="label-edit pattern-edit-regex tool-edit-name" ' +
-                'data-edit-tname="' + esc(r.id) + '" value="' + esc(r.name) +
-                '" placeholder="Full MCP tool name" spellcheck="false" />' +
-              idField + labelField +
-            '</div>' +
-            '<div class="token-actions">' +
-              '<button type="button" class="btn-set" data-save-tool="' +
-                esc(r.id) + '">SAVE</button>' +
-              '<button type="button" class="btn-cancel" data-cancel-tool="1">CANCEL</button>' +
-            '</div>' +
-          '</div>'
-        );
-      }
-
-      const description = r.description
-        ? '<div class="label">' + esc(r.description) + '</div>'
-        : '';
-      const tool =
-        '<div class="field"><span class="k">name</span> <code>' +
-        esc(r.name) + '</code></div>';
-      const matcher =
-        '<div class="field"><span class="k">matcher</span> <code>' +
-        esc(r.matcher || 'exact') + '</code></div>';
-      const action =
-        '<div class="field"><span class="k">action</span> <code>' +
-        esc(r.action || '—') + '</code></div>';
-      const resource =
-        '<div class="field"><span class="k">resource</span> <code>' +
-        esc(r.resource || '—') + '</code></div>';
-      const actions = readonly
-        ? ''
-        : '<div class="token-actions">' +
-            '<button type="button" class="btn-edit" data-edit-tool="' +
-            esc(r.id) + '">EDIT</button>' +
-            '<button type="button" class="btn-del" data-del-tool="' +
-            esc(r.id) + '">DELETE</button>' +
-          '</div>';
-      return (
-        '<div class="token-row">' +
-          '<div class="token-top">' +
-            '<div class="token-info">' + description + idField + labelField + tool + matcher + action + resource + '</div>' +
-          '</div>' + actions +
-        '</div>'
-      );
-    }
-
-    function renderToolRules(s) {
-      lastToolRules = s;
-      toolUserListEl.innerHTML =
-        s.project && s.project.length
-          ? s.project.map((r) => toolRuleRow(r, false)).join("")
-          : '<div class="token-empty">No project tool rules yet — ask your agent to add one</div>';
-      if (toolEditingId) {
-        const el = toolUserListEl.querySelector(
-          '[data-edit-tdescription="' + toolEditingId + '"]');
-        if (el) { el.focus(); el.select(); }
-      }
-    }
-
-    async function loadToolRules() {
-      const res = await fetch("/api/tool-rules");
-      renderToolRules(await res.json());
-    }
-
-    async function saveToolRuleEdit(id) {
-      const descriptionEl = toolUserListEl.querySelector(
-        '[data-edit-tdescription="' + id + '"]');
-      const nameEl = toolUserListEl.querySelector(
-        '[data-edit-tname="' + id + '"]');
-      const description = descriptionEl ? descriptionEl.value.trim() : "";
-      const name = nameEl ? nameEl.value.trim() : "";
-      if (!name) { showToolToast("name cannot be empty", "error"); return; }
-      if (!description) { showToolToast("description cannot be empty", "error"); return; }
-      try {
-        const res = await fetch("/api/tool-rules/update", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, name, description }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Update failed");
-        toolEditingId = null;
-        showToolToast("Tool rule updated", "success");
-        renderToolRules(data);
-      } catch (e) {
-        showToolToast(e.message || "Update failed", "error");
-      }
-    }
-
-    toolUserListEl.addEventListener("click", async (e) => {
-      const editId = e.target.getAttribute("data-edit-tool");
-      if (editId) { toolEditingId = editId; renderToolRules(lastToolRules); return; }
-      const saveId = e.target.getAttribute("data-save-tool");
-      if (saveId) { saveToolRuleEdit(saveId); return; }
-      if (e.target.getAttribute("data-cancel-tool")) {
-        toolEditingId = null; renderToolRules(lastToolRules); return;
-      }
-      const id = e.target.getAttribute("data-del-tool");
-      if (!id) return;
-      if (!confirm("Delete this tool rule?")) return;
-      try {
-        const res = await fetch("/api/tool-rules", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Delete failed");
-        showToolToast("Tool rule deleted", "success");
-        renderToolRules(data);
-      } catch (e2) {
-        showToolToast(e2.message || "Delete failed", "error");
-      }
-    });
-
-    toolUserListEl.addEventListener("keydown", (e) => {
-      const input = e.target.closest(".tool-edit-description, .tool-edit-name");
-      if (!input || !toolEditingId) return;
-      if (e.key === "Enter") { e.preventDefault(); saveToolRuleEdit(toolEditingId); }
-      else if (e.key === "Escape") { toolEditingId = null; renderToolRules(lastToolRules); }
-    });
 
     refresh();
   </script>
@@ -1476,82 +1566,21 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
           return;
         }
 
-        if (method === 'GET' && url === '/api/patterns') {
-          sendJson(res, 200, buildPatternsPayload());
+        if (method === 'GET' && url === '/api/project-rules') {
+          sendJson(res, 200, await fetchProjectRulesFromBackend());
           return;
         }
 
-        if (method === 'POST' && url === '/api/patterns/update') {
+        if (method === 'POST' && url === '/api/project-rules/update') {
           const body = (await readJsonBody(req)) as {
             id?: unknown;
-            regex?: unknown;
-            reason?: unknown;
-          };
-          const id = typeof body.id === 'string' ? body.id : '';
-          const regex =
-            typeof body.regex === 'string' ? body.regex.trim() : undefined;
-          const reason =
-            typeof body.reason === 'string' ? body.reason.trim() : undefined;
-          if (!id) {
-            sendJson(res, 400, { error: 'id is required' });
-            return;
-          }
-          if (regex === undefined && reason === undefined) {
-            sendJson(res, 400, {
-              error: 'provide at least one of pattern or reason',
-            });
-            return;
-          }
-          try {
-            const saved = updateUserPattern(id, { regex, reason });
-            sendJson(res, 200, { ok: true, saved, ...buildPatternsPayload() });
-          } catch (err) {
-            if (err instanceof PatternValidationError) {
-              sendJson(res, 400, { error: err.message });
-              return;
-            }
-            throw err;
-          }
-          return;
-        }
-
-        if (method === 'DELETE' && url === '/api/patterns') {
-          const body = (await readJsonBody(req)) as { id?: unknown };
-          const id = typeof body.id === 'string' ? body.id : '';
-          if (!id) {
-            sendJson(res, 400, { error: 'id is required' });
-            return;
-          }
-          try {
-            removeUserPattern(id);
-            sendJson(res, 200, { ok: true, ...buildPatternsPayload() });
-          } catch (err) {
-            if (err instanceof PatternValidationError) {
-              sendJson(res, 400, { error: err.message });
-              return;
-            }
-            throw err;
-          }
-          return;
-        }
-
-        if (method === 'GET' && url === '/api/admin-tools') {
-          sendJson(res, 200, buildAdminToolsPayloadEnriched());
-          return;
-        }
-
-        if (method === 'GET' && url === '/api/tool-rules') {
-          sendJson(res, 200, buildToolRulesPayload());
-          return;
-        }
-
-        if (method === 'POST' && url === '/api/tool-rules/update') {
-          const body = (await readJsonBody(req)) as {
-            id?: unknown;
+            type?: unknown;
             name?: unknown;
             description?: unknown;
           };
           const id = typeof body.id === 'string' ? body.id : '';
+          const type =
+            body.type === 'bash' || body.type === 'mcp' ? body.type : undefined;
           const name =
             typeof body.name === 'string' ? body.name.trim() : undefined;
           const description =
@@ -1562,25 +1591,43 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
             sendJson(res, 400, { error: 'id is required' });
             return;
           }
+          if (!type) {
+            sendJson(res, 400, { error: 'type must be "mcp" or "bash"' });
+            return;
+          }
           if (name === undefined && description === undefined) {
             sendJson(res, 400, {
               error: 'provide at least one of name or description',
             });
             return;
           }
+          const existing = await findProjectRule(id);
+          if (!existing || existing.type !== type) {
+            sendJson(res, 400, {
+              error: `no project ${type} rule with id "${id}"`,
+            });
+            return;
+          }
           try {
-            const changes: {
-              name?: string;
-              description?: string;
-            } = {};
+            const changes: ToolRuleChanges = { type };
             if (description !== undefined) {
               changes.description = description;
+              if (type === 'bash') {
+                changes.label = description;
+              }
             }
             if (name !== undefined) {
               changes.name = name;
+              if (type === 'bash') {
+                changes.matcher = 'regex';
+              }
             }
             const saved = await updateToolRule(id, changes);
-            sendJson(res, 200, { ok: true, saved, ...buildToolRulesPayload() });
+            sendJson(res, 200, {
+              ok: true,
+              saved,
+              ...(await fetchProjectRulesFromBackend()),
+            });
           } catch (err) {
             if (err instanceof ToolRuleValidationError) {
               sendJson(res, 400, { error: err.message });
@@ -1591,23 +1638,8 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
           return;
         }
 
-        if (method === 'DELETE' && url === '/api/tool-rules') {
-          const body = (await readJsonBody(req)) as { id?: unknown };
-          const id = typeof body.id === 'string' ? body.id : '';
-          if (!id) {
-            sendJson(res, 400, { error: 'id is required' });
-            return;
-          }
-          try {
-            await removeToolRule(id);
-            sendJson(res, 200, { ok: true, ...buildToolRulesPayload() });
-          } catch (err) {
-            if (err instanceof ToolRuleValidationError) {
-              sendJson(res, 400, { error: err.message });
-              return;
-            }
-            throw err;
-          }
+        if (method === 'GET' && url === '/api/admin-tools') {
+          sendJson(res, 200, buildAdminToolsPayloadEnriched());
           return;
         }
 
@@ -1665,7 +1697,9 @@ function waitForDashboardShutdown(
       server.close((err) => {
         if (err) {
           process.stderr.write(
-            `Shutdown error: ${err instanceof Error ? err.message : String(err)}\n`,
+            `Shutdown error: ${
+              err instanceof Error ? err.message : String(err)
+            }\n`,
           );
         }
         finish();

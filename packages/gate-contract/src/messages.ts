@@ -172,7 +172,8 @@ export function formatStepupPendingSystemMessage(
       'It blocks until verified or 60s timeout — one call replaces the polling loop.',
     '  3. On `outcome: "verified"` retry the SAME Bash command — the hook detects the ' +
       'verified state and allows it. On `outcome: "timeout"` ask the user to retry ' +
-      'WebAuthn, then call the wait tool again.',
+      'WebAuthn, then call the wait tool again. On `outcome: "rejected"` tell the user ' +
+      'they declined step-up; do NOT retry the command unless they explicitly ask.',
   ].join('\n');
 }
 

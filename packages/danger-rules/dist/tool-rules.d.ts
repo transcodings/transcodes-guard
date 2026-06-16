@@ -5,15 +5,15 @@
  * `label`, `description`, `name`, `matcher`, optional `action`/`resource`).
  */
 import { type RbacAction } from '@transcodes-guard/danger-patterns';
-export type GuardMatcher = 'exact' | 'glob';
+export type GuardMatcher = 'exact' | 'glob' | 'regex';
 export declare const GUARD_PROVIDERS: readonly ["claude", "codex", "cursor", "antigravity"];
 export type GuardProvider = (typeof GUARD_PROVIDERS)[number];
 export interface ToolRule {
     id: string;
-    type: 'mcp';
+    type: 'mcp' | 'bash';
     label: string;
     description: string;
-    /** Full MCP tool name or glob pattern when `matcher` is `glob`. */
+    /** MCP wire name/glob, or Bash regex when `type` is `bash`. */
     name: string;
     matcher: GuardMatcher;
     /** Optional MCP host label — stored for future use; does not affect matching today. */
@@ -53,7 +53,7 @@ export declare class ToolRuleValidationError extends Error {
 }
 export interface ToolRuleInput {
     id: string;
-    type?: 'mcp';
+    type?: 'mcp' | 'bash';
     label: string;
     description: string;
     name: string;
@@ -66,7 +66,7 @@ export interface ToolRuleInput {
 }
 /** Partial change set for an existing tool-rule (PUT semantics). */
 export interface ToolRuleChanges {
-    type?: 'mcp';
+    type?: 'mcp' | 'bash';
     label?: string;
     description?: string;
     name?: string;

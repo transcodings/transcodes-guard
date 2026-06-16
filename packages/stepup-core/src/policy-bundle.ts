@@ -21,7 +21,13 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { RBAC_ACTIONS } from '@transcodes-guard/danger-patterns';
+import {
+  coerceRbacAction,
+  coerceRbacResource,
+  loadMergedPatterns,
+  type MergedPattern,
+  RBAC_ACTIONS,
+} from '@transcodes-guard/danger-patterns';
 import {
   loadMergedToolRules,
   type MergedToolRule,
@@ -33,7 +39,7 @@ import { request } from './client.js';
 import { loadStepupConfig, type StepupConfig } from './config.js';
 
 /** Policy bundle wire schema version — bump on breaking bundle shape changes. */
-export const GUARD_POLICY_BUNDLE_SCHEMA_VERSION = 2;
+export const GUARD_POLICY_BUNDLE_SCHEMA_VERSION = 3;
 
 /** Bundle refresh TTL. Policy changes are infrequent and refresh runs only on
  * session-start/server boot (never per tool call), so 1h is the PRD default.
@@ -47,11 +53,11 @@ export const POLICY_BUNDLE_FETCH_TIMEOUT_MS = 3_000;
 /** Mirrors backend `GuardBundleRuleResponseDto` — active rules only, no status/metadata. */
 const bundleToolRuleSchema = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
-  type: z.literal('mcp'),
+  type: z.enum(['mcp', 'bash']),
   label: z.string().min(1),
   description: z.string().min(1),
   name: z.string().min(1),
-  matcher: z.enum(['exact', 'glob']),
+  matcher: z.enum(['exact', 'glob', 'regex']),
   provider: z.enum(['claude', 'codex', 'cursor', 'antigravity']).optional(),
   action: z.enum(RBAC_ACTIONS).optional(),
   resource: z.string().min(1).optional(),
@@ -327,11 +333,39 @@ export function loadEffectiveToolRules(): MergedToolRule[] {
   let bundleRules: ToolRule[] = [];
   try {
     const config = loadStepupConfig();
-    bundleRules = readCachedPolicyBundle(config.projectId)?.bundle.rules ?? [];
+    bundleRules = (readCachedPolicyBundle(config.projectId)?.bundle.rules ?? [])
+      .filter((r) => r.type === 'mcp')
+      .map((r) => ({ ...r, type: 'mcp' as const }));
   } catch {
-    // no token → baseline + user only
+    // no token → baseline only
   }
   return loadMergedToolRules(bundleRules);
+}
+
+/**
+ * Effective Bash pattern set: built-in system patterns → cached bundle bash
+ * rules (`type:'bash'`, regex in `name`). Cache-only — safe on PreToolUse path.
+ */
+export function loadEffectivePatterns(): MergedPattern[] {
+  const system = loadMergedPatterns();
+  let bundle: MergedPattern[] = [];
+  try {
+    const config = loadStepupConfig();
+    const rules = readCachedPolicyBundle(config.projectId)?.bundle.rules ?? [];
+    bundle = rules
+      .filter((r) => r.type === 'bash')
+      .map((r) => ({
+        id: r.id,
+        regex: r.name,
+        reason: r.description,
+        stepupResource: coerceRbacResource(r.resource),
+        stepupAction: coerceRbacAction(r.action),
+        source: 'bundle' as const,
+      }));
+  } catch {
+    // no token → system baseline only
+  }
+  return [...system, ...bundle];
 }
 
 /**

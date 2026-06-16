@@ -28,6 +28,7 @@ import {
   firstInFlightFpPending,
   inspectStepupState,
   isExpired,
+  loadEffectivePatterns,
   loadEffectiveToolRules,
   loadStepupConfig,
   markVerified,
@@ -95,6 +96,7 @@ export const transcodesGateBackend: GateBackend = {
   // server path: tool-rule registry — the effective set includes the cached
   // org policy bundle layer (G3): baseline → bundle → user.
   loadMergedToolRules: loadEffectiveToolRules,
+  loadEffectivePatterns,
   findFirstToolRule,
   addToolRule,
   updateToolRule,

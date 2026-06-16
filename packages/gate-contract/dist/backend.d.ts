@@ -18,7 +18,7 @@
  * (instanceof would require exporting the class).
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { CreatedStepupSession, CreateStepupArgs, GateDecision, MergedToolRule, PendingState, PollStepupResult, StepupStateInspection, ToolCallInput, ToolRule, ToolRuleChanges, ToolRuleInput, ToolRuleMatch, VerifiedStepup, WaitStepupResult } from './types.js';
+import type { CreatedStepupSession, CreateStepupArgs, GateDecision, MergedPattern, MergedToolRule, PendingState, PollStepupResult, StepupStateInspection, ToolCallInput, ToolRule, ToolRuleChanges, ToolRuleInput, ToolRuleMatch, VerifiedStepup, WaitStepupResult } from './types.js';
 export interface GateBackend {
     evaluatePreToolUse(input: ToolCallInput): Promise<GateDecision>;
     /** Caller writes the pending record AFTER emitting deny (fail-safe order). */
@@ -63,6 +63,8 @@ export interface GateBackend {
     assertRbacCoordinate(resource: string, action: string): Promise<void>;
     isRbacCoordinateError(e: unknown): e is Error;
     loadMergedToolRules(): MergedToolRule[];
+    /** System baseline + cached bundle bash rules (`type:'bash'`). */
+    loadEffectivePatterns(): MergedPattern[];
     findFirstToolRule(toolName: string, rules: MergedToolRule[]): ToolRuleMatch | null;
     /**
      * Tool-rule writes (Phase 3 v2): these persist to the Transcodes backend as
