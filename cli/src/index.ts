@@ -83,10 +83,10 @@ function cmdSet(args: string[]): void {
     }
   }
 
-  if (!token || !token.trim()) {
+  if (!token?.trim()) {
     fail('missing token. Usage: transcodes set <token> -l <label>');
   }
-  if (!label || !label.trim()) {
+  if (!label?.trim()) {
     fail('missing label. Usage: transcodes set <token> -l <label>');
   }
   const trimmed = (token as string).trim();

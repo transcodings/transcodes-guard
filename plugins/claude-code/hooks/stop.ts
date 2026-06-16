@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   const verified = backend.readVerified();
 
   // Orphan A: GLOBAL verified file exists but pending is gone or non-pending.
-  if (verified && (!pending || pending.status !== 'pending')) {
+  if (verified && pending?.status !== 'pending') {
     backend.consumeVerified();
     if (pending) backend.clearPending();
     process.exit(0);

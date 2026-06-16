@@ -4,7 +4,7 @@ import {
 } from "../chunk-ODK4KW7V.js";
 import {
   getGateBackend
-} from "../chunk-LTATFLNO.js";
+} from "../chunk-43LAE6TE.js";
 
 // hooks/stop.ts
 function reminderFor(pending) {
@@ -32,7 +32,7 @@ async function main() {
   backend.sweepStepup();
   const pending = backend.readPending();
   const verified = backend.readVerified();
-  if (verified && (!pending || pending.status !== "pending")) {
+  if (verified && pending?.status !== "pending") {
     backend.consumeVerified();
     if (pending) backend.clearPending();
     process.exit(0);

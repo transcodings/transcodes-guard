@@ -47,7 +47,7 @@ jobs:
       # result was a permanently-red `main` regardless of dist freshness.
       # Freshness is now guarded behind: (1) `npm run build:plugin` must succeed,
       # (2) the gitignore guard below (dist files physically exist), and (3) the
-      # host smoke tests (24) which exercise the freshly-built hook entries.
+      # host smoke tests (23) which exercise the freshly-built hook entries.
 
       # gitignore negation guard: dist is ignored by default and only tracked
       # via `!plugins/*/dist/` + `!packages/*/dist/` negation globs. If a glob ever stops
@@ -97,7 +97,7 @@ jobs:
         run: npm test -w @transcodes-guard/stepup-core
 
       # ─────────────────────────────────────────────────────────
-      # Claude Code plugin smoke tests (10 scenarios).
+      # Claude Code plugin smoke tests (9 scenarios).
       # All inputs are static JSON literals; no GitHub event injection
       # surface exists in this job.
       # ─────────────────────────────────────────────────────────

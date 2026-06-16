@@ -76,7 +76,7 @@ function primerMessage(pending: PendingState | null): string {
 function userDoneNotice(pending: PendingState, matchedContent: string): string {
   const trimmed =
     matchedContent.length > 80
-      ? matchedContent.slice(0, 77) + '...'
+      ? `${matchedContent.slice(0, 77)}...`
       : matchedContent;
   const statusNote =
     pending.status === 'verified'

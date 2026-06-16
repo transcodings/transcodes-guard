@@ -79,7 +79,7 @@ export function loadUserPatterns(): DangerConfig {
 export function saveUserPatterns(config: DangerConfig): void {
   const file = getUserPatternsPath();
   mkdirSync(path.dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(config, null, 2) + '\n', 'utf8');
+  writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 }
 
 export function userPatternsFileExists(): boolean {
