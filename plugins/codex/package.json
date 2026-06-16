@@ -12,7 +12,7 @@
     "dist",
     "AGENTS.md",
     "README.md",
-    "plugin.json",
+    ".codex-plugin",
     ".mcp.json",
     "hooks/hooks.json"
   ],
