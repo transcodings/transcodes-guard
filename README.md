@@ -30,7 +30,7 @@ GitHub 리포·배포 제품명·플러그인 모두 `transcodes-guard`입니다
 /plugin install transcodes-guard@bigstrider
 ```
 
-`dist/`가 리포에 커밋돼 있어 클론 즉시 설치됩니다. 사내/팀 한정이면 리포를 private로 두고 접근 권한이 있는 멤버만 설치하면 됩니다(설치 시점에 각자의 git 자격으로 clone). 끄려면 네이티브 `/plugin disable transcodes-guard`.
+`dist/`가 리포에 커밋돼 있어 클론 즉시 설치됩니다(별도 빌드 불필요). 끄려면 네이티브 `/plugin disable transcodes-guard`.
 
 팀 자동 등록은 프로젝트 `.claude/settings.json`에:
 
@@ -67,26 +67,25 @@ GitHub 리포·배포 제품명·플러그인 모두 `transcodes-guard`입니다
 
 ## `transcodes` CLI — 토큰 + 대시보드
 
-Step-up 백엔드 호출에 필요한 멤버 토큰은 `@bigstrider/transcodes-cli`가 `~/.transcodes/config.json`에 저장합니다. 게이트 on/off 토글은 없습니다 — 보호를 끄려면 호스트 네이티브 방식으로 플러그인을 disable/uninstall 하세요.
+Step-up 백엔드 호출에 필요한 멤버 토큰은 `@bigstrider/transcodes-cli`가 `~/.transcodes/config.json`에 저장합니다. CLI는 npm에 발행돼 있습니다:
 
 ```bash
+npx @bigstrider/transcodes-cli       # 설치 없이 대시보드 실행
+npm install -g @bigstrider/transcodes-cli   # 또는 전역 설치 → `transcodes` 명령
+
 transcodes status     # 활성 토큰 출처 + 만료
 transcodes tokens     # 저장된 토큰 목록
 transcodes set <token> -l <label>  # 토큰 저장
 transcodes            # 무인자 → GUI 대시보드
 ```
 
+게이트 on/off 토글은 없습니다 — 보호를 끄려면 호스트 네이티브 방식으로 플러그인을 disable/uninstall 하세요.
+
 ---
 
 ## 데이터 저장 위치
 
 모든 로컬 상태는 `~/.transcodes/state/`에 통합 저장됩니다(멤버 토큰 `config.json`과 같은 제품 홈). 사용자 룰(`user-patterns.json` 등)·step-up 상태(`stepup-pending.json` 등)가 여기 있습니다. 과거 경로(`$CLAUDE_PLUGIN_DATA`, `~/.claude/ai-action-tracker/`, OS 캐시)는 첫 호출 시 자동 마이그레이션 소스로만 남습니다(원본은 `*.bak`). 배경: [`docs/research/mcp-state-persistence-patterns.md`](./docs/research/mcp-state-persistence-patterns.md).
-
----
-
-## 릴리스 (발행은 보류)
-
-`.github/workflows/release.yml`은 **release-please 자동화만** 수행합니다: main의 conventional commit → Release PR → 머지 시 버전 bump + 루트 `CHANGELOG.md` + git tag(`transcodes-guard-vX.Y.Z`). **실제 npm publish/배포 단계는 없습니다** — 배포 채널을 아직 확정하지 않았기 때문입니다(npm은 Claude Code 한정 선택 채널, 나머지는 git+네이티브). 기능 개발 동안 버전·CHANGELOG·tag 기록만 유지되고, 채널이 정해지면 publish 단계를 추가합니다. 정리: [`docs/research/multi-host-plugin-distribution.md`](./docs/research/multi-host-plugin-distribution.md).
 
 ---
 
@@ -101,7 +100,7 @@ npm run dev:hook       # PreToolUse hook 단발 실행 (stdin JSON)
 npm run inspect        # MCP Inspector UI
 ```
 
-요구: Node.js ≥ 20. 소스 수정 후 반드시 `npm run build:plugin` → `dist/` 커밋(CI가 5곳 동기성 + hook smoke test 23종 강제). 새 도구/리소스/프롬프트는 `packages/mcp-server-core/src/server.ts`의 `createServer()` 한 곳에서만 추가합니다 → [`docs/adding-capabilities.md`](./docs/adding-capabilities.md). 에이전트용 작업 규칙은 [`CLAUDE.md`](./CLAUDE.md) + [`.claude/rules/`](./.claude/rules/).
+요구: Node.js ≥ 20. 소스 수정 후 반드시 `npm run build:plugin` → `dist/` 커밋(CI가 dist 존재 + hook smoke test 23종 강제). 새 도구/리소스/프롬프트는 `packages/mcp-server-core/src/server.ts`의 `createServer()` 한 곳에서만 추가합니다 → [`docs/adding-capabilities.md`](./docs/adding-capabilities.md). 에이전트용 작업 규칙은 [`CLAUDE.md`](./CLAUDE.md) + [`.claude/rules/`](./.claude/rules/).
 
 ---
 
@@ -116,4 +115,4 @@ npm run inspect        # MCP Inspector UI
 
 ## 라이선스
 
-MIT
+[Functional Source License, Version 1.1, ALv2 Future License](./LICENSE.md) (`FSL-1.1-ALv2`) — 2년 후 Apache 2.0으로 전환됩니다.
