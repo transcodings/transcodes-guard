@@ -1,17 +1,29 @@
 ---
 paths:
   - ".github/workflows/release.yml"
+  - ".github/workflows/promote.yml"
   - "release-please-config.json"
   - ".release-please-manifest.json"
+  - ".agents/plugins/marketplace.json"
+  - ".claude-plugin/marketplace.json"
 ---
 
 # Release & Distribution
 
-Active when editing the release workflow or release-please config.
+Active when editing the release workflow, release-please config, the promote workflow, or a marketplace manifest.
+
+## Branch model: `main` (maintenance) vs `prod` (public release)
+
+Two long-lived branches:
+
+- **`main`** — the development + maintenance branch. `feat/* → PR → main` is the dev loop, and release-please runs **here** (version bump / CHANGELOG / tag). release-please is pinned with `target-branch: main`, so it always targets `main` even though `prod` is the GitHub **default branch**.
+- **`prod`** — the public install surface and the repo's GitHub **default branch**, so anyone who `clone`s or runs `/plugin marketplace add transcodings/transcodes-guard` without a ref gets `prod`. `prod` is **only** updated by the manual `Promote main → prod` workflow (`.github/workflows/promote.yml`, `workflow_dispatch`), which fast-forwards `prod` to `main`'s HEAD when the team decides to publish.
+
+**`prod` must never carry a commit that `main` doesn't** — every change goes `feat → PR → main`, then a human promotes. The promote workflow refuses to push if `prod` has diverged (`git merge-base --is-ancestor`), so a broken fast-forward fails loudly instead of silently overwriting. Because the default branch is `prod`, **PRs default their base to `prod`** — always pass `--base main` when opening a dev PR.
 
 ## What runs today
 
-`.github/workflows/release.yml` runs **release-please only** (on push to `main`): it reads conventional commits, maintains a Release PR, and on merge produces ① a version bump commit ② the root `CHANGELOG.md` ③ a git tag `transcodes-guard-vX.Y.Z`. Distribution itself happens through the public GitHub repository — hosts install plugins by referencing the repo directly (see Distribution channels below). Version automation keeps tag/CHANGELOG records flowing in lockstep with the source the hosts pull from.
+`.github/workflows/release.yml` runs **release-please only** (on push to `main`, `target-branch: main`): it reads conventional commits, maintains a Release PR, and on merge produces ① a version bump commit ② the root `CHANGELOG.md` ③ a git tag `transcodes-guard-vX.Y.Z`. Distribution itself happens through the public GitHub repository — hosts install plugins by referencing the repo directly (see Distribution channels below). Version automation keeps tag/CHANGELOG records flowing in lockstep with `main`; the public surface advances only when `prod` is promoted (see Branch model above).
 
 ## Auto-merge the Release PR
 

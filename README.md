@@ -102,6 +102,13 @@ npm run inspect        # MCP Inspector UI
 
 요구: Node.js ≥ 20. 소스 수정 후 반드시 `npm run build:plugin` → `dist/` 커밋(CI가 dist 존재 + hook smoke test 23종 강제). 새 도구/리소스/프롬프트는 `packages/mcp-server-core/src/server.ts`의 `createServer()` 한 곳에서만 추가합니다 → [`docs/adding-capabilities.md`](./docs/adding-capabilities.md). 에이전트용 작업 규칙은 [`CLAUDE.md`](./CLAUDE.md) + [`.claude/rules/`](./.claude/rules/).
 
+### 브랜치 모델
+
+- **`prod`** — 공개 릴리스 브랜치(리포 default). 별도 ref 없이 clone/`/plugin marketplace add` 하면 이 안정 브랜치를 받습니다. 사람이 "공개" 결정 시에만 갱신됩니다.
+- **`main`** — 개발·메인터넌스 브랜치. `feat/* → PR → main` 루프로 작업하고 release-please가 여기서 버전·CHANGELOG·tag를 관리합니다. 공개 표면(`prod`)으로의 승격은 수동(`Promote main → prod` 워크플로, main HEAD를 prod로 fast-forward)입니다.
+
+> 컨트리뷰터: PR base가 default(`prod`)로 잡히므로 개발 PR은 base를 `main`으로 지정하세요.
+
 ---
 
 ## 참고

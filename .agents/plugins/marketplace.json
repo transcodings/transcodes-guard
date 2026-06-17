@@ -10,7 +10,7 @@
         "source": "git-subdir",
         "url": "https://github.com/transcodings/transcodes-guard.git",
         "path": "./plugins/codex",
-        "ref": "main"
+        "ref": "prod"
       },
       "policy": {
         "installation": "AVAILABLE",

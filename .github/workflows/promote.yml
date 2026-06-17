@@ -1,0 +1,45 @@
+name: Promote main → prod
+
+# 공개 릴리스 브랜치(prod) 승격. 자동 트리거 없음 — 개발팀이 "이제 공개" 결정을
+# 내릴 때만 수동(workflow_dispatch)으로 실행한다. main(메인터넌스 + release-please
+# 버전 갱신 브랜치)의 현재 HEAD를 prod로 fast-forward push한다.
+#
+# prod는 절대 main과 독립적인 커밋을 가지면 안 된다(모든 변경은 feat→PR→main 경유).
+# 그래야 이 ff가 항상 성공한다. ff가 거부되면(prod가 main 조상이 아니면) prod에
+# 직접 커밋이 들어간 것이므로, 자동 강제 push 하지 않고 실패로 남겨 사람이 조사한다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'main을 prod로 승격합니다. 확인하려면 "promote" 입력'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    if: ${{ inputs.confirm == 'promote' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Fast-forward prod to main
+        run: |
+          set -euo pipefail
+          git fetch origin prod
+          MAIN_SHA="$(git rev-parse HEAD)"
+          # prod가 main의 조상인지 확인 — 아니면 ff 불가, 직접 커밋이 들어간 것.
+          if ! git merge-base --is-ancestor origin/prod "$MAIN_SHA"; then
+            echo "::error::prod is not an ancestor of main — refusing to force-push. prod has diverged (direct commit?). Investigate manually."
+            exit 1
+          fi
+          echo "Fast-forwarding prod → $MAIN_SHA"
+          git push origin "$MAIN_SHA:refs/heads/prod"
