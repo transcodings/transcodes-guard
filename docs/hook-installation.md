@@ -1,6 +1,6 @@
 # Hook 설치 가이드
 
-이 리포지토리는 Claude Code의 **PreToolUse hook**으로 동작하는 위험 명령 차단 스크립트(`plugins/ai-action-tracker/hooks/pre-tool-use.ts`)를 제공합니다. 사용자가 자신의 Claude Code 설정에 등록하면, 모델이 위험한 Bash 명령을 실행하려 할 때 즉시 차단되고 채팅 트랜스크립트에 경고가 표시됩니다.
+이 리포지토리는 Claude Code의 **PreToolUse hook**으로 동작하는 위험 명령 차단 스크립트(`plugins/claude-code/hooks/pre-tool-use.ts`)를 제공합니다. 사용자가 자신의 Claude Code 설정에 등록하면, 모델이 위험한 Bash 명령을 실행하려 할 때 즉시 차단되고 채팅 트랜스크립트에 경고가 표시됩니다.
 
 > 권장 설치 경로는 **Plugin**(루트 [`README.md`](../README.md) "빠른 시작"). 이 문서는 plugin 시스템 없이 hook만 직접 등록하려는 사용자를 위한 백업 가이드.
 
@@ -61,7 +61,7 @@ npm install
 npm run build:plugin
 ```
 
-빌드 산출물: `plugins/ai-action-tracker/dist/hooks/pre-tool-use.js` (실행 가능 JS, danger-patterns.json 동기화 포함).
+빌드 산출물: `plugins/claude-code/dist/hooks/pre-tool-use.js` (실행 가능 JS, danger-patterns.json 동기화 포함).
 
 ## 2단계 — Hook 등록
 
@@ -97,7 +97,7 @@ npm run build:plugin
 ### npm 전역 설치 사용 시
 
 ```bash
-npm install -g ./plugins/ai-action-tracker   # plugin 디렉터리 기준
+npm install -g ./plugins/claude-code   # plugin 디렉터리 기준
 ```
 
 설치 후 `command` 부분을 다음으로 단순화 가능:
@@ -124,7 +124,7 @@ Claude Code 세션에서 다음을 시도:
 
 ## 차단 패턴 커스터마이징
 
-`plugins/ai-action-tracker/hooks/danger-patterns.json`을 직접 수정하면 즉시 반영됩니다(스크립트 재빌드 불필요 — 매 호출마다 파일을 새로 읽음). plugin dist에도 반영하려면 `npm run build:plugin`.
+시스템 패턴은 `packages/danger-patterns/src/data/danger-patterns.json`에 정의되며 **빌드 시 번들에 임베드**됩니다 — 수정 후 `npm run build:plugin`으로 재빌드해야 반영됩니다. 재빌드 없이 패턴을 추가하려면 사용자 패턴 파일(JSONC)이나 MCP 도구 `add_user_pattern`을 쓰세요(매 호출마다 새로 읽힘).
 
 **패턴 추가 예시:**
 
@@ -164,5 +164,5 @@ Claude Code 세션에서 다음을 시도:
 ## 참고
 
 - Claude Code 공식 hooks 문서: <https://code.claude.com/docs/en/hooks>
-- 본 hook 소스: [`plugins/ai-action-tracker/hooks/pre-tool-use.ts`](../plugins/ai-action-tracker/hooks/pre-tool-use.ts)
-- 패턴 정의: [`plugins/ai-action-tracker/hooks/danger-patterns.json`](../plugins/ai-action-tracker/hooks/danger-patterns.json)
+- 본 hook 소스: [`plugins/claude-code/hooks/pre-tool-use.ts`](../plugins/claude-code/hooks/pre-tool-use.ts)
+- 패턴 정의: [`packages/danger-patterns/src/data/danger-patterns.json`](../packages/danger-patterns/src/data/danger-patterns.json)
