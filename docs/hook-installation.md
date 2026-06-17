@@ -83,7 +83,7 @@ npm run build:plugin
         "hooks": [
           {
             "type": "command",
-            "command": "node /ABSOLUTE/PATH/TO/ai-action-tracker-mcp/plugins/ai-action-tracker/dist/hooks/pre-tool-use.js"
+            "command": "node /ABSOLUTE/PATH/TO/transcodes-guard/plugins/claude-code/dist/hooks/pre-tool-use.js"
           }
         ]
       }
@@ -92,7 +92,7 @@ npm run build:plugin
 }
 ```
 
-`/ABSOLUTE/PATH/TO/ai-action-tracker-mcp` 부분을 실제 클론 경로로 교체합니다. 예: `/home/cyprien/Documents/transcodes/ai-action-tracker`.
+`/ABSOLUTE/PATH/TO/transcodes-guard` 부분을 실제 클론 경로로 교체합니다. 예: `/home/cyprien/Documents/transcodes/ai-action-tracker`.
 
 ### npm 전역 설치 사용 시
 

@@ -15,14 +15,14 @@ Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity 
 ### Project scope (per-workspace)
 
 ```bash
-git clone https://github.com/transcodings/ai-action-tracker-mcp.git
-cd ai-action-tracker-mcp
+git clone https://github.com/transcodings/transcodes-guard.git
+cd transcodes-guard
 npm install
 npm run build:plugin
 
 # In your target workspace:
 cd /path/to/your/project
-/path/to/ai-action-tracker-mcp/plugins/cursor-ai-action-tracker/install.sh
+/path/to/transcodes-guard/plugins/cursor/install.sh
 ```
 
 Writes `<project>/.cursor/hooks.json` and `<project>/.cursor/mcp.json` with absolute paths to the plugin's `dist/`.
@@ -30,7 +30,7 @@ Writes `<project>/.cursor/hooks.json` and `<project>/.cursor/mcp.json` with abso
 ### User scope (all workspaces)
 
 ```bash
-/path/to/ai-action-tracker-mcp/plugins/cursor-ai-action-tracker/install.sh --user
+/path/to/transcodes-guard/plugins/cursor/install.sh --user
 ```
 
 Writes `~/.cursor/hooks.json` and `~/.cursor/mcp.json`. Useful if you want the gate active in every Cursor workspace.
