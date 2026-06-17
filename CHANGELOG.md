@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.3](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.15.2...transcodes-guard-v0.15.3) (2026-06-17)
+
+
+### Bug Fixes
+
+* **policy:** force policy-bundle refresh on session start ([2f4b459](https://github.com/transcodings/ai-action-tracker-mcp/commit/2f4b459430769f5ea618d414ec16d0b409ae3a05))
+* **policy:** 세션 시작 시 policy-bundle 강제 갱신 (TTL 우회) ([3bc81b7](https://github.com/transcodings/ai-action-tracker-mcp/commit/3bc81b70bc9a8f22c72daee19dff4ca253cd6ac1))
+
 ## [0.15.2](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.15.1...transcodes-guard-v0.15.2) (2026-06-16)
 
 
