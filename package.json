@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
+    "dotenv": "^16.6.1",
     "esbuild": "^0.28.0",
     "javascript-obfuscator": "^5.4.3",
     "lefthook": "^1.13.6",

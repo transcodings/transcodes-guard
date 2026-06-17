@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "cursor";
+process.env.TRANSCODES_GUARD_HOST = "claude-code";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -923,7 +923,7 @@ function resolveToken() {
 }
 
 // ../../packages/stepup-core/dist/config.js
-var DEFAULT_BACKEND_URL = "http://localhost:3500";
+var DEFAULT_BACKEND_URL = "https://api.transcodesapis.com";
 var STEPUP_TTL_MS = 10 * 60 * 1e3;
 function loadStepupConfig() {
   const rawUrl = process.env.TRANSCODES_BACKEND_URL?.trim() || DEFAULT_BACKEND_URL;

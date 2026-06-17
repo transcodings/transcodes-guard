@@ -1,5 +1,10 @@
-/** Backend default — matches transcodes-mcp-server constants. Override with TRANSCODES_BACKEND_URL. */
-export declare const DEFAULT_BACKEND_URL = "http://localhost:3500";
+/**
+ * Backend default. Cloud unless `environment=dev` (loaded from the repo-root
+ * `.env.local` by the `dev:*` npm scripts via Node `--env-file`). Shipped
+ * plugin bundles never load an env file, so they always resolve to cloud.
+ * An explicit `TRANSCODES_BACKEND_URL` overrides either way (see loadStepupConfig).
+ */
+export declare const DEFAULT_BACKEND_URL: string;
 /** Step-up validity window. Mirrors the backend TTL used by transcodes. */
 export declare const STEPUP_TTL_MS: number;
 export type StepupConfig = {
