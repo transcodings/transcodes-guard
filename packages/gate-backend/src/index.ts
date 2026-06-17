@@ -75,7 +75,12 @@ export const transcodesGateBackend: GateBackend = {
   hasToken: () => Boolean(resolveToken().token),
   sendGateDecisionAudit,
   refreshPolicyBundle: async () => {
-    await refreshPolicyBundleIfConfigured();
+    // SessionStart / MCP startup are explicit refresh points: bypass the TTL
+    // so a just-edited dashboard/CLI rule is reflected on the next session,
+    // not up to POLICY_BUNDLE_TTL_MS later. The PreToolUse hot path never
+    // calls this (cache-only — design invariant 2), so the TTL still applies
+    // there.
+    await refreshPolicyBundleIfConfigured({ force: true });
   },
 
   // server path: step-up session — config loaded internally

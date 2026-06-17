@@ -9,8 +9,8 @@
 import { parseMemberAccessToken } from './jwt.js';
 import { resolveToken } from './token-store.js';
 /**
- * Backend default. Cloud unless `environment=dev` (loaded from the repo-root
- * `.env.local` by the `dev:*` npm scripts via Node `--env-file`). Shipped
+ * Backend default. Cloud unless `environment=dev` (set in repo-root `.env.local`,
+ * loaded by `dev:*` scripts via `scripts/load-dev-env.cjs` + dotenv). Shipped
  * plugin bundles never load an env file, so they always resolve to cloud.
  * An explicit `TRANSCODES_BACKEND_URL` overrides either way (see loadStepupConfig).
  */
