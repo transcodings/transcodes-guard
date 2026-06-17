@@ -2,7 +2,7 @@
   "mcpServers": {
     "transcodes-guard": {
       "command": "node",
-      "args": ["__AI_ACTION_TRACKER_ROOT__/dist/src/stdio.js"]
+      "args": ["__TRANSCODES_GUARD_ROOT__/dist/src/stdio.js"]
     }
   }
 }
