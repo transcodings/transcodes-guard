@@ -1,8 +1,8 @@
-# ai-action-tracker — Google Antigravity 2.0 plugin
+# transcodes-guard — Google Antigravity 2.0 plugin
 
 Risky-shell interceptor (`PreToolUse` hook) and audit MCP server for Google Antigravity 2.0. Supports the desktop app (Antigravity 2.0) and the `agy` CLI.
 
-Shares the same step-up MFA gate logic as the Claude Code and Codex plugins (`@ai-action-tracker/stepup-core`, `@ai-action-tracker/mcp-server-core`); the Antigravity-specific surface is a native hook adapter (`antigravityAdapter`) that speaks Antigravity's PreToolUse / PreInvocation / Stop wire format (top-level `decision`, nested `toolCall.name`/`toolCall.args` stdin, no `hookSpecificOutput` wrapper). The codex plugin's claudeCodeAdapter delegation pattern does **not** apply here — see [`docs/research/multi-tool-hook-plugin-support.md`](../../docs/research/multi-tool-hook-plugin-support.md) v3 for the spec-vs-research reconciliation.
+Shares the same step-up MFA gate logic as the Claude Code and Codex plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the Antigravity-specific surface is a native hook adapter (`antigravityAdapter`) that speaks Antigravity's PreToolUse / PreInvocation / Stop wire format (top-level `decision`, nested `toolCall.name`/`toolCall.args` stdin, no `hookSpecificOutput` wrapper). The codex plugin's claudeCodeAdapter delegation pattern does **not** apply here — see [`docs/research/multi-tool-hook-plugin-support.md`](../../docs/research/multi-tool-hook-plugin-support.md) v3 for the spec-vs-research reconciliation.
 
 ## Prerequisites
 
@@ -15,15 +15,15 @@ Antigravity scans two locations for plugins:
 
 1. **Global** — available to all workspaces:
    ```bash
-   cp -r plugins/antigravity-ai-action-tracker ~/.gemini/config/plugins/ai-action-tracker
+   cp -r plugins/antigravity ~/.gemini/config/plugins/transcodes-guard
    ```
 2. **Workspace** — available only inside the workspace folder:
    ```bash
    mkdir -p .agents/plugins
-   cp -r plugins/antigravity-ai-action-tracker .agents/plugins/ai-action-tracker
+   cp -r plugins/antigravity .agents/plugins/transcodes-guard
    ```
 
-On Antigravity CLI: `agy plugin list` should now show `ai-action-tracker`.
+On Antigravity CLI: `agy plugin list` should now show `transcodes-guard`.
 
 ### Export `TRANSCODES_TOKEN`
 
@@ -40,7 +40,7 @@ If the variable is missing, the hook still **denies** danger commands but cannot
 | Component | Behaviour |
 |---|---|
 | `PreToolUse` hook (matcher: `run_command`) | Two-layer check on shell commands (regex patterns + `git ls-files` semantic on `rm -rf`). Denies and triggers a step-up MFA flow when matched. |
-| MCP server (`ai-action-tracker`) | Diagnostic + audit tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), Transcodes admin tools, step-up session lifecycle tools (`create_stepup_session`, `poll_stepup_session_wait`). |
+| MCP server (`transcodes-guard`) | Diagnostic + audit tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), Transcodes admin tools, step-up session lifecycle tools (`create_stepup_session`, `poll_stepup_session_wait`). |
 | `PreInvocation` hook | Plays two roles (Antigravity has no SessionStart / UserPromptSubmit). On `invocationNum=1` injects a static step-up MFA primer + any carry-over pending state. On any invocation, tails `transcript.jsonl` for the most recent user message and, if it matches the completion pattern, surfaces the pending `sid` so the agent can poll. |
 | `Stop` hook | Catches dangling step-up loops by injecting a reminder via `{ decision: "continue", reason }` (Antigravity re-enters the execution loop with the reason as a system message). Silently reaps orphan verified/pending records when state is clean. |
 | `rules/STEPUP.md` | Static step-up MFA protocol primer that Antigravity auto-loads into every conversation. |

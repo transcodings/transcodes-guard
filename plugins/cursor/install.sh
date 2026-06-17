@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cursor IDE installer for ai-action-tracker.
+# Cursor IDE installer for transcodes-guard.
 #
 # Usage:
 #   ./install.sh                          # project-scope: writes <repo>/.cursor/hooks.json
@@ -8,7 +8,7 @@
 #
 # What it does:
 #  1. Resolves PLUGIN_ROOT to this script's absolute directory.
-#  2. Substitutes __AI_ACTION_TRACKER_ROOT__ in .cursor/hooks.json and mcp.json
+#  2. Substitutes __TRANSCODES_GUARD_ROOT__ in .cursor/hooks.json and mcp.json
 #     with that absolute path.
 #  3. Copies the rendered hooks.json to <target>/.cursor/hooks.json.
 #  4. Merges mcp.json into <target>/.cursor/mcp.json (or ~/.cursor/mcp.json
@@ -52,12 +52,12 @@ cursor_dir="$target/.cursor"
 mkdir -p "$cursor_dir"
 
 # Render hooks.json with absolute plugin root.
-sed "s|__AI_ACTION_TRACKER_ROOT__|$PLUGIN_ROOT|g" \
+sed "s|__TRANSCODES_GUARD_ROOT__|$PLUGIN_ROOT|g" \
   "$PLUGIN_ROOT/.cursor/hooks.json" > "$cursor_dir/hooks.json"
 echo "wrote $cursor_dir/hooks.json"
 
 # mcp.json: merge-aware. Refuse to clobber an existing file.
-rendered_mcp="$(sed "s|__AI_ACTION_TRACKER_ROOT__|$PLUGIN_ROOT|g" "$PLUGIN_ROOT/mcp.json")"
+rendered_mcp="$(sed "s|__TRANSCODES_GUARD_ROOT__|$PLUGIN_ROOT|g" "$PLUGIN_ROOT/mcp.json")"
 if [[ -e "$cursor_dir/mcp.json" ]]; then
   echo ""
   echo "$cursor_dir/mcp.json already exists — not overwriting."

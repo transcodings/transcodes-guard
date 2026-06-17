@@ -1,8 +1,8 @@
-# ai-action-tracker — Cursor IDE plugin
+# transcodes-guard — Cursor IDE plugin
 
 Risky-shell interceptor (`beforeShellExecution` / `beforeMCPExecution`) and audit MCP server for Cursor.
 
-Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@ai-action-tracker/stepup-core`, `@ai-action-tracker/mcp-server-core`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`) and the install layout below. Cursor has no `plugin.json` concept (Marketplace bundle spec is non-public), so installation is GitHub release tarball + `install.sh`.
+Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`) and the install layout below. Cursor has no `plugin.json` concept (Marketplace bundle spec is non-public), so installation is GitHub release tarball + `install.sh`.
 
 ## Prerequisites
 
@@ -15,14 +15,14 @@ Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity 
 ### Project scope (per-workspace)
 
 ```bash
-git clone https://github.com/transcodings/ai-action-tracker-mcp.git
-cd ai-action-tracker-mcp
+git clone https://github.com/transcodings/transcodes-guard.git
+cd transcodes-guard
 npm install
 npm run build:plugin
 
 # In your target workspace:
 cd /path/to/your/project
-/path/to/ai-action-tracker-mcp/plugins/cursor-ai-action-tracker/install.sh
+/path/to/transcodes-guard/plugins/cursor/install.sh
 ```
 
 Writes `<project>/.cursor/hooks.json` and `<project>/.cursor/mcp.json` with absolute paths to the plugin's `dist/`.
@@ -30,7 +30,7 @@ Writes `<project>/.cursor/hooks.json` and `<project>/.cursor/mcp.json` with abso
 ### User scope (all workspaces)
 
 ```bash
-/path/to/ai-action-tracker-mcp/plugins/cursor-ai-action-tracker/install.sh --user
+/path/to/transcodes-guard/plugins/cursor/install.sh --user
 ```
 
 Writes `~/.cursor/hooks.json` and `~/.cursor/mcp.json`. Useful if you want the gate active in every Cursor workspace.
@@ -59,7 +59,7 @@ Set this in the shell that launches Cursor (or in your shell rc). If missing, th
 | `beforeSubmitPrompt` | Detects user "auth done" prompts (`완료` / `done` / …). Cursor has no `additional_context` channel for this event, so the hook performs `consumeVerified` + `clearPending` as side effects and emits `{ continue: true }`. |
 | `stop` | Reminds the model of dangling step-up sessions via `followup_message`; silently reaps orphan verified/pending records. |
 
-The MCP server itself (registered as `ai-action-tracker` in `mcp.json`) exposes the same diagnostic + audit + Transcodes-admin tools as the other plugins.
+The MCP server itself (registered as `transcodes-guard` in `mcp.json`) exposes the same diagnostic + audit + Transcodes-admin tools as the other plugins.
 
 ## Enabling / disabling
 
@@ -85,7 +85,7 @@ These four items were not validated against a live Cursor build before release. 
 1. **Exact `tool_name` values** — Cursor docs document the matcher names (`Shell`, MCP tool prefix) but not the literal stdin `tool_name` strings. The classifier accepts `Shell`, `Bash`, `run_command` to be safe.
 2. **`beforeMCPExecution` matcher syntax** — `MCP:plugin_ai-action-tracker_*` is our best read of the docs; verify against a live event payload.
 3. **`stop.followup_message` UX** — if Cursor doesn't render the reminder visibly to the model, switch the hook to silent reap by editing `hooks/stop.ts` to skip the `cursorAdapter.emitStop` call.
-4. **`__AI_ACTION_TRACKER_ROOT__` substitution** — `install.sh` rewrites the placeholder to an absolute path. If you hand-edit `.cursor/hooks.json` later, keep the absolute path (Cursor does not expand `$CURSOR_PROJECT_DIR` inside `command` strings).
+4. **`__TRANSCODES_GUARD_ROOT__` substitution** — `install.sh` rewrites the placeholder to an absolute path. If you hand-edit `.cursor/hooks.json` later, keep the absolute path (Cursor does not expand `$CURSOR_PROJECT_DIR` inside `command` strings).
 
 ## Troubleshooting
 

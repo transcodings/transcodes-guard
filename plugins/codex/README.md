@@ -1,8 +1,8 @@
-# ai-action-tracker — Codex CLI plugin
+# transcodes-guard — Codex CLI plugin
 
 Risky-bash interceptor (`PreToolUse` hook) and audit MCP server for OpenAI Codex CLI.
 
-Shares the same step-up MFA gate logic as the Claude Code plugin (`@ai-action-tracker/stepup-core`, `@ai-action-tracker/mcp-server-core`); the only Codex-specific surface is the hook adapter and the plugin manifest.
+Shares the same step-up MFA gate logic as the Claude Code plugin (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Codex-specific surface is the hook adapter and the plugin manifest.
 
 ## Prerequisites
 
@@ -28,12 +28,12 @@ The plugin manifest lives at `plugins/codex/.codex-plugin/plugin.json`, and the 
 
 ```bash
 # Marketplace (reads the repo's .agents/plugins/marketplace.json catalog)
-codex plugin marketplace add transcodings/ai-action-tracker-mcp
+codex plugin marketplace add transcodings/transcodes-guard
 # then open Codex → /plugins and install "transcodes-guard"
 
 # Or local clone (for development / pre-release)
-git clone https://github.com/transcodings/ai-action-tracker-mcp.git
-codex plugin marketplace add ./ai-action-tracker-mcp
+git clone https://github.com/transcodings/transcodes-guard.git
+codex plugin marketplace add ./transcodes-guard
 ```
 
 ### 3. Trust the hook on first run
@@ -55,7 +55,7 @@ If the variable is missing, the hook still **denies** danger commands but cannot
 | Component | Behaviour |
 |---|---|
 | `PreToolUse` hook | Two-layer check on Bash (regex patterns + `git ls-files` semantic on `rm -rf`) plus exact-match tool-rules on MCP calls. Denies and triggers a step-up MFA flow when matched. |
-| MCP server (`ai-action-tracker`) | Diagnostic + audit tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), Transcodes admin tools (`retire_member`, `set_role_permissions`, `passcode_create`, …), step-up session lifecycle tools (`create_stepup_session`, `poll_stepup_session_wait`). |
+| MCP server (`transcodes-guard`) | Diagnostic + audit tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), Transcodes admin tools (`retire_member`, `set_role_permissions`, `passcode_create`, …), step-up session lifecycle tools (`create_stepup_session`, `poll_stepup_session_wait`). |
 | `SessionStart` hook | Injects a carry-over notice if a step-up session survived a session boundary. Static protocol primer lives in [`AGENTS.md`](./AGENTS.md). |
 | `UserPromptSubmit` hook | Detects user "auth done" prompts (`"완료"`, `"done"`, …) and surfaces the pending `sid` so the agent can poll. |
 | `Stop` hook | Catches dangling step-up loops; silently reaps orphan verified/pending records. |

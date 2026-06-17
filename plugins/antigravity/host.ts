@@ -1,5 +1,5 @@
 /**
- * Side-effect-only module — see plugins/claude-code-ai-action-tracker/host.ts
+ * Side-effect-only module — see plugins/claude-code/host.ts
  * for the rationale. Antigravity has no equivalent of $CLAUDE_PLUGIN_DATA, so
  * dataDir() / cacheDir() will fall back to the legacy host-agnostic paths.
  */
