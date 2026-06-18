@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.16.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.15.3...transcodes-guard-v0.16.0) (2026-06-18)
+
+
+### Features
+
+* **antigravity:** add automated installer to resolve path issues ([d63b0e2](https://github.com/transcodings/transcodes-guard/commit/d63b0e2dba9a9e2e56b4272ca76316c2ce673ff6))
+* **antigravity:** add automated installer to resolve path issues ([e2cf60f](https://github.com/transcodings/transcodes-guard/commit/e2cf60f66097b35825415bc4328b2712d79b4129))
+
+
+### Bug Fixes
+
+* **antigravity:** __PLUGIN_DIR__ placeholder 치환으로 설치 경로 견고화 + 루트 README 영/한 분리 ([29fa0d9](https://github.com/transcodings/transcodes-guard/commit/29fa0d99878115f1e7c2e67ca2e4e0fc3c819bd0))
+
 ## [0.15.3](https://github.com/transcodings/ai-action-tracker-mcp/compare/transcodes-guard-v0.15.2...transcodes-guard-v0.15.3) (2026-06-17)
 
 

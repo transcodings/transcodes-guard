@@ -8,7 +8,7 @@ import {
 } from "../chunk-PXSMGCGP.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.15.3";
+var PLUGIN_VERSION = "0.16.0";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
