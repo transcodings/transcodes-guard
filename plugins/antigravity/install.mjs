@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -16,19 +16,21 @@ function resolveHome(filepath) {
   return filepath;
 }
 
-// Function to copy file or folder recursively
-function copyRecursiveSync(src, dest) {
-  const exists = fs.existsSync(src);
-  const stats = exists && fs.statSync(src);
-  const isDirectory = exists && stats.isDirectory();
-  if (isDirectory) {
-    fs.mkdirSync(dest, { recursive: true });
-    fs.readdirSync(src).forEach((childItemName) => {
-      copyRecursiveSync(path.join(src, childItemName), path.join(dest, childItemName));
-    });
-  } else {
-    fs.copyFileSync(src, dest);
+// Replace the __PLUGIN_DIR__ placeholder in a copied config with the install
+// dir's absolute path. The absolute path is forward-slash normalized so it is
+// safe to embed in JSON strings and shell commands on Windows (raw backslashes
+// would be invalid JSON escapes). Throws if the placeholder is absent so a
+// config-format drift fails loudly at install time instead of silently
+// shipping a broken relative path that only breaks at runtime.
+function rewritePluginDir(configPath, targetDir) {
+  if (!fs.existsSync(configPath)) return;
+  const pluginDir = targetDir.split(path.sep).join('/');
+  const content = fs.readFileSync(configPath, 'utf8');
+  if (!content.includes('__PLUGIN_DIR__')) {
+    throw new Error(`__PLUGIN_DIR__ placeholder not found in ${configPath} — config format changed; update install.mjs.`);
   }
+  fs.writeFileSync(configPath, content.split('__PLUGIN_DIR__').join(pluginDir), 'utf8');
+  console.log(`- Path rewrite completed in: ${configPath}`);
 }
 
 // Parse command line arguments
@@ -63,39 +65,20 @@ targetDirs.forEach((targetDir) => {
   // Ensure the directory exists
   fs.mkdirSync(targetDir, { recursive: true });
   
-  // Copy plugin assets
+  // Copy plugin assets (force overwrites in place — no destructive pre-delete)
   filesToCopy.forEach((item) => {
     const srcPath = path.resolve(__dirname, item);
     const destPath = path.join(targetDir, item);
     if (fs.existsSync(srcPath)) {
-      if (fs.existsSync(destPath)) {
-        fs.rmSync(destPath, { recursive: true, force: true });
-      }
-      copyRecursiveSync(srcPath, destPath);
+      fs.cpSync(srcPath, destPath, { recursive: true, force: true });
     } else {
       console.warn(`Warning: Source file/folder "${item}" not found.`);
     }
   });
 
-  // Rewrite relative paths inside hooks.json to absolute paths
-  const hooksJsonPath = path.join(targetDir, 'hooks.json');
-  if (fs.existsSync(hooksJsonPath)) {
-    let content = fs.readFileSync(hooksJsonPath, 'utf8');
-    const regex = /node\s+\.\/dist\//g;
-    content = content.replace(regex, `node ${path.join(targetDir, 'dist')}/`);
-    fs.writeFileSync(hooksJsonPath, content, 'utf8');
-    console.log(`- Path rewrite completed in: ${hooksJsonPath}`);
-  }
-
-  // Rewrite relative paths inside mcp_config.json to absolute paths
-  const mcpConfigPath = path.join(targetDir, 'mcp_config.json');
-  if (fs.existsSync(mcpConfigPath)) {
-    let content = fs.readFileSync(mcpConfigPath, 'utf8');
-    const regex = /"\.\/dist\//g;
-    content = content.replace(regex, `"${path.join(targetDir, 'dist')}/`);
-    fs.writeFileSync(mcpConfigPath, content, 'utf8');
-    console.log(`- Path rewrite completed in: ${mcpConfigPath}`);
-  }
+  // Resolve the __PLUGIN_DIR__ placeholder to this install dir's absolute path
+  rewritePluginDir(path.join(targetDir, 'hooks.json'), targetDir);
+  rewritePluginDir(path.join(targetDir, 'mcp_config.json'), targetDir);
 });
 
 console.log('Google Antigravity plugin installation completed successfully!');

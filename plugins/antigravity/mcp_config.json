@@ -2,7 +2,7 @@
   "mcpServers": {
     "transcodes-guard": {
       "command": "node",
-      "args": ["./dist/src/stdio.js"]
+      "args": ["__PLUGIN_DIR__/dist/src/stdio.js"]
     }
   }
 }
