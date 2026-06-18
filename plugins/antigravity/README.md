@@ -11,16 +11,15 @@ Shares the same step-up MFA gate logic as the Claude Code and Codex plugins (`@t
 
 ## Installation
 
-Antigravity scans two locations for plugins:
+To install the plugin, use the automated installer script which resolves target paths and configures absolute file system paths automatically:
 
-1. **Global** — available to all workspaces:
+1. **Global** — available to all workspaces (Desktop App/IDE and CLI):
    ```bash
-   cp -r plugins/antigravity ~/.gemini/config/plugins/transcodes-guard
+   node plugins/antigravity/install.mjs
    ```
 2. **Workspace** — available only inside the workspace folder:
    ```bash
-   mkdir -p .agents/plugins
-   cp -r plugins/antigravity .agents/plugins/transcodes-guard
+   node plugins/antigravity/install.mjs --local
    ```
 
 On Antigravity CLI: `agy plugin list` should now show `transcodes-guard`.

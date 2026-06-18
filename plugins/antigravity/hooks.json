@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ./dist/hooks/pre-tool-use.js",
+            "command": "node __PLUGIN_DIR__/dist/hooks/pre-tool-use.js",
             "timeout": 30
           }
         ]
@@ -15,14 +15,14 @@
     "PreInvocation": [
       {
         "type": "command",
-        "command": "node ./dist/hooks/pre-invocation.js",
+        "command": "node __PLUGIN_DIR__/dist/hooks/pre-invocation.js",
         "timeout": 10
       }
     ],
     "Stop": [
       {
         "type": "command",
-        "command": "node ./dist/hooks/stop.js",
+        "command": "node __PLUGIN_DIR__/dist/hooks/stop.js",
         "timeout": 10
       }
     ]
