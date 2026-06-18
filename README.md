@@ -46,7 +46,7 @@ GitHub 리포·배포 제품명·플러그인 모두 `transcodes-guard`입니다
 | 호스트 | 설치 | 가이드 |
 |---|---|---|
 | OpenAI Codex CLI | Codex 네이티브 마켓플레이스(`.agents/plugins/marketplace.json` + `git-subdir`) | [`plugins/codex/README.md`](./plugins/codex/README.md) |
-| Google Antigravity 2.0 | `agy plugin install <git-url>` | [`plugins/antigravity/README.md`](./plugins/antigravity/README.md) |
+| Google Antigravity 2.0 | 리포 클론 후 `node plugins/antigravity/install.mjs` 실행 | [`plugins/antigravity/README.md`](./plugins/antigravity/README.md) |
 | Cursor IDE | `install.sh` (`.cursor/hooks.json` + `mcp.json` 작성) | [`plugins/cursor/README.md`](./plugins/cursor/README.md) |
 
 호스트별 배포 메커니즘 정리: [`docs/research/multi-host-plugin-distribution.md`](./docs/research/multi-host-plugin-distribution.md). plugin 없이 hook을 수동 등록하려면: [`docs/hook-installation.md`](./docs/hook-installation.md).
