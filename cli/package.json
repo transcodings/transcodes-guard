@@ -17,7 +17,6 @@
   },
   "devDependencies": {
     "@transcodes-guard/danger-patterns": "*",
-    "@transcodes-guard/mcp-server-core": "*",
     "@transcodes-guard/danger-rules": "*",
     "@transcodes-guard/stepup-core": "*",
     "@types/node": "^22.0.0",

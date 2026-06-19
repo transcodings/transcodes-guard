@@ -5,7 +5,7 @@
  * exposes the same `HookAdapter` interface, so plugins can swap hosts
  * without touching their gate logic.
  */
-export { COMPLETION_PATTERN, antigravityAdapter, detectUserDoneFromTranscript, } from './antigravity.js';
+export { antigravityAdapter, COMPLETION_PATTERN, detectUserDoneFromTranscript, } from './antigravity.js';
 export { claudeCodeAdapter } from './claude-code.js';
 export { codexAdapter } from './codex.js';
 export { cursorAdapter } from './cursor.js';
