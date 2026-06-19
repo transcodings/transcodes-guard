@@ -1,5 +1,7 @@
 # transcodes-guard — Claude Code plugin
 
+**English** | [한국어](./README.ko.md)
+
 Risky-shell interceptor (`PreToolUse` hook) and step-up MFA audit MCP server for Claude Code.
 
 When the agent is about to run a risky Bash command (or a protected MCP tool call), the `PreToolUse` hook intercepts it and forces a WebAuthn step-up against the Transcodes backend **before** the command runs. The shared gate logic lives in `@transcodes-guard/stepup-core` + `@transcodes-guard/mcp-server-core`; the only Claude-Code-specific surface is the hook adapter and the plugin manifest.

@@ -1,5 +1,7 @@
 # transcodes-guard — Codex CLI plugin
 
+**English** | [한국어](./README.ko.md)
+
 Risky-bash interceptor (`PreToolUse` hook) and audit MCP server for OpenAI Codex CLI.
 
 Shares the same step-up MFA gate logic as the Claude Code plugin (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Codex-specific surface is the hook adapter and the plugin manifest.
