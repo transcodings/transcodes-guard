@@ -2,7 +2,7 @@
 import {
   COMPLETION_PATTERN,
   claudeCodeAdapter
-} from "../chunk-QOXGWYCN.js";
+} from "../chunk-UXQLGR7A.js";
 import {
   getGateBackend
 } from "../chunk-QVWMSR37.js";

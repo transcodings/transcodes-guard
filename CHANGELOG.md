@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.16.2...transcodes-guard-v0.17.0) (2026-06-19)
+
+
+### Features
+
+* **antigravity:** lazy-loaded call_mcp_tool dispatch 언래핑으로 게이팅 적용 ([#87](https://github.com/transcodings/transcodes-guard/issues/87)) ([e6b535c](https://github.com/transcodings/transcodes-guard/commit/e6b535c85b9235732b46ab1ca19226e27cee4c70))
+
 ## [0.16.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.16.1...transcodes-guard-v0.16.2) (2026-06-19)
 
 

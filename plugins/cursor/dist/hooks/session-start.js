@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   cursorAdapter
-} from "../chunk-QXSB2SJX.js";
+} from "../chunk-K3U4AANU.js";
 import {
   formatNoTokenSessionNotice,
   getGateBackend

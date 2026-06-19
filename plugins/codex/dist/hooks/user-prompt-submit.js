@@ -2,7 +2,7 @@
 import {
   COMPLETION_PATTERN,
   codexAdapter
-} from "../chunk-672GYM6B.js";
+} from "../chunk-736UD6O7.js";
 import {
   getGateBackend
 } from "../chunk-XZNIVP3S.js";

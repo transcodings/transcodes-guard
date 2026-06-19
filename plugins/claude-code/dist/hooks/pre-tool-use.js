@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   claudeCodeAdapter
-} from "../chunk-QOXGWYCN.js";
+} from "../chunk-UXQLGR7A.js";
 import {
   formatAllowReason,
   formatNoTokenReason,
