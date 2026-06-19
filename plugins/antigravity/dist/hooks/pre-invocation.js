@@ -2,7 +2,11 @@
 import {
   antigravityAdapter,
   detectUserDoneFromTranscript
+<<<<<<< Updated upstream
 } from "../chunk-CNXZP3AR.js";
+=======
+} from "../chunk-XHU4O6ON.js";
+>>>>>>> Stashed changes
 import {
   formatNoTokenSessionNotice,
   getGateBackend

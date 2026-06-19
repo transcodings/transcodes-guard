@@ -74,6 +74,38 @@ function normalizeToolInput(toolName, rawArgs) {
     };
 }
 /**
+ * Antigravity dispatches lazy-loaded MCP tool calls through a generic
+ * `call_mcp_tool` wrapper whose real target lives in `args.ToolName`
+ * (Gemini-CLI-inherited PascalCase arg convention, same family as
+ * `CommandLine`). Unwrap it so the host-neutral policy checker
+ * (`findFirstToolRule`) sees the actual MCP tool name instead of the
+ * wrapper — otherwise every lazy-loaded MCP call looks identical and no
+ * tool-rule can ever match. Resolves the lazy-path half of
+ * `antigravity-e2e-findings.md` unknown #1.
+ *
+ * Best-effort + defensive: an unrecognized name casing falls back to the
+ * wrapper name, and the inner args are swapped in only when a recognized
+ * field is present. Tool-rule matching keys off the name alone, so a missed
+ * inner-args field never weakens the gate — it only makes the fingerprint /
+ * command summary coarser.
+ */
+function unwrapMcpDispatch(name, rawArgs) {
+    if (name !== 'call_mcp_tool' ||
+        rawArgs === null ||
+        typeof rawArgs !== 'object') {
+        return { toolName: name, toolArgs: rawArgs };
+    }
+    const a = rawArgs;
+    const inner = readString(a.ToolName) ?? readString(a.toolName);
+    if (!inner)
+        return { toolName: name, toolArgs: rawArgs };
+    const innerArgs = a.ToolArgs ?? a.toolArgs ?? a.Args ?? a.Arguments ?? a.ToolInput;
+    return {
+        toolName: inner,
+        toolArgs: innerArgs !== null && typeof innerArgs === 'object' ? innerArgs : rawArgs,
+    };
+}
+/**
  * Tail the last `maxBytes` of a JSONL file and parse each line. Best-effort:
  * malformed lines and read errors are swallowed (returns empty array).
  * Used by the PreInvocation entry to inspect recent transcript messages
@@ -166,14 +198,14 @@ export const antigravityAdapter = {
     parsePreToolUseStdin(raw) {
         const payload = JSON.parse(raw);
         const toolCall = payload.toolCall;
-        const toolName = readString(toolCall?.name);
+        const { toolName, toolArgs } = unwrapMcpDispatch(readString(toolCall?.name), toolCall?.args);
         if (!toolName) {
             throw new Error('PreToolUse payload missing toolCall.name');
         }
         const workspacePaths = readStringArray(payload.workspacePaths);
         return {
             toolName,
-            toolInput: normalizeToolInput(toolName, toolCall?.args),
+            toolInput: normalizeToolInput(toolName, toolArgs),
             cwd: workspacePaths?.[0] ?? process.cwd(),
             sessionId: readString(payload.conversationId),
             hookEventName: 'PreToolUse',
