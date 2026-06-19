@@ -1,6 +1,6 @@
 {
   "name": "transcodes-guard",
-  "version": "0.16.2",
+  "version": "0.17.0",
   "description": "Risky-bash interceptor (PreToolUse hook) and audit MCP server for OpenAI Codex CLI.",
   "author": {
     "name": "bigstrider"
