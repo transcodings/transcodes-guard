@@ -9,14 +9,14 @@ paths:
 Two parallel registries, one package — same mental model, shared RBAC vocabulary.
 
 - Bash regex registry — generic system patterns (e.g. `rm -rf` against an absolute path).
-- MCP + remote Bash tool-rule registry — Transcodes-specific protected-tool ↔ `stepupAction`/`stepupResource` policy mappings.
+- MCP + remote Bash tool-rule registry — Transcodes-specific protected-tool ↔ `action`/`resource` policy mappings.
 
 Both live in `packages/danger-patterns/` and share the action/resource vocabulary from `rbac.ts`.
 
 ## Two trigger sources
 
 - **Bash** — regex match against `packages/danger-patterns/src/data/danger-patterns.json` (system) + cached policy-bundle bash rules (`type:'bash'`, regex in `name`) + an `rm -rf` git-semantic check (is the target git-tracked?).
-- **MCP tool call** — exact/glob `toolName` match against `packages/danger-patterns/src/data/tool-rules.json` (system) + cached bundle MCP rules. Plugin matcher: `Bash|mcp__plugin_transcodes-guard_transcodes-guard__.*`.
+- **MCP tool call** — `exact`/`glob`/`regex` `name` match against `packages/danger-patterns/src/data/tool-rules.json` (system) + cached bundle MCP rules. Plugin matcher: `Bash|mcp__plugin_transcodes-guard_transcodes-guard__.*`.
 
 A new protected MCP tool goes into `packages/danger-patterns/src/data/tool-rules.json` (system) or via the `add_tool_rule` MCP tool (remote, `type:'mcp'`). A new Bash pattern goes via `add_user_pattern` (remote, `type:'bash'`, regex in `name`).
 
