@@ -17,10 +17,10 @@ import '../host.js';
 import '../backend.js';
 import { readFileSync } from 'node:fs';
 import { getGateBackend } from '@transcodes-guard/gate-contract';
-import { cursorAdapter } from '@transcodes-guard/hook-adapters';
-
-const COMPLETION_PATTERN =
-  /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
+import {
+  COMPLETION_PATTERN,
+  cursorAdapter,
+} from '@transcodes-guard/hook-adapters';
 
 function emitContinue(): never {
   process.stdout.write(JSON.stringify({ continue: true }));

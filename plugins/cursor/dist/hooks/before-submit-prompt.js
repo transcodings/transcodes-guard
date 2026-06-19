@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import {
+  COMPLETION_PATTERN,
   cursorAdapter
-} from "../chunk-JLIPJGWI.js";
+} from "../chunk-QXSB2SJX.js";
 import {
   getGateBackend
 } from "../chunk-NW34CRV6.js";
 
 // hooks/before-submit-prompt.ts
 import { readFileSync } from "fs";
-var COMPLETION_PATTERN = /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
 function emitContinue() {
   process.stdout.write(JSON.stringify({ continue: true }));
   process.exit(0);

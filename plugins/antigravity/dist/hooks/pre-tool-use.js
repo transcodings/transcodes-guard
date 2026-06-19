@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   antigravityAdapter
-} from "../chunk-DVNHC35J.js";
+} from "../chunk-CNXZP3AR.js";
 import {
   formatAllowReason,
   formatNoTokenReason,

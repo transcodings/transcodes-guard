@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   cursorAdapter
-} from "../chunk-JLIPJGWI.js";
+} from "../chunk-QXSB2SJX.js";
 import {
   formatAllowReason,
   formatNoTokenReason,

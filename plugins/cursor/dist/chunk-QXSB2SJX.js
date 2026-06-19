@@ -1,3 +1,7 @@
+// ../../packages/hook-adapters/dist/antigravity.js
+import { closeSync, openSync, readSync, statSync } from "fs";
+var COMPLETION_PATTERN = /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
+
 // ../../packages/hook-adapters/dist/claude-code.js
 function readString(v) {
   return typeof v === "string" ? v : void 0;
@@ -69,9 +73,42 @@ var claudeCodeAdapter = {
   }
 };
 
-// ../../packages/hook-adapters/dist/antigravity.js
-import { closeSync, openSync, readSync, statSync } from "fs";
+// ../../packages/hook-adapters/dist/cursor.js
+var cursorAdapter = {
+  host: "cursor",
+  parsePreToolUseStdin(raw) {
+    return claudeCodeAdapter.parsePreToolUseStdin(raw);
+  },
+  parseUserPromptSubmitStdin(raw) {
+    return claudeCodeAdapter.parseUserPromptSubmitStdin(raw);
+  },
+  emitPreToolUse(decision) {
+    if (decision.kind === "allow") {
+      return JSON.stringify({
+        permission: "allow",
+        ...decision.updatedInput !== void 0 ? { updated_input: decision.updatedInput } : {}
+      });
+    }
+    return JSON.stringify({
+      permission: "deny",
+      user_message: decision.reason,
+      agent_message: decision.systemMessage ?? decision.reason
+    });
+  },
+  emitSessionStartContext(additionalContext) {
+    return JSON.stringify({ additional_context: additionalContext });
+  },
+  emitUserPromptSubmitContext(_additionalContext) {
+    throw new Error("Cursor's beforeSubmitPrompt has no additional_context channel. Perform consumeVerified/clearPending as side effects and emit `{ continue: true }` directly.");
+  },
+  emitStop(reason) {
+    if (!reason)
+      return "{}";
+    return JSON.stringify({ followup_message: reason });
+  }
+};
 
 export {
-  claudeCodeAdapter
+  COMPLETION_PATTERN,
+  cursorAdapter
 };

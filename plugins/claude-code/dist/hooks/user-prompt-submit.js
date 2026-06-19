@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import {
+  COMPLETION_PATTERN,
   claudeCodeAdapter
-} from "../chunk-ODK4KW7V.js";
+} from "../chunk-QOXGWYCN.js";
 import {
   getGateBackend
 } from "../chunk-PXSMGCGP.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";
-var COMPLETION_PATTERN = /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
 function buildContext(prompt, pending) {
   if (!COMPLETION_PATTERN.test(prompt)) return null;
   const statusNote = pending.status === "verified" ? "already verified \u2014 just retry the original command." : "still pending \u2014 call poll_stepup_session_wait now to block until verified.";

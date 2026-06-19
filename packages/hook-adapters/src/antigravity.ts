@@ -153,10 +153,11 @@ function tailJsonlLines(filePath: string, maxBytes = 32_768): unknown[] {
 
 /**
  * The Korean+English keyword set the agent should recognize as "user
- * reports step-up done". Shared with the Claude Code / Codex
- * UserPromptSubmit hooks (which use the same literal).
+ * reports step-up done". Host-agnostic — shared by every host's
+ * user-prompt hook (Claude Code / Codex UserPromptSubmit, Cursor
+ * beforeSubmitPrompt) and the Antigravity transcript scan below.
  */
-export const ANTIGRAVITY_COMPLETION_PATTERN =
+export const COMPLETION_PATTERN =
   /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
 
 /**
@@ -174,7 +175,7 @@ export const ANTIGRAVITY_COMPLETION_PATTERN =
  */
 export function detectUserDoneFromTranscript(
   transcriptPath: string | undefined,
-  pattern: RegExp = ANTIGRAVITY_COMPLETION_PATTERN,
+  pattern: RegExp = COMPLETION_PATTERN,
 ): string | null {
   if (!transcriptPath) return null;
 

@@ -64,8 +64,8 @@ function tailJsonlLines(filePath, maxBytes = 32768) {
   }
   return out;
 }
-var ANTIGRAVITY_COMPLETION_PATTERN = /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
-function detectUserDoneFromTranscript(transcriptPath, pattern = ANTIGRAVITY_COMPLETION_PATTERN) {
+var COMPLETION_PATTERN = /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
+function detectUserDoneFromTranscript(transcriptPath, pattern = COMPLETION_PATTERN) {
   if (!transcriptPath)
     return null;
   const entries = tailJsonlLines(transcriptPath);
