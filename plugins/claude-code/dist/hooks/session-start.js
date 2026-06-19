@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import {
   claudeCodeAdapter
-} from "../chunk-QOXGWYCN.js";
+} from "../chunk-UXQLGR7A.js";
 import {
   formatNoTokenSessionNotice,
   getGateBackend
 } from "../chunk-QVWMSR37.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.16.2";
+var PLUGIN_VERSION = "0.17.0";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [

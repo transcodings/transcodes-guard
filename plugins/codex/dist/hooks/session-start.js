@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   codexAdapter
-} from "../chunk-672GYM6B.js";
+} from "../chunk-736UD6O7.js";
 import {
   formatNoTokenSessionNotice,
   getGateBackend
