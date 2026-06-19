@@ -75,7 +75,7 @@ PreToolUse hook matcher는 `run_command|mcp_.*`이므로 셸 실행(`run_command
 
 ## 호스트 간 상태 공유
 
-로컬 스텝업 상태는 `~/.transcodes/state/` 아래에 있으며, 설계상 **모든 transcodes-guard 플러그인이 공유**합니다 — 모든 호스트가 동일한 Transcodes 백엔드와 통신하므로 한 호스트에서 verified 된 세션이 다른 호스트로 이어집니다. 동시 사용이 지원되지만, verified 레코드에 대한 같은-초 경쟁은 알려진 한계입니다(백엔드의 sid-replay 보호가 권위 있는 백스톱).
+로컬 스텝업 상태는 `~/.transcodes/state/` 아래에 있으며, 설계상 **모든 transcodes-guard 플러그인이 공유**합니다 — 모든 호스트가 동일한 Transcodes 백엔드와 통신하므로 한 호스트에서 verified 된 세션이 다른 호스트로 이어집니다. 동시 사용이 지원되지만, 같은 순간에 verified 레코드를 두고 벌어지는 경쟁은 알려진 한계입니다(백엔드의 sid-replay 보호가 권위 있는 백스톱).
 
 ## 알려진 한계
 
