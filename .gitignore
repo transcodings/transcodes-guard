@@ -258,3 +258,7 @@ cli/dist/
 
 # Phase 3 CDN build artifact (Unit A) — deploy artifact, not committed
 cdn-dist/
+
+# Local scratch / verification scripts — never committed (kept out of the repo
+# so a stray `git add -A` can't re-introduce one with hardcoded local paths)
+.tmp-*

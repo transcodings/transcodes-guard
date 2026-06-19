@@ -30,6 +30,20 @@ function normalizeToolInput(toolName, rawArgs) {
     command: args.CommandLine
   };
 }
+function unwrapMcpDispatch(name, rawArgs) {
+  if (name !== "call_mcp_tool" || rawArgs === null || typeof rawArgs !== "object") {
+    return { toolName: name, toolArgs: rawArgs };
+  }
+  const a = rawArgs;
+  const inner = readString(a.ToolName) ?? readString(a.toolName);
+  if (!inner)
+    return { toolName: name, toolArgs: rawArgs };
+  const innerArgs = a.ToolArgs ?? a.toolArgs ?? a.Args ?? a.Arguments ?? a.ToolInput;
+  return {
+    toolName: inner,
+    toolArgs: innerArgs !== null && typeof innerArgs === "object" ? innerArgs : rawArgs
+  };
+}
 function tailJsonlLines(filePath, maxBytes = 32768) {
   let size;
   try {
@@ -89,14 +103,14 @@ var antigravityAdapter = {
   parsePreToolUseStdin(raw) {
     const payload = JSON.parse(raw);
     const toolCall = payload.toolCall;
-    const toolName = readString(toolCall?.name);
+    const { toolName, toolArgs } = unwrapMcpDispatch(readString(toolCall?.name), toolCall?.args);
     if (!toolName) {
       throw new Error("PreToolUse payload missing toolCall.name");
     }
     const workspacePaths = readStringArray(payload.workspacePaths);
     return {
       toolName,
-      toolInput: normalizeToolInput(toolName, toolCall?.args),
+      toolInput: normalizeToolInput(toolName, toolArgs),
       cwd: workspacePaths?.[0] ?? process.cwd(),
       sessionId: readString(payload.conversationId),
       hookEventName: "PreToolUse"

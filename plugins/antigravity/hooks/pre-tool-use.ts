@@ -9,9 +9,11 @@
  * `{ decision, reason }` instead of `hookSpecificOutput.permissionDecision`.
  * See packages/hook-adapters/src/antigravity.ts for the schema rationale.
  *
- * Tool matcher: `run_command` only (1차 출시 scope). Antigravity's file-edit
- * tools (`write_to_file`, `replace_file_content`, …) and MCP tool calls are
- * intentionally not gated — see the plugin README for the scope rationale.
+ * Tool matcher: `run_command` (shell) + MCP tool calls — both direct
+ * `mcp_*` names and the lazy-loaded `call_mcp_tool` dispatcher, which the
+ * adapter unwraps to its real `args.ToolName` so tool-rules can match.
+ * Antigravity's file-edit tools (`write_to_file`, `replace_file_content`, …)
+ * remain intentionally ungated — see the plugin README for the rationale.
  */
 import '../host.js';
 import '../backend.js';
