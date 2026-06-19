@@ -21,8 +21,7 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { coerceRbacAction, coerceRbacResource, loadMergedPatterns, RBAC_ACTIONS, } from '@transcodes-guard/danger-patterns';
-import { loadMergedToolRules, } from '@transcodes-guard/danger-rules';
+import { coerceRbacAction, coerceRbacResource, loadMergedPatterns, loadMergedToolRules, RBAC_ACTIONS, } from '@transcodes-guard/danger-patterns';
 import { cacheDir } from '@transcodes-guard/plugin-paths';
 import { z } from 'zod';
 import { request } from './client.js';

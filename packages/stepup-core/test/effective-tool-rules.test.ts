@@ -10,7 +10,7 @@ import {
   loadMergedToolRules,
   loadSystemToolRules,
   type ToolRule,
-} from '@transcodes-guard/danger-rules';
+} from '@transcodes-guard/danger-patterns';
 import {
   GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
   loadEffectiveToolRules,

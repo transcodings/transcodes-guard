@@ -1,16 +1,18 @@
 /**
- * Tool-rule registry — MCP-call counterpart of danger-patterns.
+ * Tool-rule registry — MCP-call counterpart of the Bash pattern registry in
+ * danger-patterns.ts. Both live in @transcodes-guard/danger-patterns and
+ * share the RBAC coordinate vocabulary from rbac.ts.
  *
  * Phase 3 v2: rules mirror the backend guard bundle wire shape (`id`, `type`,
  * `label`, `description`, `name`, `matcher`, optional `action`/`resource`).
  */
+import systemToolRulesData from './data/tool-rules.json' with { type: 'json' };
 import {
   coerceRbacAction,
   coerceRbacResource,
   isRbacAction,
   type RbacAction,
-} from '@transcodes-guard/danger-patterns';
-import systemToolRulesData from './data/tool-rules.json' with { type: 'json' };
+} from './rbac.js';
 
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
 

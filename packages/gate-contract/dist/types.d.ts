@@ -2,7 +2,7 @@
  * Shared wire types for the step-up gate DI boundary.
  *
  * These mirror the structural shapes defined inside the private packages
- * (`@transcodes-guard/stepup-core`, `.../danger-rules`). TypeScript is
+ * (`@transcodes-guard/stepup-core`, `.../danger-patterns`). TypeScript is
  * structural, so the private adapter (`@transcodes-guard/gate-backend`)
  * satisfies `GateBackend` by assigning the real functions directly — the
  * `transcodesGateBackend: GateBackend` annotation makes the compiler enforce
@@ -129,7 +129,7 @@ export interface StepupStateInspection {
     verified: InspectionRecord;
     pending: InspectionRecord;
 }
-/** Tool-rule registry types. Mirror danger-rules tool-rules.ts (schema v2). */
+/** Tool-rule registry types. Mirror danger-patterns tool-rules.ts (schema v2). */
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
 export type GuardProvider = 'claude' | 'codex' | 'cursor' | 'antigravity';
 export type ToolRuleSource = 'system' | 'bundle';

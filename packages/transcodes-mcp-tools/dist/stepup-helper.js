@@ -3,7 +3,7 @@
  * Hook is first line; this re-checks on handler run (stdio/curl bypass backstop).
  * Matrix: 0=block, 1=pass (no sid), 2=step-up (verified sid required).
  */
-import { loadMergedToolRules, toolNameMatchesRule, } from '@transcodes-guard/danger-rules';
+import { loadMergedToolRules, toolNameMatchesRule, } from '@transcodes-guard/danger-patterns';
 import { checkRbacPermission, clearPending, consumeVerified, loadStepupConfig, readVerified, } from '@transcodes-guard/stepup-core';
 const RBAC_TTL_MS = 5 * 60_000;
 const rbacCache = new Map();

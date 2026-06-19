@@ -8,7 +8,7 @@ import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
-import { loadSystemToolRules } from '@transcodes-guard/danger-rules';
+import { loadSystemToolRules } from '@transcodes-guard/danger-patterns';
 import {
   addToolRule,
   removeToolRule,

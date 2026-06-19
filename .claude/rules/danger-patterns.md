@@ -2,25 +2,23 @@
 paths:
   - "packages/danger-patterns/src/**/*.ts"
   - "packages/danger-patterns/src/data/*.json"
-  - "packages/danger-rules/src/**/*.ts"
-  - "packages/danger-rules/src/data/*.json"
 ---
 
 # Danger Patterns & Tool Rules
 
-Two parallel registries, two packages — same mental model, opposite privacy.
+Two parallel registries, one package — same mental model, shared RBAC vocabulary.
 
-- `packages/danger-patterns/` (**public**) — Bash regex registry. Generic system patterns (e.g. `rm -rf` against an absolute path). Safe to publish.
-- `packages/danger-rules/` (**private**) — MCP + remote Bash tool-rule registry. Transcodes-specific protected-tool ↔ `stepupAction`/`stepupResource` policy mappings; the toolName list itself is policy surface that should not be public.
+- Bash regex registry — generic system patterns (e.g. `rm -rf` against an absolute path).
+- MCP + remote Bash tool-rule registry — Transcodes-specific protected-tool ↔ `stepupAction`/`stepupResource` policy mappings.
 
-This file is active when editing either package.
+Both live in `packages/danger-patterns/` and share the action/resource vocabulary from `rbac.ts`.
 
 ## Two trigger sources
 
 - **Bash** — regex match against `packages/danger-patterns/src/data/danger-patterns.json` (system) + cached policy-bundle bash rules (`type:'bash'`, regex in `name`) + an `rm -rf` git-semantic check (is the target git-tracked?).
-- **MCP tool call** — exact/glob `toolName` match against `packages/danger-rules/src/data/tool-rules.json` (system) + cached bundle MCP rules. Plugin matcher: `Bash|mcp__plugin_transcodes-guard_transcodes-guard__.*`.
+- **MCP tool call** — exact/glob `toolName` match against `packages/danger-patterns/src/data/tool-rules.json` (system) + cached bundle MCP rules. Plugin matcher: `Bash|mcp__plugin_transcodes-guard_transcodes-guard__.*`.
 
-A new protected MCP tool goes into `packages/danger-rules/src/data/tool-rules.json` (system) or via the `add_tool_rule` MCP tool (remote, `type:'mcp'`). A new Bash pattern goes via `add_user_pattern` (remote, `type:'bash'`, regex in `name`).
+A new protected MCP tool goes into `packages/danger-patterns/src/data/tool-rules.json` (system) or via the `add_tool_rule` MCP tool (remote, `type:'mcp'`). A new Bash pattern goes via `add_user_pattern` (remote, `type:'bash'`, regex in `name`).
 
 ## System vs remote (bundle) rules
 

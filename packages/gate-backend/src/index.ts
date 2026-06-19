@@ -15,7 +15,7 @@
 import {
   findFirstToolRule,
   ToolRuleValidationError,
-} from '@transcodes-guard/danger-rules';
+} from '@transcodes-guard/danger-patterns';
 import type { GateBackend } from '@transcodes-guard/gate-contract';
 import {
   addToolRule,

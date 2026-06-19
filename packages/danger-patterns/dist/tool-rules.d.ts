@@ -1,10 +1,4 @@
-/**
- * Tool-rule registry — MCP-call counterpart of danger-patterns.
- *
- * Phase 3 v2: rules mirror the backend guard bundle wire shape (`id`, `type`,
- * `label`, `description`, `name`, `matcher`, optional `action`/`resource`).
- */
-import { type RbacAction } from '@transcodes-guard/danger-patterns';
+import { type RbacAction } from './rbac.js';
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
 export declare const GUARD_PROVIDERS: readonly ["claude", "codex", "cursor", "antigravity"];
 export type GuardProvider = (typeof GUARD_PROVIDERS)[number];

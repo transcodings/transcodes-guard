@@ -24,7 +24,6 @@
   "dependencies": {
     "@transcodes-guard/danger-patterns": "*",
     "@transcodes-guard/plugin-paths": "*",
-    "@transcodes-guard/danger-rules": "*",
     "zod": "^3.23.0"
   },
   "devDependencies": {

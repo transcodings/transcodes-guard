@@ -29,13 +29,12 @@ Source of truth = `packages/*/src/` (host-agnostic libraries + backend-coupled b
 ```
 packages/                            workspace libraries, single scope @transcodes-guard/*
   plugin-paths/      data/cache dir resolution        → .claude/rules/plugin-paths.md
-  danger-patterns/   Bash regex pattern registry      → .claude/rules/danger-patterns.md
+  danger-patterns/   Bash regex pattern + MCP tool-rule registry → .claude/rules/danger-patterns.md
   mcp-server-core/   createServer() shell + danger-pattern tools/resources → .claude/rules/mcp-server.md
   hook-adapters/     per-host stdin/stdout JSON contract → .claude/rules/hooks.md
   gate-contract/     GateBackend DI interface + setGateBackend()/getGateBackend() registry
   stepup-core/       step-up MFA gate + evaluate() + token/backend client → .claude/rules/stepup-gate.md
   transcodes-mcp-tools/  member/org/RBAC/membership/passcode/auth-device/audit/meta/project/JWK MCP tools
-  danger-rules/      MCP tool-rule registry (toolName ↔ stepupAction/Resource policy mapping)
   gate-backend/      the concrete GateBackend implementation the seams inject (only plugins/*/backend.ts may import it)
 
 cli/                                 @bigstrider/transcodes-cli — human control plane (kill-switch, tokens, dashboard)
@@ -65,7 +64,7 @@ The plugins/hooks **read** what the CLI manages (config, step-up tokens) — the
 
 - Add MCP capabilities **only** in `createServer()` (`packages/mcp-server-core/src/server.ts`); plugin `src/*.ts` are thin transport wrappers. Validate every tool input with `zod` — LLM arguments are untrusted.
 - Keep all gate / evaluate / message-formatting logic in `packages/stepup-core/`. Host divergence lives **only** in `packages/hook-adapters/`. Never inline gate logic into a plugin hook.
-- New Transcodes-backend MCP tools go in `packages/transcodes-mcp-tools/` and are wired in via `GateBackend.registerBackendTools()`. New tool-rule policy entries go in `packages/danger-rules/src/data/tool-rules.json`. Reach backend-coupled code only through the `getGateBackend()` seam, never by importing `gate-backend` directly.
+- New Transcodes-backend MCP tools go in `packages/transcodes-mcp-tools/` and are wired in via `GateBackend.registerBackendTools()`. New tool-rule policy entries go in `packages/danger-patterns/src/data/tool-rules.json`. Reach backend-coupled code only through the `getGateBackend()` seam, never by importing `gate-backend` directly.
 - Run `npm run build:plugin` and commit every regenerated `dist/` in the same change.
 - Resolve persist/cache paths only via `@transcodes-guard/plugin-paths` (`dataDir()` / `cacheDir()`) — never hardcode `~/.claude/...` or join `os.homedir()` directly.
 - The step-up gate's enable/disable is **asymmetric**: enabling is safe for an agent, disabling requires a human. Read `.claude/rules/stepup-gate.md` before changing anything in that path.
