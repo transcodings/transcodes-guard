@@ -8,7 +8,7 @@
  * inject `reason` as a system message — the opposite verb from Claude
  * Code's `decision: "block"`, but the same UX intent. Whether `reason` is
  * actually surfaced to the model (vs silently dropped) is pending e2e
- * validation — see docs/research/antigravity-e2e-findings.md #4.
+ * validation.
  */
 import '../host.js';
 import '../backend.js';

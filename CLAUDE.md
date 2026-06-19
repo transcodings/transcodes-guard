@@ -46,7 +46,7 @@ plugins/                             per-host deploy units (thin manifest + entr
   cursor/            Cursor plugin; flat wire format; install.sh
 ```
 
-The concrete gate backend (`gate-backend`) may be imported **only** by the plugin seams: each `plugins/*/backend.ts` imports `@transcodes-guard/gate-backend` to call `setGateBackend()`. Every other consumer goes through `getGateBackend()` from `@transcodes-guard/gate-contract`. biome's `noRestrictedImports` enforces this as an **error** (the seam is exempted via biome overrides). Background on the boundary's evolution (the now-dissolved public/private split): `docs/research/public-private-split.md` + `docs/research/public-private-mapping.md`.
+The concrete gate backend (`gate-backend`) may be imported **only** by the plugin seams: each `plugins/*/backend.ts` imports `@transcodes-guard/gate-backend` to call `setGateBackend()`. Every other consumer goes through `getGateBackend()` from `@transcodes-guard/gate-contract`. biome's `noRestrictedImports` enforces this as an **error** (the seam is exempted via biome overrides).
 
 Build, dist sync, and packaging → `.claude/rules/plugin-build.md`. Release and distribution → `.claude/rules/release-dist.md`.
 
@@ -80,8 +80,4 @@ The plugins/hooks **read** what the CLI manages (config, step-up tokens) — the
 
 ## See also
 
-- Design intent (why split transports, why Streamable HTTP, auth gap) → `docs/architecture.md`
-- Add a capability step-by-step → `docs/adding-capabilities.md`
-- Manual hook install (no plugin) → `docs/hook-installation.md`
-- Multi-host distribution research + deploy plan → `docs/research/multi-host-plugin-distribution.md`
 - User-facing install/usage (Korean) → `README.md`

@@ -58,7 +58,7 @@ Hosts install plugins by referencing this repository — not via per-plugin npm 
 | Antigravity | `agy plugin install <git-url>` |
 | Cursor | `install.sh` writing `.cursor/hooks.json` + `mcp.json` |
 
-The common deploy unit is **this git repo, made public**. Plugins do not each need an npm package. The CLI (`@bigstrider/transcodes-cli`) is the single exception — humans install it via npm. Full per-host research and the deploy plan live in `docs/research/multi-host-plugin-distribution.md`.
+The common deploy unit is **this git repo, made public**. Plugins do not each need an npm package. The CLI (`@bigstrider/transcodes-cli`) is the single exception — humans install it via npm.
 
 ## Public-mirror surface (private-packages must stay isolated)
 

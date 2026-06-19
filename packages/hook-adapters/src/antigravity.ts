@@ -5,8 +5,7 @@
  * antigravity.google/docs/gcli-migration), NOT the Claude Code wire format
  * that Codex converged on. So the bytes emitted here are NOT byte-for-byte
  * compatible with claudeCodeAdapter — this is an end-to-end native adapter,
- * not a delegation shim. See docs/research/multi-tool-hook-plugin-support.md
- * v3 for the spec-vs-research reconciliation that motivated this.
+ * not a delegation shim.
  *
  * Wire-format differences vs Claude Code (per antigravity.google/docs/hooks):
  *  - PreToolUse stdin: `toolCall.name` / `toolCall.args` / `stepIdx` /

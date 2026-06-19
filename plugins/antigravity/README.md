@@ -2,7 +2,7 @@
 
 Risky-shell interceptor (`PreToolUse` hook) and audit MCP server for Google Antigravity 2.0. Supports the desktop app (Antigravity 2.0) and the `agy` CLI.
 
-Shares the same step-up MFA gate logic as the Claude Code and Codex plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the Antigravity-specific surface is a native hook adapter (`antigravityAdapter`) that speaks Antigravity's PreToolUse / PreInvocation / Stop wire format (top-level `decision`, nested `toolCall.name`/`toolCall.args` stdin, no `hookSpecificOutput` wrapper). The codex plugin's claudeCodeAdapter delegation pattern does **not** apply here — see [`docs/research/multi-tool-hook-plugin-support.md`](../../docs/research/multi-tool-hook-plugin-support.md) v3 for the spec-vs-research reconciliation.
+Shares the same step-up MFA gate logic as the Claude Code and Codex plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the Antigravity-specific surface is a native hook adapter (`antigravityAdapter`) that speaks Antigravity's PreToolUse / PreInvocation / Stop wire format (top-level `decision`, nested `toolCall.name`/`toolCall.args` stdin, no `hookSpecificOutput` wrapper). The codex plugin's claudeCodeAdapter delegation pattern does **not** apply here.
 
 ## Prerequisites
 
@@ -73,7 +73,7 @@ The plugin's local state files (`~/.cache/ai-action-tracker/stepup-{verified,pen
 
 ## Known limits
 
-- **MCP tool naming convention** in Antigravity 2.0 is undocumented — the PreToolUse matcher only covers `run_command` in 1차 출시. See [`docs/research/antigravity-e2e-findings.md`](../../docs/research/antigravity-e2e-findings.md) #1.
+- **MCP tool naming convention** in Antigravity 2.0 is undocumented — the PreToolUse matcher only covers `run_command` in 1차 출시.
 - **Subagent state sharing** is best-effort. A subagent's PreToolUse hook may receive a distinct `conversationId`; the shared cache file is still the arbitration point, with backend sid-replay as backstop.
 - **Stop hook UX** with `decision: "continue"` is pending validation — see e2e findings doc #4.
 - **`${CLAUDE_PLUGIN_ROOT}` equivalent** in Antigravity is unspecified; this plugin currently uses relative paths (`./dist/...`) on the assumption that Antigravity spawns hook commands with the plugin directory as CWD. If this turns out to be wrong, the install instructions above will be updated to absolute paths via an install script. See e2e findings doc #2.
