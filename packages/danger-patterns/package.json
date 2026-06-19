@@ -19,10 +19,6 @@
     "build": "tsc && mkdir -p dist/data && cp src/data/*.json dist/data/",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {
-    "@transcodes-guard/plugin-paths": "*",
-    "jsonc-parser": "^3.3.1"
-  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.5.0"

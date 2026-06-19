@@ -20,9 +20,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@transcodes-guard/danger-patterns": "*",
-    "@transcodes-guard/plugin-paths": "*",
-    "jsonc-parser": "^3.3.1"
+    "@transcodes-guard/danger-patterns": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
