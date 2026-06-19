@@ -40,7 +40,7 @@ export TRANSCODES_TOKEN="$(read-your-token-here)"
 
 | 구성 요소 | 동작 |
 |---|---|
-| `PreToolUse` hook (matcher: `run_command\|mcp_.*`) | 셸 명령에 대해 2단계 검사(정규식 패턴 + `rm -rf`에 대한 `git ls-files` 의미 검사) + MCP 호출에 대한 정확 일치 tool-rule. 일치 시 차단하고 스텝업 MFA 흐름을 시작합니다. |
+| `PreToolUse` hook (matcher: `run_command\|mcp_.*\|call_mcp_tool`) | 셸 명령에 대해 2단계 검사(정규식 패턴 + `rm -rf`에 대한 `git ls-files` 의미 검사) + MCP 호출에 대한 정확 일치 tool-rule. 일치 시 차단하고 스텝업 MFA 흐름을 시작합니다. |
 | MCP 서버 (`transcodes-guard`) | **진단 / 시뮬레이션** 도구(`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), **스텝업 수명주기** 도구(`create_stepup_session`, `poll_stepup_session_wait`), **Transcodes 관리** 도구(멤버 / 조직 / RBAC / 멤버십 / passcode / auth-device / 감사 / 프로젝트 관리). |
 | `PreInvocation` hook | 두 가지 역할을 합니다(Antigravity에는 SessionStart / UserPromptSubmit이 없음). `invocationNum=1`일 때 정적 스텝업 MFA primer + carry-over 대기 상태를 주입합니다. 모든 invocation에서 `transcript.jsonl`의 가장 최근 사용자 메시지를 tail 하여 완료 패턴과 일치하면 대기 중인 `sid`를 노출해 에이전트가 폴링하게 합니다. |
 | `Stop` hook | `{ decision: "continue", reason }`로 리마인더를 주입해 매달린 스텝업 루프를 정리합니다(Antigravity는 reason을 시스템 메시지로 삼아 실행 루프에 재진입). 상태가 깨끗하면 고아 verified/pending 레코드를 조용히 회수합니다. |
@@ -56,7 +56,7 @@ export TRANSCODES_TOKEN="$(read-your-token-here)"
 
 ## 도구 matcher 범위
 
-PreToolUse hook matcher는 `run_command|mcp_.*`이므로 셸 실행(`run_command`) **및** 모든 MCP 도구 호출(`mcp_*`)을 게이트합니다. 파일 편집 도구(`write_to_file`, `replace_file_content`, `multi_replace_file_content`)는 게이트되지 **않습니다**. 범위를 넓히려면 `hooks.json`의 matcher 정규식을 확장하고 `packages/danger-patterns/`에 해당 tool-rule을 등록하세요.
+PreToolUse hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실행(`run_command`) **및** MCP 도구 호출(`mcp_*`)을 게이트합니다. `call_mcp_tool` arm은 Antigravity가 범용 래퍼로 dispatch하는 lazy-loaded MCP 호출을 잡아냅니다 — 어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑해 tool-rule이 여전히 매칭되도록 합니다. 파일 편집 도구(`write_to_file`, `replace_file_content`, `multi_replace_file_content`)는 게이트되지 **않습니다**. 범위를 넓히려면 `hooks.json`의 matcher 정규식을 확장하고 `packages/danger-patterns/`에 해당 tool-rule을 등록하세요.
 
 ## AI 에이전트를 위한 안내
 

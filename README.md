@@ -104,7 +104,9 @@ node plugins/antigravity/install.mjs --local
 
 On the CLI, `agy plugin list` should then show `transcodes-guard`. Also export `TRANSCODES_TOKEN`.
 
-> Note: Antigravity's PreToolUse matcher is `run_command|mcp_.*`, gating shell execution **and** MCP tool calls. File-edit tools (`write_to_file`, …) are not gated.
+> Why the bundled installer instead of `agy plugin install`: that command is pure staging (CLI dir only — no IDE-dir copy, no path substitution). Antigravity exposes no plugin-root path variable, and hook/MCP commands run with the CWD pinned to `$HOME` (a known Antigravity bug), so relative paths break — the installer injects absolute paths into `hooks.json` / `mcp_config.json` at install time.
+
+> Note: Antigravity's PreToolUse matcher is `run_command|mcp_.*|call_mcp_tool`, gating shell execution **and** MCP tool calls — including lazy-loaded calls that Antigravity routes through a generic `call_mcp_tool` wrapper (the adapter unwraps the real tool name from `args.ToolName`). File-edit tools (`write_to_file`, …) are not gated.
 
 ## CLI installation
 

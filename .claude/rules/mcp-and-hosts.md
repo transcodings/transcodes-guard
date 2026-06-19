@@ -40,7 +40,7 @@ Host divergence is allowed **only** in `packages/hook-adapters/` (wire-format re
 - No `SessionStart`, no `UserPromptSubmit` events. **PreInvocation** (fires before *every* model call) fuses both: `invocationNum <= 1` acts as SessionStart; tailing `transcript.jsonl` for a `COMPLETION_PATTERN` user message recovers UserPromptSubmit. Per-turn-once work (bundle refresh, primer) **must** be gated behind `invocationNum <= 1` — never probe TTL/network every turn. The adapter's `emitSessionStartContext`/`emitUserPromptSubmitContext`/`parseUserPromptSubmitStdin` intentionally **throw** to surface wiring bugs.
 - Stop uses `decision: "continue"` to **prevent** turn termination and inject `reason` as a system message — the verb is **inverted** vs Claude Code's `decision: "block"` (same UX intent). Don't assume "continue" means "let it stop".
 - Emit methods must never output a blank payload: `emitPreInvocation` returns the literal `"{}"` when there are no steps, `emitStop` returns `"{}"` when `reason` is empty — the host requires valid JSON even for a no-op.
-- PreToolUse is wired on `run_command|mcp_.*` (the shell tool **and** any MCP tool call), so `add_tool_rule` MCP rules are enforceable here.
+- PreToolUse is wired on `run_command|mcp_.*|call_mcp_tool`. The `call_mcp_tool` arm is load-bearing: Antigravity routes lazy-loaded MCP calls through a generic `call_mcp_tool` wrapper that `mcp_.*` misses, so the adapter unwraps `args.ToolName` to expose the real tool name to the policy checker — without it those calls bypass `add_tool_rule` rules entirely.
 
 ### Cursor specifics
 
