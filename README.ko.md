@@ -104,7 +104,9 @@ node plugins/antigravity/install.mjs --local
 
 CLI에서 `agy plugin list`를 실행하면 `transcodes-guard`가 표시됩니다. `TRANSCODES_TOKEN`도 export 하세요.
 
-> 참고: Antigravity의 PreToolUse matcher는 `run_command|mcp_.*`로, 셸 실행 **및** MCP tool 호출을 게이트합니다. 파일 편집 도구(`write_to_file` 등)는 게이트되지 않습니다.
+> `agy plugin install` 대신 번들 설치 스크립트를 쓰는 이유: 그 명령은 순수 스테이징(CLI 디렉터리만 — IDE 디렉터리 복사·경로 치환 없음)입니다. Antigravity는 플러그인 루트 경로 변수를 제공하지 않고, hook/MCP 명령이 CWD를 `$HOME`으로 고정한 채 실행되므로(알려진 Antigravity 버그) 상대 경로가 깨집니다 — 그래서 설치 스크립트가 설치 시점에 `hooks.json` / `mcp_config.json`에 절대 경로를 주입합니다.
+
+> 참고: Antigravity의 PreToolUse matcher는 `run_command|mcp_.*|call_mcp_tool`로, 셸 실행 **및** MCP tool 호출을 게이트합니다 — Antigravity가 범용 `call_mcp_tool` 래퍼로 dispatch하는 lazy-loaded 호출까지 포함합니다(어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑). 파일 편집 도구(`write_to_file` 등)는 게이트되지 않습니다.
 
 ## CLI 설치
 
