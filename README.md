@@ -34,7 +34,7 @@ For team auto-registration, add this to your project's `.claude/settings.json`:
 
 ### Codex
 
-Prerequisites: Codex CLI v0.114.0+ (Hooks GA around v0.130 — verify with `codex --version`), Node >= 20.
+Prerequisites: a Codex CLI build with plugin + hooks support (the `codex plugin` subcommands and the `codex_hooks` feature flag — verify with `codex plugin --help`), Node >= 20.
 
 **Step 1 — enable the hooks feature** in `~/.codex/config.toml`:
 
@@ -45,18 +45,16 @@ codex_hooks = true
 
 Without this flag, Codex silently ignores the plugin's hooks and the gate never runs.
 
-**Step 2 — install via the Codex marketplace.** The repo ships `.agents/plugins/marketplace.json`, a git-subdir catalog pointing at `./plugins/codex`:
-
-```bash
-codex plugin marketplace add transcodings/transcodes-guard
-# then in Codex: /plugins and install "transcodes-guard"
-```
-
-Or, for local development from a clone:
+**Step 2 — install via the Codex marketplace.** The repo ships `.codex-plugin/marketplace.json`, a `local` catalog pointing at `../plugins/codex`. Clone, build the committed `dist/`, register the catalog, then install:
 
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git
-codex plugin marketplace add ./transcodes-guard
+cd transcodes-guard
+npm install && npm run build:plugin
+
+codex plugin marketplace add ./.codex-plugin   # registers the "bigstrider" marketplace
+codex plugin add transcodes-guard@bigstrider   # installs the plugin
+# or in Codex: /plugins → install "transcodes-guard" from the bigstrider marketplace
 ```
 
 **Step 3 — first run.** Codex prompts a one-time hook trust review (`/hooks` to inspect). Approve it once. Do **not** use `--dangerously-bypass-hook-trust`.
@@ -106,7 +104,7 @@ node plugins/antigravity/install.mjs --local
 
 On the CLI, `agy plugin list` should then show `transcodes-guard`. Also export `TRANSCODES_TOKEN`.
 
-> Note: Antigravity currently gates **only** `run_command` (shell). File-edit and MCP tool calls are not gated yet in this first release.
+> Note: Antigravity's PreToolUse matcher is `run_command|mcp_.*`, gating shell execution **and** MCP tool calls. File-edit tools (`write_to_file`, …) are not gated.
 
 ## CLI installation
 

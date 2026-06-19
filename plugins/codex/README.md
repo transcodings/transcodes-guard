@@ -1,12 +1,14 @@
 # transcodes-guard — Codex CLI plugin
 
+**English** | [한국어](./README.ko.md)
+
 Risky-bash interceptor (`PreToolUse` hook) and audit MCP server for OpenAI Codex CLI.
 
 Shares the same step-up MFA gate logic as the Claude Code plugin (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Codex-specific surface is the hook adapter and the plugin manifest.
 
 ## Prerequisites
 
-- **Codex CLI v0.114.0+** (Hooks went GA around v0.130). Verify with `codex --version`.
+- **A Codex CLI build with plugin + hooks support** (the `codex plugin` subcommands and the `codex_hooks` feature flag). Verify the subcommand exists with `codex plugin --help`.
 - **Node.js ≥ 20**.
 
 ## Installation
@@ -22,18 +24,16 @@ Without this flag Codex silently ignores `plugin.json`'s `hooks` field — the g
 
 ### 2. Install the plugin
 
-Either:
-
-The plugin manifest lives at `plugins/codex/.codex-plugin/plugin.json`, and the repo ships a Codex marketplace catalog at `.agents/plugins/marketplace.json` (a `git-subdir` source pointing at `./plugins/codex`).
+The plugin manifest lives at `plugins/codex/.codex-plugin/plugin.json`, and the repo ships a Codex marketplace catalog at `.codex-plugin/marketplace.json` (a `local` source pointing at `../plugins/codex`). Clone the repo, build the committed `dist/`, register the catalog, then install the plugin:
 
 ```bash
-# Marketplace (reads the repo's .agents/plugins/marketplace.json catalog)
-codex plugin marketplace add transcodings/transcodes-guard
-# then open Codex → /plugins and install "transcodes-guard"
-
-# Or local clone (for development / pre-release)
 git clone https://github.com/transcodings/transcodes-guard.git
-codex plugin marketplace add ./transcodes-guard
+cd transcodes-guard
+npm install && npm run build:plugin
+
+codex plugin marketplace add ./.codex-plugin   # registers the "bigstrider" marketplace
+codex plugin add transcodes-guard@bigstrider   # installs the plugin
+# or open Codex → /plugins and install "transcodes-guard" from the bigstrider marketplace
 ```
 
 ### 3. Trust the hook on first run
@@ -55,14 +55,18 @@ If the variable is missing, the hook still **denies** danger commands but cannot
 | Component | Behaviour |
 |---|---|
 | `PreToolUse` hook | Two-layer check on Bash (regex patterns + `git ls-files` semantic on `rm -rf`) plus exact-match tool-rules on MCP calls. Denies and triggers a step-up MFA flow when matched. |
-| MCP server (`transcodes-guard`) | Diagnostic + audit tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), Transcodes admin tools (`retire_member`, `set_role_permissions`, `passcode_create`, …), step-up session lifecycle tools (`create_stepup_session`, `poll_stepup_session_wait`). |
+| MCP server (`transcodes-guard`) | **Diagnostic / simulation** tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`); **step-up lifecycle** tools (`create_stepup_session`, `poll_stepup_session_wait`); **Transcodes admin** tools (member / organization / RBAC / membership / passcode / auth-device / audit / project management). |
 | `SessionStart` hook | Injects a carry-over notice if a step-up session survived a session boundary. Static protocol primer lives in [`AGENTS.md`](./AGENTS.md). |
 | `UserPromptSubmit` hook | Detects user "auth done" prompts (`"완료"`, `"done"`, …) and surfaces the pending `sid` so the agent can poll. |
 | `Stop` hook | Catches dangling step-up loops; silently reaps orphan verified/pending records. |
 
+## For AI agents
+
+The step-up response protocol the agent must follow on a `PreToolUse` deny (tell the user to complete WebAuthn → call `poll_stepup_session_wait` with the `sid` → retry the same call on `verified`) lives in [`AGENTS.md`](./AGENTS.md), which Codex auto-loads into the agent's context every turn. Read it there — it is the single source of truth for the runtime loop.
+
 ## Enabling / disabling
 
-There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (Codex: remove from `config.toml` hooks / marketplace entry).
+There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (Codex: remove from `config.toml` hooks / marketplace entry). Enabling the gate is safe for an agent; disabling it is a human-only action.
 
 ## Environment
 
@@ -70,14 +74,18 @@ There is no runtime kill-switch. To turn protection off, disable or uninstall th
 |---|---|---|
 | `TRANSCODES_TOKEN` | yes (for step-up to work) | Member MCP JWT used as `x-transcodes-token`. |
 | `TRANSCODES_BACKEND_URL` | no | Override the default backend (`https://api.transcodesapis.com`). |
-| `CLAUDE_PLUGIN_ROOT` / `PLUGIN_ROOT` | host-set | Codex sets `PLUGIN_ROOT`; the plugin also accepts the Claude Code alias `CLAUDE_PLUGIN_ROOT`. Used by `simulate_hook_invocation` to locate the hook binary. |
+| `CLAUDE_PLUGIN_ROOT` | host-set | The Codex hook/MCP manifests resolve every command path against `${CLAUDE_PLUGIN_ROOT}`. The `simulate_hook_invocation` MCP tool additionally accepts `PLUGIN_ROOT` as a fallback when locating the hook binary. |
 
 ## Cross-host state sharing
 
-The plugin's local state files (`~/.cache/ai-action-tracker/stepup-{verified,pending,browser-lock}.json` on Linux; equivalent OS paths on macOS / Windows) are **shared with the Claude Code plugin** by design — both plugins talk to the same Transcodes backend and a verified session in one host carries over to the other. Concurrent use of both plugins is supported but the same-second race on `verified.json` is a known limitation (the Transcodes backend's sid-replay protection is the authoritative backstop).
+Local step-up state lives under `~/.transcodes/state/` and is **shared across all transcodes-guard plugins** by design — every host talks to the same Transcodes backend, so a verified session in one host carries over to another. Concurrent use is supported but the same-second race on a verified record is a known limitation (the Transcodes backend's sid-replay protection is the authoritative backstop).
 
 ## Troubleshooting
 
 - **Hook does not fire.** Check `~/.codex/config.toml` has `[features] codex_hooks = true`, then verify trust with `codex` → `/hooks`.
 - **`permissionDecision: deny` but no step-up URL.** The hook is blocking without a token — set `TRANSCODES_TOKEN`.
-- **`simulate_hook_invocation` reports "CLAUDE_PLUGIN_ROOT must be set".** Codex sets `PLUGIN_ROOT` in plugin scope, but if you invoked the MCP server outside of a plugin (e.g. `codex mcp add` with an absolute path), neither is set. Export `PLUGIN_ROOT` to the plugin directory before invoking.
+- **`simulate_hook_invocation` reports "CLAUDE_PLUGIN_ROOT must be set".** Neither `CLAUDE_PLUGIN_ROOT` nor `PLUGIN_ROOT` is set — this happens when the MCP server is invoked outside a plugin (e.g. `codex mcp add` with an absolute path). Export `PLUGIN_ROOT` to the plugin directory before invoking.
+
+## License
+
+FSL-1.1-ALv2 (see the repository root).

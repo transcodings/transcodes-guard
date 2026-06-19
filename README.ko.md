@@ -14,7 +14,7 @@
 
 ### Claude Code
 
-Claude Code가 기본(primary) 호스트입니다. 마켓플레이스가 곧 이 저장소입니다. Claude Code 세션에서 두 줄을 실행하세요.
+Claude Code가 기본 호스트입니다. 이 저장소가 곧 마켓플레이스이므로, Claude Code 세션에서 다음 두 줄만 실행하면 됩니다.
 
 ```
 /plugin marketplace add transcodings/transcodes-guard
@@ -34,7 +34,7 @@ Claude Code가 기본(primary) 호스트입니다. 마켓플레이스가 곧 이
 
 ### Codex
 
-사전 요구사항: Codex CLI v0.114.0+ (Hooks는 v0.130 즈음 GA — `codex --version`으로 확인), Node >= 20.
+사전 요구사항: 플러그인 + hooks를 지원하는 Codex CLI 빌드(`codex plugin` 하위 명령과 `codex_hooks` 기능 플래그 — `codex plugin --help`로 확인), Node >= 20.
 
 **1단계 — hooks 기능 활성화.** `~/.codex/config.toml`에 다음을 추가합니다.
 
@@ -45,23 +45,21 @@ codex_hooks = true
 
 이 플래그가 없으면 Codex는 플러그인의 hooks를 조용히 무시하고 게이트가 동작하지 않습니다.
 
-**2단계 — Codex 마켓플레이스로 설치.** 저장소는 `./plugins/codex`를 가리키는 git-subdir 카탈로그인 `.agents/plugins/marketplace.json`을 제공합니다.
-
-```bash
-codex plugin marketplace add transcodings/transcodes-guard
-# 이후 Codex에서: /plugins 로 "transcodes-guard" 설치
-```
-
-또는 개발용으로 로컬 클론에서:
+**2단계 — Codex 마켓플레이스로 설치.** 저장소는 `../plugins/codex`를 가리키는 `local` 카탈로그인 `.codex-plugin/marketplace.json`을 제공합니다. 저장소를 클론하고 커밋된 `dist/`를 빌드한 뒤, 카탈로그를 등록하고 설치하세요.
 
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git
-codex plugin marketplace add ./transcodes-guard
+cd transcodes-guard
+npm install && npm run build:plugin
+
+codex plugin marketplace add ./.codex-plugin   # "bigstrider" 마켓플레이스 등록
+codex plugin add transcodes-guard@bigstrider   # 플러그인 설치
+# 또는 Codex에서 /plugins → bigstrider 마켓플레이스의 "transcodes-guard" 설치
 ```
 
 **3단계 — 최초 실행.** Codex가 일회성 hook 신뢰 검토(trust review)를 띄웁니다(`/hooks`로 확인). 한 번 승인하세요. `--dangerously-bypass-hook-trust`는 사용하지 **마세요**.
 
-**4단계 — `TRANSCODES_TOKEN`**(멤버 MCP JWT)을 export 하세요. 이게 있어야 step-up이 시작될 수 있습니다. 없으면 hook이 위험 명령을 여전히 DENY 하지만 step-up 세션을 열지는 못합니다.
+**4단계 — `TRANSCODES_TOKEN`**(멤버 MCP JWT)을 export 하세요. 이 토큰이 있어야 step-up을 시작할 수 있습니다. 없으면 hook이 위험 명령을 여전히 DENY 하지만 step-up 세션은 열지 못합니다.
 
 ### Cursor
 
@@ -106,11 +104,11 @@ node plugins/antigravity/install.mjs --local
 
 CLI에서 `agy plugin list`를 실행하면 `transcodes-guard`가 표시됩니다. `TRANSCODES_TOKEN`도 export 하세요.
 
-> 참고: Antigravity는 현재 `run_command`(셸)만 게이트합니다. 파일 편집과 MCP tool 호출은 이번 첫 릴리스에서는 아직 게이트되지 않습니다.
+> 참고: Antigravity의 PreToolUse matcher는 `run_command|mcp_.*`로, 셸 실행 **및** MCP tool 호출을 게이트합니다. 파일 편집 도구(`write_to_file` 등)는 게이트되지 않습니다.
 
 ## CLI 설치
 
-`@bigstrider/transcodes-cli`(bin: `transcodes`)는 사람이 다루는 컨트롤 플레인입니다. hooks와 MCP 서버가 읽는 멤버 토큰을 저장하고, `~/.transcodes/`를 소유합니다. 플러그인과 달리 npm에 **배포됩니다**. 플러그인이 아니라 토큰 + 대시보드 도구입니다.
+`@bigstrider/transcodes-cli`(bin: `transcodes`)는 사람이 다루는 컨트롤 플레인입니다. hooks와 MCP 서버가 읽는 멤버 토큰을 저장하고 `~/.transcodes/`를 소유하며, 플러그인이 아닌 토큰·대시보드 도구이므로 플러그인과 달리 npm에 **배포됩니다**.
 
 ```bash
 npx @bigstrider/transcodes-cli            # 설치 없이 대시보드 실행
