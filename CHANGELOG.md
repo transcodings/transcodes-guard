@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.17.0...transcodes-guard-v0.17.1) (2026-06-19)
+
+
+### Documentation
+
+* **antigravity:** PreToolUse matcher 문서를 call_mcp_tool 반영본으로 정합화 ([#91](https://github.com/transcodings/transcodes-guard/issues/91)) ([c945ff0](https://github.com/transcodings/transcodes-guard/commit/c945ff0a48fb9b7691188e0255dc517b0735eb78))
+
 ## [0.17.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.16.2...transcodes-guard-v0.17.0) (2026-06-19)
 
 
