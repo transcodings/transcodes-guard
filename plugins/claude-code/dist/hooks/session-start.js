@@ -8,7 +8,7 @@ import {
 } from "../chunk-QVWMSR37.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.16.1";
+var PLUGIN_VERSION = "0.16.2";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
