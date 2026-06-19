@@ -37,4 +37,4 @@ Commands live in `package.json` scripts (`build:plugin`, `dev:*`, `check`, `type
 
 ## See also
 
-- User-facing install/usage (Korean) → `README.md`
+- User-facing install/usage → `README.md` (English), `README.ko.md` (Korean)

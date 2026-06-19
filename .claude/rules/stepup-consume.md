@@ -14,7 +14,7 @@ The verified record is single-use. Three independent things decide its fate: **w
 
 - **Bash** → always hook-consumed.
 - **MCP `source: 'bundle'` rule** (default `consume_in_hook = true`) → hook-consumed via the **FP-keyed** file.
-- **MCP system rule** (default `consume_in_hook = false`) → consumed later by the tool handler. `execProtectedTool()` (`transcodes-mcp-tools/src/stepup-helper.ts`) reads the GLOBAL verified record, runs the per-tool callback with the sid, and consumes it in `finally`. The sid reaches the backend as the `X-Step-Up-Session-Id` header, attached via `TranscodesRequestInput.stepUpSid` in `client.ts`.
+- **MCP system rule** (default `consume_in_hook = false`) → consumed later by the tool handler. `execProtectedTool()` (`transcodes-mcp-tools/src/stepup-helper.ts`) reads the GLOBAL verified record, runs the per-tool callback with the sid, and consumes it in `finally`. The sid reaches the backend as the `X-Step-Up-Session-Id` header, attached via `RequestInput.stepUpSid` in `client.ts`.
 
 Get `consumeHere`/`fp` wrong and you silently break single-shot or double-consume.
 
