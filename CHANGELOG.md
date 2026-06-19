@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.16.0...transcodes-guard-v0.16.1) (2026-06-19)
+
+
+### Code Refactoring
+
+* **packages:** 패키지 구조 단순화 (P3·P7·P4·P2·P6) ([#85](https://github.com/transcodings/transcodes-guard/issues/85)) ([b3843e6](https://github.com/transcodings/transcodes-guard/commit/b3843e6ed4bca82c691925e2425e156d9d7a0fb3))
+
 ## [0.16.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.15.3...transcodes-guard-v0.16.0) (2026-06-18)
 
 
