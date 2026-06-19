@@ -17,7 +17,7 @@ To install the plugin, use the automated installer script which resolves target 
    ```bash
    node plugins/antigravity/install.mjs
    ```
-2. **Workspace** — available only inside the workspace folder:
+2. **Workspace** — available only inside the workspace folder (copies into `<cwd>/.agents/plugins/transcodes-guard`):
    ```bash
    node plugins/antigravity/install.mjs --local
    ```
@@ -32,33 +32,37 @@ The MCP server and the step-up hook both authenticate against the Transcodes bac
 export TRANSCODES_TOKEN="$(read-your-token-here)"
 ```
 
-If the variable is missing, the hook still **denies** danger commands but cannot start a step-up session — Antigravity will surface a "set TRANSCODES_TOKEN" reason.
+If the variable is missing, the hook still **denies** danger commands but cannot start a step-up session — Antigravity will surface a reason telling you to provide a token. The canonical, persistent way to supply it is the CLI control plane: `transcodes login <token>` (`@bigstrider/transcodes-cli`) writes it to `~/.transcodes/config.json`, which the hook reads without an env var.
 
 ## What the plugin does
 
 | Component | Behaviour |
 |---|---|
-| `PreToolUse` hook (matcher: `run_command`) | Two-layer check on shell commands (regex patterns + `git ls-files` semantic on `rm -rf`). Denies and triggers a step-up MFA flow when matched. |
-| MCP server (`transcodes-guard`) | Diagnostic + audit tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), Transcodes admin tools, step-up session lifecycle tools (`create_stepup_session`, `poll_stepup_session_wait`). |
+| `PreToolUse` hook (matcher: `run_command\|mcp_.*`) | Two-layer check on shell commands (regex patterns + `git ls-files` semantic on `rm -rf`) plus exact-match tool-rules on MCP calls. Denies and triggers a step-up MFA flow when matched. |
+| MCP server (`transcodes-guard`) | **Diagnostic / simulation** tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`); **step-up lifecycle** tools (`create_stepup_session`, `poll_stepup_session_wait`); **Transcodes admin** tools (member / organization / RBAC / membership / passcode / auth-device / audit / project management). |
 | `PreInvocation` hook | Plays two roles (Antigravity has no SessionStart / UserPromptSubmit). On `invocationNum=1` injects a static step-up MFA primer + any carry-over pending state. On any invocation, tails `transcript.jsonl` for the most recent user message and, if it matches the completion pattern, surfaces the pending `sid` so the agent can poll. |
 | `Stop` hook | Catches dangling step-up loops by injecting a reminder via `{ decision: "continue", reason }` (Antigravity re-enters the execution loop with the reason as a system message). Silently reaps orphan verified/pending records when state is clean. |
 | `rules/STEPUP.md` | Static step-up MFA protocol primer that Antigravity auto-loads into every conversation. |
 
 ## Supported surfaces (1차 출시)
 
-- ✅ **Antigravity 2.0 desktop app** — plugin auto-loads from `~/.gemini/config/plugins/`.
-- ✅ **Antigravity CLI (`agy`)** — same plugin directory; staging at `~/.gemini/antigravity-cli/plugins/<name>/` happens automatically when installed via `agy plugin install`.
+- ✅ **Antigravity 2.0 desktop app** — the global installer copies the plugin into `~/.gemini/config/plugins/transcodes-guard`, which Antigravity auto-loads.
+- ✅ **Antigravity CLI (`agy`)** — the same global installer also copies into `~/.gemini/antigravity-cli/plugins/transcodes-guard`, so `node install.mjs` covers both surfaces in one run. `agy plugin list` should then show `transcodes-guard`.
 - ❌ **Managed Agents in Gemini API** — cloud-hosted, no access to the user's browser for WebAuthn. Not supported in 1차 출시.
 - ❌ **Scheduled Tasks (`schedule` tool)** — hook firing behavior under cron-style invocation is undocumented. Not supported in 1차 출시.
 - ❌ **Antigravity SDK (Python)** — separate language and packaging channel (`pip install google-antigravity`); out of this monorepo's scope.
 
 ## Tool matcher scope
 
-The PreToolUse hook gates **only `run_command`** (shell execution). File-edit tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) and MCP tool calls are **not** gated in 1차 출시. To extend coverage, add the new tool name to the matcher regex in `hooks.json` and, where applicable, register new tool rules in `packages/danger-patterns/`.
+The PreToolUse hook matcher is `run_command|mcp_.*`, so it gates shell execution (`run_command`) **and** any MCP tool call (`mcp_*`). File-edit tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) are **not** gated. To extend coverage, widen the matcher regex in `hooks.json` and register the matching tool rules in `packages/danger-patterns/`.
+
+## For AI agents
+
+The step-up response protocol the agent must follow on a `PreToolUse` deny (tell the user to complete WebAuthn → call `poll_stepup_session_wait` with the `sid` → retry the same call on `verified`) lives in [`rules/STEPUP.md`](./rules/STEPUP.md), which Antigravity auto-loads into the agent's working context (it scans every plugin's `rules/` directory). Read it there — it is the single source of truth for the runtime loop.
 
 ## Enabling / disabling
 
-There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via Antigravity's native mechanism (`agy plugin uninstall` or equivalent).
+There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via Antigravity's native mechanism (`agy plugin uninstall` or equivalent). Enabling the gate is safe for an agent; disabling it is a human-only action.
 
 ## Environment
 
@@ -69,11 +73,9 @@ There is no runtime kill-switch. To turn protection off, disable or uninstall th
 
 ## Cross-host state sharing
 
-The plugin's local state files (`~/.cache/ai-action-tracker/stepup-{verified,pending,browser-lock}.json` on Linux; equivalent OS paths on macOS / Windows) are **shared with the Claude Code and Codex plugins** by design — all three talk to the same Transcodes backend and a verified session in one host carries over to the others. Concurrent use of multiple plugins is supported but same-second races on `verified.json` are a known limitation (the Transcodes backend's sid-replay protection is the authoritative backstop).
+Local step-up state lives under `~/.transcodes/state/` and is **shared across all transcodes-guard plugins** by design — every host talks to the same Transcodes backend, so a verified session in one host carries over to another. Concurrent use is supported but the same-second race on a verified record is a known limitation (the Transcodes backend's sid-replay protection is the authoritative backstop).
 
 ## Known limits
 
-- **MCP tool naming convention** in Antigravity 2.0 is undocumented — the PreToolUse matcher only covers `run_command` in 1차 출시.
-- **Subagent state sharing** is best-effort. A subagent's PreToolUse hook may receive a distinct `conversationId`; the shared cache file is still the arbitration point, with backend sid-replay as backstop.
-- **Stop hook UX** with `decision: "continue"` is pending validation — see e2e findings doc #4.
-- **`${CLAUDE_PLUGIN_ROOT}` equivalent** in Antigravity is unspecified; this plugin currently uses relative paths (`./dist/...`) on the assumption that Antigravity spawns hook commands with the plugin directory as CWD. If this turns out to be wrong, the install instructions above will be updated to absolute paths via an install script. See e2e findings doc #2.
+- **Subagent state sharing** is best-effort. A subagent's PreToolUse hook may receive a distinct `conversationId`; the shared state file is still the arbitration point, with backend sid-replay as backstop.
+- **Stop hook UX** with `decision: "continue"` (which prevents turn termination — the verb is inverted relative to Claude Code's `decision: "block"`) is pending broader e2e validation.

@@ -25,7 +25,7 @@ cd /path/to/your/project
 /path/to/transcodes-guard/plugins/cursor/install.sh
 ```
 
-Writes `<project>/.cursor/hooks.json` and `<project>/.cursor/mcp.json` with absolute paths to the plugin's `dist/`.
+Writes `<project>/.cursor/hooks.json` with absolute paths to the plugin's `dist/`. `mcp.json` is **merge-aware**: it is written only if `<project>/.cursor/mcp.json` does not already exist — otherwise `install.sh` refuses to clobber it and prints the `transcodes-guard` entry for you to add manually under `mcpServers` (so your other MCP servers are preserved). If you skip that manual step, the MCP server is never registered.
 
 ### User scope (all workspaces)
 
@@ -33,7 +33,7 @@ Writes `<project>/.cursor/hooks.json` and `<project>/.cursor/mcp.json` with abso
 /path/to/transcodes-guard/plugins/cursor/install.sh --user
 ```
 
-Writes `~/.cursor/hooks.json` and `~/.cursor/mcp.json`. Useful if you want the gate active in every Cursor workspace.
+Writes `~/.cursor/hooks.json` (and `~/.cursor/mcp.json`, subject to the same merge-aware rule). Useful if you want the gate active in every Cursor workspace. A custom destination is also supported: `install.sh --target /path/to/workspace`.
 
 ### Trust the hooks on first run
 
@@ -54,16 +54,26 @@ Set this in the shell that launches Cursor (or in your shell rc). If missing, th
 | Hook event | Behaviour |
 |---|---|
 | `beforeShellExecution` | Two-layer check on Shell commands (regex patterns + `git ls-files` semantic on `rm -rf`). Denies with `{ permission: "deny", user_message, agent_message }` and triggers step-up MFA when matched. |
-| `beforeMCPExecution` | Exact-match against `~/.claude/ai-action-tracker/user-tool-rules.json` + system tool-rules for our own MCP tools. Matcher targets `MCP:plugin_ai-action-tracker_*`. |
+| `beforeMCPExecution` | Exact-match tool-rules (system + policy-bundle) against MCP tool calls. Served by the same hook binary as `beforeShellExecution`; the classifier accepts the `Shell` tool name alongside `Bash` / `run_command`. |
 | `sessionStart` | Surfaces carry-over step-up state from a prior session via `additional_context`. |
 | `beforeSubmitPrompt` | Detects user "auth done" prompts (`완료` / `done` / …). Cursor has no `additional_context` channel for this event, so the hook performs `consumeVerified` + `clearPending` as side effects and emits `{ continue: true }`. |
 | `stop` | Reminds the model of dangling step-up sessions via `followup_message`; silently reaps orphan verified/pending records. |
 
-The MCP server itself (registered as `transcodes-guard` in `mcp.json`) exposes the same diagnostic + audit + Transcodes-admin tools as the other plugins.
+The MCP server itself (registered as `transcodes-guard` in `mcp.json`) exposes the same tools as the other plugins: **diagnostic / simulation** (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), **step-up lifecycle** (`create_stepup_session`, `poll_stepup_session_wait`), and **Transcodes admin** (member / organization / RBAC / membership / passcode / auth-device / audit / project management).
+
+## For AI agents
+
+When a `beforeShellExecution` / `beforeMCPExecution` hook denies with a reason mentioning **Step-up MFA**, the command was **blocked and did NOT run**. The deny message itself carries these step-up instructions (the `sessionStart` hook only surfaces carry-over state, not the protocol). Drive the loop deterministically — do not wait for user confirmation between steps:
+
+1. Tell the user (one short line) to complete WebAuthn in the auto-opened browser tab (use the URL from the deny message if it did not open).
+2. Immediately call the MCP tool **`poll_stepup_session_wait`** with the provided `sid`. It blocks until verified or a 60s timeout.
+3. On `outcome: "verified"`, retry the **original blocked command** — the hook detects the verified state locally and allows it. On `outcome: "timeout"`, ask the user to retry WebAuthn, then call the wait tool again. On `outcome: "rejected"`, the user declined step-up — tell them and do **not** retry.
+
+Never assume the blocked command ran. Never invent an alternative. Always resume from the pending `sid`. Use `inspect_stepup_state` for a read-only snapshot. Note: on Cursor, `beforeSubmitPrompt` has no context channel, so a user "done" message is handled silently — rely on the `poll_stepup_session_wait` loop rather than expecting a prompt-side acknowledgement.
 
 ## Enabling / disabling
 
-There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (e.g. Cursor: remove from `hooks.json` / `mcp.json`; Claude Code: `/plugin disable transcodes-guard`).
+There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (e.g. Cursor: remove from `hooks.json` / `mcp.json`; Claude Code: `/plugin disable transcodes-guard`). Enabling the gate is safe for an agent; disabling it is a human-only action.
 
 ## Wire-format quirks vs Claude Code
 
@@ -76,14 +86,14 @@ Neither affects gate logic; both live entirely in `packages/hook-adapters/src/cu
 
 ## Cross-host state sharing
 
-State files (`~/.cache/ai-action-tracker/stepup-{verified,pending,browser-lock}.json` on Linux) are **shared with the other plugins** — a step-up verified in Claude Code carries over to Cursor and vice versa. The same-second race on `verified.json` is a known limitation (Transcodes backend's sid-replay protection is the authoritative backstop).
+Local step-up state lives under `~/.transcodes/state/` and is **shared across all transcodes-guard plugins** — a step-up verified in Claude Code carries over to Cursor and vice versa. The same-second race on a verified record is a known limitation (the Transcodes backend's sid-replay protection is the authoritative backstop).
 
 ## Known limits / unverified slots
 
 These four items were not validated against a live Cursor build before release. File an issue if your environment exposes a different shape:
 
 1. **Exact `tool_name` values** — Cursor docs document the matcher names (`Shell`, MCP tool prefix) but not the literal stdin `tool_name` strings. The classifier accepts `Shell`, `Bash`, `run_command` to be safe.
-2. **`beforeMCPExecution` matcher syntax** — `MCP:plugin_ai-action-tracker_*` is our best read of the docs; verify against a live event payload.
+2. **`beforeMCPExecution` payload shape** — the literal stdin `tool_name` strings Cursor emits for MCP calls are documented loosely; verify against a live event payload before authoring tight tool-rules.
 3. **`stop.followup_message` UX** — if Cursor doesn't render the reminder visibly to the model, switch the hook to silent reap by editing `hooks/stop.ts` to skip the `cursorAdapter.emitStop` call.
 4. **`__TRANSCODES_GUARD_ROOT__` substitution** — `install.sh` rewrites the placeholder to an absolute path. If you hand-edit `.cursor/hooks.json` later, keep the absolute path (Cursor does not expand `$CURSOR_PROJECT_DIR` inside `command` strings).
 
