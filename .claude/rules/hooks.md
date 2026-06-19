@@ -23,8 +23,6 @@ A plugin hook file does almost nothing: import `../host.js` first (see `.claude/
 | Antigravity | 3 (PreToolUse on `run_command`, PreInvocation, Stop) | native; `PreInvocation` merges SessionStart + UserPromptSubmit |
 | Cursor | 4 (beforeShellExecution, sessionStart, beforeSubmitPrompt, stop) + beforeMCPExecution | **flat** format `{ permission, user_message, agent_message }`, **no** `hookSpecificOutput` wrapper; `beforeSubmitPrompt` has no `additional_context` channel (user-prompt detection runs as side effects only) |
 
-See `docs/research/multi-tool-hook-plugin-support.md` for the spec-vs-research reconciliation.
-
 ## Output channels (per event)
 
 - **PreToolUse** → stdout JSON, `hookSpecificOutput.permissionDecision` (`"deny"`/`"allow"`) + `systemMessage` (protocol instruction). Cursor uses its flat `permission` field instead.

@@ -14,8 +14,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { DEFAULT_RBAC_RESOURCE, findFirstMatch, } from '@transcodes-guard/danger-patterns';
-import { findFirstToolRule, mcpConsumesInHook, } from '@transcodes-guard/danger-rules';
+import { DEFAULT_RBAC_RESOURCE, findFirstMatch, findFirstToolRule, mcpConsumesInHook, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, requestStepup } from './gate.js';
 import { clearPending } from './pending.js';

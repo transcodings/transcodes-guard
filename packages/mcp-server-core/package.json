@@ -10,10 +10,6 @@
     ".": {
       "import": "./dist/server.js",
       "types": "./dist/server.d.ts"
-    },
-    "./tool-catalog": {
-      "import": "./dist/tool-catalog.js",
-      "types": "./dist/tool-catalog.d.ts"
     }
   },
   "files": [

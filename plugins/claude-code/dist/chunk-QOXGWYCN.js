@@ -1,3 +1,7 @@
+// ../../packages/hook-adapters/dist/antigravity.js
+import { closeSync, openSync, readSync, statSync } from "fs";
+var COMPLETION_PATTERN = /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
+
 // ../../packages/hook-adapters/dist/claude-code.js
 function readString(v) {
   return typeof v === "string" ? v : void 0;
@@ -69,35 +73,7 @@ var claudeCodeAdapter = {
   }
 };
 
-// ../../packages/hook-adapters/dist/codex.js
-var codexAdapter = {
-  host: "codex",
-  // Stdin field names match Claude Code's snake_case schema verbatim, so
-  // the parse logic is identical. Delegating preserves a single source of
-  // truth for stdin shape parsing.
-  parsePreToolUseStdin(raw) {
-    return claudeCodeAdapter.parsePreToolUseStdin(raw);
-  },
-  parseUserPromptSubmitStdin(raw) {
-    return claudeCodeAdapter.parseUserPromptSubmitStdin(raw);
-  },
-  emitPreToolUse(decision) {
-    return claudeCodeAdapter.emitPreToolUse(decision);
-  },
-  emitSessionStartContext(additionalContext) {
-    return claudeCodeAdapter.emitSessionStartContext(additionalContext);
-  },
-  emitUserPromptSubmitContext(additionalContext) {
-    return claudeCodeAdapter.emitUserPromptSubmitContext(additionalContext);
-  },
-  emitStop(reason) {
-    return claudeCodeAdapter.emitStop(reason);
-  }
-};
-
-// ../../packages/hook-adapters/dist/antigravity.js
-import { closeSync, openSync, readSync, statSync } from "fs";
-
 export {
-  codexAdapter
+  COMPLETION_PATTERN,
+  claudeCodeAdapter
 };

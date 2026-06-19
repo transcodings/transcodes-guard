@@ -5,8 +5,7 @@
  * antigravity.google/docs/gcli-migration), NOT the Claude Code wire format
  * that Codex converged on. So the bytes emitted here are NOT byte-for-byte
  * compatible with claudeCodeAdapter — this is an end-to-end native adapter,
- * not a delegation shim. See docs/research/multi-tool-hook-plugin-support.md
- * v3 for the spec-vs-research reconciliation that motivated this.
+ * not a delegation shim.
  *
  * Wire-format differences vs Claude Code (per antigravity.google/docs/hooks):
  *  - PreToolUse stdin: `toolCall.name` / `toolCall.args` / `stepIdx` /
@@ -153,10 +152,11 @@ function tailJsonlLines(filePath: string, maxBytes = 32_768): unknown[] {
 
 /**
  * The Korean+English keyword set the agent should recognize as "user
- * reports step-up done". Shared with the Claude Code / Codex
- * UserPromptSubmit hooks (which use the same literal).
+ * reports step-up done". Host-agnostic — shared by every host's
+ * user-prompt hook (Claude Code / Codex UserPromptSubmit, Cursor
+ * beforeSubmitPrompt) and the Antigravity transcript scan below.
  */
-export const ANTIGRAVITY_COMPLETION_PATTERN =
+export const COMPLETION_PATTERN =
   /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
 
 /**
@@ -174,7 +174,7 @@ export const ANTIGRAVITY_COMPLETION_PATTERN =
  */
 export function detectUserDoneFromTranscript(
   transcriptPath: string | undefined,
-  pattern: RegExp = ANTIGRAVITY_COMPLETION_PATTERN,
+  pattern: RegExp = COMPLETION_PATTERN,
 ): string | null {
   if (!transcriptPath) return null;
 

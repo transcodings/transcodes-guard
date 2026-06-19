@@ -330,7 +330,7 @@ function findFirstMatch(command, patterns) {
   return null;
 }
 
-// ../../packages/danger-rules/dist/data/tool-rules.json
+// ../../packages/danger-patterns/dist/data/tool-rules.json
 var tool_rules_default = {
   rules: [
     {
@@ -486,7 +486,7 @@ var tool_rules_default = {
   ]
 };
 
-// ../../packages/danger-rules/dist/tool-rules.js
+// ../../packages/danger-patterns/dist/tool-rules.js
 var GUARD_PROVIDERS = [
   "claude",
   "codex",

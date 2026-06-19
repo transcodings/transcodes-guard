@@ -1,7 +1,7 @@
 {
   "name": "@transcodes-guard/gate-backend",
   "version": "0.1.0",
-  "description": "Private GateBackend implementation — binds stepup-core + transcodes-mcp-tools + danger-rules into the public @transcodes-guard/gate-contract DI interface. Injected via setGateBackend() at plugin bootstrap (phase 1: bundled; phase 2: CDN-loaded).",
+  "description": "Private GateBackend implementation — binds stepup-core + transcodes-mcp-tools + danger-patterns into the public @transcodes-guard/gate-contract DI interface. Injected via setGateBackend() at plugin bootstrap (phase 1: bundled; phase 2: CDN-loaded).",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -23,7 +23,7 @@
     "@transcodes-guard/gate-contract": "*",
     "@transcodes-guard/stepup-core": "*",
     "@transcodes-guard/transcodes-mcp-tools": "*",
-    "@transcodes-guard/danger-rules": "*",
+    "@transcodes-guard/danger-patterns": "*",
     "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {

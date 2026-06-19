@@ -6,7 +6,7 @@
 import {
   loadMergedToolRules,
   toolNameMatchesRule,
-} from '@transcodes-guard/danger-rules';
+} from '@transcodes-guard/danger-patterns';
 import {
   checkRbacPermission,
   clearPending,

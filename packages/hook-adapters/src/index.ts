@@ -7,8 +7,8 @@
  */
 
 export {
-  ANTIGRAVITY_COMPLETION_PATTERN,
   antigravityAdapter,
+  COMPLETION_PATTERN,
   detectUserDoneFromTranscript,
 } from './antigravity.js';
 

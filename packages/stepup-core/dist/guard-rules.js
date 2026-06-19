@@ -1,7 +1,7 @@
 /**
  * Backend write flows for guard tool-rules (Phase 3 v2).
  */
-import { mergeToolRuleChanges, systemToolRuleIds, ToolRuleValidationError, validateNewToolRule, } from '@transcodes-guard/danger-rules';
+import { mergeToolRuleChanges, systemToolRuleIds, ToolRuleValidationError, validateNewToolRule, } from '@transcodes-guard/danger-patterns';
 import { request } from './client.js';
 import { loadStepupConfig } from './config.js';
 import { readCachedPolicyBundle, refreshPolicyBundle, } from './policy-bundle.js';

@@ -13,12 +13,10 @@ import {
   getGateBackend,
   type PendingState,
 } from '@transcodes-guard/gate-contract';
-import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
-
-// Loose matcher — false positives only matter when a pending record exists,
-// in which case the worst case is one unnecessary poll call.
-const COMPLETION_PATTERN =
-  /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
+import {
+  COMPLETION_PATTERN,
+  claudeCodeAdapter,
+} from '@transcodes-guard/hook-adapters';
 
 function buildContext(prompt: string, pending: PendingState): string | null {
   if (!COMPLETION_PATTERN.test(prompt)) return null;

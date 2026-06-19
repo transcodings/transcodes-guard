@@ -11,7 +11,7 @@
  * load the StepupConfig here so the config type never escapes to the public
  * side. Error classes are wrapped in `is*Error` predicates for the same reason.
  */
-import { findFirstToolRule, ToolRuleValidationError, } from '@transcodes-guard/danger-rules';
+import { findFirstToolRule, ToolRuleValidationError, } from '@transcodes-guard/danger-patterns';
 import { addToolRule, clearPending, consumeVerified, createStepupSession, evaluatePreToolUse, findPendingBySid, firstActivePending, firstInFlightFpPending, inspectStepupState, isExpired, loadEffectivePatterns, loadEffectiveToolRules, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, readPending, readVerified, refreshPolicyBundleIfConfigured, removeToolRule, resolveToken, sendGateDecisionAudit, sweepStepup, updateToolRule, writePending, writeVerified, } from '@transcodes-guard/stepup-core';
 import { assertRbacCoordinate, RbacCoordinateError, registerAuditTools, registerAuthDeviceTools, registerJwkTools, registerMembershipTools, registerMemberTools, registerMetaTools, registerOrganizationTools, registerPasscodeTools, registerProjectTools, registerRbacTools, } from '@transcodes-guard/transcodes-mcp-tools';
 export const transcodesGateBackend = {

@@ -1,9 +1,13 @@
 /**
  * Public surface of @transcodes-guard/danger-patterns.
  *
- * Bash danger-pattern registry: regex matchers against Bash command strings,
- * plus the shared RBAC coordinate vocabulary (action/resource).
+ * One danger-rule registry, two parallel matchers:
+ * - Bash danger-pattern registry (danger-patterns.ts): regex matchers against
+ *   Bash command strings.
+ * - MCP tool-rule registry (tool-rules.ts): toolName ↔ stepup policy mappings.
+ * Both share the RBAC coordinate vocabulary (action/resource) from rbac.ts.
  */
 export { findFirstMatch, loadMergedPatterns, loadSystemPatterns, } from './danger-patterns.js';
 export { coerceRbacAction, coerceRbacResource, DEFAULT_RBAC_ACTION, DEFAULT_RBAC_RESOURCE, isRbacAction, RBAC_ACTIONS, } from './rbac.js';
+export { findFirstToolRule, GUARD_PROVIDERS, loadMergedToolRules, loadSystemToolRules, mcpConsumesInHook, mergeToolRuleChanges, systemToolRuleIds, ToolRuleValidationError, toolNameMatchesRule, validateNewToolRule, } from './tool-rules.js';
 //# sourceMappingURL=index.js.map

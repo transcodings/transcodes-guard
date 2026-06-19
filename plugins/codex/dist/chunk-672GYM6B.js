@@ -1,3 +1,7 @@
+// ../../packages/hook-adapters/dist/antigravity.js
+import { closeSync, openSync, readSync, statSync } from "fs";
+var COMPLETION_PATTERN = /완료|성공|끝났|마쳤|됐어|통과|done|finished|verified|authenticated|authori[sz]ed|complete|passed|success/i;
+
 // ../../packages/hook-adapters/dist/claude-code.js
 function readString(v) {
   return typeof v === "string" ? v : void 0;
@@ -69,9 +73,12 @@ var claudeCodeAdapter = {
   }
 };
 
-// ../../packages/hook-adapters/dist/cursor.js
-var cursorAdapter = {
-  host: "cursor",
+// ../../packages/hook-adapters/dist/codex.js
+var codexAdapter = {
+  host: "codex",
+  // Stdin field names match Claude Code's snake_case schema verbatim, so
+  // the parse logic is identical. Delegating preserves a single source of
+  // truth for stdin shape parsing.
   parsePreToolUseStdin(raw) {
     return claudeCodeAdapter.parsePreToolUseStdin(raw);
   },
@@ -79,34 +86,20 @@ var cursorAdapter = {
     return claudeCodeAdapter.parseUserPromptSubmitStdin(raw);
   },
   emitPreToolUse(decision) {
-    if (decision.kind === "allow") {
-      return JSON.stringify({
-        permission: "allow",
-        ...decision.updatedInput !== void 0 ? { updated_input: decision.updatedInput } : {}
-      });
-    }
-    return JSON.stringify({
-      permission: "deny",
-      user_message: decision.reason,
-      agent_message: decision.systemMessage ?? decision.reason
-    });
+    return claudeCodeAdapter.emitPreToolUse(decision);
   },
   emitSessionStartContext(additionalContext) {
-    return JSON.stringify({ additional_context: additionalContext });
+    return claudeCodeAdapter.emitSessionStartContext(additionalContext);
   },
-  emitUserPromptSubmitContext(_additionalContext) {
-    throw new Error("Cursor's beforeSubmitPrompt has no additional_context channel. Perform consumeVerified/clearPending as side effects and emit `{ continue: true }` directly.");
+  emitUserPromptSubmitContext(additionalContext) {
+    return claudeCodeAdapter.emitUserPromptSubmitContext(additionalContext);
   },
   emitStop(reason) {
-    if (!reason)
-      return "{}";
-    return JSON.stringify({ followup_message: reason });
+    return claudeCodeAdapter.emitStop(reason);
   }
 };
 
-// ../../packages/hook-adapters/dist/antigravity.js
-import { closeSync, openSync, readSync, statSync } from "fs";
-
 export {
-  cursorAdapter
+  COMPLETION_PATTERN,
+  codexAdapter
 };

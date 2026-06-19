@@ -25,14 +25,12 @@ import {
   coerceRbacAction,
   coerceRbacResource,
   loadMergedPatterns,
-  type MergedPattern,
-  RBAC_ACTIONS,
-} from '@transcodes-guard/danger-patterns';
-import {
   loadMergedToolRules,
+  type MergedPattern,
   type MergedToolRule,
+  RBAC_ACTIONS,
   type ToolRule,
-} from '@transcodes-guard/danger-rules';
+} from '@transcodes-guard/danger-patterns';
 import { cacheDir } from '@transcodes-guard/plugin-paths';
 import { z } from 'zod';
 import { request } from './client.js';

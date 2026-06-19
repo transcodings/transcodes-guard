@@ -24,7 +24,6 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@transcodes-guard/danger-patterns": "*",
-    "@transcodes-guard/danger-rules": "*",
     "@transcodes-guard/stepup-core": "*",
     "zod": "^3.23.0"
   },

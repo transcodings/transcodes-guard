@@ -1,5 +1,4 @@
-import { type MergedPattern } from '@transcodes-guard/danger-patterns';
-import { type MergedToolRule } from '@transcodes-guard/danger-rules';
+import { type MergedPattern, type MergedToolRule } from '@transcodes-guard/danger-patterns';
 import { z } from 'zod';
 import { type StepupConfig } from './config.js';
 /** Policy bundle wire schema version — bump on breaking bundle shape changes. */

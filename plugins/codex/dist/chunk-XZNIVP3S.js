@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "antigravity";
+process.env.TRANSCODES_GUARD_HOST = "codex";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -330,7 +330,7 @@ function findFirstMatch(command, patterns) {
   return null;
 }
 
-// ../../packages/danger-rules/dist/data/tool-rules.json
+// ../../packages/danger-patterns/dist/data/tool-rules.json
 var tool_rules_default = {
   rules: [
     {
@@ -486,7 +486,7 @@ var tool_rules_default = {
   ]
 };
 
-// ../../packages/danger-rules/dist/tool-rules.js
+// ../../packages/danger-patterns/dist/tool-rules.js
 var GUARD_PROVIDERS = [
   "claude",
   "codex",

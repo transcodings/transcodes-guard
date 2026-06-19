@@ -1,7 +1,7 @@
 /**
  * Backend write flows for guard tool-rules (Phase 3 v2).
  */
-import { type ToolRule, type ToolRuleChanges, type ToolRuleInput } from '@transcodes-guard/danger-rules';
+import { type ToolRule, type ToolRuleChanges, type ToolRuleInput } from '@transcodes-guard/danger-patterns';
 /** Full guard rule from `GET /guard/rules` (includes management fields). */
 export type GuardRuleRecord = ToolRule & {
     status: 'active' | 'inactive';

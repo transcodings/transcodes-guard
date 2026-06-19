@@ -1,93 +1,100 @@
 /**
- * Tool-rule registry — MCP-call counterpart of danger-patterns.
+ * Tool-rule registry — MCP-call counterpart of the Bash pattern registry in
+ * danger-patterns.ts. Both live in @transcodes-guard/danger-patterns and
+ * share the RBAC coordinate vocabulary from rbac.ts.
  *
- * `danger-patterns.ts` matches Bash command strings via regex; this module
- * matches PreToolUse payloads where `tool_name` identifies an MCP tool that
- * must trigger step-up MFA. Two-layer source (system + user) and the
- * load/validate/CRUD surface mirror danger-patterns.ts deliberately so the
- * mental model is single.
+ * Phase 3 v2: rules mirror the backend guard bundle wire shape (`id`, `type`,
+ * `label`, `description`, `name`, `matcher`, optional `action`/`resource`).
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync, } from "node:fs";
-import path from "node:path";
-import { parse as parseJsonc } from "jsonc-parser";
-import { dataDir, migrateLegacyFile } from "@transcodes-guard/plugin-paths";
-// System rules embedded at build time — see the matching note in
-// danger-patterns.ts (bundlers inline this; a runtime path read breaks once the
-// plugin is bundled by tsup).
-import systemToolRulesData from "./data/tool-rules.json" with { type: "json" };
-import { coerceRbacAction, coerceRbacResource, isRbacAction, } from "./rbac.js";
-const USER_TOOL_RULES_FILE = "user-tool-rules.json";
+import systemToolRulesData from './data/tool-rules.json' with { type: 'json' };
+import { coerceRbacAction, coerceRbacResource, isRbacAction, } from './rbac.js';
+export const GUARD_PROVIDERS = [
+    'claude',
+    'codex',
+    'cursor',
+    'antigravity',
+];
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
-export function getUserToolRulesPath() {
-    return path.join(dataDir(), USER_TOOL_RULES_FILE);
-}
 export function loadSystemToolRules() {
-    // Embedded at build time — see the static import above. Fresh shape per call
-    // so callers cannot mutate the shared embedded array.
     return { rules: [...systemToolRulesData.rules] };
 }
-export function loadUserToolRules() {
-    migrateLegacyFile(USER_TOOL_RULES_FILE, "data");
-    try {
-        const raw = readFileSync(getUserToolRulesPath(), "utf8");
-        // JSONC parse: see loadUserPatterns for rationale.
-        const parsed = parseJsonc(raw);
-        if (parsed && Array.isArray(parsed.rules)) {
-            return parsed;
-        }
-        return { rules: [] };
+function normalizeRule(r) {
+    if (r.type === 'bash') {
+        return {
+            ...r,
+            type: 'bash',
+            matcher: 'regex',
+            action: coerceRbacAction(r.action),
+            resource: coerceRbacResource(r.resource),
+        };
     }
-    catch {
-        return { rules: [] };
+    return {
+        ...r,
+        type: 'mcp',
+        matcher: r.matcher ?? 'exact',
+        ...(r.provider !== undefined ? { provider: r.provider } : {}),
+        ...(r.action !== undefined ? { action: coerceRbacAction(r.action) } : {}),
+        ...(r.resource !== undefined
+            ? { resource: coerceRbacResource(r.resource) }
+            : {}),
+    };
+}
+/**
+ * Layered merge: built-in baseline → org/project policy bundle.
+ * Same `id` in a later layer replaces the earlier rule.
+ */
+export function loadMergedToolRules(bundleRules = []) {
+    const merged = new Map();
+    for (const r of loadSystemToolRules().rules) {
+        merged.set(r.id, { ...normalizeRule(r), source: 'system' });
     }
+    for (const r of bundleRules) {
+        merged.set(r.id, { ...normalizeRule(r), source: 'bundle' });
+    }
+    return [...merged.values()];
 }
-export function saveUserToolRules(config) {
-    const file = getUserToolRulesPath();
-    mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+function globMatches(pattern, toolName) {
+    const escaped = pattern
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '.*')
+        .replace(/\?/g, '.');
+    return new RegExp(`^${escaped}$`).test(toolName);
 }
-export function userToolRulesFileExists() {
-    return existsSync(getUserToolRulesPath());
-}
-export function loadMergedToolRules() {
-    // Coerce action/resource on load so the gate always sees a valid RBAC
-    // coordinate even for rows written before these fields existed.
-    const system = loadSystemToolRules().rules.map((r) => ({
-        ...r,
-        stepupAction: coerceRbacAction(r.stepupAction),
-        stepupResource: coerceRbacResource(r.stepupResource),
-        consume_in_hook: r.consume_in_hook ?? false,
-        source: "system",
-    }));
-    const user = loadUserToolRules().rules.map((r) => ({
-        ...r,
-        stepupAction: coerceRbacAction(r.stepupAction),
-        stepupResource: coerceRbacResource(r.stepupResource),
-        consume_in_hook: r.consume_in_hook ?? true,
-        source: "user",
-    }));
-    return [...system, ...user];
+export function toolNameMatchesRule(toolName, rule) {
+    if (rule.type === 'bash')
+        return false;
+    // Case-insensitive: hosts emit wire names with mixed case
+    // (e.g. mcp__claude_ai_Google_Calendar__create_event) while stored rule
+    // names may differ in casing. Normalize both sides so matching is robust.
+    const target = toolName.toLowerCase();
+    const name = rule.name.toLowerCase();
+    return rule.matcher === 'glob' ? globMatches(name, target) : name === target;
 }
 export function findFirstToolRule(toolName, rules) {
     for (const r of rules) {
-        if (r.toolName === toolName)
+        if (toolNameMatchesRule(toolName, r))
             return { matched: r };
     }
     return null;
 }
+/** Whether PreToolUse should consume the verified record for this MCP rule. */
+export function mcpConsumesInHook(rule) {
+    if (rule.consume_in_hook !== undefined)
+        return rule.consume_in_hook;
+    // Project rules (add_tool_rule / policy bundle) → FP-keyed hook path.
+    // Built-in system rules → GLOBAL; handler needs sid for the backend header.
+    return rule.source === 'bundle';
+}
 export class ToolRuleValidationError extends Error {
 }
-// Heuristic guard: a tool rule matches a tool_name exactly. A Bash COMMAND
-// STRING (e.g. "rm -rf /", "git push") pasted in as a toolName is a mis-bucketed
-// command pattern — it would never fire here because the hook matches tool rules
-// against tool_name, not Bash commands. A valid MCP tool name is a single
-// identifier (alnum + `_` `.` `:` `-`, with `__`/`:` namespacing). Anything with
-// whitespace or shell metacharacters is a command, not a tool name.
-function detectShellCommand(toolName) {
-    return /[\s|&;<>$*()`\\/]/.test(toolName);
+function detectShellCommand(name) {
+    return /[\s|&;<>$*()`\\/]/.test(name);
+}
+function isGuardProvider(v) {
+    return GUARD_PROVIDERS.includes(v);
 }
 export function validateNewToolRule(input) {
-    const { id, toolName, reason, stepupAction, stepupResource, consume_in_hook } = input;
+    const { id, type = 'mcp', label, description, name, matcher = type === 'bash' ? 'regex' : 'exact', provider, action, resource, } = input;
     if (!ID_REGEX.test(id)) {
         throw new ToolRuleValidationError(`id must match /^[a-z0-9][a-z0-9-]*$/ (got: "${id}")`);
     }
@@ -95,83 +102,110 @@ export function validateNewToolRule(input) {
     if (systemIds.has(id)) {
         throw new ToolRuleValidationError(`id "${id}" is reserved by a system tool-rule and cannot be overridden`);
     }
-    const trimmedToolName = toolName.trim();
-    if (!trimmedToolName) {
-        throw new ToolRuleValidationError("toolName must not be empty");
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) {
+        throw new ToolRuleValidationError('label must not be empty');
     }
-    if (detectShellCommand(trimmedToolName)) {
-        throw new ToolRuleValidationError(`"${trimmedToolName}" looks like a Bash command, not an MCP tool name. ` +
-            `Tool rules match a tool_name exactly (e.g. mcp__github__delete_repository); ` +
-            `they never match Bash commands. Use add_user_pattern (regex) instead.`);
+    const trimmedDescription = description.trim();
+    if (!trimmedDescription) {
+        throw new ToolRuleValidationError('description must not be empty');
     }
-    const trimmedReason = reason.trim();
-    if (!trimmedReason) {
-        throw new ToolRuleValidationError("reason must not be empty");
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+        throw new ToolRuleValidationError('name must not be empty');
     }
-    const trimmedAction = stepupAction.trim();
-    if (!isRbacAction(trimmedAction)) {
-        throw new ToolRuleValidationError(`stepupAction must be one of create|read|update|delete (got: "${stepupAction}")`);
+    if (type === 'bash') {
+        if (matcher !== 'regex') {
+            throw new ToolRuleValidationError('bash rules require matcher "regex"');
+        }
+        try {
+            new RegExp(trimmedName);
+        }
+        catch (e) {
+            throw new ToolRuleValidationError(`name must be a valid regex: ${e.message}`);
+        }
+        const trimmedAction = (action ?? '').trim();
+        if (!isRbacAction(trimmedAction)) {
+            throw new ToolRuleValidationError(`action must be one of create|read|update|delete (got: "${action ?? ''}")`);
+        }
+        const trimmedResource = (resource ?? '').trim();
+        if (!trimmedResource) {
+            throw new ToolRuleValidationError('resource must not be empty');
+        }
+        return {
+            id,
+            type: 'bash',
+            label: trimmedLabel,
+            description: trimmedDescription,
+            name: trimmedName,
+            matcher: 'regex',
+            action: trimmedAction,
+            resource: trimmedResource,
+        };
     }
-    const trimmedResource = stepupResource.trim();
-    if (!trimmedResource) {
-        throw new ToolRuleValidationError("stepupResource must not be empty");
+    if (type !== 'mcp') {
+        throw new ToolRuleValidationError('type must be "mcp" or "bash"');
     }
-    return {
+    if (detectShellCommand(trimmedName)) {
+        throw new ToolRuleValidationError(`"${trimmedName}" looks like a Bash command, not an MCP tool name. ` +
+            'Tool rules match a tool_name exactly or via glob; use add_user_pattern (type bash) for Bash.');
+    }
+    if (matcher !== 'exact' && matcher !== 'glob') {
+        throw new ToolRuleValidationError('mcp rules require matcher exact or glob');
+    }
+    if (provider !== undefined) {
+        const trimmedProvider = provider.trim();
+        if (!isGuardProvider(trimmedProvider)) {
+            throw new ToolRuleValidationError(`provider must be one of ${GUARD_PROVIDERS.join('|')} (got: "${provider}")`);
+        }
+    }
+    const rule = {
         id,
-        toolName: trimmedToolName,
-        reason: trimmedReason,
-        stepupAction: trimmedAction,
-        stepupResource: trimmedResource,
-        ...(consume_in_hook === undefined ? {} : { consume_in_hook }),
+        type: 'mcp',
+        label: trimmedLabel,
+        description: trimmedDescription,
+        name: trimmedName,
+        matcher,
+        ...(provider !== undefined
+            ? { provider: provider.trim() }
+            : {}),
     };
-}
-export function addUserToolRule(input) {
-    const rule = validateNewToolRule(input);
-    const current = loadUserToolRules();
-    if (current.rules.some((r) => r.id === rule.id)) {
-        throw new ToolRuleValidationError(`id "${rule.id}" already exists in user tool-rules; use update instead`);
+    if (action !== undefined) {
+        const trimmedAction = action.trim();
+        if (!isRbacAction(trimmedAction)) {
+            throw new ToolRuleValidationError(`action must be one of create|read|update|delete (got: "${action}")`);
+        }
+        rule.action = trimmedAction;
     }
-    current.rules.push(rule);
-    saveUserToolRules(current);
+    if (resource !== undefined) {
+        const trimmedResource = resource.trim();
+        if (!trimmedResource) {
+            throw new ToolRuleValidationError('resource must not be empty');
+        }
+        rule.resource = trimmedResource;
+    }
     return rule;
 }
-export function updateUserToolRule(id, changes) {
-    const systemIds = new Set(loadSystemToolRules().rules.map((r) => r.id));
-    if (systemIds.has(id)) {
-        throw new ToolRuleValidationError(`id "${id}" is a system tool-rule and cannot be modified`);
-    }
-    const current = loadUserToolRules();
-    const existing = current.rules.find((r) => r.id === id);
-    if (!existing) {
-        throw new ToolRuleValidationError(`no user tool-rule with id "${id}"`);
-    }
-    const merged = {
-        id,
-        toolName: changes.toolName ?? existing.toolName,
-        reason: changes.reason ?? existing.reason,
-        // Coerce existing values that predate the CRUD constraint so an unrelated
-        // edit (e.g. reason only) of a legacy rule doesn't fail validation.
-        stepupAction: changes.stepupAction ?? coerceRbacAction(existing.stepupAction),
-        stepupResource: changes.stepupResource ?? coerceRbacResource(existing.stepupResource),
-        consume_in_hook: changes.consume_in_hook ?? existing.consume_in_hook,
-    };
-    const validated = validateNewToolRule(merged);
-    const idx = current.rules.findIndex((r) => r.id === id);
-    current.rules[idx] = validated;
-    saveUserToolRules(current);
-    return validated;
+export function mergeToolRuleChanges(existing, changes) {
+    return validateNewToolRule({
+        id: existing.id,
+        type: changes.type ?? existing.type,
+        label: changes.label ?? existing.label,
+        description: changes.description ?? existing.description,
+        name: changes.name ?? existing.name,
+        matcher: changes.matcher ?? existing.matcher,
+        provider: changes.provider ?? existing.provider,
+        action: changes.action ??
+            (existing.action !== undefined
+                ? coerceRbacAction(existing.action)
+                : undefined),
+        resource: changes.resource ??
+            (existing.resource !== undefined
+                ? coerceRbacResource(existing.resource)
+                : undefined),
+    });
 }
-export function removeUserToolRule(id) {
-    const systemIds = new Set(loadSystemToolRules().rules.map((r) => r.id));
-    if (systemIds.has(id)) {
-        throw new ToolRuleValidationError(`id "${id}" is a system tool-rule and cannot be removed`);
-    }
-    const current = loadUserToolRules();
-    const idx = current.rules.findIndex((r) => r.id === id);
-    if (idx === -1) {
-        throw new ToolRuleValidationError(`no user tool-rule with id "${id}"`);
-    }
-    current.rules.splice(idx, 1);
-    saveUserToolRules(current);
+export function systemToolRuleIds() {
+    return new Set(loadSystemToolRules().rules.map((r) => r.id));
 }
 //# sourceMappingURL=tool-rules.js.map

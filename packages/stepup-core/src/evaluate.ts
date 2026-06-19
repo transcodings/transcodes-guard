@@ -17,13 +17,11 @@ import path from 'node:path';
 import {
   DEFAULT_RBAC_RESOURCE,
   findFirstMatch,
-  type RbacAction,
-} from '@transcodes-guard/danger-patterns';
-import {
   findFirstToolRule,
   type MergedToolRule,
   mcpConsumesInHook,
-} from '@transcodes-guard/danger-rules';
+  type RbacAction,
+} from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, type RequestResult, requestStepup } from './gate.js';
 import { clearPending, type PendingState } from './pending.js';

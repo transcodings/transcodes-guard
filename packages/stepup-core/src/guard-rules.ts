@@ -9,7 +9,7 @@ import {
   type ToolRuleInput,
   ToolRuleValidationError,
   validateNewToolRule,
-} from '@transcodes-guard/danger-rules';
+} from '@transcodes-guard/danger-patterns';
 import { type Envelope, request } from './client.js';
 import { loadStepupConfig, type StepupConfig } from './config.js';
 import {

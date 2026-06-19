@@ -1,7 +1,13 @@
 /**
  * Read-only catalog of every MCP tool registered in createServer().
- * Used by the transcodes CLI dashboard — kept in sync with registerTool()
- * calls under src/tools/ and server.ts.
+ * Used only by the transcodes CLI dashboard.
+ *
+ * SYNC: this is a hand-maintained mirror of the registerTool() calls in
+ * @transcodes-guard/mcp-server-core (server.ts + transcodes-mcp-tools'
+ * register*Tools). It lives here because the CLI is its sole consumer, but
+ * it is NOT auto-derived — when a tool is added/changed/removed in
+ * mcp-server-core, update this catalog in the same change or the dashboard
+ * drifts.
  */
 export type AdminToolAccess = 'api' | 'console-only' | 'gate';
 
