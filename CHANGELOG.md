@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.16.1...transcodes-guard-v0.16.2) (2026-06-19)
+
+
+### Documentation
+
+* 문서 전반 정비 — rules 재구성 · 플러그인 README(EN/KO) · 사실 검증 ([#88](https://github.com/transcodings/transcodes-guard/issues/88)) ([a1543e5](https://github.com/transcodings/transcodes-guard/commit/a1543e5afa556687ba0f1f84e1d2ae76099ce41b))
+
 ## [0.16.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.16.0...transcodes-guard-v0.16.1) (2026-06-19)
 
 
