@@ -11,8 +11,8 @@ MENU
    - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.
    - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking — never guess.
    - `simulate_tool_call` to verify it matches → `get_resources` to pick resource + action (create|read|update|delete) → confirm details with the user → `add_tool_rule`. If a CLI command also triggers it, pass `cliRegex`.
-   - PER-HOST RULES: the same logical tool has a DIFFERENT wire name on each host (claude/codex/cursor/antigravity), so each host needs its OWN rule. Always set `provider` to this host and PREFIX the id with it — `codex-mongodb-list-collections`, `antigravity-mongodb-list-collections`. NEVER reuse a bare slug across hosts.
-   - ADD, do not OVERWRITE: to protect the same tool on another host, call `add_tool_rule` with a NEW provider-prefixed id. NEVER `update_tool_rule` an existing host's rule to point at a different host — that deletes the other host's protection. If `add_tool_rule` returns "already exists", pick a new provider-prefixed id; do not fall back to update.
+   - PER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the same logical tool under a different wire name — one rule per host. PREFIX `id` with the host slug (`claude-…`, `codex-…`); provider is set automatically from this MCP server.
+   - ADD, do not OVERWRITE: to protect the same tool on another host, call `add_tool_rule` there with a NEW id. NEVER `update_tool_rule` to repoint another host's rule. If `add_tool_rule` returns "already exists", pick a new id — do not fall back to update.
 2) Block a dangerous Bash command
    - Derive a regex → `simulate_command` with one matching and one NON-matching example (catch false positives) → `get_resources` for resource + action → confirm → `add_user_pattern`.
 3) Change an existing rule

@@ -16953,7 +16953,10 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // ../../packages/mcp-server-core/dist/build-info.js
-var PLUGIN_VERSION = "0.17.1";
+var PLUGIN_VERSION = "0.18.0";
+
+// ../../packages/mcp-server-core/dist/router-body.js
+var TRANSCODES_ROUTER_BODY = 'You are the transcodes-guard control surface \u2014 the single "front door" the user opens to manage step-up MFA protection AND to integrate the Transcodes SDK into their app. The user said:\n\n> {{REQUEST}}\n\nIdentify which MENU item below matches their request, gather any missing detail by ASKING the user first, then run that workflow. Rules: never invent MCP tool wire names or resource keys; always verify with a simulate_* tool before any mutating call; if the request is empty or ambiguous, show this menu and ask what they want.\n\nMENU\n1) Gate an MCP tool behind step-up MFA\n   - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.\n   - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking \u2014 never guess.\n   - `simulate_tool_call` to verify it matches \u2192 `get_resources` to pick resource + action (create|read|update|delete) \u2192 confirm details with the user \u2192 `add_tool_rule`. If a CLI command also triggers it, pass `cliRegex`.\n   - PER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the same logical tool under a different wire name \u2014 one rule per host. PREFIX `id` with the host slug (`claude-\u2026`, `codex-\u2026`); provider is set automatically from this MCP server.\n   - ADD, do not OVERWRITE: to protect the same tool on another host, call `add_tool_rule` there with a NEW id. NEVER `update_tool_rule` to repoint another host\'s rule. If `add_tool_rule` returns "already exists", pick a new id \u2014 do not fall back to update.\n2) Block a dangerous Bash command\n   - Derive a regex \u2192 `simulate_command` with one matching and one NON-matching example (catch false positives) \u2192 `get_resources` for resource + action \u2192 confirm \u2192 `add_user_pattern`.\n3) Change an existing rule\n   - `update_tool_rule` or `update_user_pattern`. WEAKENING or disabling protection is human-only via the transcodes CLI \u2014 refuse to do it from the agent; only tightening is allowed.\n4) List current rules (read-only)\n   - Read resources `tool-rules://list` and `danger-patterns://list`; present two tables (system vs project) with counts.\n5) Check whether a command/tool is blocked (read-only)\n   - `simulate_command` for a Bash string, or `simulate_tool_call` for an MCP wire name. Report BLOCKED (with the matching rule id) or ALLOWED.\n6) Step-up MFA state (read-only)\n   - `inspect_stepup_state`; summarize pending/verified. If a session is pending, the user completes WebAuthn in the browser, then call `poll_stepup_session_wait`.\n7) Integrate / install the Transcodes SDK into the app (frontend)\n   - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions \u2014 the single source of truth; pass a `topic` like pwa/auth/passkey/jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user\'s frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, service worker/manifest). Never guess API signatures \u2014 use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.';
 
 // ../../packages/mcp-server-core/dist/server.js
 var RBAC_ACTION_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first to fetch valid resource keys, then pass `stepupResource` (must match one of those keys; validated against the backend) and `stepupAction` (CRUD). System rules use resource `system`. This maps the rule onto the project's RBAC permission matrix and audit log.";
@@ -16971,33 +16974,6 @@ function lockedHostProvider() {
   }
   return { ok: true, provider };
 }
-var TRANSCODES_ROUTER_BODY = [
-  'You are the transcodes-guard control surface \u2014 the single "front door" the user opens to manage step-up MFA protection AND to integrate the Transcodes SDK into their app. The user said:',
-  "",
-  "> {{REQUEST}}",
-  "",
-  "Identify which MENU item below matches their request, gather any missing detail by ASKING the user first, then run that workflow. Rules: never invent MCP tool wire names or resource keys; always verify with a simulate_* tool before any mutating call; if the request is empty or ambiguous, show this menu and ask what they want.",
-  "",
-  "MENU",
-  "1) Gate an MCP tool behind step-up MFA",
-  "   - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.",
-  "   - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking \u2014 never guess.",
-  "   - `simulate_tool_call` to verify it matches \u2192 `get_resources` to pick resource + action (create|read|update|delete) \u2192 confirm details with the user \u2192 `add_tool_rule`. If a CLI command also triggers it, pass `cliRegex`.",
-  "   - PER-HOST RULES: the same logical tool has a DIFFERENT wire name on each host (claude/codex/cursor/antigravity), so each host needs its OWN rule. Always set `provider` to this host and PREFIX the id with it \u2014 `codex-mongodb-list-collections`, `antigravity-mongodb-list-collections`. NEVER reuse a bare slug across hosts.",
-  "   - ADD, do not OVERWRITE: to protect the same tool on another host, call `add_tool_rule` with a NEW provider-prefixed id. NEVER `update_tool_rule` an existing host's rule to point at a different host \u2014 that deletes the other host's protection. If `add_tool_rule` returns \"already exists\", pick a new provider-prefixed id; do not fall back to update.",
-  "2) Block a dangerous Bash command",
-  "   - Derive a regex \u2192 `simulate_command` with one matching and one NON-matching example (catch false positives) \u2192 `get_resources` for resource + action \u2192 confirm \u2192 `add_user_pattern`.",
-  "3) Change an existing rule",
-  "   - `update_tool_rule` or `update_user_pattern`. WEAKENING or disabling protection is human-only via the transcodes CLI \u2014 refuse to do it from the agent; only tightening is allowed.",
-  "4) List current rules (read-only)",
-  "   - Read resources `tool-rules://list` and `danger-patterns://list`; present two tables (system vs project) with counts.",
-  "5) Check whether a command/tool is blocked (read-only)",
-  "   - `simulate_command` for a Bash string, or `simulate_tool_call` for an MCP wire name. Report BLOCKED (with the matching rule id) or ALLOWED.",
-  "6) Step-up MFA state (read-only)",
-  "   - `inspect_stepup_state`; summarize pending/verified. If a session is pending, the user completes WebAuthn in the browser, then call `poll_stepup_session_wait`.",
-  "7) Integrate / install the Transcodes SDK into the app (frontend)",
-  "   - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions \u2014 the single source of truth; pass a `topic` like pwa/auth/passkey/jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user's frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, service worker/manifest). Never guess API signatures \u2014 use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear."
-].join("\n");
 function transcodesRouterBody(request) {
   const trimmed = request?.trim();
   return TRANSCODES_ROUTER_BODY.replace("{{REQUEST}}", trimmed && trimmed.length > 0 ? trimmed : "(no request given \u2014 show the menu and ask what they want)");

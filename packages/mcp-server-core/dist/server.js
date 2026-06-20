@@ -5,12 +5,13 @@ import { currentHostProvider, findFirstMatch, } from '@transcodes-guard/danger-p
 import { getGateBackend, } from '@transcodes-guard/gate-contract';
 import { z } from 'zod';
 import { PLUGIN_VERSION } from './build-info.js';
+import { TRANSCODES_ROUTER_BODY } from './router-body.js';
 const RBAC_ACTION_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first to fetch valid resource keys, then pass `stepupResource` (must match one of those keys; validated against the backend) and `stepupAction` (CRUD). System rules use resource `system`. This maps the rule onto the project's RBAC permission matrix and audit log.";
 const TOOL_RULE_RBAC_GUIDANCE = 'RBAC step-up coordinate. WORKFLOW: call `get_resources` first, then pass `resource` (must match a valid key) and `action` (create|read|update|delete). System rules use resource `system`.';
 const MCP_TOOL_NAME_GUIDANCE = 'MCP tool name as emitted by the host PreToolUse hook (full wire name). Call simulate_tool_call with the same string to verify before saving. Before saving, also confirm this MCP tool is actually connected to the host (see the add_tool_rule existence pre-check) — never register a rule for an MCP that is not available.';
 const MCP_EXISTENCE_PRECHECK = 'MCP EXISTENCE PRE-CHECK (mandatory, do this FIRST): a rule must only be registered for an MCP tool that is actually connected to THIS host. Inspect your own available-tools list and confirm the target MCP server/tool is present — e.g. before adding a Google Calendar rule, verify a Google Calendar MCP tool (mcp__..._google_calendar__...) is actually available in this agent (this applies to every host: Claude Code / Codex / Cursor / Antigravity). If the MCP is NOT connected, you MUST REFUSE: do not call add_tool_rule, and tell the user the rule was rejected because the MCP is not connected to this host. Only proceed when the MCP is confirmed present.';
-const ID_COLLISION_HINT = 'Each host (claude/codex/cursor/antigravity) needs its OWN rule because the same tool has a different wire name per host. Pick a NEW provider-prefixed id (e.g. `claude-<slug>`, `codex-<slug>`). Provider is set automatically from this MCP server\'s host — do NOT use update_tool_rule to repoint another host\'s rule.';
-/** Host identity from `TRANSCODES_GUARD_HOST` (set by each plugin\'s host.ts). */
+const ID_COLLISION_HINT = "Each host (claude/codex/cursor/antigravity) needs its OWN rule because the same tool has a different wire name per host. Pick a NEW provider-prefixed id (e.g. `claude-<slug>`, `codex-<slug>`). Provider is set automatically from this MCP server's host — do NOT use update_tool_rule to repoint another host's rule.";
+/** Host identity from `TRANSCODES_GUARD_HOST` (set by each plugin's host.ts). */
 function lockedHostProvider() {
     const provider = currentHostProvider();
     if (provider === undefined) {
@@ -21,40 +22,9 @@ function lockedHostProvider() {
     }
     return { ok: true, provider };
 }
-// Canonical body for the `/transcodes` umbrella command. The same text is
-// mirrored verbatim in each plugin's native command/skill file:
-//   plugins/claude-code/commands/transcodes.md
-//   plugins/cursor/.cursor/commands/transcodes.md
-//   plugins/antigravity/skills/transcodes/SKILL.md
-//   plugins/codex/skills/transcodes/SKILL.md
-// If you edit the menu here, update those four files too.
-const TRANSCODES_ROUTER_BODY = [
-    'You are the transcodes-guard control surface — the single "front door" the user opens to manage step-up MFA protection AND to integrate the Transcodes SDK into their app. The user said:',
-    '',
-    '> {{REQUEST}}',
-    '',
-    'Identify which MENU item below matches their request, gather any missing detail by ASKING the user first, then run that workflow. Rules: never invent MCP tool wire names or resource keys; always verify with a simulate_* tool before any mutating call; if the request is empty or ambiguous, show this menu and ask what they want.',
-    '',
-    'MENU',
-    '1) Gate an MCP tool behind step-up MFA',
-    '   - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.',
-    '   - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking — never guess.',
-    '   - `simulate_tool_call` to verify it matches → `get_resources` to pick resource + action (create|read|update|delete) → confirm details with the user → `add_tool_rule`. If a CLI command also triggers it, pass `cliRegex`.',
-    '   - PER-HOST RULES: the same logical tool has a DIFFERENT wire name on each host (claude/codex/cursor/antigravity), so each host needs its OWN rule. Always set `provider` to this host and PREFIX the id with it — `codex-mongodb-list-collections`, `antigravity-mongodb-list-collections`. NEVER reuse a bare slug across hosts.',
-    '   - ADD, do not OVERWRITE: to protect the same tool on another host, call `add_tool_rule` with a NEW provider-prefixed id. NEVER `update_tool_rule` an existing host\'s rule to point at a different host — that deletes the other host\'s protection. If `add_tool_rule` returns "already exists", pick a new provider-prefixed id; do not fall back to update.',
-    '2) Block a dangerous Bash command',
-    '   - Derive a regex → `simulate_command` with one matching and one NON-matching example (catch false positives) → `get_resources` for resource + action → confirm → `add_user_pattern`.',
-    '3) Change an existing rule',
-    '   - `update_tool_rule` or `update_user_pattern`. WEAKENING or disabling protection is human-only via the transcodes CLI — refuse to do it from the agent; only tightening is allowed.',
-    '4) List current rules (read-only)',
-    '   - Read resources `tool-rules://list` and `danger-patterns://list`; present two tables (system vs project) with counts.',
-    '5) Check whether a command/tool is blocked (read-only)',
-    '   - `simulate_command` for a Bash string, or `simulate_tool_call` for an MCP wire name. Report BLOCKED (with the matching rule id) or ALLOWED.',
-    '6) Step-up MFA state (read-only)',
-    '   - `inspect_stepup_state`; summarize pending/verified. If a session is pending, the user completes WebAuthn in the browser, then call `poll_stepup_session_wait`.',
-    '7) Integrate / install the Transcodes SDK into the app (frontend)',
-    "   - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions — the single source of truth; pass a `topic` like pwa/auth/passkey/jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user's frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, service worker/manifest). Never guess API signatures — use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.",
-].join('\n');
+// The `/transcodes` umbrella command body lives in the generated
+// router-body.ts (single source: scripts/router-body.mjs), which also renders
+// the four per-host command/skill markdown files — no hand-mirroring.
 function transcodesRouterBody(request) {
     const trimmed = request?.trim();
     return TRANSCODES_ROUTER_BODY.replace('{{REQUEST}}', trimmed && trimmed.length > 0
@@ -729,7 +699,7 @@ export function createServer(backend = getGateBackend()) {
             provider: z
                 .enum(['claude', 'codex', 'cursor', 'antigravity'])
                 .optional()
-                .describe('IGNORED — provider is locked to this MCP server\'s host and cannot be changed. To protect a tool on another host, call add_tool_rule there with a new id.'),
+                .describe("IGNORED — provider is locked to this MCP server's host and cannot be changed. To protect a tool on another host, call add_tool_rule there with a new id."),
             resource: z
                 .string()
                 .min(1)

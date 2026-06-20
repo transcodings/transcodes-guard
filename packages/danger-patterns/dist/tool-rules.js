@@ -107,7 +107,8 @@ export function ruleAppliesToHost(rule, hostProvider = currentHostProvider()) {
 }
 export function findFirstToolRule(toolName, rules, hostProvider = currentHostProvider()) {
     for (const r of rules) {
-        if (toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r, hostProvider)) {
+        if (toolNameMatchesRule(toolName, r) &&
+            ruleAppliesToHost(r, hostProvider)) {
             return { matched: r };
         }
     }
