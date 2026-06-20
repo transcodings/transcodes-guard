@@ -1,0 +1,34 @@
+{
+  "name": "@bigstrider/transcodes-mcp",
+  "version": "0.18.0",
+  "description": "Transcodes Guard MCP server — step-up MFA audit tools/resources/prompts over stdio. Standalone build for Claude Desktop / claude.ai connectors and any MCP client.",
+  "type": "module",
+  "bin": {
+    "transcodes-mcp": "dist/stdio.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && chmod 755 dist/stdio.js",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@transcodes-guard/gate-backend": "*",
+    "@transcodes-guard/gate-contract": "*",
+    "@transcodes-guard/mcp-server-core": "*",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "FSL-1.1-ALv2"
+}

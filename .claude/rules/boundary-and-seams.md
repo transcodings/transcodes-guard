@@ -8,7 +8,7 @@ The single hardest-to-infer constraint in this repo: the concrete gate backend i
 
 ## The import firewall
 
-- `@transcodes-guard/gate-backend` may be imported **only** by `plugins/*/backend.ts`. Every other importer is a biome `noRestrictedImports` **error** — `biome check` runs without `--write` in CI, so any violation fails the build. The seam files are the sole `overrides` exemption (`biome.json`).
+- `@transcodes-guard/gate-backend` may be imported **only** by the backend seams: `plugins/*/backend.ts` and `mcp/src/backend.ts` (the standalone npm MCP server is its own host, so it bootstraps the backend the same way a plugin does). Every other importer is a biome `noRestrictedImports` **error** — `biome check` runs without `--write` in CI, so any violation fails the build. The seam files are the sole `overrides` exemption (`biome.json`).
 - Everything else reaches the backend through `getGateBackend()` (from `@transcodes-guard/gate-contract`). When no backend is registered it returns `denyByDefaultBackend` (`gate-contract/src/noop.ts`): its **hook** methods no-op/pass, but its **server-call** methods *throw* `gate backend not installed`. This is deliberate — a backend-less build type-checks and is provably never shipped as functional.
 
 ## The mirrored-contract drift alarm
