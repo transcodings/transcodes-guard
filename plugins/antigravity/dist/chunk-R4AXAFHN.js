@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "codex";
+process.env.TRANSCODES_GUARD_HOST = "antigravity";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -176,6 +176,7 @@ var denyByDefaultBackend = {
   async sendGateDecisionAudit() {
   },
   async refreshPolicyBundle() {
+    return "skipped";
   },
   // server path — call-shaped methods throw
   createStepupSession() {
@@ -7223,9 +7224,13 @@ var transcodesGateBackend = {
   sweepStepup,
   hasToken: () => Boolean(resolveToken().token),
   sendGateDecisionAudit,
-  refreshPolicyBundle: async () => {
-    await refreshPolicyBundleIfConfigured({ force: true });
-  },
+  // SessionStart / MCP startup and the `refresh_rules` tool are explicit
+  // refresh points: bypass the TTL so a just-edited dashboard/CLI rule is
+  // reflected immediately, not up to POLICY_BUNDLE_TTL_MS later. The same
+  // force-refresh primitive the `transcodes policy refresh` CLI uses. The
+  // PreToolUse hot path never calls this (cache-only — design invariant 2),
+  // so the TTL still applies there. Returns the outcome for the tool to report.
+  refreshPolicyBundle: () => refreshPolicyBundleIfConfigured({ force: true }),
   // server path: step-up session — config loaded internally
   createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),
   pollStepupSession: (sid) => pollStepupSession(loadStepupConfig(), sid),

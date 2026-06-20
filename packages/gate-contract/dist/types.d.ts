@@ -129,6 +129,11 @@ export interface StepupStateInspection {
     verified: InspectionRecord;
     pending: InspectionRecord;
 }
+/**
+ * Outcome of a policy bundle refresh. Mirrors stepup-core's
+ * `PolicyBundleRefreshOutcome` plus `'skipped'` (no resolvable token).
+ */
+export type PolicyBundleRefreshOutcome = 'fresh' | 'refreshed' | 'not-modified' | 'failed' | 'skipped';
 /** Tool-rule registry types. Mirror danger-patterns tool-rules.ts (schema v2). */
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
 export type GuardProvider = 'claude' | 'codex' | 'cursor' | 'antigravity';
@@ -140,7 +145,7 @@ export interface ToolRule {
     description: string;
     name: string;
     matcher: GuardMatcher;
-    /** Optional MCP host label — stored for future use; does not affect matching today. */
+    /** MCP host this rule is scoped to. When set, the rule only matches on that host. */
     provider?: GuardProvider;
     action?: RbacAction;
     resource?: string;

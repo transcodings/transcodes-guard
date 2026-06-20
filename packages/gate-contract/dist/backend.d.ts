@@ -18,7 +18,7 @@
  * (instanceof would require exporting the class).
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { CreatedStepupSession, CreateStepupArgs, GateDecision, MergedPattern, MergedToolRule, PendingState, PollStepupResult, StepupStateInspection, ToolCallInput, ToolRule, ToolRuleChanges, ToolRuleInput, ToolRuleMatch, VerifiedStepup, WaitStepupResult } from './types.js';
+import type { CreatedStepupSession, CreateStepupArgs, GateDecision, MergedPattern, MergedToolRule, PendingState, PolicyBundleRefreshOutcome, PollStepupResult, StepupStateInspection, ToolCallInput, ToolRule, ToolRuleChanges, ToolRuleInput, ToolRuleMatch, VerifiedStepup, WaitStepupResult } from './types.js';
 export interface GateBackend {
     evaluatePreToolUse(input: ToolCallInput): Promise<GateDecision>;
     /** Caller writes the pending record AFTER emitting deny (fail-safe order). */
@@ -43,10 +43,12 @@ export interface GateBackend {
      * TTL-gated policy bundle refresh (Phase3 v2 G2). Called from the
      * SessionStart-equivalent hooks AFTER their stdout emit and from MCP server
      * boot — never from PreToolUse (the hook critical path reads cache only).
-     * Never rejects; a silent no-op when no token is resolvable, and a failed
-     * fetch keeps the previous cache (last-known-good).
+     * Never rejects; a silent no-op (`'skipped'`) when no token is resolvable,
+     * and a failed fetch keeps the previous cache (last-known-good).
+     * Returns the outcome so callers (e.g. the `refresh_rules` MCP tool) can
+     * report whether the bundle actually changed or the fetch failed.
      */
-    refreshPolicyBundle(): Promise<void>;
+    refreshPolicyBundle(): Promise<PolicyBundleRefreshOutcome>;
     createStepupSession(args: CreateStepupArgs): Promise<CreatedStepupSession>;
     pollStepupSession(sid: string): Promise<PollStepupResult>;
     pollStepupSessionWait(sid: string, options?: {

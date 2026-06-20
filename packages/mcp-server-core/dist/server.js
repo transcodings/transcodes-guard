@@ -568,6 +568,22 @@ export function createServer(backend = getGateBackend()) {
             },
         ],
     }));
+    server.registerTool('refresh_rules', {
+        title: 'Refresh project rules from backend',
+        description: 'Force-fetch the latest project policy bundle from the Transcodes backend (bypassing the cache TTL) and list the rules now in effect on THIS host. Call this right after a rule is activated or deactivated in the Next.js console so the change takes effect immediately — the running gate otherwise only picks up console changes at startup or after the cache TTL expires. Same force-refresh the `transcodes policy refresh` CLI runs. Read-only apart from updating the local cache.',
+        inputSchema: {},
+    }, async () => {
+        const outcome = await backend.refreshPolicyBundle();
+        if (outcome === 'failed') {
+            return textResult('Policy refresh FAILED — the Transcodes backend was unreachable or the token is invalid. The gate is still running on the last-known-good cached rules, which may be stale. Verify your token with `transcodes status` and call refresh_rules again.', true);
+        }
+        const header = outcome === 'skipped'
+            ? 'No Transcodes token resolvable — only the built-in system rules apply (no project bundle was fetched).'
+            : outcome === 'refreshed'
+                ? 'Policy bundle refreshed — a new revision was pulled from the backend.'
+                : 'Policy bundle already current — no change on the backend since the last fetch.';
+        return textResult(`${header}\n\n${formatToolRulesMarkdown(backend.loadMergedToolRules())}`);
+    });
     server.registerTool('add_tool_rule', {
         title: 'Add MCP tool-rule (project policy)',
         description: `Register a new project tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL → use this tool (\`name\` must match the hook's full wire tool name).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. ${MCP_EXISTENCE_PRECHECK}\n  2. RESOLVE the exact wire tool name from the host (e.g. mcp__github__delete_repository, mcp__plugin_<plugin>_<server>__<tool>). Do not guess — confirm with the user or read it from the host's available tools list.\n  3. VERIFY with \`simulate_tool_call\` using that full \`name\` string before saving.\n  4. RESOLVE the RBAC coordinate: call \`get_resources\`, then set \`resource\` and \`action\` (create|read|update|delete). Most rules use resource \`system\`.\n  5. CONFIRM id, name, label, description, resource, action, and matcher with the user, then SAVE via this tool.\n  6. If the same action can be reached via CLI (gh, git, curl, etc.), pass \`cliRegex\` so a Bash companion rule (\`<id>-cli\`) is registered ATOMICALLY in the same call — closing the CLI bypass without a second tool call. The companion reuses this rule's label/description/resource/action. (Standalone Bash patterns unrelated to an MCP tool still go through \`add_user_pattern\`.)\n\`id\` is your stable rule key (lowercase slug, unique per project). \`name\` is what the hook matches — always the full MCP wire name when matcher=exact. Persisted in the Transcodes backend; effective on the next policy refresh.\n\nPER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the SAME logical tool under a DIFFERENT wire name, so protecting a tool everywhere needs ONE rule PER host. Set \`provider\` to the host this rule is for and PREFIX \`id\` with it (e.g. \`codex-mongodb-list-collections\`, \`antigravity-mongodb-list-collections\`). A rule WITH \`provider\` only fires on that host; a rule WITHOUT \`provider\` fires on every host (used by the built-in baseline). To add coverage for another host, ADD a new provider-prefixed rule — never \`update_tool_rule\` an existing host's rule onto a different host (that removes the original host's protection).`,

@@ -23,5 +23,7 @@ MENU
    - `simulate_command` for a Bash string, or `simulate_tool_call` for an MCP wire name. Report BLOCKED (with the matching rule id) or ALLOWED.
 6) Step-up MFA state (read-only)
    - `inspect_stepup_state`; summarize pending/verified. If a session is pending, the user completes WebAuthn in the browser, then call `poll_stepup_session_wait`.
-7) Integrate / install the Transcodes SDK into the app (frontend)
+7) Refresh rules after a Next.js console change
+   - If the user activated/deactivated a rule in the console and it is not taking effect, call `refresh_rules` to force-pull the latest bundle and show the rules now in effect (the gate otherwise only refreshes at startup / after the cache TTL).
+8) Integrate / install the Transcodes SDK into the app (frontend)
    - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions — the single source of truth; pass a `topic` like pwa/auth/passkey/jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user's frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, service worker/manifest). Never guess API signatures — use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.
