@@ -34,6 +34,16 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Router codegen drift gate. Unlike dist (esbuild is non-reproducible, see
+      # below), the per-host /transcodes command/skill files + router-body.ts are
+      # pure deterministic templating from scripts/router-body.mjs, so a
+      # byte-identity check is safe and catches hand-edits that bypass codegen.
+      # MUST run BEFORE `build:plugin`: prebuild:plugin regenerates these same
+      # files in write mode, so checking after the build would compare freshly
+      # written output against itself and always pass (vacuous gate).
+      - name: Verify router codegen is up to date
+        run: node scripts/generate-router-files.mjs --check
+
       - name: Build plugin
         run: npm run build:plugin
 

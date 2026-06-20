@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "prebuild:plugin": "node scripts/stamp-build-info.mjs",
+    "prebuild:plugin": "node scripts/stamp-build-info.mjs && node scripts/generate-router-files.mjs",
     "build:plugin": "turbo run build:plugin",
     "prebuild:cdn": "turbo run build --filter=@transcodes-guard/gate-backend...",
     "build:cdn": "node scripts/build-cdn.mjs",
