@@ -26,6 +26,49 @@ const MCP_TOOL_NAME_GUIDANCE =
 const MCP_EXISTENCE_PRECHECK =
   'MCP EXISTENCE PRE-CHECK (mandatory, do this FIRST): a rule must only be registered for an MCP tool that is actually connected to THIS host. Inspect your own available-tools list and confirm the target MCP server/tool is present — e.g. before adding a Google Calendar rule, verify a Google Calendar MCP tool (mcp__..._google_calendar__...) is actually available in this agent (this applies to every host: Claude Code / Codex / Cursor / Antigravity). If the MCP is NOT connected, you MUST REFUSE: do not call add_tool_rule, and tell the user the rule was rejected because the MCP is not connected to this host. Only proceed when the MCP is confirmed present.';
 
+// Canonical body for the `/transcodes` umbrella command. The same text is
+// mirrored verbatim in each plugin's native command/skill file:
+//   plugins/claude-code/commands/transcodes.md
+//   plugins/cursor/.cursor/commands/transcodes.md
+//   plugins/antigravity/skills/transcodes/SKILL.md
+//   plugins/codex/skills/transcodes/SKILL.md
+// If you edit the menu here, update those four files too.
+const TRANSCODES_ROUTER_BODY = [
+  'You are the transcodes-guard control surface — the single "front door" the user opens to manage step-up MFA protection AND to integrate the Transcodes SDK into their app. The user said:',
+  '',
+  '> {{REQUEST}}',
+  '',
+  'Identify which MENU item below matches their request, gather any missing detail by ASKING the user first, then run that workflow. Rules: never invent MCP tool wire names or resource keys; always verify with a simulate_* tool before any mutating call; if the request is empty or ambiguous, show this menu and ask what they want.',
+  '',
+  'MENU',
+  '1) Gate an MCP tool behind step-up MFA',
+  '   - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.',
+  '   - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking — never guess.',
+  '   - `simulate_tool_call` to verify it matches → `get_resources` to pick resource + action (create|read|update|delete) → confirm details with the user → `add_tool_rule`. If a CLI command also triggers it, pass `cliRegex`.',
+  '2) Block a dangerous Bash command',
+  '   - Derive a regex → `simulate_command` with one matching and one NON-matching example (catch false positives) → `get_resources` for resource + action → confirm → `add_user_pattern`.',
+  '3) Change an existing rule',
+  '   - `update_tool_rule` or `update_user_pattern`. WEAKENING or disabling protection is human-only via the transcodes CLI — refuse to do it from the agent; only tightening is allowed.',
+  '4) List current rules (read-only)',
+  '   - Read resources `tool-rules://list` and `danger-patterns://list`; present two tables (system vs project) with counts.',
+  '5) Check whether a command/tool is blocked (read-only)',
+  '   - `simulate_command` for a Bash string, or `simulate_tool_call` for an MCP wire name. Report BLOCKED (with the matching rule id) or ALLOWED.',
+  '6) Step-up MFA state (read-only)',
+  '   - `inspect_stepup_state`; summarize pending/verified. If a session is pending, the user completes WebAuthn in the browser, then call `poll_stepup_session_wait`.',
+  '7) Integrate / install the Transcodes SDK into the app (frontend)',
+  "   - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions — the single source of truth; pass a `topic` like pwa/auth/passkey/jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user's frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, service worker/manifest). Never guess API signatures — use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.",
+].join('\n');
+
+function transcodesRouterBody(request?: string): string {
+  const trimmed = request?.trim();
+  return TRANSCODES_ROUTER_BODY.replace(
+    '{{REQUEST}}',
+    trimmed && trimmed.length > 0
+      ? trimmed
+      : '(no request given — show the menu and ask what they want)',
+  );
+}
+
 function formatPatternsMarkdown(patterns: MergedPattern[]): string {
   const lines: string[] = [
     '# Blocked Bash command patterns',
@@ -691,6 +734,35 @@ export function createServer(
         {
           role: 'user',
           content: { type: 'text', text: `Hello ${name}!` },
+        },
+      ],
+    }),
+  );
+
+  // ── /transcodes — single umbrella command (MCP prompt) ───────────────────
+  // One "front door" the user opens with free-form text; the agent routes the
+  // request to the right guard workflow and asks for any missing detail before
+  // acting. It adds no capability — only a deterministic entrypoint that stops
+  // the agent from mis-routing a natural-language request. The exact same
+  // router body is mirrored in each plugin's native command/skill file for
+  // hosts that don't surface MCP prompts as slash commands (Cursor/Codex/
+  // Antigravity); keep them in sync (see TRANSCODES_ROUTER_BODY consumers).
+  server.registerPrompt(
+    'transcodes',
+    {
+      title: 'transcodes-guard',
+      description:
+        'Open the transcodes-guard control surface. Say what you want in plain language (add a rule, list rules, check a command, step-up status, integrate/install the SDK) and the agent routes to the right guard tool, asking for any missing detail.',
+      argsSchema: { request: z.string().optional() },
+    },
+    ({ request }) => ({
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: transcodesRouterBody(request),
+          },
         },
       ],
     }),

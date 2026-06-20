@@ -60,6 +60,25 @@ If the variable is missing, the hook still **denies** danger commands but cannot
 | `UserPromptSubmit` hook | Detects user "auth done" prompts (`"완료"`, `"done"`, …) and surfaces the pending `sid` so the agent can poll. |
 | `Stop` hook | Catches dangling step-up loops; silently reaps orphan verified/pending records. |
 
+## Slash command: `$transcodes`
+
+A single "front door" for managing the gate's own rules. Codex surfaces bundled skills as **`$`-mentions** (not `/`), so invoke it as `$transcodes` followed by a plain-language request; the agent routes it to the right guard workflow, asking for any missing detail:
+
+```
+$transcodes gate the google calendar delete tool behind step-up
+$transcodes list the current rules
+$transcodes is "git push --force" blocked?
+```
+
+The skill ships in the plugin's `skills/` directory and is declared in `.codex-plugin/plugin.json` (`"skills": "./skills/"`), so `codex plugin add` loads it automatically — no manual copy. It requires the skills feature flag in `~/.codex/config.toml`:
+
+```toml
+[features]
+skills = true
+```
+
+It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
+
 ## For AI agents
 
 The step-up response protocol the agent must follow on a `PreToolUse` deny (tell the user to complete WebAuthn → call `poll_stepup_session_wait` with the `sid` → retry the same call on `verified`) lives in [`AGENTS.md`](./AGENTS.md), which Codex auto-loads into the agent's context every turn. Read it there — it is the single source of truth for the runtime loop.
