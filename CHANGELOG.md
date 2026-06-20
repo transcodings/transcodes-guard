@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.17.1...transcodes-guard-v0.18.0) (2026-06-20)
+
+
+### Features
+
+* 라우터 본문 codegen 단일화 + 빌드 부담 완화 ([#94](https://github.com/transcodings/transcodes-guard/issues/94)) ([159635e](https://github.com/transcodings/transcodes-guard/commit/159635edc804eab615c0f7afd0a5847c0c32d64f))
+
 ## [0.17.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.17.0...transcodes-guard-v0.17.1) (2026-06-19)
 
 
