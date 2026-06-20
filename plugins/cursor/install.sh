@@ -56,6 +56,14 @@ sed "s|__TRANSCODES_GUARD_ROOT__|$PLUGIN_ROOT|g" \
   "$PLUGIN_ROOT/.cursor/hooks.json" > "$cursor_dir/hooks.json"
 echo "wrote $cursor_dir/hooks.json"
 
+# Copy the /transcodes slash command (and any other commands) into place.
+# Cursor discovers slash commands from <workspace>/.cursor/commands/*.md.
+if [[ -d "$PLUGIN_ROOT/.cursor/commands" ]]; then
+  mkdir -p "$cursor_dir/commands"
+  cp -R "$PLUGIN_ROOT/.cursor/commands/." "$cursor_dir/commands/"
+  echo "wrote $cursor_dir/commands/ (slash commands)"
+fi
+
 # mcp.json: merge-aware. Refuse to clobber an existing file.
 rendered_mcp="$(sed "s|__TRANSCODES_GUARD_ROOT__|$PLUGIN_ROOT|g" "$PLUGIN_ROOT/mcp.json")"
 if [[ -e "$cursor_dir/mcp.json" ]]; then

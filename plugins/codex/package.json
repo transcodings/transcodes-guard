@@ -14,7 +14,8 @@
     "README.md",
     ".codex-plugin",
     ".mcp.json",
-    "hooks/hooks.json"
+    "hooks/hooks.json",
+    "skills"
   ],
   "scripts": {
     "build": "tsup",

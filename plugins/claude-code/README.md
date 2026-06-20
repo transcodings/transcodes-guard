@@ -43,6 +43,18 @@ Without it the hook still **denies** danger commands, but cannot start a step-up
 | `UserPromptSubmit` hook | Detects user "auth done" prompts (`"완료"`, `"done"`, …) and surfaces the pending `sid` so the agent can resume polling. |
 | `Stop` hook | Catches dangling step-up loops; silently reaps orphan verified/pending records. |
 
+## Slash command: `/transcodes`
+
+A single "front door" for managing the gate's own rules. Type `/transcodes` followed by a plain-language request and the agent routes it to the right guard workflow, asking for any missing detail:
+
+```
+/transcodes gate the google calendar delete tool behind step-up
+/transcodes list the current rules
+/transcodes is "git push --force" blocked?
+```
+
+Menu it routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check whether something is blocked (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`). Discovered automatically from the plugin's `commands/` directory (also available as the MCP prompt `/mcp__transcodes-guard__transcodes`).
+
 ## Transports
 
 Claude Code is the only host that ships **both** transports:

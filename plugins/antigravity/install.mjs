@@ -54,7 +54,10 @@ const filesToCopy = [
   'mcp_config.json',
   'hooks.json',
   'rules',
-  'dist'
+  'dist',
+  // /transcodes umbrella command. Antigravity auto-converts a plugin's
+  // skills/<name>/SKILL.md into the /<name> slash command in the TUI.
+  'skills'
 ];
 
 console.log('Starting Google Antigravity plugin installation...');
