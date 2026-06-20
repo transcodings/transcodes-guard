@@ -6,7 +6,7 @@ Commands live in `package.json` scripts (`build:plugin`, `dev:*`, `check`, `type
 
 ## Must
 
-- **Run `npm run build:plugin` and commit every regenerated `dist/` in the same change.** Bundles are committed artifacts run from a git clone with no `node_modules`. → [.claude/rules/build-and-entries.md](.claude/rules/build-and-entries.md)
+- **`dist/` is a committed artifact, but you don't have to rebuild it on feature branches.** Bundles run from a git clone with no `node_modules`, and freshness is guaranteed at release (`release.yml` rebuilds + commits on the Release PR). Mid-cycle stale `dist/` on `main` is harmless — hosts install from a release tag. Rebuild (`npm run build:plugin`) only when you want to verify locally. → [.claude/rules/build-and-entries.md](.claude/rules/build-and-entries.md)
 - **Add MCP capabilities only in `createServer()`** (`packages/mcp-server-core/src/server.ts`); plugin `src/*.ts` are thin transport wrappers. → [.claude/rules/mcp-and-hosts.md](.claude/rules/mcp-and-hosts.md)
 - **Keep all gate/evaluate/message-formatting logic in `packages/stepup-core/`.** Host divergence lives only in `packages/hook-adapters/`. → [.claude/rules/gate-security-model.md](.claude/rules/gate-security-model.md), [.claude/rules/mcp-and-hosts.md](.claude/rules/mcp-and-hosts.md)
 - **Reach backend-coupled code only through `getGateBackend()`** (`@transcodes-guard/gate-contract`), never by importing `gate-backend`. → [.claude/rules/boundary-and-seams.md](.claude/rules/boundary-and-seams.md)
