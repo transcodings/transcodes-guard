@@ -73,11 +73,17 @@ function normalizeRule(r: ToolRule): ToolRule {
       resource: coerceRbacResource(r.resource),
     };
   }
+  // Defensively normalize the stored provider: a legacy/mis-written record may
+  // carry the raw host id `claude-code` (or another non-canonical value).
+  // `mapHostToProvider` folds `claude-code` → `claude` and drops anything that
+  // is not a real provider, so matching never breaks on a stray host id.
+  const provider =
+    r.provider !== undefined ? mapHostToProvider(r.provider) : undefined;
   return {
     ...r,
     type: 'mcp',
     matcher: r.matcher ?? 'exact',
-    ...(r.provider !== undefined ? { provider: r.provider } : {}),
+    ...(provider !== undefined ? { provider } : {}),
     ...(r.action !== undefined ? { action: coerceRbacAction(r.action) } : {}),
     ...(r.resource !== undefined
       ? { resource: coerceRbacResource(r.resource) }
@@ -124,12 +130,53 @@ export function toolNameMatchesRule(toolName: string, rule: ToolRule): boolean {
   return rule.matcher === 'glob' ? globMatches(name, target) : name === target;
 }
 
+/**
+ * Map a host / provider string to the canonical rule `provider` slug.
+ * Canonical values: claude | codex | cursor | antigravity.
+ * Legacy alias `claude-code` → `claude` (old records only; host.ts sets `claude`).
+ */
+export function mapHostToProvider(
+  host: string | undefined,
+): GuardProvider | undefined {
+  if (!host) return undefined;
+  const normalized = host === 'claude-code' ? 'claude' : host;
+  return isGuardProvider(normalized) ? normalized : undefined;
+}
+
+/** Provider of the host this process runs under, read from the env var. */
+export function currentHostProvider(): GuardProvider | undefined {
+  return mapHostToProvider(process.env.TRANSCODES_GUARD_HOST);
+}
+
+/**
+ * Whether a rule applies to the given host. Fail-safe by design:
+ *  - A rule WITHOUT `provider` (e.g. all 14 system baseline rules) applies to
+ *    EVERY host — never weaken baseline protection.
+ *  - A provider-scoped rule applies only on its own host.
+ *  - When the host is unknown (`undefined`), every rule applies (fail-closed:
+ *    we would rather over-gate than silently skip a rule).
+ */
+export function ruleAppliesToHost(
+  rule: ToolRule,
+  hostProvider: GuardProvider | undefined = currentHostProvider(),
+): boolean {
+  if (rule.provider === undefined) return true;
+  if (hostProvider === undefined) return true;
+  return rule.provider === hostProvider;
+}
+
 export function findFirstToolRule(
   toolName: string,
   rules: MergedToolRule[],
+  hostProvider: GuardProvider | undefined = currentHostProvider(),
 ): ToolRuleMatch | null {
   for (const r of rules) {
-    if (toolNameMatchesRule(toolName, r)) return { matched: r };
+    if (
+      toolNameMatchesRule(toolName, r) &&
+      ruleAppliesToHost(r, hostProvider)
+    ) {
+      return { matched: r };
+    }
   }
   return null;
 }

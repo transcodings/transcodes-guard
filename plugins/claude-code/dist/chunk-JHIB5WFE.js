@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "antigravity";
+process.env.TRANSCODES_GUARD_HOST = "claude";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -507,11 +507,12 @@ function normalizeRule(r) {
       resource: coerceRbacResource(r.resource)
     };
   }
+  const provider = r.provider !== void 0 ? mapHostToProvider(r.provider) : void 0;
   return {
     ...r,
     type: "mcp",
     matcher: r.matcher ?? "exact",
-    ...r.provider !== void 0 ? { provider: r.provider } : {},
+    ...provider !== void 0 ? { provider } : {},
     ...r.action !== void 0 ? { action: coerceRbacAction(r.action) } : {},
     ...r.resource !== void 0 ? { resource: coerceRbacResource(r.resource) } : {}
   };
@@ -537,10 +538,27 @@ function toolNameMatchesRule(toolName, rule) {
   const name = rule.name.toLowerCase();
   return rule.matcher === "glob" ? globMatches(name, target) : name === target;
 }
-function findFirstToolRule(toolName, rules) {
+function mapHostToProvider(host) {
+  if (!host)
+    return void 0;
+  const normalized = host === "claude-code" ? "claude" : host;
+  return isGuardProvider(normalized) ? normalized : void 0;
+}
+function currentHostProvider() {
+  return mapHostToProvider(process.env.TRANSCODES_GUARD_HOST);
+}
+function ruleAppliesToHost(rule, hostProvider = currentHostProvider()) {
+  if (rule.provider === void 0)
+    return true;
+  if (hostProvider === void 0)
+    return true;
+  return rule.provider === hostProvider;
+}
+function findFirstToolRule(toolName, rules, hostProvider = currentHostProvider()) {
   for (const r of rules) {
-    if (toolNameMatchesRule(toolName, r))
+    if (toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r, hostProvider)) {
       return { matched: r };
+    }
   }
   return null;
 }
@@ -6261,7 +6279,7 @@ async function getCachedRbacLevel(config, resource, action) {
 }
 async function execProtectedTool(toolName, run) {
   const verified = readVerified();
-  const rule = loadMergedToolRules().find((r) => toolNameMatchesRule(toolName, r));
+  const rule = loadMergedToolRules().find((r) => toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r));
   if (rule?.action !== void 0 && rule.resource !== void 0) {
     let level = 2;
     try {
@@ -7251,6 +7269,7 @@ export {
   __export,
   __toESM,
   findFirstMatch,
+  currentHostProvider,
   ZodOptional,
   ZodFirstPartyTypeKind,
   objectType,

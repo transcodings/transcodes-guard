@@ -5,11 +5,12 @@ import {
   __commonJS,
   __export,
   __toESM,
+  currentHostProvider,
   external_exports,
   findFirstMatch,
   getGateBackend,
   objectType
-} from "../chunk-LTDMJ6U7.js";
+} from "../chunk-5SAEAH6H.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17050,6 +17051,17 @@ var RBAC_ACTION_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resourc
 var TOOL_RULE_RBAC_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first, then pass `resource` (must match a valid key) and `action` (create|read|update|delete). System rules use resource `system`.";
 var MCP_TOOL_NAME_GUIDANCE = "MCP tool name as emitted by the host PreToolUse hook (full wire name). Call simulate_tool_call with the same string to verify before saving. Before saving, also confirm this MCP tool is actually connected to the host (see the add_tool_rule existence pre-check) \u2014 never register a rule for an MCP that is not available.";
 var MCP_EXISTENCE_PRECHECK = "MCP EXISTENCE PRE-CHECK (mandatory, do this FIRST): a rule must only be registered for an MCP tool that is actually connected to THIS host. Inspect your own available-tools list and confirm the target MCP server/tool is present \u2014 e.g. before adding a Google Calendar rule, verify a Google Calendar MCP tool (mcp__..._google_calendar__...) is actually available in this agent (this applies to every host: Claude Code / Codex / Cursor / Antigravity). If the MCP is NOT connected, you MUST REFUSE: do not call add_tool_rule, and tell the user the rule was rejected because the MCP is not connected to this host. Only proceed when the MCP is confirmed present.";
+var ID_COLLISION_HINT = "Each host (claude/codex/cursor/antigravity) needs its OWN rule because the same tool has a different wire name per host. Pick a NEW provider-prefixed id (e.g. `claude-<slug>`, `codex-<slug>`). Provider is set automatically from this MCP server's host \u2014 do NOT use update_tool_rule to repoint another host's rule.";
+function lockedHostProvider() {
+  const provider = currentHostProvider();
+  if (provider === void 0) {
+    return {
+      ok: false,
+      message: "Rejected: this MCP server has no host identity (TRANSCODES_GUARD_HOST). Cannot save a host-scoped tool rule."
+    };
+  }
+  return { ok: true, provider };
+}
 var TRANSCODES_ROUTER_BODY = [
   'You are the transcodes-guard control surface \u2014 the single "front door" the user opens to manage step-up MFA protection AND to integrate the Transcodes SDK into their app. The user said:',
   "",
@@ -17062,6 +17074,8 @@ var TRANSCODES_ROUTER_BODY = [
   "   - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.",
   "   - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking \u2014 never guess.",
   "   - `simulate_tool_call` to verify it matches \u2192 `get_resources` to pick resource + action (create|read|update|delete) \u2192 confirm details with the user \u2192 `add_tool_rule`. If a CLI command also triggers it, pass `cliRegex`.",
+  "   - PER-HOST RULES: the same logical tool has a DIFFERENT wire name on each host (claude/codex/cursor/antigravity), so each host needs its OWN rule. Always set `provider` to this host and PREFIX the id with it \u2014 `codex-mongodb-list-collections`, `antigravity-mongodb-list-collections`. NEVER reuse a bare slug across hosts.",
+  "   - ADD, do not OVERWRITE: to protect the same tool on another host, call `add_tool_rule` with a NEW provider-prefixed id. NEVER `update_tool_rule` an existing host's rule to point at a different host \u2014 that deletes the other host's protection. If `add_tool_rule` returns \"already exists\", pick a new provider-prefixed id; do not fall back to update.",
   "2) Block a dangerous Bash command",
   "   - Derive a regex \u2192 `simulate_command` with one matching and one NON-matching example (catch false positives) \u2192 `get_resources` for resource + action \u2192 confirm \u2192 `add_user_pattern`.",
   "3) Change an existing rule",
@@ -17496,7 +17510,9 @@ WORKFLOW (follow in order):
   4. RESOLVE the RBAC coordinate: call \`get_resources\`, then set \`resource\` and \`action\` (create|read|update|delete). Most rules use resource \`system\`.
   5. CONFIRM id, name, label, description, resource, action, and matcher with the user, then SAVE via this tool.
   6. If the same action can be reached via CLI (gh, git, curl, etc.), pass \`cliRegex\` so a Bash companion rule (\`<id>-cli\`) is registered ATOMICALLY in the same call \u2014 closing the CLI bypass without a second tool call. The companion reuses this rule's label/description/resource/action. (Standalone Bash patterns unrelated to an MCP tool still go through \`add_user_pattern\`.)
-\`id\` is your stable rule key (lowercase slug, unique per project). \`name\` is what the hook matches \u2014 always the full MCP wire name when matcher=exact. Persisted in the Transcodes backend; effective on the next policy refresh.`,
+\`id\` is your stable rule key (lowercase slug, unique per project). \`name\` is what the hook matches \u2014 always the full MCP wire name when matcher=exact. Persisted in the Transcodes backend; effective on the next policy refresh.
+
+PER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the SAME logical tool under a DIFFERENT wire name, so protecting a tool everywhere needs ONE rule PER host. Set \`provider\` to the host this rule is for and PREFIX \`id\` with it (e.g. \`codex-mongodb-list-collections\`, \`antigravity-mongodb-list-collections\`). A rule WITH \`provider\` only fires on that host; a rule WITHOUT \`provider\` fires on every host (used by the built-in baseline). To add coverage for another host, ADD a new provider-prefixed rule \u2014 never \`update_tool_rule\` an existing host's rule onto a different host (that removes the original host's protection).`,
     inputSchema: {
       id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
       type: external_exports.literal("mcp").default("mcp"),
@@ -17504,20 +17520,28 @@ WORKFLOW (follow in order):
       description: external_exports.string().min(1),
       name: external_exports.string().min(1).describe(MCP_TOOL_NAME_GUIDANCE),
       matcher: external_exports.enum(["exact", "glob"]).default("exact").describe("exact = full wire name equality; glob = * and ? wildcards in name"),
-      provider: external_exports.enum(["claude", "codex", "cursor", "antigravity"]).optional().describe("Optional MCP host label (claude/codex/cursor/antigravity). Stored for future use; does not affect matching today."),
+      provider: external_exports.enum(["claude", "codex", "cursor", "antigravity"]).optional().describe("IGNORED \u2014 the server sets provider from TRANSCODES_GUARD_HOST (claude/codex/cursor/antigravity). Prefix `id` with that slug (e.g. `claude-mongodb-list-collections`)."),
       resource: external_exports.string().min(1).describe(TOOL_RULE_RBAC_GUIDANCE),
       action: external_exports.enum(["create", "read", "update", "delete"]).describe("RBAC CRUD action this tool maps onto."),
       status: external_exports.enum(["active", "inactive"]).default("active"),
       cliRegex: external_exports.string().min(1).optional().describe("Optional CLI companion. When the same action is reachable via a shell command (gh, git, curl, \u2026), pass a JavaScript regex here and a second Bash rule (id `<id>-cli`, type bash, matcher regex) is created atomically alongside the MCP rule, reusing this rule's label/description/resource/action. If either write fails the pair is rolled back so nothing partial is saved.")
     }
   }, async (input) => {
-    const { cliRegex, ...mcpInput } = input;
+    const host = lockedHostProvider();
+    if (!host.ok)
+      return textResult(host.message, true);
+    const { cliRegex, provider: _ignoredProvider, ...rest } = input;
+    const mcpInput = { ...rest, provider: host.provider };
     if (cliRegex !== void 0) {
       try {
         new RegExp(cliRegex);
       } catch (e) {
         return textResult(`Rejected: cliRegex is not a valid JavaScript regex: ${e.message}`, true);
       }
+    }
+    const existingIds = new Set(backend.loadMergedToolRules().map((r) => r.id));
+    if (existingIds.has(mcpInput.id)) {
+      return textResult(`Rejected: a tool-rule with id \`${mcpInput.id}\` already exists. ${ID_COLLISION_HINT}`, true);
     }
     try {
       if (mcpInput.resource !== void 0) {
@@ -17570,7 +17594,8 @@ action: ${companion.action ?? "\u2014"}`);
       return textResult(mcpLine);
     } catch (e) {
       if (backend.isToolRuleValidationError(e) || backend.isRbacCoordinateError(e)) {
-        return textResult(`Rejected: ${e.message}`, true);
+        const hint = /already exists/i.test(e.message) ? ` ${ID_COLLISION_HINT}` : "";
+        return textResult(`Rejected: ${e.message}.${hint}`, true);
       }
       throw e;
     }
@@ -17585,14 +17610,24 @@ action: ${companion.action ?? "\u2014"}`);
       description: external_exports.string().min(1).optional(),
       name: external_exports.string().min(1).optional().describe(MCP_TOOL_NAME_GUIDANCE),
       matcher: external_exports.enum(["exact", "glob"]).optional().describe("exact = full wire name; glob = wildcards in name"),
-      provider: external_exports.enum(["claude", "codex", "cursor", "antigravity"]).optional().describe("Optional MCP host label. Stored for future use; does not affect matching today."),
+      provider: external_exports.enum(["claude", "codex", "cursor", "antigravity"]).optional().describe("IGNORED \u2014 provider is locked to this MCP server's host and cannot be changed. To protect a tool on another host, call add_tool_rule there with a new id."),
       resource: external_exports.string().min(1).optional().describe(TOOL_RULE_RBAC_GUIDANCE),
       action: external_exports.enum(["create", "read", "update", "delete"]).optional().describe("RBAC CRUD action this tool maps onto."),
       status: external_exports.enum(["active", "inactive"]).optional()
     }
   }, async ({ id, type, label, description, name, matcher, provider, action, resource, status }) => {
-    if (type === void 0 && label === void 0 && description === void 0 && name === void 0 && matcher === void 0 && provider === void 0 && action === void 0 && resource === void 0 && status === void 0) {
-      return textResult("Rejected: provide at least one of `type`, `label`, `description`, `name`, `matcher`, `provider`, `action`, `resource`, or `status` to update.", true);
+    const host = lockedHostProvider();
+    if (!host.ok)
+      return textResult(host.message, true);
+    if (provider !== void 0 && provider !== host.provider) {
+      return textResult(`Rejected: provider is locked to \`${host.provider}\` (this host). To protect a tool on \`${provider}\`, call add_tool_rule on that host with a new id.`, true);
+    }
+    const existing = backend.loadMergedToolRules().find((r) => r.id === id && r.source === "bundle");
+    if (existing?.provider !== void 0 && existing.provider !== host.provider) {
+      return textResult(`Rejected: rule \`${id}\` belongs to host \`${existing.provider}\`. Cannot update it from \`${host.provider}\`. Add a new rule on the target host instead.`, true);
+    }
+    if (type === void 0 && label === void 0 && description === void 0 && name === void 0 && matcher === void 0 && action === void 0 && resource === void 0 && status === void 0) {
+      return textResult("Rejected: provide at least one of `type`, `label`, `description`, `name`, `matcher`, `action`, `resource`, or `status` to update.", true);
     }
     try {
       if (resource !== void 0) {
@@ -17604,10 +17639,12 @@ action: ${companion.action ?? "\u2014"}`);
         description,
         name,
         matcher,
-        provider,
         action,
         resource,
-        status
+        status,
+        // Claim legacy provider-less project rules for this host; never
+        // accept an agent-supplied provider (locked above).
+        ...existing?.type === "mcp" && existing.provider === void 0 ? { provider: host.provider } : {}
       });
       return textResult(`Updated tool-rule \`${saved.id}\` in project policy.
 name: ${saved.name}

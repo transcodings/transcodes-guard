@@ -25,7 +25,7 @@ const CLAUDE_PLUGIN_DATA_ENV = 'CLAUDE_PLUGIN_DATA';
 export function detectHost() {
     const raw = process.env[HOST_ENV_VAR]?.trim();
     switch (raw) {
-        case 'claude-code':
+        case 'claude':
         case 'codex':
         case 'antigravity':
         case 'cursor':

@@ -2,7 +2,9 @@ import { spawn as childSpawn } from 'node:child_process';
 import path from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
+  currentHostProvider,
   findFirstMatch,
+  type GuardProvider,
   type MergedPattern,
 } from '@transcodes-guard/danger-patterns';
 import {
@@ -26,6 +28,24 @@ const MCP_TOOL_NAME_GUIDANCE =
 const MCP_EXISTENCE_PRECHECK =
   'MCP EXISTENCE PRE-CHECK (mandatory, do this FIRST): a rule must only be registered for an MCP tool that is actually connected to THIS host. Inspect your own available-tools list and confirm the target MCP server/tool is present — e.g. before adding a Google Calendar rule, verify a Google Calendar MCP tool (mcp__..._google_calendar__...) is actually available in this agent (this applies to every host: Claude Code / Codex / Cursor / Antigravity). If the MCP is NOT connected, you MUST REFUSE: do not call add_tool_rule, and tell the user the rule was rejected because the MCP is not connected to this host. Only proceed when the MCP is confirmed present.';
 
+const ID_COLLISION_HINT =
+  "Each host (claude/codex/cursor/antigravity) needs its OWN rule because the same tool has a different wire name per host. Pick a NEW provider-prefixed id (e.g. `claude-<slug>`, `codex-<slug>`). Provider is set automatically from this MCP server's host — do NOT use update_tool_rule to repoint another host's rule.";
+
+/** Host identity from `TRANSCODES_GUARD_HOST` (set by each plugin\'s host.ts). */
+function lockedHostProvider():
+  | { ok: true; provider: GuardProvider }
+  | { ok: false; message: string } {
+  const provider = currentHostProvider();
+  if (provider === undefined) {
+    return {
+      ok: false,
+      message:
+        'Rejected: this MCP server has no host identity (TRANSCODES_GUARD_HOST). Cannot save a host-scoped tool rule.',
+    };
+  }
+  return { ok: true, provider };
+}
+
 // Canonical body for the `/transcodes` umbrella command. The same text is
 // mirrored verbatim in each plugin's native command/skill file:
 //   plugins/claude-code/commands/transcodes.md
@@ -45,6 +65,8 @@ const TRANSCODES_ROUTER_BODY = [
   '   - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.',
   '   - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking — never guess.',
   '   - `simulate_tool_call` to verify it matches → `get_resources` to pick resource + action (create|read|update|delete) → confirm details with the user → `add_tool_rule`. If a CLI command also triggers it, pass `cliRegex`.',
+  '   - PER-HOST RULES: the same logical tool has a DIFFERENT wire name on each host (claude/codex/cursor/antigravity), so each host needs its OWN rule. Always set `provider` to this host and PREFIX the id with it — `codex-mongodb-list-collections`, `antigravity-mongodb-list-collections`. NEVER reuse a bare slug across hosts.',
+  '   - ADD, do not OVERWRITE: to protect the same tool on another host, call `add_tool_rule` with a NEW provider-prefixed id. NEVER `update_tool_rule` an existing host\'s rule to point at a different host — that deletes the other host\'s protection. If `add_tool_rule` returns "already exists", pick a new provider-prefixed id; do not fall back to update.',
   '2) Block a dangerous Bash command',
   '   - Derive a regex → `simulate_command` with one matching and one NON-matching example (catch false positives) → `get_resources` for resource + action → confirm → `add_user_pattern`.',
   '3) Change an existing rule',
@@ -794,7 +816,7 @@ export function createServer(
     'add_tool_rule',
     {
       title: 'Add MCP tool-rule (project policy)',
-      description: `Register a new project tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL → use this tool (\`name\` must match the hook's full wire tool name).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. ${MCP_EXISTENCE_PRECHECK}\n  2. RESOLVE the exact wire tool name from the host (e.g. mcp__github__delete_repository, mcp__plugin_<plugin>_<server>__<tool>). Do not guess — confirm with the user or read it from the host's available tools list.\n  3. VERIFY with \`simulate_tool_call\` using that full \`name\` string before saving.\n  4. RESOLVE the RBAC coordinate: call \`get_resources\`, then set \`resource\` and \`action\` (create|read|update|delete). Most rules use resource \`system\`.\n  5. CONFIRM id, name, label, description, resource, action, and matcher with the user, then SAVE via this tool.\n  6. If the same action can be reached via CLI (gh, git, curl, etc.), pass \`cliRegex\` so a Bash companion rule (\`<id>-cli\`) is registered ATOMICALLY in the same call — closing the CLI bypass without a second tool call. The companion reuses this rule's label/description/resource/action. (Standalone Bash patterns unrelated to an MCP tool still go through \`add_user_pattern\`.)\n\`id\` is your stable rule key (lowercase slug, unique per project). \`name\` is what the hook matches — always the full MCP wire name when matcher=exact. Persisted in the Transcodes backend; effective on the next policy refresh.`,
+      description: `Register a new project tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL → use this tool (\`name\` must match the hook's full wire tool name).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. ${MCP_EXISTENCE_PRECHECK}\n  2. RESOLVE the exact wire tool name from the host (e.g. mcp__github__delete_repository, mcp__plugin_<plugin>_<server>__<tool>). Do not guess — confirm with the user or read it from the host's available tools list.\n  3. VERIFY with \`simulate_tool_call\` using that full \`name\` string before saving.\n  4. RESOLVE the RBAC coordinate: call \`get_resources\`, then set \`resource\` and \`action\` (create|read|update|delete). Most rules use resource \`system\`.\n  5. CONFIRM id, name, label, description, resource, action, and matcher with the user, then SAVE via this tool.\n  6. If the same action can be reached via CLI (gh, git, curl, etc.), pass \`cliRegex\` so a Bash companion rule (\`<id>-cli\`) is registered ATOMICALLY in the same call — closing the CLI bypass without a second tool call. The companion reuses this rule's label/description/resource/action. (Standalone Bash patterns unrelated to an MCP tool still go through \`add_user_pattern\`.)\n\`id\` is your stable rule key (lowercase slug, unique per project). \`name\` is what the hook matches — always the full MCP wire name when matcher=exact. Persisted in the Transcodes backend; effective on the next policy refresh.\n\nPER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the SAME logical tool under a DIFFERENT wire name, so protecting a tool everywhere needs ONE rule PER host. Set \`provider\` to the host this rule is for and PREFIX \`id\` with it (e.g. \`codex-mongodb-list-collections\`, \`antigravity-mongodb-list-collections\`). A rule WITH \`provider\` only fires on that host; a rule WITHOUT \`provider\` fires on every host (used by the built-in baseline). To add coverage for another host, ADD a new provider-prefixed rule — never \`update_tool_rule\` an existing host's rule onto a different host (that removes the original host's protection).`,
       inputSchema: {
         id: z
           .string()
@@ -813,7 +835,7 @@ export function createServer(
           .enum(['claude', 'codex', 'cursor', 'antigravity'])
           .optional()
           .describe(
-            'Optional MCP host label (claude/codex/cursor/antigravity). Stored for future use; does not affect matching today.',
+            'IGNORED — the server sets provider from TRANSCODES_GUARD_HOST (claude/codex/cursor/antigravity). Prefix `id` with that slug (e.g. `claude-mongodb-list-collections`).',
           ),
         resource: z.string().min(1).describe(TOOL_RULE_RBAC_GUIDANCE),
         action: z
@@ -830,7 +852,11 @@ export function createServer(
       },
     },
     async (input) => {
-      const { cliRegex, ...mcpInput } = input;
+      const host = lockedHostProvider();
+      if (!host.ok) return textResult(host.message, true);
+
+      const { cliRegex, provider: _ignoredProvider, ...rest } = input;
+      const mcpInput = { ...rest, provider: host.provider };
       // Pre-validate the companion regex before any write so a typo never
       // creates the MCP rule and then forces a rollback.
       if (cliRegex !== undefined) {
@@ -844,6 +870,18 @@ export function createServer(
             true,
           );
         }
+      }
+      // Pre-check id collision against the rules we can already see (system +
+      // cached bundle) so the agent gets provider-prefix guidance instead of a
+      // bare 409 — and is never tempted to "fix" it by overwriting via update.
+      const existingIds = new Set(
+        backend.loadMergedToolRules().map((r) => r.id),
+      );
+      if (existingIds.has(mcpInput.id)) {
+        return textResult(
+          `Rejected: a tool-rule with id \`${mcpInput.id}\` already exists. ${ID_COLLISION_HINT}`,
+          true,
+        );
       }
       try {
         if (mcpInput.resource !== undefined) {
@@ -923,7 +961,13 @@ export function createServer(
           backend.isToolRuleValidationError(e) ||
           backend.isRbacCoordinateError(e)
         ) {
-          return textResult(`Rejected: ${e.message}`, true);
+          // Backend 409 backstop (another session created the id since our
+          // local pre-check): append the same provider-prefix guidance so the
+          // agent never falls back to overwriting via update_tool_rule.
+          const hint = /already exists/i.test(e.message)
+            ? ` ${ID_COLLISION_HINT}`
+            : '';
+          return textResult(`Rejected: ${e.message}.${hint}`, true);
         }
         throw e;
       }
@@ -950,7 +994,7 @@ export function createServer(
           .enum(['claude', 'codex', 'cursor', 'antigravity'])
           .optional()
           .describe(
-            'Optional MCP host label. Stored for future use; does not affect matching today.',
+            "IGNORED — provider is locked to this MCP server's host and cannot be changed. To protect a tool on another host, call add_tool_rule there with a new id.",
           ),
         resource: z
           .string()
@@ -976,19 +1020,41 @@ export function createServer(
       resource,
       status,
     }) => {
+      const host = lockedHostProvider();
+      if (!host.ok) return textResult(host.message, true);
+
+      if (provider !== undefined && provider !== host.provider) {
+        return textResult(
+          `Rejected: provider is locked to \`${host.provider}\` (this host). To protect a tool on \`${provider}\`, call add_tool_rule on that host with a new id.`,
+          true,
+        );
+      }
+
+      const existing = backend
+        .loadMergedToolRules()
+        .find((r) => r.id === id && r.source === 'bundle');
+      if (
+        existing?.provider !== undefined &&
+        existing.provider !== host.provider
+      ) {
+        return textResult(
+          `Rejected: rule \`${id}\` belongs to host \`${existing.provider}\`. Cannot update it from \`${host.provider}\`. Add a new rule on the target host instead.`,
+          true,
+        );
+      }
+
       if (
         type === undefined &&
         label === undefined &&
         description === undefined &&
         name === undefined &&
         matcher === undefined &&
-        provider === undefined &&
         action === undefined &&
         resource === undefined &&
         status === undefined
       ) {
         return textResult(
-          'Rejected: provide at least one of `type`, `label`, `description`, `name`, `matcher`, `provider`, `action`, `resource`, or `status` to update.',
+          'Rejected: provide at least one of `type`, `label`, `description`, `name`, `matcher`, `action`, `resource`, or `status` to update.',
           true,
         );
       }
@@ -1002,10 +1068,14 @@ export function createServer(
           description,
           name,
           matcher,
-          provider,
           action,
           resource,
           status,
+          // Claim legacy provider-less project rules for this host; never
+          // accept an agent-supplied provider (locked above).
+          ...(existing?.type === 'mcp' && existing.provider === undefined
+            ? { provider: host.provider }
+            : {}),
         });
         return textResult(
           `Updated tool-rule \`${saved.id}\` in project policy.\nname: ${

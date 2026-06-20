@@ -21,7 +21,7 @@ import { copyFileSync, existsSync, mkdirSync, renameSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-export type HostName = 'claude-code' | 'codex' | 'antigravity' | 'cursor';
+export type HostName = 'claude' | 'codex' | 'antigravity' | 'cursor';
 
 const HOST_ENV_VAR = 'TRANSCODES_GUARD_HOST';
 const CLAUDE_PLUGIN_DATA_ENV = 'CLAUDE_PLUGIN_DATA';
@@ -29,7 +29,7 @@ const CLAUDE_PLUGIN_DATA_ENV = 'CLAUDE_PLUGIN_DATA';
 export function detectHost(): HostName | null {
   const raw = process.env[HOST_ENV_VAR]?.trim();
   switch (raw) {
-    case 'claude-code':
+    case 'claude':
     case 'codex':
     case 'antigravity':
     case 'cursor':

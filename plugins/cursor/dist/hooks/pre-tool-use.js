@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   cursorAdapter
-} from "../chunk-K3U4AANU.js";
+} from "../chunk-QEUV275V.js";
 import {
   formatAllowReason,
   formatNoTokenReason,
@@ -14,7 +14,7 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   getGateBackend
-} from "../chunk-LTDMJ6U7.js";
+} from "../chunk-5SAEAH6H.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";

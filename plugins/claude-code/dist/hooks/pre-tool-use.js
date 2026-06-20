@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   claudeCodeAdapter
-} from "../chunk-UXQLGR7A.js";
+} from "../chunk-3CZICWJM.js";
 import {
   formatAllowReason,
   formatNoTokenReason,
@@ -14,7 +14,7 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   getGateBackend
-} from "../chunk-QVWMSR37.js";
+} from "../chunk-JHIB5WFE.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";

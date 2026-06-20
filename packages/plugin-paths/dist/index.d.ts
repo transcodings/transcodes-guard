@@ -1,4 +1,4 @@
-export type HostName = 'claude-code' | 'codex' | 'antigravity' | 'cursor';
+export type HostName = 'claude' | 'codex' | 'antigravity' | 'cursor';
 export declare function detectHost(): HostName | null;
 /** Transcodes product home (`~/.transcodes`) — shared with the CLI's config.json. */
 export declare function transcodesDir(): string;

@@ -3,7 +3,7 @@
  * Hook is first line; this re-checks on handler run (stdio/curl bypass backstop).
  * Matrix: 0=block, 1=pass (no sid), 2=step-up (verified sid required).
  */
-import { loadMergedToolRules, toolNameMatchesRule, } from '@transcodes-guard/danger-patterns';
+import { loadMergedToolRules, ruleAppliesToHost, toolNameMatchesRule, } from '@transcodes-guard/danger-patterns';
 import { checkRbacPermission, clearPending, consumeVerified, loadStepupConfig, readVerified, } from '@transcodes-guard/stepup-core';
 const RBAC_TTL_MS = 5 * 60_000;
 const rbacCache = new Map();
@@ -18,7 +18,7 @@ async function getCachedRbacLevel(config, resource, action) {
 }
 export async function execProtectedTool(toolName, run) {
     const verified = readVerified();
-    const rule = loadMergedToolRules().find((r) => toolNameMatchesRule(toolName, r));
+    const rule = loadMergedToolRules().find((r) => toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r));
     if (rule?.action !== undefined && rule.resource !== undefined) {
         let level = 2;
         try {

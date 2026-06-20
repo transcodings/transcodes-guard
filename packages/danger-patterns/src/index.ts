@@ -28,6 +28,7 @@ export {
   type RbacAction,
 } from './rbac.js';
 export {
+  currentHostProvider,
   findFirstToolRule,
   GUARD_PROVIDERS,
   type GuardMatcher,
@@ -35,8 +36,10 @@ export {
   loadMergedToolRules,
   loadSystemToolRules,
   type MergedToolRule,
+  mapHostToProvider,
   mcpConsumesInHook,
   mergeToolRuleChanges,
+  ruleAppliesToHost,
   systemToolRuleIds,
   type ToolRule,
   type ToolRuleChanges,
