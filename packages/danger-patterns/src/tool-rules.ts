@@ -33,7 +33,7 @@ export interface ToolRule {
   /** MCP wire name/glob, or Bash regex when `type` is `bash`. */
   name: string;
   matcher: GuardMatcher;
-  /** Optional MCP host label — stored for future use; does not affect matching today. */
+  /** Optional MCP host label — scopes matching to that host (absent ⇒ every host). */
   provider?: GuardProvider;
   /** Step-up RBAC verb — omitted when the rule only gates tool access. */
   action?: RbacAction;
@@ -77,10 +77,13 @@ function normalizeRule(r: ToolRule): ToolRule {
   // carry the raw host id `claude-code` (or another non-canonical value).
   // `mapHostToProvider` folds `claude-code` → `claude` and drops anything that
   // is not a real provider, so matching never breaks on a stray host id.
+  // Strip the raw provider out of the spread so a non-canonical stored value
+  // can't survive `...rest`; re-attach the key only when it normalizes cleanly.
+  const { provider: rawProvider, ...rest } = r;
   const provider =
-    r.provider !== undefined ? mapHostToProvider(r.provider) : undefined;
+    rawProvider !== undefined ? mapHostToProvider(rawProvider) : undefined;
   return {
-    ...r,
+    ...rest,
     type: 'mcp',
     matcher: r.matcher ?? 'exact',
     ...(provider !== undefined ? { provider } : {}),

@@ -163,4 +163,24 @@ describe('loadMergedToolRules provider normalization', () => {
     );
     assert.equal(match?.matched.id, 'legacy-claude-code-rule');
   });
+
+  it('drops a non-canonical provider so the rule stays host-agnostic', () => {
+    const stray = {
+      id: 'stray-provider-rule',
+      type: 'mcp',
+      name: 'mcp__mongodb__find',
+      matcher: 'exact',
+      provider: 'weird-host',
+    } as unknown as ToolRule;
+
+    const merged = loadMergedToolRules([stray]);
+    const stored = merged.find((r) => r.id === 'stray-provider-rule');
+    // The raw value must NOT survive — otherwise it would match only unknown
+    // hosts (the inverse of the fail-safe baseline guarantee).
+    assert.equal(stored?.provider, undefined);
+
+    // Host-agnostic again: fires on a known host like any baseline rule.
+    const match = findFirstToolRule('mcp__mongodb__find', merged, 'codex');
+    assert.equal(match?.matched.id, 'stray-provider-rule');
+  });
 });

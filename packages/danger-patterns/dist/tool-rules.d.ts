@@ -10,7 +10,7 @@ export interface ToolRule {
     /** MCP wire name/glob, or Bash regex when `type` is `bash`. */
     name: string;
     matcher: GuardMatcher;
-    /** Optional MCP host label — stored for future use; does not affect matching today. */
+    /** Optional MCP host label — scopes matching to that host (absent ⇒ every host). */
     provider?: GuardProvider;
     /** Step-up RBAC verb — omitted when the rule only gates tool access. */
     action?: RbacAction;

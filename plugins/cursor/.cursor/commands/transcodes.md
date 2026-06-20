@@ -20,6 +20,6 @@ MENU
 6) Step-up MFA state (read-only)
    - `inspect_stepup_state`; summarize pending/verified. If a session is pending, the user completes WebAuthn in the browser, then call `poll_stepup_session_wait`.
 7) Refresh rules after a Next.js console change
-   - If the user activated/deactivated a rule in the console and it is not taking effect, call `refresh_rules` to force-pull the latest bundle and show the rules now in effect (the gate otherwise only refreshes at startup / after the cache TTL).
+   - When an admin just activated/deactivated or edited a rule in the console and it is not yet visible here, call `refresh_rules`. It force-refreshes the policy bundle cache now (same as CLI `transcodes policy refresh`) and returns the currently active rules. Report the outcome (refreshed / already current / failed-stale / skipped).
 8) Integrate / install the Transcodes SDK into the app (frontend)
    - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions — the single source of truth; pass a `topic` like pwa/auth/passkey/jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user's frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, service worker/manifest). Never guess API signatures — use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.

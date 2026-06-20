@@ -32,9 +32,12 @@ function normalizeRule(r) {
     // carry the raw host id `claude-code` (or another non-canonical value).
     // `mapHostToProvider` folds `claude-code` → `claude` and drops anything that
     // is not a real provider, so matching never breaks on a stray host id.
-    const provider = r.provider !== undefined ? mapHostToProvider(r.provider) : undefined;
+    // Strip the raw provider out of the spread so a non-canonical stored value
+    // can't survive `...rest`; re-attach the key only when it normalizes cleanly.
+    const { provider: rawProvider, ...rest } = r;
+    const provider = rawProvider !== undefined ? mapHostToProvider(rawProvider) : undefined;
     return {
-        ...r,
+        ...rest,
         type: 'mcp',
         matcher: r.matcher ?? 'exact',
         ...(provider !== undefined ? { provider } : {}),

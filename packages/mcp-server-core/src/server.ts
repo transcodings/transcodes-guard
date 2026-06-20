@@ -782,6 +782,33 @@ export function createServer(
   );
 
   server.registerTool(
+    'refresh_rules',
+    {
+      title: 'Refresh rules from the Transcodes backend',
+      description:
+        'Force-refresh the org policy bundle cache NOW and return the currently active tool rules. Call when an admin just activated/deactivated or edited a rule in the Next.js console and the change is not yet visible in this session — the MCP server otherwise only refreshes at boot / TTL, so a console change can take up to the TTL to apply. Same force-refresh the CLI `transcodes policy refresh` performs. Read-only beyond the cache fetch.',
+      inputSchema: {},
+    },
+    async () => {
+      const outcome = await backend.refreshPolicyBundle();
+      const status: Record<string, string> = {
+        fresh: 'Refreshed — cache now holds the latest bundle.',
+        refreshed: 'Refreshed — cache updated to the latest bundle.',
+        'not-modified': 'Already current — backend confirmed no changes.',
+        failed:
+          'Refresh FAILED — kept the previous cache (last-known-good). Rules below may be stale.',
+        skipped:
+          'Skipped — no Transcodes token configured, so there is nothing to refresh.',
+      };
+      const header = `# Policy bundle refresh\n\n${
+        status[outcome] ?? `Outcome: ${outcome}`
+      }`;
+      const rules = formatToolRulesMarkdown(backend.loadMergedToolRules());
+      return textResult(`${header}\n\n${rules}`, outcome === 'failed');
+    },
+  );
+
+  server.registerTool(
     'add_tool_rule',
     {
       title: 'Add MCP tool-rule (project policy)',

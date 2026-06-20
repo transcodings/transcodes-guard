@@ -43,10 +43,9 @@ export interface GateBackend {
      * TTL-gated policy bundle refresh (Phase3 v2 G2). Called from the
      * SessionStart-equivalent hooks AFTER their stdout emit and from MCP server
      * boot — never from PreToolUse (the hook critical path reads cache only).
-     * Never rejects; a silent no-op (`'skipped'`) when no token is resolvable,
-     * and a failed fetch keeps the previous cache (last-known-good).
-     * Returns the outcome so callers (e.g. the `refresh_rules` MCP tool) can
-     * report whether the bundle actually changed or the fetch failed.
+     * Never rejects; a silent no-op when no token is resolvable, and a failed
+     * fetch keeps the previous cache (last-known-good). Returns the outcome so
+     * callers (e.g. the `refresh_rules` MCP tool) can report it honestly.
      */
     refreshPolicyBundle(): Promise<PolicyBundleRefreshOutcome>;
     createStepupSession(args: CreateStepupArgs): Promise<CreatedStepupSession>;

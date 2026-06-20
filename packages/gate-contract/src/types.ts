@@ -148,6 +148,21 @@ export interface StepupStateInspection {
   pending: InspectionRecord;
 }
 
+/**
+ * Outcome of a forced policy-bundle refresh. Mirrors stepup-core's
+ * `PolicyBundleRefreshOutcome` plus `'skipped'` (no resolvable token):
+ *  - `fresh` / `refreshed` — cache now holds the latest bundle.
+ *  - `not-modified` — backend confirmed the cache is already current.
+ *  - `failed` — fetch failed; the previous cache (last-known-good) is kept.
+ *  - `skipped` — no token configured, nothing to refresh.
+ */
+export type PolicyBundleRefreshOutcome =
+  | 'fresh'
+  | 'refreshed'
+  | 'not-modified'
+  | 'failed'
+  | 'skipped';
+
 /** Tool-rule registry types. Mirror danger-patterns tool-rules.ts (schema v2). */
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
 export type GuardProvider = 'claude' | 'codex' | 'cursor' | 'antigravity';
@@ -159,7 +174,7 @@ export interface ToolRule {
   description: string;
   name: string;
   matcher: GuardMatcher;
-  /** Optional MCP host label — stored for future use; does not affect matching today. */
+  /** Optional MCP host label — scopes matching to that host (absent ⇒ every host). */
   provider?: GuardProvider;
   action?: RbacAction;
   resource?: string;
