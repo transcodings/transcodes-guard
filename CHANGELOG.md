@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.2...transcodes-guard-v0.18.3) (2026-06-21)
+
+
+### Documentation
+
+* **cli:** add guideline step 8 for policy refresh ([bc77afc](https://github.com/transcodings/transcodes-guard/commit/bc77afcad2767aab60a959c200b6f572e1ffdbea))
+
 ## [0.18.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.1...transcodes-guard-v0.18.2) (2026-06-21)
 
 
