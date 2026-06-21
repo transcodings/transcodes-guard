@@ -8,7 +8,7 @@ import {
 } from "../chunk-23VDODFG.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.18.0";
+var PLUGIN_VERSION = "0.18.1";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
