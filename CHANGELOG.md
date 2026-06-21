@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.0...transcodes-guard-v0.18.1) (2026-06-21)
+
+
+### Documentation
+
+* **codex:** update config.toml feature flags to hooks and skills ([65dce4f](https://github.com/transcodings/transcodes-guard/commit/65dce4fd5f105b5895ae1c89175bdda9eab90bdf))
+
 ## [0.18.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.17.1...transcodes-guard-v0.18.0) (2026-06-20)
 
 
