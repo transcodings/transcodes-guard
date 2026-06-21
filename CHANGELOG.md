@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.1...transcodes-guard-v0.18.2) (2026-06-21)
+
+
+### Code Refactoring
+
+* **cli:** SSOT command list for help and dashboard ([e8a75f1](https://github.com/transcodings/transcodes-guard/commit/e8a75f1422156c245cfa255c4271021695187b2a))
+
 ## [0.18.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.0...transcodes-guard-v0.18.1) (2026-06-21)
 
 
