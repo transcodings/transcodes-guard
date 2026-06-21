@@ -14,7 +14,10 @@
  *   transcodes reset           Delete all saved tokens.
  *   transcodes status          Show the active token source + expiry.
  *   transcodes tokens          List all saved tokens (active marked with *).
+ *   transcodes policy refresh  Force-refresh the org policy bundle cache.
  *   transcodes help            Usage.
+ *
+ * Command list SSOT: ./commands.ts (dashboard reads the same source).
  */
 
 import {
@@ -30,23 +33,8 @@ import {
   transcodesConfigFile,
   writeTokenToFile,
 } from '@transcodes-guard/stepup-core';
+import { formatCliUsage } from './commands.js';
 import { runDashboard } from './dashboard.js';
-
-const USAGE = `transcodes — transcodes-guard token manager
-
-Usage:
-  transcodes                      Open the local dashboard (URL printed in terminal; default port 3847; --port N / --no-open)
-  transcodes set <token> -l <label>  Save your Transcodes member token (label required) to ${transcodesConfigFile()}
-  transcodes reset                Remove all saved tokens
-  transcodes status               Show the active token source and expiry
-  transcodes tokens               List all saved tokens (active one marked with *)
-  transcodes policy refresh       Force-refresh the org policy bundle cache now
-  transcodes help                 Show this message
-
-The token is read by the transcodes-guard plugins/hooks with precedence:
-  1. TRANSCODES_TOKEN environment variable (overrides everything)
-  2. ${transcodesConfigFile()}
-`;
 
 function fail(message: string): never {
   process.stderr.write(`transcodes: ${message}\n`);
@@ -239,7 +227,7 @@ function main(): void {
     case 'help':
     case '--help':
     case '-h':
-      process.stdout.write(USAGE);
+      process.stdout.write(formatCliUsage());
       break;
     case undefined:
       void cmdDashboard([]);

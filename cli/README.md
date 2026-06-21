@@ -26,7 +26,10 @@ Works the same on macOS, Linux, and Windows (Node ≥ 20).
 | `transcodes tokens` | Lists all saved tokens; the active one is marked with `*`. |
 | `transcodes status` | Shows the active token source (env vs file) and its expiry. |
 | `transcodes reset` | Deletes all saved tokens. |
+| `transcodes policy refresh` | Force-refreshes the org policy bundle cache (same as MCP `refresh_rules`). |
 | `transcodes help` | Shows the full command list and usage. |
+
+Command descriptions are defined once in `cli/src/commands.ts` (SSOT) and shared with the dashboard CLI tab.
 
 ### Dashboard
 

@@ -38,6 +38,7 @@ import {
   updateToolRule,
   writeTokenToFile,
 } from '@transcodes-guard/stepup-core';
+import { renderCliCommandsHtml } from './commands.js';
 import { LOGO_DATA_URI } from './logo.js';
 import { buildAdminToolsPayload } from './tool-catalog.js';
 
@@ -961,11 +962,7 @@ function dashboardHtml(): string {
       <p class="section-title">CLI Commands</p>
       <p class="section-sub">Run these from your terminal — the dashboard wraps the same actions</p>
       <div class="cmd-list">
-        <div class="cmd"><code>transcodes</code><span class="cmd-desc">Open this dashboard (default, same as transcodes dashboard)</span></div>
-        <div class="cmd"><code>transcodes set &lt;token&gt; -l &lt;label&gt;</code><span class="cmd-desc">Validate and save a token with a label, then make it active</span></div>
-        <div class="cmd"><code>transcodes tokens</code><span class="cmd-desc">List all saved tokens (active one marked with *)</span></div>
-        <div class="cmd"><code>transcodes reset</code><span class="cmd-desc">Remove all saved tokens</span></div>
-        <div class="cmd"><code>transcodes help</code><span class="cmd-desc">Show the full command list and how to use each one</span></div>
+        ${renderCliCommandsHtml()}
       </div>
     </div>
 
