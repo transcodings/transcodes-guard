@@ -940,6 +940,13 @@ function dashboardHtml(): string {
             <p class="guide-step-desc">Switch the rule to <code>active</code> in the Transcodes web console — only then is it enforced</p>
           </div>
         </li>
+        <li class="guide-step">
+          <span class="guide-step-num">8</span>
+          <div class="guide-step-body">
+            <p class="guide-step-title">Refresh active rules locally</p>
+            <p class="guide-step-desc">Run <code>transcodes policy refresh</code> in your terminal, or tell your agent <code>/transcodes</code> (Codex: <code>$transcodes</code>) — e.g. “Update the active transcodes rules” — so newly activated console rules apply without restarting the host</p>
+          </div>
+        </li>
       </ol>
     </div>
 
