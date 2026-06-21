@@ -272,7 +272,8 @@ export const TRANSCODES_ADMIN_TOOLS: AdminToolEntry[] = [
   {
     name: 'update_member',
     title: 'Update member',
-    description: 'Update member fields (name, email, role, metadata).',
+    description:
+      'Update member profile fields (name, email, metadata). Use update_member_role to change a role.',
     category: 'Members',
     access: 'api',
     stepUpProtected: false,
@@ -348,7 +349,7 @@ export const TRANSCODES_ADMIN_TOOLS: AdminToolEntry[] = [
     name: 'create_resource',
     title: 'Create resource',
     description:
-      'Add a new RBAC resource key (defaults to deny for all roles).',
+      'Add a new RBAC resource key (every role initialized to read=allow, write=allow+step-up).',
     category: 'RBAC',
     access: 'api',
     stepUpProtected: false,
@@ -381,7 +382,7 @@ export const TRANSCODES_ADMIN_TOOLS: AdminToolEntry[] = [
   {
     name: 'update_member_role',
     title: 'Update member role',
-    description: "Change a member's assigned role.",
+    description: "Change a member's assigned role (validates the role exists).",
     category: 'RBAC',
     access: 'api',
     stepUpProtected: true,

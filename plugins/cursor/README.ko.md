@@ -41,15 +41,24 @@ cd /path/to/your/project
 
 hook이 처음 발동할 때 Cursor가 일회성 신뢰 검토를 요청합니다. 한 번 승인하면 Cursor가 결정을 캐시합니다. 명령 팔레트 → "Cursor: Review Hooks"에서 언제든 확인할 수 있습니다.
 
-### `TRANSCODES_TOKEN`
+### 토큰 저장
 
-MCP 서버와 스텝업 hook은 멤버 MCP JWT로 Transcodes 백엔드에 인증합니다:
+MCP 서버와 스텝업 hook은 멤버 MCP JWT로 Transcodes 백엔드에 인증합니다. **권장** — CLI 컨트롤 플레인을 한 번 설치한 뒤 대시보드에서 토큰을 입력하세요. `~/.transcodes/config.json`에 영구 저장되어 모든 에이전트 세션이 읽습니다(환경 변수 불필요):
+
+```bash
+npm install -g @bigstrider/transcodes-cli
+transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출력됩니다(기본 포트 3847, `--port N`으로 변경 가능)
+```
+
+비대화형 대안(같은 저장소): `transcodes set <token> -l <label>`.
+
+CI나 일회성 override가 필요할 때만 Cursor를 실행하는 셸(또는 셸 rc)에 `TRANSCODES_TOKEN` 환경 변수를 export 하세요 — 저장된 파일보다 **우선합니다**:
 
 ```bash
 export TRANSCODES_TOKEN="$(read-your-token-here)"
 ```
 
-Cursor를 실행하는 셸(또는 셸 rc)에 설정하세요. 토큰이 없으면 hook은 여전히 위험 명령을 **차단**하지만 스텝업 세션을 시작할 수 없습니다.
+둘 다 없으면 hook은 여전히 위험 명령을 **차단**하지만 스텝업 세션을 시작할 수 없습니다.
 
 ## 플러그인이 하는 일
 
@@ -102,7 +111,7 @@ Cursor의 hook 계약은 어댑터가 캡슐화하는 두 가지 면에서 Claud
 ## 문제 해결
 
 - **hook이 발동하지 않음.** Settings → Hooks를 열어 `.cursor/hooks.json`의 경로가 절대 경로이고 `node`가 Cursor의 `PATH`에 있는지 확인하세요(Cursor는 macOS에서 터미널로 실행했을 때만 로그인 셸 환경을 상속합니다).
-- **`permission: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — `TRANSCODES_TOKEN`을 설정하고 Cursor를 재시작하세요.
+- **`permission: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — CLI를 설치(`npm install -g @bigstrider/transcodes-cli`)한 뒤 `transcodes`로 대시보드에서 토큰을 저장하세요(또는 `transcodes set <token> -l <label>`). CI에만 `TRANSCODES_TOKEN`을 export 한 뒤 Cursor를 재시작하세요.
 - **MCP 도구 호출이 멈춤.** `~/.cursor/mcp.json`이 작성됐고 `dist/src/stdio.js`가 존재하는지 확인하세요. Cursor는 MCP 실패를 Output 패널에 기록합니다.
 
 ## 라이선스

@@ -87,7 +87,9 @@ export function registerRbacTools(server) {
     });
     server.registerTool('update_member_role', {
         title: 'Update member role',
-        description: "Change a member's assigned role (UpdateMemberRoleDto). " +
+        description: "Change a member's assigned role (UpdateMemberRoleDto) — the canonical role-reassignment path. " +
+            'Validates the target role EXISTS in the project before assigning (unlike `update_member`, which ' +
+            "writes `role` unchecked). Use this whenever the user wants to change a member's role. " +
             'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-update-member-role`).',
         inputSchema: {
             body: z.object({
@@ -160,7 +162,9 @@ export function registerRbacTools(server) {
     });
     server.registerTool('create_resource', {
         title: 'Create resource',
-        description: 'Add a new resource key (CreateResourceDto). New resources default to deny (0) for all roles. ' +
+        description: 'Add a new resource key (CreateResourceDto). Every existing role is initialized with the ' +
+            'default permission matrix for the new key: read = allow (1), and create/update/delete = ' +
+            'allow + step-up MFA (2). ' +
             'RBAC-gated via tool-rule `tc-create-resource` (0=block, 1=allow, 2=step-up MFA). ' +
             PROJECT_ID_GUIDANCE,
         inputSchema: {

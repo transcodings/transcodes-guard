@@ -41,15 +41,24 @@ Writes `~/.cursor/hooks.json` (and `~/.cursor/mcp.json`, subject to the same mer
 
 Cursor prompts a one-time trust review the first time a hook fires. Approve once and Cursor caches the decision. Inspect at any time via the command palette → "Cursor: Review Hooks".
 
-### `TRANSCODES_TOKEN`
+### Save your token
 
-The MCP server and the step-up hook authenticate against the Transcodes backend using a member MCP JWT:
+The MCP server and the step-up hook authenticate against the Transcodes backend using a member MCP JWT. **Recommended** — install the CLI control plane once, then enter the token in the dashboard. It persists in `~/.transcodes/config.json` and every agent session reads it (no env var needed):
+
+```bash
+npm install -g @bigstrider/transcodes-cli
+transcodes   # opens the local dashboard — URL is printed in the terminal (default port 3847; `--port N` to override)
+```
+
+Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
+
+For CI or one-off overrides only, export the `TRANSCODES_TOKEN` environment variable in the shell that launches Cursor — it **takes precedence** over the saved file:
 
 ```bash
 export TRANSCODES_TOKEN="$(read-your-token-here)"
 ```
 
-Set this in the shell that launches Cursor (or in your shell rc). If missing, the hook still **denies** danger commands but cannot start a step-up session.
+If neither is set, the hook still **denies** danger commands but cannot start a step-up session.
 
 ## What the plugin does
 
@@ -114,5 +123,5 @@ These four items were not validated against a live Cursor build before release. 
 ## Troubleshooting
 
 - **Hook doesn't fire.** Open Settings → Hooks. Ensure the path in `.cursor/hooks.json` is absolute and `node` is in Cursor's `PATH` (Cursor inherits your login shell env on macOS only if launched from a terminal).
-- **`permission: deny` but no step-up URL.** Hook is denying without a token — set `TRANSCODES_TOKEN` and restart Cursor.
+- **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`). For CI only, export `TRANSCODES_TOKEN`, then restart Cursor.
 - **MCP tool calls hang.** Check `~/.cursor/mcp.json` was written and `dist/src/stdio.js` exists. Cursor logs MCP failures to the Output panel.

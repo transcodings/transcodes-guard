@@ -152,9 +152,11 @@ export function registerMemberTools(server) {
     });
     server.registerTool('update_member', {
         title: 'Update member',
-        description: 'Update member fields (UpdateMemberDto, flat shape). ' +
+        description: 'Update member PROFILE fields — name, email, metadata (UpdateMemberDto, flat shape). ' +
             'RBAC-gated via tool-rule `tc-update-member` (0=block, 1=allow, 2=step-up MFA). ' +
-            'member_id is required — supply the target member explicitly (it may differ from the caller).',
+            'member_id is required — supply the target member explicitly (it may differ from the caller). ' +
+            "To REASSIGN a member's ROLE, use `update_member_role` instead: it validates the role exists " +
+            '(this tool writes `role` straight through with no validation). Prefer omitting `role` here.',
         inputSchema: {
             body: z.object({
                 member_id: z.string(),

@@ -59,7 +59,7 @@ codex plugin add transcodes-guard@bigstrider   # 플러그인 설치
 
 **3단계 — 최초 실행.** Codex가 일회성 hook 신뢰 검토(trust review)를 띄웁니다(`/hooks`로 확인). 한 번 승인하세요. `--dangerously-bypass-hook-trust`는 사용하지 **마세요**.
 
-**4단계 — `TRANSCODES_TOKEN`**(멤버 MCP JWT)을 export 하세요. 이 토큰이 있어야 step-up을 시작할 수 있습니다. 없으면 hook이 위험 명령을 여전히 DENY 하지만 step-up 세션은 열지 못합니다.
+**4단계 — 토큰 저장**(멤버 MCP JWT). 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`를 실행하면 로컬 대시보드가 열립니다(터미널에 URL 출력, 기본 포트 3847) — 거기에 토큰을 붙여넣으세요(`~/.transcodes/config.json`에 저장되어 모든 세션이 읽음). 비대화형: `transcodes set <token> -l <label>`. CI/override에만 `TRANSCODES_TOKEN`을 export 하세요(저장 파일보다 우선). 셋 다 없으면 hook이 위험 명령을 여전히 DENY 하지만 step-up 세션은 열지 못합니다.
 
 ### Cursor
 
@@ -84,7 +84,7 @@ cd /path/to/your/project
 /path/to/transcodes-guard/plugins/cursor/install.sh --user
 ```
 
-최초 실행 시 Cursor가 일회성 hook 신뢰 검토를 띄웁니다(커맨드 팔레트 → "Cursor: Review Hooks"). Cursor를 실행하는 셸에서도 `TRANSCODES_TOKEN`을 export 하세요.
+최초 실행 시 Cursor가 일회성 hook 신뢰 검토를 띄웁니다(커맨드 팔레트 → "Cursor: Review Hooks"). 토큰도 저장하세요 — 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`. CI/override에는 Cursor를 실행하는 셸에서 `TRANSCODES_TOKEN`을 export 하세요.
 
 ### Antigravity
 
@@ -102,7 +102,7 @@ node plugins/antigravity/install.mjs
 node plugins/antigravity/install.mjs --local
 ```
 
-CLI에서 `agy plugin list`를 실행하면 `transcodes-guard`가 표시됩니다. `TRANSCODES_TOKEN`도 export 하세요.
+CLI에서 `agy plugin list`를 실행하면 `transcodes-guard`가 표시됩니다. 토큰도 저장하세요 — 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`. CI/override에는 `TRANSCODES_TOKEN`을 export 하세요.
 
 > `agy plugin install` 대신 번들 설치 스크립트를 쓰는 이유: 그 명령은 순수 스테이징(CLI 디렉터리만 — IDE 디렉터리 복사·경로 치환 없음)입니다. Antigravity는 플러그인 루트 경로 변수를 제공하지 않고, hook/MCP 명령이 CWD를 `$HOME`으로 고정한 채 실행되므로(알려진 Antigravity 버그) 상대 경로가 깨집니다 — 그래서 설치 스크립트가 설치 시점에 `hooks.json` / `mcp_config.json`에 절대 경로를 주입합니다.
 
@@ -145,7 +145,7 @@ npm install -g @bigstrider/transcodes-cli # 또는 전역 설치 → `transcodes
 - `simulate_command`
 - `simulate_hook_invocation` — **실제** hook 바이너리를 실행합니다(드라이런이 아니며, 검증 레코드를 소모하거나 브라우저를 열 수 있습니다).
 
-step-up이 실제로 시작되려면 `TRANSCODES_TOKEN`(멤버 MCP JWT)이 필요합니다.
+step-up이 실제로 시작되려면 토큰(멤버 MCP JWT)이 필요합니다. 권장: CLI 설치(`npm install -g @bigstrider/transcodes-cli`) 후 `transcodes`를 실행해 대시보드에서 입력하세요. 비대화형: `transcodes set <token> -l <label>`. CI/override에는 `TRANSCODES_TOKEN`을 export 하세요 — 환경 변수가 저장 파일보다 우선합니다.
 
 ### tool_rules (보호 대상 MCP tools)
 

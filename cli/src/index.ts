@@ -35,7 +35,7 @@ import { runDashboard } from './dashboard.js';
 const USAGE = `transcodes — transcodes-guard token manager
 
 Usage:
-  transcodes                      Open the dashboard at http://127.0.0.1:3847/ (add --port N or --no-open)
+  transcodes                      Open the local dashboard (URL printed in terminal; default port 3847; --port N / --no-open)
   transcodes set <token> -l <label>  Save your Transcodes member token (label required) to ${transcodesConfigFile()}
   transcodes reset                Remove all saved tokens
   transcodes status               Show the active token source and expiry

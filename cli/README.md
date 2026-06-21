@@ -21,7 +21,7 @@ Works the same on macOS, Linux, and Windows (Node ≥ 20).
 
 | Command | What it does |
 |---------|--------------|
-| `transcodes` | Opens the dashboard at `http://127.0.0.1:3847/` to paste, save, switch, label, or delete tokens (accepts `--port N` / `--no-open`). |
+| `transcodes` | Opens the local dashboard (URL printed in the terminal; default port 3847, increments if busy) to paste, save, switch, label, or delete tokens (accepts `--port N` / `--no-open`). |
 | `transcodes set <token> -l <label>` | Validates the JWT and saves it (label required) to `~/.transcodes/config.json` (dir `0700`, file `0600`), making it active. |
 | `transcodes tokens` | Lists all saved tokens; the active one is marked with `*`. |
 | `transcodes status` | Shows the active token source (env vs file) and its expiry. |
