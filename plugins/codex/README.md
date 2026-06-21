@@ -8,19 +8,20 @@ Shares the same step-up MFA gate logic as the Claude Code plugin (`@transcodes-g
 
 ## Prerequisites
 
-- **A Codex CLI build with plugin + hooks support** (the `codex plugin` subcommands and the `codex_hooks` feature flag). Verify the subcommand exists with `codex plugin --help`.
+- **A Codex CLI build with plugin + hooks support** (the `codex plugin` subcommands and the `hooks` / `skills` feature flags). Verify the subcommand exists with `codex plugin --help`.
 - **Node.js ≥ 20**.
 
 ## Installation
 
-### 1. Enable the hooks feature in `~/.codex/config.toml`
+### 1. Enable hooks and skills in `~/.codex/config.toml`
 
 ```toml
 [features]
-codex_hooks = true
+hooks = true
+skills = true
 ```
 
-Without this flag Codex silently ignores `plugin.json`'s `hooks` field — the gate would never run.
+Without `hooks = true`, Codex silently ignores `plugin.json`'s `hooks` field — the gate would never run. Without `skills = true`, the bundled `$transcodes` skill is not loaded.
 
 ### 2. Install the plugin
 
@@ -79,12 +80,7 @@ $transcodes list the current rules
 $transcodes is "git push --force" blocked?
 ```
 
-The skill ships in the plugin's `skills/` directory and is declared in `.codex-plugin/plugin.json` (`"skills": "./skills/"`), so `codex plugin add` loads it automatically — no manual copy. It requires the skills feature flag in `~/.codex/config.toml`:
-
-```toml
-[features]
-skills = true
-```
+The skill ships in the plugin's `skills/` directory and is declared in `.codex-plugin/plugin.json` (`"skills": "./skills/"`), so `codex plugin add` loads it automatically — no manual copy. It requires `skills = true` in step 1 above.
 
 It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
 
@@ -94,7 +90,7 @@ The step-up response protocol the agent must follow on a `PreToolUse` deny (tell
 
 ## Enabling / disabling
 
-There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (Codex: remove from `config.toml` hooks / marketplace entry). Enabling the gate is safe for an agent; disabling it is a human-only action.
+There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (Codex: remove from `config.toml` — `[features]` hooks/skills flags and/or the marketplace entry). Enabling the gate is safe for an agent; disabling it is a human-only action.
 
 ## Environment
 
@@ -112,7 +108,8 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 
 ## Troubleshooting
 
-- **Hook does not fire.** Check `~/.codex/config.toml` has `[features] codex_hooks = true`, then verify trust with `codex` → `/hooks`.
+- **Hook does not fire.** Check `~/.codex/config.toml` has `[features] hooks = true`, then verify trust with `codex` → `/hooks`.
+- **`$transcodes` not available.** Check `~/.codex/config.toml` has `[features] skills = true`.
 - **`permissionDecision: deny` but no step-up URL.** The hook is blocking without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`). For CI only, export `TRANSCODES_TOKEN`.
 - **`simulate_hook_invocation` reports "CLAUDE_PLUGIN_ROOT must be set".** Neither `CLAUDE_PLUGIN_ROOT` nor `PLUGIN_ROOT` is set — this happens when the MCP server is invoked outside a plugin (e.g. `codex mcp add` with an absolute path). Export `PLUGIN_ROOT` to the plugin directory before invoking.
 

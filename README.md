@@ -34,16 +34,17 @@ For team auto-registration, add this to your project's `.claude/settings.json`:
 
 ### Codex
 
-Prerequisites: a Codex CLI build with plugin + hooks support (the `codex plugin` subcommands and the `codex_hooks` feature flag — verify with `codex plugin --help`), Node >= 20.
+Prerequisites: a Codex CLI build with plugin + hooks support (the `codex plugin` subcommands and the `hooks` / `skills` feature flags — verify with `codex plugin --help`), Node >= 20.
 
-**Step 1 — enable the hooks feature** in `~/.codex/config.toml`:
+**Step 1 — enable hooks and skills** in `~/.codex/config.toml`:
 
 ```toml
 [features]
-codex_hooks = true
+hooks = true
+skills = true
 ```
 
-Without this flag, Codex silently ignores the plugin's hooks and the gate never runs.
+Without `hooks = true`, Codex silently ignores the plugin's hooks and the gate never runs. Without `skills = true`, the bundled `$transcodes` skill is not loaded.
 
 **Step 2 — install via the Codex marketplace.** The repo ships `.codex-plugin/marketplace.json`, a `local` catalog pointing at `../plugins/codex`. Clone, build the committed `dist/`, register the catalog, then install:
 

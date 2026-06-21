@@ -8,19 +8,20 @@ Claude Code 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcode
 
 ## 사전 요구사항
 
-- **플러그인 + hooks를 지원하는 Codex CLI 빌드** (`codex plugin` 하위 명령과 `codex_hooks` 기능 플래그). `codex plugin --help`로 하위 명령 존재를 확인하세요.
+- **플러그인 + hooks를 지원하는 Codex CLI 빌드** (`codex plugin` 하위 명령과 `hooks` / `skills` 기능 플래그). `codex plugin --help`로 하위 명령 존재를 확인하세요.
 - **Node.js ≥ 20**.
 
 ## 설치
 
-### 1. `~/.codex/config.toml`에서 hooks 기능 활성화
+### 1. `~/.codex/config.toml`에서 hooks·skills 활성화
 
 ```toml
 [features]
-codex_hooks = true
+hooks = true
+skills = true
 ```
 
-이 플래그가 없으면 Codex는 `plugin.json`의 `hooks` 필드를 조용히 무시하므로 게이트가 전혀 실행되지 않습니다.
+`hooks = true`가 없으면 Codex는 `plugin.json`의 `hooks` 필드를 조용히 무시하므로 게이트가 전혀 실행되지 않습니다. `skills = true`가 없으면 번들 `$transcodes` 스킬이 로드되지 않습니다.
 
 ### 2. 플러그인 설치
 
@@ -69,13 +70,27 @@ export TRANSCODES_TOKEN="$(read-your-token-here)"
 | `UserPromptSubmit` hook | 사용자의 "인증 완료" 프롬프트(`"완료"`, `"done"`, …)를 감지하고 대기 중인 `sid`를 노출해 에이전트가 폴링하게 합니다. |
 | `Stop` hook | 매달린 스텝업 루프를 정리하고, 고아가 된 verified/pending 레코드를 조용히 회수합니다. |
 
+## 슬래시 명령: `$transcodes`
+
+게이트 룰을 관리하는 단일 "정문"입니다. Codex는 번들 스킬을 **`$` 멘션**( `/` 아님)으로 노출하므로, `$transcodes` 뒤에 평문 요청을 붙이면 에이전트가 맞는 guard 워크플로로 라우팅하고, 빠진 정보는 사용자에게 묻습니다:
+
+```
+$transcodes gate the google calendar delete tool behind step-up
+$transcodes list the current rules
+$transcodes is "git push --force" blocked?
+```
+
+스킬은 플러그인 `skills/` 디렉터리에 있고 `.codex-plugin/plugin.json`(`"skills": "./skills/"`)에 선언되어 있어 `codex plugin add`만 하면 자동 로드됩니다 — 수동 복사 불필요. 위 1단계의 `skills = true`가 필요합니다.
+
+라우팅 대상: MCP 도구 게이트(`add_tool_rule`), Bash 명령 차단(`add_user_pattern`), 룰 변경(`update_*`), 룰 목록, 차단 여부 확인(`simulate_*`), 스텝업 상태 조회, 프론트엔드 Transcodes SDK 연동(`get_integration_guide`).
+
 ## AI 에이전트를 위한 안내
 
 `PreToolUse` 차단 시 에이전트가 따라야 할 스텝업 응답 프로토콜(사용자에게 WebAuthn 완료 요청 → `sid`로 `poll_stepup_session_wait` 호출 → `verified`면 동일 호출 재시도)은 [`AGENTS.md`](./AGENTS.md)에 있으며, Codex가 매 턴 에이전트 컨텍스트에 자동 로드합니다. 런타임 루프의 단일 진실 공급원이므로 그곳에서 확인하세요.
 
 ## 활성화 / 비활성화
 
-런타임 킬 스위치는 없습니다. 보호를 끄려면 호스트의 기본 메커니즘으로 플러그인을 비활성화하거나 제거하세요(Codex: `config.toml`의 hooks / 마켓플레이스 항목에서 제거). 게이트를 켜는 것은 에이전트에게 안전하지만, 끄는 것은 사람만 할 수 있는 작업입니다.
+런타임 킬 스위치는 없습니다. 보호를 끄려면 호스트의 기본 메커니즘으로 플러그인을 비활성화하거나 제거하세요(Codex: `config.toml`의 `[features]` hooks/skills 플래그 또는 마켓플레이스 항목에서 제거). 게이트를 켜는 것은 에이전트에게 안전하지만, 끄는 것은 사람만 할 수 있는 작업입니다.
 
 ## 환경 변수
 
@@ -93,7 +108,8 @@ export TRANSCODES_TOKEN="$(read-your-token-here)"
 
 ## 문제 해결
 
-- **hook이 발동하지 않음.** `~/.codex/config.toml`에 `[features] codex_hooks = true`가 있는지 확인한 뒤, `codex` → `/hooks`로 신뢰를 확인하세요.
+- **hook이 발동하지 않음.** `~/.codex/config.toml`에 `[features] hooks = true`가 있는지 확인한 뒤, `codex` → `/hooks`로 신뢰를 확인하세요.
+- **`$transcodes`를 사용할 수 없음.** `~/.codex/config.toml`에 `[features] skills = true`가 있는지 확인하세요.
 - **`permissionDecision: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — CLI를 설치(`npm install -g @bigstrider/transcodes-cli`)한 뒤 `transcodes`로 대시보드에서 토큰을 저장하세요(또는 `transcodes set <token> -l <label>`). CI에만 `TRANSCODES_TOKEN`을 export 하세요.
 - **`simulate_hook_invocation`이 "CLAUDE_PLUGIN_ROOT must be set"을 보고함.** `CLAUDE_PLUGIN_ROOT`와 `PLUGIN_ROOT`가 모두 설정되지 않은 경우입니다 — MCP 서버를 플러그인 밖에서 실행할 때(예: 절대 경로로 `codex mcp add`) 발생합니다. 실행 전에 `PLUGIN_ROOT`를 플러그인 디렉터리로 내보내세요.
 
