@@ -37,9 +37,11 @@ export function loadStepupConfig() {
     }
     const { token: tokenRaw } = resolveToken();
     if (!tokenRaw) {
-        throw new Error('No Transcodes token found. Get a token from the Transcodes console ' +
-            '(member detail page, https://app.transcodes.io), then run ' +
-            '`transcodes login <token>` in a terminal — or set the ' +
+        throw new Error('No Transcodes token found. Install the CLI ' +
+            '(`npm install -g @bigstrider/transcodes-cli`), run `transcodes` to open ' +
+            'the dashboard, and paste a token from the Transcodes console (member ' +
+            'detail page, https://app.transcodes.io). Non-interactive: ' +
+            '`transcodes set <token> -l <label>`. For CI only, set the ' +
             'TRANSCODES_TOKEN environment variable.');
     }
     const parsed = parseMemberAccessToken(tokenRaw);

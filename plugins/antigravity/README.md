@@ -26,15 +26,24 @@ To install the plugin, use the automated installer script which resolves target 
 
 On Antigravity CLI: `agy plugin list` should now show `transcodes-guard`.
 
-### Export `TRANSCODES_TOKEN`
+### Save your token
 
-The MCP server and the step-up hook both authenticate against the Transcodes backend using a member MCP JWT:
+The MCP server and the step-up hook both authenticate against the Transcodes backend using a member MCP JWT. **Recommended** — install the CLI control plane once, then enter the token in the dashboard. It persists in `~/.transcodes/config.json` and every agent session reads it (no env var needed, survives across hosts):
+
+```bash
+npm install -g @bigstrider/transcodes-cli
+transcodes   # opens the local dashboard — URL is printed in the terminal (default port 3847; `--port N` to override)
+```
+
+Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
+
+For CI or one-off overrides only, export the `TRANSCODES_TOKEN` environment variable — it **takes precedence** over the saved file:
 
 ```bash
 export TRANSCODES_TOKEN="$(read-your-token-here)"
 ```
 
-If the variable is missing, the hook still **denies** danger commands but cannot start a step-up session — Antigravity will surface a reason telling you to provide a token. The canonical, persistent way to supply it is the CLI control plane: `transcodes login <token>` (`@bigstrider/transcodes-cli`) writes it to `~/.transcodes/config.json`, which the hook reads without an env var.
+If neither is set, the hook still **denies** danger commands but cannot start a step-up session — Antigravity will surface a reason telling you to provide a token.
 
 ## What the plugin does
 
@@ -80,9 +89,11 @@ There is no runtime kill-switch. To turn protection off, disable or uninstall th
 
 ## Environment
 
+Token resolution: the recommended store is `~/.transcodes/config.json` (via `transcodes` dashboard or `transcodes set`). When `TRANSCODES_TOKEN` is set, it **overrides** the saved file — use for CI or one-off overrides only.
+
 | Variable | Required | Purpose |
 |---|---|---|
-| `TRANSCODES_TOKEN` | yes (for step-up to work) | Member MCP JWT used as `x-transcodes-token`. |
+| `TRANSCODES_TOKEN` | CI/override only (overrides saved file) | Member MCP JWT used as `x-transcodes-token`. Omit when using CLI storage. |
 | `TRANSCODES_BACKEND_URL` | no | Override the default backend (`https://api.transcodesapis.com`). |
 
 ## Cross-host state sharing

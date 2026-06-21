@@ -40,15 +40,24 @@ codex plugin add transcodes-guard@bigstrider   # 플러그인 설치
 
 hook이 처음 발동하려 할 때 Codex가 신뢰 검토를 요청합니다(`/hooks`로 수동 확인). 한 번 승인하면 Codex가 신뢰 결정을 캐시합니다. `--dangerously-bypass-hook-trust`는 **사용하지 마세요** — 게이트의 권위를 무력화합니다.
 
-### 4. `TRANSCODES_TOKEN` 내보내기
+### 4. 토큰 저장
 
-MCP 서버와 스텝업 hook은 둘 다 멤버 MCP JWT로 Transcodes 백엔드에 인증합니다:
+MCP 서버와 스텝업 hook은 둘 다 멤버 MCP JWT로 Transcodes 백엔드에 인증합니다. **권장** — CLI 컨트롤 플레인을 한 번 설치한 뒤 대시보드에서 토큰을 입력하세요. `~/.transcodes/config.json`에 영구 저장되어 모든 에이전트 세션이 읽습니다(환경 변수 불필요):
+
+```bash
+npm install -g @bigstrider/transcodes-cli
+transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출력됩니다(기본 포트 3847, `--port N`으로 변경 가능)
+```
+
+비대화형 대안(같은 저장소): `transcodes set <token> -l <label>`.
+
+CI나 일회성 override가 필요할 때만 `TRANSCODES_TOKEN` 환경 변수를 export 하세요 — 저장된 파일보다 **우선합니다**:
 
 ```bash
 export TRANSCODES_TOKEN="$(read-your-token-here)"
 ```
 
-토큰이 없으면 hook은 여전히 위험 명령을 **차단**하지만 스텝업 세션을 시작할 수 없습니다 — Codex가 "set TRANSCODES_TOKEN" 사유를 표시합니다.
+둘 다 없으면 hook은 여전히 위험 명령을 **차단**하지만 스텝업 세션을 시작할 수 없습니다 — Codex가 토큰을 제공하라는 사유를 표시합니다.
 
 ## 플러그인이 하는 일
 
@@ -70,9 +79,11 @@ export TRANSCODES_TOKEN="$(read-your-token-here)"
 
 ## 환경 변수
 
+토큰 해석: 권장 저장소는 `~/.transcodes/config.json`(`transcodes` 대시보드 또는 `transcodes set`). `TRANSCODES_TOKEN`이 설정되면 저장 파일을 **덮어씁니다** — CI나 일회성 override에만 사용하세요.
+
 | 변수 | 필수 여부 | 용도 |
 |---|---|---|
-| `TRANSCODES_TOKEN` | 예 (스텝업 작동에 필요) | `x-transcodes-token`으로 사용되는 멤버 MCP JWT. |
+| `TRANSCODES_TOKEN` | CI/override 전용 (저장 파일 덮어씀) | `x-transcodes-token`으로 사용되는 멤버 MCP JWT. CLI 저장 시 생략 가능. |
 | `TRANSCODES_BACKEND_URL` | 아니오 | 기본 백엔드(`https://api.transcodesapis.com`) 재정의. |
 | `CLAUDE_PLUGIN_ROOT` | 호스트 설정 | Codex의 hook/MCP 매니페스트가 모든 명령 경로를 `${CLAUDE_PLUGIN_ROOT}` 기준으로 해석합니다. `simulate_hook_invocation` MCP 도구는 hook 바이너리 위치 파악 시 `PLUGIN_ROOT`도 fallback으로 허용합니다. |
 
@@ -83,7 +94,7 @@ export TRANSCODES_TOKEN="$(read-your-token-here)"
 ## 문제 해결
 
 - **hook이 발동하지 않음.** `~/.codex/config.toml`에 `[features] codex_hooks = true`가 있는지 확인한 뒤, `codex` → `/hooks`로 신뢰를 확인하세요.
-- **`permissionDecision: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — `TRANSCODES_TOKEN`을 설정하세요.
+- **`permissionDecision: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — CLI를 설치(`npm install -g @bigstrider/transcodes-cli`)한 뒤 `transcodes`로 대시보드에서 토큰을 저장하세요(또는 `transcodes set <token> -l <label>`). CI에만 `TRANSCODES_TOKEN`을 export 하세요.
 - **`simulate_hook_invocation`이 "CLAUDE_PLUGIN_ROOT must be set"을 보고함.** `CLAUDE_PLUGIN_ROOT`와 `PLUGIN_ROOT`가 모두 설정되지 않은 경우입니다 — MCP 서버를 플러그인 밖에서 실행할 때(예: 절대 경로로 `codex mcp add`) 발생합니다. 실행 전에 `PLUGIN_ROOT`를 플러그인 디렉터리로 내보내세요.
 
 ## 라이선스
