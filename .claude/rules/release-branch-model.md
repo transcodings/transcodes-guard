@@ -20,7 +20,7 @@ paths:
 - Plugin/marketplace versions are **one synchronized train**: release-please bumps root `package.json` and fans out to `extra-files` — all **4** plugins' `package.json` plus the **3** host plugin manifests that exist (`claude-code/.claude-plugin/plugin.json`, `codex/.codex-plugin/plugin.json`, `antigravity/plugin.json`). **Cursor has no plugin manifest** — only its `package.json` is in the train.
 - The **CLI is not in this train**. `@bigstrider/transcodes-cli` bumps independently and ships to npm separately. It keeps the `@bigstrider` scope (not the `@transcodes-guard` rename) and is the **sole** npm-published unit.
 - Every `packages/*` member must keep `"private": true` — CI iterates all of `packages/*` and fails if any lacks it. Only `plugins/*` and `cli` are published; the common deploy unit for plugins is **this git repo made public**, not per-plugin npm packages.
-- Every published plugin declares an **optional** peerDependency on `@bigstrider/transcodes-cli` (`>=0.3.0 <0.4.0`, `peerDependenciesMeta.optional`).
+- Every published plugin declares an **optional** peerDependency on `@bigstrider/transcodes-cli` (`>=0.3.0 <0.5.0`, `peerDependenciesMeta.optional`).
 
 ## Per-host deploy divergence
 
