@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.20.0...transcodes-guard-v0.20.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* **danger-patterns:** exactOptionalPropertyTypes 활성화 + mergeToolRuleChanges 키-클린 정리 ([76ad7b3](https://github.com/transcodings/transcodes-guard/commit/76ad7b30f01573da4c5f6eb454982db08d4463d1))
+
 ## [0.20.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.19.0...transcodes-guard-v0.20.0) (2026-06-22)
 
 
