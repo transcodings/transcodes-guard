@@ -140,13 +140,12 @@ function cmdTokens(): void {
     process.stdout.write(`  ${marker} ${label ?? '(no label)'}\n`);
     process.stdout.write(`      ${expiryLine(token)}\n`);
   }
+  process.stdout.write('\n* = active token used by the plugins/hooks.\n');
   const envToken = process.env.TRANSCODES_TOKEN?.trim();
   if (envToken) {
     process.stdout.write(
-      '\nNote: TRANSCODES_TOKEN is set and overrides the active selection above.\n',
+      'Note: TRANSCODES_TOKEN is set but ignored — the saved active token above takes precedence.\n',
     );
-  } else {
-    process.stdout.write('\n* = active token used by the plugins/hooks.\n');
   }
 }
 

@@ -11,9 +11,14 @@
  * CLI (`@bigstrider/transcodes-cli`) writes here; `resolveToken()` reads here.
  *
  * Token precedence (resolveToken):
- *   1. process.env.TRANSCODES_TOKEN  — explicit override (CI, power users)
- *   2. ~/.transcodes/config.json     — written by the CLI
+ *   1. ~/.transcodes/config.json     — written by the CLI, the source of truth
+ *   2. process.env.TRANSCODES_TOKEN  — fallback for config-less envs (CI, power users)
  *   3. null                          — caller fail-safes (hook → block)
+ *
+ * Rationale for config-first: a stray TRANSCODES_TOKEN left in the user's
+ * shell used to silently shadow whatever `transcodes set` wrote, so config
+ * edits appeared to have no effect (the hooks have no stdout to warn on). The
+ * CLI-managed file now wins; env only fills in when no config token exists.
  *
  * File schema (multi-token, labelled):
  *   {
@@ -290,17 +295,17 @@ export type ResolvedToken = {
 
 /**
  * Resolve the active token following the documented precedence
- * (env → file → none). Returns the source too so callers (e.g. a CLI
+ * (file → env → none). Returns the source too so callers (e.g. a CLI
  * `status` command) can show where the token came from.
  */
 export function resolveToken(): ResolvedToken {
-  const envToken = process.env.TRANSCODES_TOKEN?.trim();
-  if (envToken) {
-    return { token: envToken, source: 'env' };
-  }
   const fileToken = readTokenFromFile();
   if (fileToken) {
     return { token: fileToken, source: 'file' };
+  }
+  const envToken = process.env.TRANSCODES_TOKEN?.trim();
+  if (envToken) {
+    return { token: envToken, source: 'env' };
   }
   return { token: null, source: 'none' };
 }
