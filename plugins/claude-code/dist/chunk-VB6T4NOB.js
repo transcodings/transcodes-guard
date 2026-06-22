@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "codex";
+process.env.TRANSCODES_GUARD_HOST = "claude";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -39,15 +39,21 @@ function formatNoTokenSessionNotice() {
     "",
     "How to fix (guide the user \u2014 the token must NOT be pasted into this chat,",
     "it would leak into the transcript):",
-    "  1. Get the token from the Transcodes console \u2192 member detail page:",
-    "       https://app.transcodes.io",
-    "  2. In a terminal, run this ONCE:",
-    "       npx @bigstrider/transcodes-cli login <token>",
-    "     (saves it to ~/.transcodes/config.json so every agent session can find it)",
     "",
-    "Alternatively, set the TRANSCODES_TOKEN environment variable before launching",
-    "the host (note: GUI-launched apps often do NOT inherit your shell env, so the",
-    "CLI login above is the more reliable option)."
+    "  RECOMMENDED \u2014 install the CLI once, then enter the token in the dashboard:",
+    "    1. npm install -g @bigstrider/transcodes-cli",
+    "    2. transcodes        (opens the dashboard at your local device browser)",
+    "    3. Paste the token from the Transcodes console \u2192 member detail page",
+    "       (https://app.transcodes.io) into the dashboard.",
+    "  Saved to ~/.transcodes/config.json so every agent session can find it.",
+    "",
+    "  Non-interactive alternative (same store, e.g. for scripts):",
+    "    transcodes set <token> -l <label>",
+    "",
+    "  For CI or one-off overrides only: set the TRANSCODES_TOKEN environment",
+    "  variable before launching the host (it takes precedence over the saved",
+    "  file). Note: GUI-launched apps often do NOT inherit your shell env, so the",
+    "  CLI dashboard above is the more reliable option for desktop hosts."
   ].join("\n");
 }
 function formatBlockedSummary(block) {
@@ -63,15 +69,16 @@ function formatAllowReason(decision) {
   return `transcodes-guard: step-up MFA verified \u2014 overriding default permission policy. Original danger match: ${decision.block.reason}. Command: ${decision.block.command}`;
 }
 function formatNoTokenReason(block) {
-  return `Bash blocked by transcodes-guard: ${block.reason}. Step-up MFA gate is not configured (no Transcodes token found). Tell the user to get a token from the Transcodes console (member detail page, https://app.transcodes.io) and run \`transcodes login <token>\` (or set the TRANSCODES_TOKEN environment variable) to enable on-demand authentication, or run the command outside the agent.`;
+  return `Bash blocked by transcodes-guard: ${block.reason}. Step-up MFA gate is not configured (no Transcodes token found). Tell the user to install the CLI (\`npm install -g @bigstrider/transcodes-cli\`) and run \`transcodes\` to open the dashboard and paste a token from the Transcodes console (member detail page, https://app.transcodes.io). Non-interactive: \`transcodes set <token> -l <label>\`. For CI only, set the TRANSCODES_TOKEN environment variable. Or run the command outside the agent.`;
 }
 function formatNoTokenSystemMessage(block) {
   return `${formatBlockedSummary(block)}
 
 Step-up MFA gate is not configured (no Transcodes token found).
-Get a token from the Transcodes console \u2192 member detail page (https://app.transcodes.io),
-then ask the user to run \`transcodes login <token>\` in a terminal (or set TRANSCODES_TOKEN),
-and retry. Do not have the user paste the token into this chat.`;
+Ask the user to install the CLI (\`npm install -g @bigstrider/transcodes-cli\`), run
+\`transcodes\` to open the dashboard, and paste a token from the Transcodes console \u2192
+member detail page (https://app.transcodes.io). Non-interactive: \`transcodes set <token>
+-l <label>\`; CI only: TRANSCODES_TOKEN. Then retry. Do not have the user paste the token into this chat.`;
 }
 function formatRbacDeniedReason(decision) {
   return `Blocked by transcodes-guard: ${decision.block.reason}. Your RBAC role denies this action (resource="${decision.resource}", action="${decision.action}") \u2014 step-up MFA cannot grant it. Report this to the user; do not retry. An admin must grant the permission in the Transcodes console (RBAC \u2192 Roles).`;
@@ -88,7 +95,7 @@ function formatRbacDeniedSystemMessage(decision) {
 }
 function formatStepupFailureDetail(decision) {
   const { failure } = decision;
-  return failure.reason === "no-token" ? "No Transcodes token found \u2014 step-up MFA gate is unavailable. Get a token from the Transcodes console (https://app.transcodes.io member detail page), then run `transcodes login <token>`." : failure.reason === "create-failed" ? `Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ""}.` : `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ""}.`;
+  return failure.reason === "no-token" ? "No Transcodes token found \u2014 step-up MFA gate is unavailable. Install the CLI (`npm install -g @bigstrider/transcodes-cli`), run `transcodes` to open the dashboard, and paste a token from the Transcodes console (https://app.transcodes.io member detail page). Non-interactive: `transcodes set <token> -l <label>`." : failure.reason === "create-failed" ? `Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ""}.` : `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ""}.`;
 }
 function formatStepupFailureReason(decision) {
   return `Bash blocked by transcodes-guard: ${decision.block.reason}. ${formatStepupFailureDetail(decision)} Report the failure to the user; do not retry until step-up is available.`;
@@ -667,6 +674,9 @@ function validateNewToolRule(input) {
   return rule;
 }
 function mergeToolRuleChanges(existing, changes) {
+  const provider = changes.provider ?? existing.provider;
+  const action = changes.action ?? (existing.action !== void 0 ? coerceRbacAction(existing.action) : void 0);
+  const resource = changes.resource ?? (existing.resource !== void 0 ? coerceRbacResource(existing.resource) : void 0);
   return validateNewToolRule({
     id: existing.id,
     type: changes.type ?? existing.type,
@@ -674,9 +684,9 @@ function mergeToolRuleChanges(existing, changes) {
     description: changes.description ?? existing.description,
     name: changes.name ?? existing.name,
     matcher: changes.matcher ?? existing.matcher,
-    provider: changes.provider ?? existing.provider,
-    action: changes.action ?? (existing.action !== void 0 ? coerceRbacAction(existing.action) : void 0),
-    resource: changes.resource ?? (existing.resource !== void 0 ? coerceRbacResource(existing.resource) : void 0)
+    ...provider !== void 0 ? { provider } : {},
+    ...action !== void 0 ? { action } : {},
+    ...resource !== void 0 ? { resource } : {}
   });
 }
 function systemToolRuleIds() {
@@ -955,7 +965,7 @@ function loadStepupConfig() {
   }
   const { token: tokenRaw } = resolveToken();
   if (!tokenRaw) {
-    throw new Error("No Transcodes token found. Get a token from the Transcodes console (member detail page, https://app.transcodes.io), then run `transcodes login <token>` in a terminal \u2014 or set the TRANSCODES_TOKEN environment variable.");
+    throw new Error("No Transcodes token found. Install the CLI (`npm install -g @bigstrider/transcodes-cli`), run `transcodes` to open the dashboard, and paste a token from the Transcodes console (member detail page, https://app.transcodes.io). Non-interactive: `transcodes set <token> -l <label>`. For CI only, set the TRANSCODES_TOKEN environment variable.");
   }
   const parsed = parseMemberAccessToken(tokenRaw);
   for (const w of parsed.warnings) {
@@ -6644,7 +6654,7 @@ function registerMemberTools(server) {
   });
   server.registerTool("update_member", {
     title: "Update member",
-    description: "Update member fields (UpdateMemberDto, flat shape). RBAC-gated via tool-rule `tc-update-member` (0=block, 1=allow, 2=step-up MFA). member_id is required \u2014 supply the target member explicitly (it may differ from the caller).",
+    description: "Update member PROFILE fields \u2014 name, email, metadata (UpdateMemberDto, flat shape). RBAC-gated via tool-rule `tc-update-member` (0=block, 1=allow, 2=step-up MFA). member_id is required \u2014 supply the target member explicitly (it may differ from the caller). To REASSIGN a member's ROLE, use `update_member_role` instead: it validates the role exists (this tool writes `role` straight through with no validation). Prefer omitting `role` here.",
     inputSchema: {
       body: external_exports.object({
         member_id: external_exports.string(),
@@ -6789,7 +6799,7 @@ function registerMetaTools(server) {
   });
   server.registerTool("get_integration_guide", {
     title: "Get integration guide",
-    description: "IMPORTANT: You MUST call this tool BEFORE writing ANY Transcodes-related code. Fetches the official Transcodes integration guide (llms.txt) \u2014 the single source of truth for all implementation details. Trigger keywords: install, setup, integrate, SDK, PWA, passkey, auth, login, signup, modal, step-up, MFA, JWT, token, audit, webhook, RBAC, role, service worker, manifest, CDN, webworker, sign-in, sign-out, session, member, console, admin, IDP, OTP, TOTP, biometric, WebAuthn. The returned guide contains exact API signatures, code examples, framework setup (React, Next.js, Vue, Vite), CSP rules, JWT verification, and common mistakes. You MUST follow it instead of guessing. Call once per conversation \u2014 the result stays in context for follow-up requests.",
+    description: "IMPORTANT: You MUST call this tool BEFORE writing ANY Transcodes-related code. Fetches the official Transcodes integration guide (llms.txt) \u2014 the single source of truth for all implementation details. Trigger keywords: install, setup, integrate, SDK, PWA, passkey, auth, login, signup, redirect, step-up, MFA, JWT, token, audit, webhook, RBAC, role, service worker, manifest, CDN, webworker, sign-in, sign-out, session, member, console, admin, IDP, OTP, TOTP, biometric, WebAuthn. The returned guide contains exact API signatures, code examples, framework setup (React, Next.js, Vue, Vite), CSP rules, JWT verification, and common mistakes. You MUST follow it instead of guessing. Call once per conversation \u2014 the result stays in context for follow-up requests.",
     inputSchema: {
       topic: external_exports.string().optional()
     }
@@ -7050,7 +7060,7 @@ function registerRbacTools(server) {
   });
   server.registerTool("update_member_role", {
     title: "Update member role",
-    description: "Change a member's assigned role (UpdateMemberRoleDto). Verified action \u2014 step-up MFA enforced by the PreToolUse hook (tool-rule `tc-update-member-role`).",
+    description: "Change a member's assigned role (UpdateMemberRoleDto) \u2014 the canonical role-reassignment path. Validates the target role EXISTS in the project before assigning (unlike `update_member`, which writes `role` unchecked). Use this whenever the user wants to change a member's role. Verified action \u2014 step-up MFA enforced by the PreToolUse hook (tool-rule `tc-update-member-role`).",
     inputSchema: {
       body: external_exports.object({
         member_id: external_exports.string(),
@@ -7116,7 +7126,7 @@ function registerRbacTools(server) {
   });
   server.registerTool("create_resource", {
     title: "Create resource",
-    description: "Add a new resource key (CreateResourceDto). New resources default to deny (0) for all roles. RBAC-gated via tool-rule `tc-create-resource` (0=block, 1=allow, 2=step-up MFA). " + PROJECT_ID_GUIDANCE,
+    description: "Add a new resource key (CreateResourceDto). Every existing role is initialized with the default permission matrix for the new key: read = allow (1), and create/update/delete = allow + step-up MFA (2). RBAC-gated via tool-rule `tc-create-resource` (0=block, 1=allow, 2=step-up MFA). " + PROJECT_ID_GUIDANCE,
     inputSchema: {
       body: external_exports.object({
         key: external_exports.string(),

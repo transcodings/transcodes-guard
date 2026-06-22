@@ -9,7 +9,7 @@ import {
   findFirstMatch,
   getGateBackend,
   objectType
-} from "./chunk-TDHJP35N.js";
+} from "./chunk-VB6T4NOB.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -16953,7 +16953,7 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // ../../packages/mcp-server-core/dist/build-info.js
-var PLUGIN_VERSION = "0.18.0";
+var PLUGIN_VERSION = "0.20.0";
 
 // ../../packages/mcp-server-core/dist/router-body.js
 var TRANSCODES_ROUTER_BODY = 'You are the transcodes-guard control surface \u2014 the single "front door" the user opens to manage step-up MFA protection AND to integrate the Transcodes SDK into their app. The user said:\n\n> {{REQUEST}}\n\nIdentify which MENU item below matches their request, gather any missing detail by ASKING the user first, then run that workflow. Rules: never invent MCP tool wire names or resource keys; always verify with a simulate_* tool before any mutating call; if the request is empty or ambiguous, show this menu and ask what they want.\n\nMENU\n1) Gate an MCP tool behind step-up MFA\n   - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.\n   - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking \u2014 never guess.\n   - `simulate_tool_call` to verify it matches \u2192 `get_resources` to pick resource + action (create|read|update|delete) \u2192 confirm details with the user \u2192 `add_tool_rule`. If a CLI command also triggers it, pass `cliRegex`.\n   - PER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the same logical tool under a different wire name \u2014 one rule per host. PREFIX `id` with the host slug (`claude-\u2026`, `codex-\u2026`); provider is set automatically from this MCP server.\n   - ADD, do not OVERWRITE: to protect the same tool on another host, call `add_tool_rule` there with a NEW id. NEVER `update_tool_rule` to repoint another host\'s rule. If `add_tool_rule` returns "already exists", pick a new id \u2014 do not fall back to update.\n2) Block a dangerous Bash command\n   - Derive a regex \u2192 `simulate_command` with one matching and one NON-matching example (catch false positives) \u2192 `get_resources` for resource + action \u2192 confirm \u2192 `add_user_pattern`.\n3) Change an existing rule\n   - `update_tool_rule` or `update_user_pattern`. WEAKENING or disabling protection is human-only via the transcodes CLI \u2014 refuse to do it from the agent; only tightening is allowed.\n4) List current rules (read-only)\n   - Read resources `tool-rules://list` and `danger-patterns://list`; present two tables (system vs project) with counts.\n5) Check whether a command/tool is blocked (read-only)\n   - `simulate_command` for a Bash string, or `simulate_tool_call` for an MCP wire name. Report BLOCKED (with the matching rule id) or ALLOWED.\n6) Step-up MFA state (read-only)\n   - `inspect_stepup_state`; summarize pending/verified. If a session is pending, the user completes WebAuthn in the browser, then call `poll_stepup_session_wait`.\n7) Refresh rules after a Next.js console change\n   - When an admin just activated/deactivated or edited a rule in the console and it is not yet visible here, call `refresh_rules`. It force-refreshes the policy bundle cache now (same as CLI `transcodes policy refresh`) and returns the currently active rules. Report the outcome (refreshed / already current / failed-stale / skipped).\n8) Integrate / install the Transcodes SDK into the app (frontend)\n   - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions \u2014 the single source of truth; pass a `topic` like pwa/auth/passkey/jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user\'s frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, service worker/manifest). Never guess API signatures \u2014 use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.';
@@ -17384,13 +17384,21 @@ action: ${saved.action ?? "\u2014"}`);
     description: "Force-refresh the org policy bundle cache NOW and return the currently active tool rules. Call when an admin just activated/deactivated or edited a rule in the Next.js console and the change is not yet visible in this session \u2014 the MCP server otherwise only refreshes at boot / TTL, so a console change can take up to the TTL to apply. Same force-refresh the CLI `transcodes policy refresh` performs. Read-only beyond the cache fetch.",
     inputSchema: {}
   }, async () => {
-    await backend.refreshPolicyBundle();
+    const outcome = await backend.refreshPolicyBundle();
+    const status = {
+      fresh: "Refreshed \u2014 cache now holds the latest bundle.",
+      refreshed: "Refreshed \u2014 cache updated to the latest bundle.",
+      "not-modified": "Already current \u2014 backend confirmed no changes.",
+      failed: "Refresh FAILED \u2014 kept the previous cache (last-known-good). Rules below may be stale.",
+      skipped: "Skipped \u2014 no Transcodes token configured, so there is nothing to refresh."
+    };
+    const header = `# Policy bundle refresh
+
+${status[outcome] ?? `Outcome: ${outcome}`}`;
     const rules = formatToolRulesMarkdown(backend.loadMergedToolRules());
-    return textResult(`# Policy bundle refreshed
+    return textResult(`${header}
 
-Forced a refresh of the org policy bundle cache (no-op when no token is configured). Current active rules:
-
-${rules}`);
+${rules}`, outcome === "failed");
   });
   server.registerTool("add_tool_rule", {
     title: "Add MCP tool-rule (project policy)",

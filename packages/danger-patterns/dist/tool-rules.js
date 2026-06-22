@@ -227,6 +227,18 @@ export function validateNewToolRule(input) {
     return rule;
 }
 export function mergeToolRuleChanges(existing, changes) {
+    // Build the input with conditional spreads so optional keys are omitted
+    // (not set to `undefined`) when neither side supplies them — required under
+    // `exactOptionalPropertyTypes`, and it keeps the merged rule key-clean.
+    const provider = changes.provider ?? existing.provider;
+    const action = changes.action ??
+        (existing.action !== undefined
+            ? coerceRbacAction(existing.action)
+            : undefined);
+    const resource = changes.resource ??
+        (existing.resource !== undefined
+            ? coerceRbacResource(existing.resource)
+            : undefined);
     return validateNewToolRule({
         id: existing.id,
         type: changes.type ?? existing.type,
@@ -234,15 +246,9 @@ export function mergeToolRuleChanges(existing, changes) {
         description: changes.description ?? existing.description,
         name: changes.name ?? existing.name,
         matcher: changes.matcher ?? existing.matcher,
-        provider: changes.provider ?? existing.provider,
-        action: changes.action ??
-            (existing.action !== undefined
-                ? coerceRbacAction(existing.action)
-                : undefined),
-        resource: changes.resource ??
-            (existing.resource !== undefined
-                ? coerceRbacResource(existing.resource)
-                : undefined),
+        ...(provider !== undefined ? { provider } : {}),
+        ...(action !== undefined ? { action } : {}),
+        ...(resource !== undefined ? { resource } : {}),
     });
 }
 export function systemToolRuleIds() {

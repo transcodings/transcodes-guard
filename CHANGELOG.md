@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.20.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.19.0...transcodes-guard-v0.20.0) (2026-06-22)
+
+
+### Features
+
+* **cli:** polish dashboard guideline, rules UX, and header links ([3f9d17f](https://github.com/transcodings/transcodes-guard/commit/3f9d17f3af3539932285ff4ce58485c4e43727e5))
+
+## [0.19.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.3...transcodes-guard-v0.19.0) (2026-06-22)
+
+
+### Features
+
+* **cli:** finish local dashboard as CLI panel for tokens and rules ([41995a9](https://github.com/transcodings/transcodes-guard/commit/41995a905335d1093cf0e19379f3f176ace3fc27))
+
+## [0.18.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.2...transcodes-guard-v0.18.3) (2026-06-21)
+
+
+### Documentation
+
+* **cli:** add guideline step 8 for policy refresh ([bc77afc](https://github.com/transcodings/transcodes-guard/commit/bc77afcad2767aab60a959c200b6f572e1ffdbea))
+
+## [0.18.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.1...transcodes-guard-v0.18.2) (2026-06-21)
+
+
+### Code Refactoring
+
+* **cli:** SSOT command list for help and dashboard ([e8a75f1](https://github.com/transcodings/transcodes-guard/commit/e8a75f1422156c245cfa255c4271021695187b2a))
+
+## [0.18.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.0...transcodes-guard-v0.18.1) (2026-06-21)
+
+
+### Documentation
+
+* **codex:** update config.toml feature flags to hooks and skills ([65dce4f](https://github.com/transcodings/transcodes-guard/commit/65dce4fd5f105b5895ae1c89175bdda9eab90bdf))
+
 ## [0.18.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.17.1...transcodes-guard-v0.18.0) (2026-06-20)
 
 

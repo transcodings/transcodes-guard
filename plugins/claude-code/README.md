@@ -10,7 +10,7 @@ When the agent is about to run a risky Bash command (or a protected MCP tool cal
 
 - **Claude Code** with plugin support.
 - **Node.js ≥ 20** on `PATH` (hooks and the MCP server run as `node` subprocesses).
-- A **member MCP JWT** exported as `TRANSCODES_TOKEN` (see [Environment](#environment)).
+- A **member MCP JWT** for step-up — save via the CLI (`npm install -g @bigstrider/transcodes-cli`, then `transcodes`; see [Save your token](#2-save-your-token)).
 
 ## Installation
 
@@ -23,15 +23,24 @@ When the agent is about to run a risky Bash command (or a protected MCP tool cal
 
 Claude Code sets `${CLAUDE_PLUGIN_ROOT}` at runtime; the manifest (`.claude-plugin/`) and `hooks/hooks.json` resolve every hook and MCP-server path against it, so there is nothing to configure by hand. The four hooks and the MCP server are active immediately after install.
 
-### 2. Export `TRANSCODES_TOKEN`
+### 2. Save your token
 
-The MCP server and the step-up hook both authenticate against the Transcodes backend with a member MCP JWT:
+The MCP server and the step-up hook both authenticate against the Transcodes backend with a member MCP JWT. **Recommended** — install the CLI control plane once, then enter the token in the dashboard. It persists in `~/.transcodes/config.json` and every agent session reads it (no env var needed):
+
+```bash
+npm install -g @bigstrider/transcodes-cli
+transcodes   # opens the local dashboard — URL is printed in the terminal (default port 3847; `--port N` to override)
+```
+
+Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
+
+For CI or one-off overrides only, export the `TRANSCODES_TOKEN` environment variable — it **takes precedence** over the saved file:
 
 ```bash
 export TRANSCODES_TOKEN="<your-token>"
 ```
 
-Without it the hook still **denies** danger commands, but cannot start a step-up session — the deny reason will say to set `TRANSCODES_TOKEN`. The human control plane (`@bigstrider/transcodes-cli`, the `transcodes` command) writes the token to `~/.transcodes/config.json`; if you use it, the hook reads from there and the env var is optional.
+Without either, the hook still **denies** danger commands but cannot start a step-up session — the deny reason will say to provide a token.
 
 ## What the plugin does
 
@@ -78,9 +87,11 @@ There is no runtime kill-switch in the plugin. To turn protection off, disable o
 
 ## Environment
 
+Token resolution: the recommended store is `~/.transcodes/config.json` (via `transcodes` dashboard or `transcodes set`). When `TRANSCODES_TOKEN` is set, it **overrides** the saved file — use for CI or one-off overrides only.
+
 | Variable | Required | Purpose |
 |---|---|---|
-| `TRANSCODES_TOKEN` | yes (for step-up to work) | Member MCP JWT, sent as `x-transcodes-token`. |
+| `TRANSCODES_TOKEN` | CI/override only (overrides saved file) | Member MCP JWT, sent as `x-transcodes-token`. Omit when using CLI storage. |
 | `TRANSCODES_BACKEND_URL` | no | Override the default backend (`https://api.transcodesapis.com`). |
 | `CLAUDE_PLUGIN_ROOT` | host-set | Set by Claude Code; locates hook binaries and is used by `simulate_hook_invocation`. |
 

@@ -34,16 +34,17 @@ For team auto-registration, add this to your project's `.claude/settings.json`:
 
 ### Codex
 
-Prerequisites: a Codex CLI build with plugin + hooks support (the `codex plugin` subcommands and the `codex_hooks` feature flag — verify with `codex plugin --help`), Node >= 20.
+Prerequisites: a Codex CLI build with plugin + hooks support (the `codex plugin` subcommands and the `hooks` / `skills` feature flags — verify with `codex plugin --help`), Node >= 20.
 
-**Step 1 — enable the hooks feature** in `~/.codex/config.toml`:
+**Step 1 — enable hooks and skills** in `~/.codex/config.toml`:
 
 ```toml
 [features]
-codex_hooks = true
+hooks = true
+skills = true
 ```
 
-Without this flag, Codex silently ignores the plugin's hooks and the gate never runs.
+Without `hooks = true`, Codex silently ignores the plugin's hooks and the gate never runs. Without `skills = true`, the bundled `$transcodes` skill is not loaded.
 
 **Step 2 — install via the Codex marketplace.** The repo ships `.codex-plugin/marketplace.json`, a `local` catalog pointing at `../plugins/codex`. Clone, build the committed `dist/`, register the catalog, then install:
 
@@ -59,7 +60,7 @@ codex plugin add transcodes-guard@bigstrider   # installs the plugin
 
 **Step 3 — first run.** Codex prompts a one-time hook trust review (`/hooks` to inspect). Approve it once. Do **not** use `--dangerously-bypass-hook-trust`.
 
-**Step 4 — export `TRANSCODES_TOKEN`** (the member MCP JWT) so step-up can start. Without it, the hook still DENIES danger commands but cannot open a step-up session.
+**Step 4 — save your token** (the member MCP JWT) so step-up can start. Recommended: `npm install -g @bigstrider/transcodes-cli` then run `transcodes` to open the local dashboard (URL printed in the terminal; default port 3847) and paste your token (persisted to `~/.transcodes/config.json` for every session). Non-interactive: `transcodes set <token> -l <label>`. For CI/overrides only, export `TRANSCODES_TOKEN` instead (it takes precedence). Without any of these, the hook still DENIES danger commands but cannot open a step-up session.
 
 ### Cursor
 
@@ -84,7 +85,7 @@ User scope (all workspaces) writes `~/.cursor/hooks.json` and `~/.cursor/mcp.jso
 /path/to/transcodes-guard/plugins/cursor/install.sh --user
 ```
 
-On first run, Cursor prompts a one-time hook trust review (command palette → "Cursor: Review Hooks"). Also export `TRANSCODES_TOKEN` in the shell that launches Cursor.
+On first run, Cursor prompts a one-time hook trust review (command palette → "Cursor: Review Hooks"). Also save your token — recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`. CI/overrides: export `TRANSCODES_TOKEN` in the shell that launches Cursor.
 
 ### Antigravity
 
@@ -102,7 +103,7 @@ node plugins/antigravity/install.mjs
 node plugins/antigravity/install.mjs --local
 ```
 
-On the CLI, `agy plugin list` should then show `transcodes-guard`. Also export `TRANSCODES_TOKEN`.
+On the CLI, `agy plugin list` should then show `transcodes-guard`. Also save your token — recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`. CI/overrides: export `TRANSCODES_TOKEN`.
 
 > Why the bundled installer instead of `agy plugin install`: that command is pure staging (CLI dir only — no IDE-dir copy, no path substitution). Antigravity exposes no plugin-root path variable, and hook/MCP commands run with the CWD pinned to `$HOME` (a known Antigravity bug), so relative paths break — the installer injects absolute paths into `hooks.json` / `mcp_config.json` at install time.
 
@@ -145,7 +146,7 @@ Diagnostics MCP tools:
 - `simulate_command`
 - `simulate_hook_invocation` — spawns the **real** hook binary (not a dry run; it can consume a verified record or open a browser).
 
-`TRANSCODES_TOKEN` (the member MCP JWT) is required for step-up to actually start.
+A token (the member MCP JWT) is required for step-up to actually start. Recommended: install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to enter it in the dashboard. Non-interactive: `transcodes set <token> -l <label>`. For CI/overrides, export `TRANSCODES_TOKEN` — the env var takes precedence over the saved file.
 
 ### tool_rules (protected MCP tools)
 
