@@ -58,8 +58,8 @@ export function formatCliUsageFooter(
   configPath = transcodesConfigFile(),
 ): string {
   return `The token is read by the transcodes-guard plugins/hooks with precedence:
-  1. TRANSCODES_TOKEN environment variable (overrides everything)
-  2. ${configPath}
+  1. ${configPath} (written by this CLI, the source of truth)
+  2. TRANSCODES_TOKEN environment variable (fallback for config-less envs)
 `;
 }
 
