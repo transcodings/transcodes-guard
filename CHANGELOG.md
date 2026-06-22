@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.21.1...transcodes-guard-v0.21.2) (2026-06-22)
+
+
+### Bug Fixes
+
+* **cursor:** 게이트 hook에 failClosed:true 추가 (fail-open 보안 구멍 차단) ([c9dd777](https://github.com/transcodings/transcodes-guard/commit/c9dd777b55a809c525aa4528ee1b5bb8edfdfab5))
+* **cursor:** 게이트 hook에 failClosed:true 추가 (fail-open 보안 구멍 차단) ([f0696e7](https://github.com/transcodings/transcodes-guard/commit/f0696e7ba58ea55470d60e1efa02b5bf33d866b3))
+
 ## [0.21.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.21.0...transcodes-guard-v0.21.1) (2026-06-22)
 
 
