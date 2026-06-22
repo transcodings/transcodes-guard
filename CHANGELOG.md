@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.19.0...transcodes-guard-v0.20.0) (2026-06-22)
+
+
+### Features
+
+* **cli:** polish dashboard guideline, rules UX, and header links ([3f9d17f](https://github.com/transcodings/transcodes-guard/commit/3f9d17f3af3539932285ff4ce58485c4e43727e5))
+
 ## [0.19.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.3...transcodes-guard-v0.19.0) (2026-06-22)
 
 
