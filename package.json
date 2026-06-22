@@ -6,7 +6,8 @@
   "workspaces": [
     "packages/*",
     "plugins/*",
-    "cli"
+    "cli",
+    "mcp"
   ],
   "scripts": {
     "build": "turbo run build",

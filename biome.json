@@ -52,7 +52,7 @@
           "level": "error",
           "options": {
             "paths": {
-              "@transcodes-guard/gate-backend": "Only the plugin backend.ts seams (plugins/*/backend.ts, exempted via biome overrides) may import the concrete gate backend. Everything else must call getGateBackend() from @transcodes-guard/gate-contract."
+              "@transcodes-guard/gate-backend": "Only the backend.ts seams (plugins/*/backend.ts and mcp/src/backend.ts, exempted via biome overrides) may import the concrete gate backend. Everything else must call getGateBackend() from @transcodes-guard/gate-contract."
             }
           }
         }
@@ -61,7 +61,7 @@
   },
   "overrides": [
     {
-      "includes": ["plugins/*/backend.ts"],
+      "includes": ["plugins/*/backend.ts", "mcp/src/backend.ts"],
       "linter": {
         "rules": {
           "style": {

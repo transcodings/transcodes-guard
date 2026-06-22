@@ -25,6 +25,17 @@ Commands live in `package.json` scripts (`build:plugin`, `dev:*`, `check`, `type
 
 `packages/*/src/` (host-agnostic libraries + backend-coupled logic) + `plugins/*/hooks/` (host-thin entries) are the source of truth; every `dist/` is a committed build artifact — never hand-edit it. The package and plugin lists are in the workspace globs of `package.json`; what each one does is documented in the rule file that governs it. The `transcodes` CLI (`cli/`, `@bigstrider/transcodes-cli`) is the human's control plane and owns the shared `~/.transcodes/` directory.
 
+The eight `packages/*` are not eight loose domains — they sit in **four layers**, and the layer boundaries are enforced by the build (biome import firewall, `private:true` publish gate), not by convention. Read a package's role from its layer, not its name:
+
+| Layer | Packages | What it is |
+|---|---|---|
+| **Public DI contract** | `gate-contract` | The interface the public side (hooks + `mcp-server-core`) compiles against. Backend injected at runtime via `setGateBackend()`. |
+| **Private backend** | `gate-backend`, `transcodes-mcp-tools` | The concrete `GateBackend` (`gate-backend` composes the others) + the Transcodes-API MCP tools it registers. Reachable only across the seam (`getGateBackend()`); importing `gate-backend` directly is a biome error. |
+| **Host-agnostic core** | `stepup-core`, `mcp-server-core`, `danger-patterns` | The gate logic, the `createServer()` MCP surface, and the shared danger-pattern/tool-rule registry. No host or backend coupling. |
+| **Host adapters** | `hook-adapters`, `plugin-paths` | Per-host stdin/stdout wire formats and per-host path resolution — the only place host divergence lives. |
+
+The `gate-contract` ↔ `gate-backend` split is the firewall's whole reason to exist (see [[boundary-and-seams]]) and must never be merged; the count is load-bearing, not incidental.
+
 ## Rules index
 
 - **[boundary-and-seams](.claude/rules/boundary-and-seams.md)** — the gate-backend import firewall, the mirrored-contract drift alarm, the load-bearing entry import order (always-on)

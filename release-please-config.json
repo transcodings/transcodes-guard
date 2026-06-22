@@ -53,6 +53,11 @@
           "type": "json",
           "path": "plugins/cursor/package.json",
           "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "mcp/package.json",
+          "jsonpath": "$.version"
         }
       ]
     }

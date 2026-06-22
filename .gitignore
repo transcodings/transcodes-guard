@@ -253,6 +253,11 @@ tags
 # so keep it OUT of git — re-ignore after the broad packages/* un-ignore.
 cli/dist/
 
+# The standalone MCP server is published to npm independently (bundled via
+# tsup at publish time), same as the CLI. Its dist is not consumed by the
+# marketplace tree, so keep it OUT of git.
+mcp/dist/
+
 # Turborepo / Nx local cache (not part of the source)
 .turbo/
 
