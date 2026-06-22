@@ -1,13 +1,12 @@
 {
   "name": "transcodes-guard-monorepo",
   "private": true,
-  "version": "0.20.0",
+  "version": "0.20.1",
   "description": "Monorepo orchestrator for transcodes-guard plugins + marketplace. Root is the release-please train coordinator (never published).",
   "workspaces": [
     "packages/*",
     "plugins/*",
-    "cli",
-    "mcp"
+    "cli"
   ],
   "scripts": {
     "build": "turbo run build",
