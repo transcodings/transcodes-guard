@@ -1,6 +1,6 @@
 {
   "name": "@bigstrider/transcodes-mcp",
-  "version": "0.20.2",
+  "version": "0.21.0",
   "description": "Transcodes Guard MCP server — step-up MFA audit tools/resources/prompts over stdio. Standalone build for Claude Desktop / claude.ai connectors and any MCP client.",
   "type": "module",
   "bin": {
