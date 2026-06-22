@@ -1,6 +1,6 @@
 {
   "name": "@bigstrider/transcodes-guard-claude-code",
-  "version": "0.21.1",
+  "version": "0.21.2",
   "description": "Risky-bash interceptor (PreToolUse hook) and step-up MFA audit MCP server — Claude Code plugin.",
   "type": "module",
   "main": "dist/src/stdio.js",
