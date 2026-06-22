@@ -70,6 +70,8 @@ export TRANSCODES_TOKEN="$(read-your-token-here)"
 | `beforeSubmitPrompt` | 사용자의 "인증 완료" 프롬프트(`완료` / `done` / …)를 감지합니다. Cursor는 이 이벤트에 `additional_context` 채널이 없으므로, hook이 `consumeVerified` + `clearPending`를 부수 효과로 수행하고 `{ continue: true }`를 내보냅니다. |
 | `stop` | `followup_message`로 매달린 스텝업 세션을 모델에 상기시키고, 고아 verified/pending 레코드를 조용히 회수합니다. |
 
+게이트 hook 2종(`beforeShellExecution` / `beforeMCPExecution`)은 `failClosed: true`로 선언됩니다. Cursor의 기본값은 fail-open이라 hook이 크래시·타임아웃하거나 잘못된 JSON을 내면 명령이 그대로 통과합니다. 그래서 게이트는 hook 자체가 실패하면 명령을 명시적으로 차단하며, 이는 보안에 민감한 hook에 대한 Cursor 권장사항과 일치합니다. 수명주기 hook(`sessionStart` / `beforeSubmitPrompt` / `stop`)은 차단이 아닌 관찰 역할이므로, 실패가 정상 작업을 가로막지 않도록 fail-open을 유지합니다.
+
 MCP 서버 자체(`mcp.json`에 `transcodes-guard`로 등록)는 다른 플러그인과 동일한 도구를 제공합니다: **진단 / 시뮬레이션**(`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), **스텝업 수명주기**(`create_stepup_session`, `poll_stepup_session_wait`), **Transcodes 관리**(멤버 / 조직 / RBAC / 멤버십 / passcode / auth-device / 감사 / 프로젝트 관리).
 
 ## AI 에이전트를 위한 안내

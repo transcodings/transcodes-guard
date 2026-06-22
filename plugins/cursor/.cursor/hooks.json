@@ -5,14 +5,16 @@
       {
         "type": "command",
         "command": "node __TRANSCODES_GUARD_ROOT__/dist/hooks/pre-tool-use.js",
-        "timeout": 30
+        "timeout": 30,
+        "failClosed": true
       }
     ],
     "beforeMCPExecution": [
       {
         "type": "command",
         "command": "node __TRANSCODES_GUARD_ROOT__/dist/hooks/pre-tool-use.js",
-        "timeout": 30
+        "timeout": 30,
+        "failClosed": true
       }
     ],
     "sessionStart": [
