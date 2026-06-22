@@ -80,7 +80,7 @@ export const transcodesGateBackend: GateBackend = {
     // not up to POLICY_BUNDLE_TTL_MS later. The PreToolUse hot path never
     // calls this (cache-only — design invariant 2), so the TTL still applies
     // there.
-    await refreshPolicyBundleIfConfigured({ force: true });
+    return refreshPolicyBundleIfConfigured({ force: true });
   },
 
   // server path: step-up session — config loaded internally

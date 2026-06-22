@@ -30,7 +30,9 @@ export const denyByDefaultBackend = {
         return false;
     },
     async sendGateDecisionAudit() { },
-    async refreshPolicyBundle() { },
+    async refreshPolicyBundle() {
+        return 'skipped';
+    },
     // server path — call-shaped methods throw
     createStepupSession() {
         return notInstalled();

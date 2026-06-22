@@ -25,6 +25,7 @@ import type {
   MergedPattern,
   MergedToolRule,
   PendingState,
+  PolicyBundleRefreshOutcome,
   PollStepupResult,
   StepupStateInspection,
   ToolCallInput,
@@ -62,9 +63,10 @@ export interface GateBackend {
    * SessionStart-equivalent hooks AFTER their stdout emit and from MCP server
    * boot — never from PreToolUse (the hook critical path reads cache only).
    * Never rejects; a silent no-op when no token is resolvable, and a failed
-   * fetch keeps the previous cache (last-known-good).
+   * fetch keeps the previous cache (last-known-good). Returns the outcome so
+   * callers (e.g. the `refresh_rules` MCP tool) can report it honestly.
    */
-  refreshPolicyBundle(): Promise<void>;
+  refreshPolicyBundle(): Promise<PolicyBundleRefreshOutcome>;
 
   // ── server path: step-up session (config loaded internally) ────────────
   createStepupSession(args: CreateStepupArgs): Promise<CreatedStepupSession>;

@@ -5,6 +5,7 @@
  */
 import {
   loadMergedToolRules,
+  ruleAppliesToHost,
   toolNameMatchesRule,
 } from '@transcodes-guard/danger-patterns';
 import {
@@ -41,8 +42,8 @@ export async function execProtectedTool(
   content: { type: 'text'; text: string }[];
 }> {
   const verified = readVerified();
-  const rule = loadMergedToolRules().find((r) =>
-    toolNameMatchesRule(toolName, r),
+  const rule = loadMergedToolRules().find(
+    (r) => toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r),
   );
 
   if (rule?.action !== undefined && rule.resource !== undefined) {

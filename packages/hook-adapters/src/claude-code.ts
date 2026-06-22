@@ -38,7 +38,7 @@ function readString(v: unknown): string | undefined {
 }
 
 export const claudeCodeAdapter: HookAdapter = {
-  host: 'claude-code',
+  host: 'claude',
 
   parsePreToolUseStdin(raw: string): PreToolUseInput {
     const payload = JSON.parse(raw) as RawPreToolUsePayload;

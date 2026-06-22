@@ -10,4 +10,4 @@
  * whichever loads last to overwrite. Doing it here, as the entry's first
  * static import, makes the source-order guarantee load-bearing.
  */
-process.env.TRANSCODES_GUARD_HOST = 'claude-code';
+process.env.TRANSCODES_GUARD_HOST = 'claude';

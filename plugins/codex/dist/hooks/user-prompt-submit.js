@@ -2,10 +2,10 @@
 import {
   COMPLETION_PATTERN,
   codexAdapter
-} from "../chunk-736UD6O7.js";
+} from "../chunk-RAMWXODQ.js";
 import {
   getGateBackend
-} from "../chunk-VIMG7Z57.js";
+} from "../chunk-BK72VDXD.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";
