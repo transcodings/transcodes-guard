@@ -48,8 +48,8 @@ Options:
 
 The plugins resolve the token in this order (see `@transcodes-guard/stepup-core` `resolveToken()`):
 
-1. `TRANSCODES_TOKEN` environment variable — overrides everything (CI / power users)
-2. `~/.transcodes/config.json` — written by this CLI
+1. `~/.transcodes/config.json` — written by this CLI, the source of truth
+2. `TRANSCODES_TOKEN` environment variable — fallback for config-less envs (CI / power users)
 3. none → the hook fail-safes (blocks danger commands, cannot start step-up)
 
 ## Notes

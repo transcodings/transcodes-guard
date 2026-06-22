@@ -52,7 +52,7 @@ transcodes   # opens the local dashboard — URL is printed in the terminal (def
 
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
 
-For CI or one-off overrides only, export the `TRANSCODES_TOKEN` environment variable in the shell that launches Cursor — it **takes precedence** over the saved file:
+For config-less envs (CI), export the `TRANSCODES_TOKEN` environment variable in the shell that launches Cursor — it's a **fallback** used only when no token is saved to the file:
 
 ```bash
 export TRANSCODES_TOKEN="$(read-your-token-here)"

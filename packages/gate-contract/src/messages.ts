@@ -37,9 +37,9 @@ export function formatNoTokenSessionNotice(): string {
     '  Non-interactive alternative (same store, e.g. for scripts):',
     '    transcodes set <token> -l <label>',
     '',
-    '  For CI or one-off overrides only: set the TRANSCODES_TOKEN environment',
-    '  variable before launching the host (it takes precedence over the saved',
-    '  file). Note: GUI-launched apps often do NOT inherit your shell env, so the',
+    '  For config-less envs (CI): set the TRANSCODES_TOKEN environment',
+    '  variable before launching the host (a fallback used only when no token is',
+    '  saved). Note: GUI-launched apps often do NOT inherit your shell env, so the',
     '  CLI dashboard above is the more reliable option for desktop hosts.',
   ].join('\n');
 }
