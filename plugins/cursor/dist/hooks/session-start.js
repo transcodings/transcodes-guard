@@ -5,7 +5,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-ZEE7H6XG.js";
+} from "../chunk-UYWI6GIX.js";
 
 // hooks/session-start.ts
 function carryoverBlock() {

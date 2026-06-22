@@ -228,6 +228,15 @@ export const TRANSCODES_ADMIN_TOOLS: AdminToolEntry[] = [
     stepUpProtected: false,
   },
   {
+    name: 'check_related_origin',
+    title: 'Check sign-in related origin',
+    description:
+      'Check whether a redirect_uri/origin is registered in project authentication.related_origins.',
+    category: 'Project',
+    access: 'api',
+    stepUpProtected: false,
+  },
+  {
     name: 'project_pwa_auth_console',
     title: 'PWA / auth config (console-only)',
     description:

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { checkProjectAssets } from '../src/project.js';
+import {
+  checkProjectAssets,
+  checkRelatedOriginRegistration,
+} from '../src/project.js';
 
+// 최소 Response mock으로 asset probe 결과만 표현한다.
 function response(status: number) {
   return { ok: status >= 200 && status < 300, status } as Response;
 }
@@ -54,6 +58,98 @@ describe('checkProjectAssets', () => {
       assert.equal(methods.includes('GET'), true);
     } finally {
       process.env.TRANSCODES_CDN_BASE_URL = previous;
+    }
+  });
+});
+
+describe('checkRelatedOriginRegistration', () => {
+  it('allows redirect_uri origin from authentication.related_origins', () => {
+    const report = checkRelatedOriginRegistration(
+      {
+        domain_url: 'https://auth.transcodes.io',
+        authentication: {
+          related_origins: ['http://localhost:5173'],
+        },
+      },
+      'http://localhost:5173/callback',
+    );
+
+    assert.equal(report.ok, true);
+    assert.equal(report.checked_origin, 'http://localhost:5173');
+  });
+
+  it('does not treat hosted auth domain_url as a redirect origin', () => {
+    const report = checkRelatedOriginRegistration(
+      {
+        domain_url: 'https://auth.transcodes.io',
+        authentication: {
+          related_origins: [],
+        },
+      },
+      'http://localhost:5173/callback',
+    );
+
+    assert.equal(report.ok, false);
+    assert.deepEqual(report.registered_origins, []);
+    assert.equal(
+      report.next_action?.add_related_origin,
+      'http://localhost:5173',
+    );
+  });
+
+  it('keeps legacy/custom domain_url compatibility', () => {
+    const previous = process.env.TRANSCODES_AUTH_APP_URL;
+    process.env.TRANSCODES_AUTH_APP_URL = 'https://app.example.com';
+    try {
+      const report = checkRelatedOriginRegistration(
+        {
+          domain_url: 'https://app.example.com',
+        },
+        'https://app.example.com/callback',
+      );
+
+      assert.equal(report.ok, true);
+      assert.deepEqual(report.registered_origins, ['https://app.example.com']);
+    } finally {
+      process.env.TRANSCODES_AUTH_APP_URL = previous;
+    }
+  });
+
+  it('does not let MCP-local auth env change backend default hosted origins', () => {
+    const previous = process.env.TRANSCODES_AUTH_APP_URL;
+    process.env.TRANSCODES_AUTH_APP_URL = 'https://auth.transcodes.io';
+    try {
+      const report = checkRelatedOriginRegistration(
+        {
+          domain_url: 'https://auth.transcodes.io',
+        },
+        'https://auth.transcodes.io/callback',
+      );
+
+      assert.equal(report.ok, false);
+      assert.deepEqual(report.registered_origins, []);
+    } finally {
+      process.env.TRANSCODES_AUTH_APP_URL = previous;
+    }
+  });
+
+  it('ignores MCP-local custom auth env because backend env is the SSOT', () => {
+    const previous = process.env.TRANSCODES_AUTH_APP_URL;
+    process.env.TRANSCODES_AUTH_APP_URL = 'https://custom-auth.example.com';
+    try {
+      const report = checkRelatedOriginRegistration(
+        {
+          domain_url: 'https://custom-auth.example.com',
+        },
+        'https://custom-auth.example.com/callback',
+      );
+
+      assert.equal(report.ok, true);
+      assert.deepEqual(report.registered_origins, [
+        'https://custom-auth.example.com',
+      ]);
+    } finally {
+      process.env.TRANSCODES_AUTH_APP_URL = previous;
     }
   });
 });

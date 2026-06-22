@@ -9,7 +9,40 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 type AssetStatus = 'available' | 'missing' | 'unreachable';
 type PwaAssetsState = 'configured' | 'not_configured_or_missing' | 'partial' | 'unreachable';
+export type ProjectOriginConfig = {
+    domain_url?: unknown;
+    authentication?: {
+        related_origins?: unknown;
+    };
+};
 type FetchLike = typeof fetch;
+export declare function checkRelatedOriginRegistration(project: ProjectOriginConfig, redirectUriOrOrigin: string): {
+    ok: boolean;
+    message: string;
+    checked_origin?: undefined;
+    registered_origins?: undefined;
+    source?: undefined;
+    diagnostics?: undefined;
+    next_action?: undefined;
+} | {
+    ok: boolean;
+    checked_origin: string;
+    registered_origins: string[];
+    source: {
+        domain_url: {} | null;
+        domain_url_origin: string | null;
+        domain_url_counts_as_redirect_origin: boolean;
+        related_origins: any[];
+        ignored_related_origins: unknown[];
+        auth_host_origins: string[];
+    };
+    diagnostics: string[];
+    next_action: {
+        add_related_origin: string;
+        console_path: string;
+    } | null;
+    message?: undefined;
+};
 export declare function checkProjectAssets(projectId: string, fetcher?: FetchLike): Promise<{
     ok: boolean;
     project_id: string;

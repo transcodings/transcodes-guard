@@ -7002,6 +7002,8 @@ function registerPasscodeTools(server) {
 // ../../packages/transcodes-mcp-tools/dist/project.js
 var DEFAULT_CDN_BASE_URL = "https://cdn.transcodes.link";
 var ASSET_CHECK_TIMEOUT_MS = 5e3;
+var AUTH_APP_URL_PROD = "https://auth.transcodes.io";
+var AUTH_APP_URL_DEV = "https://auth.automexpert.com";
 var textResult5 = (text, isError = false) => ({
   isError,
   content: [{ type: "text", text }]
@@ -7012,6 +7014,21 @@ var PROJECT_ASSETS = [
   ["pwa_service_worker", "installable_pwa", "sw.js"]
 ];
 var MSG_PROJECT_PWA_AUTH_CONSOLE = "PWA and authentication configuration (manifest, service worker, widget, branding, WebAuthn, related origins, token expiry, etc.) must be performed in the Transcodes console. Changes to these settings require the project SDK to be rebuilt and redeployed \u2014 a process that the console handles automatically. Modifying them directly via API without going through the console build pipeline will leave the deployed SDK out of sync with your configuration. This MCP tool does not call the API.";
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function toOrigin(value) {
+  if (typeof value !== "string" || !value.trim())
+    return null;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+function resolveAuthHostOrigins() {
+  return new Set([AUTH_APP_URL_PROD, AUTH_APP_URL_DEV].map(toOrigin).filter((origin) => Boolean(origin)));
+}
 function resolveCdnBaseUrl() {
   const value = process.env.TRANSCODES_CDN_BASE_URL?.trim() || DEFAULT_CDN_BASE_URL;
   try {
@@ -7019,6 +7036,13 @@ function resolveCdnBaseUrl() {
   } catch {
     throw new Error(`CDN base URL is not valid: ${value}`);
   }
+}
+function extractProjectPayload(envelope) {
+  if (!isRecord(envelope) || !isRecord(envelope.data))
+    return null;
+  const { payload } = envelope.data;
+  const project = Array.isArray(payload) ? payload[0] : payload;
+  return isRecord(project) ? project : null;
 }
 async function fetchWithTimeout(fetcher, url, method) {
   const controller = new AbortController();
@@ -7045,6 +7069,57 @@ async function probeAsset(url, fetcher) {
       error: err instanceof Error ? err.message : String(err)
     };
   }
+}
+function checkRelatedOriginRegistration(project, redirectUriOrOrigin) {
+  const checkedOrigin = toOrigin(redirectUriOrOrigin);
+  if (!checkedOrigin) {
+    return {
+      ok: false,
+      message: "redirect_uri or origin must be a valid URL."
+    };
+  }
+  const authHostOrigins = resolveAuthHostOrigins();
+  const relatedOrigins = Array.isArray(project.authentication?.related_origins) ? project.authentication.related_origins : [];
+  const registeredOrigins = /* @__PURE__ */ new Set();
+  const ignoredRelatedOrigins = [];
+  for (const candidate of relatedOrigins) {
+    const origin = toOrigin(candidate);
+    if (origin) {
+      registeredOrigins.add(origin);
+    } else {
+      ignoredRelatedOrigins.push(candidate);
+    }
+  }
+  const domainOrigin = toOrigin(project.domain_url);
+  const domainUrlCountsAsRedirectOrigin = domainOrigin !== null && !authHostOrigins.has(domainOrigin);
+  if (domainUrlCountsAsRedirectOrigin && domainOrigin) {
+    registeredOrigins.add(domainOrigin);
+  }
+  const matched = registeredOrigins.has(checkedOrigin);
+  return {
+    ok: matched,
+    checked_origin: checkedOrigin,
+    registered_origins: [...registeredOrigins],
+    source: {
+      domain_url: project.domain_url ?? null,
+      domain_url_origin: domainOrigin,
+      domain_url_counts_as_redirect_origin: domainUrlCountsAsRedirectOrigin,
+      related_origins: relatedOrigins,
+      ignored_related_origins: ignoredRelatedOrigins,
+      auth_host_origins: [...authHostOrigins]
+    },
+    diagnostics: matched ? [
+      "This redirect origin is registered for sign-in callbacks.",
+      "WebAuthn credentials still live on the hosted auth origin; related_origins is only the redirect allow-list for sign-in callbacks."
+    ] : [
+      "redirect_uri origin is not registered for this project.",
+      "Add the checked_origin to Transcodes Console > Project > Authentication > Related origins, then rebuild/redeploy the project SDK from the console."
+    ],
+    next_action: matched ? null : {
+      add_related_origin: checkedOrigin,
+      console_path: "Transcodes Console > Project > Authentication > Related origins"
+    }
+  };
 }
 async function checkProjectAssets(projectId, fetcher = fetch) {
   const baseUrl = resolveCdnBaseUrl();
@@ -7078,6 +7153,19 @@ async function checkProjectAssets(projectId, fetcher = fetch) {
     ]
   };
 }
+async function loadProjectForOriginCheck() {
+  const config = loadStepupConfig();
+  const text = await req(config, { method: "GET" }, "get_project", `/${config.projectId}`);
+  const envelope = JSON.parse(text);
+  if (isRecord(envelope) && envelope.ok === false) {
+    throw new Error(`Could not fetch project: ${text}`);
+  }
+  const project = extractProjectPayload(envelope);
+  if (!project) {
+    throw new Error(`Could not read project payload: ${text}`);
+  }
+  return project;
+}
 function registerProjectTools(server) {
   server.registerTool("get_project", {
     title: "Get project",
@@ -7087,6 +7175,32 @@ function registerProjectTools(server) {
     const config = loadStepupConfig();
     const text = await req(config, { method: "GET" }, "get_project", `/${config.projectId}`);
     return textResult5(text);
+  });
+  server.registerTool("check_related_origin", {
+    title: "Check sign-in related origin",
+    description: "Read-only diagnostic for hosted sign-in redirect setup. Checks whether a redirect_uri/origin is present in the active project authentication.related_origins allow-list, matching the backend sign-in callback policy.",
+    inputSchema: {
+      redirect_uri: external_exports.string().optional(),
+      origin: external_exports.string().optional()
+    }
+  }, async ({ redirect_uri, origin }) => {
+    try {
+      const target = redirect_uri?.trim() || origin?.trim();
+      if (!target) {
+        return textResult5(JSON.stringify({
+          ok: false,
+          message: "Pass redirect_uri or origin."
+        }, null, 2), true);
+      }
+      const project = await loadProjectForOriginCheck();
+      const report = checkRelatedOriginRegistration(project, target);
+      return textResult5(JSON.stringify(report, null, 2), !report.ok);
+    } catch (err) {
+      return textResult5(JSON.stringify({
+        ok: false,
+        message: `Could not check related origin: ${err instanceof Error ? err.message : String(err)}`
+      }, null, 2), true);
+    }
   });
   server.registerTool("check_project_assets", {
     title: "Check project CDN assets",
