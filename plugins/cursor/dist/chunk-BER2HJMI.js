@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "antigravity";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -50,9 +50,9 @@ function formatNoTokenSessionNotice() {
     "  Non-interactive alternative (same store, e.g. for scripts):",
     "    transcodes set <token> -l <label>",
     "",
-    "  For CI or one-off overrides only: set the TRANSCODES_TOKEN environment",
-    "  variable before launching the host (it takes precedence over the saved",
-    "  file). Note: GUI-launched apps often do NOT inherit your shell env, so the",
+    "  For config-less envs (CI): set the TRANSCODES_TOKEN environment",
+    "  variable before launching the host (a fallback used only when no token is",
+    "  saved). Note: GUI-launched apps often do NOT inherit your shell env, so the",
     "  CLI dashboard above is the more reliable option for desktop hosts."
   ].join("\n");
 }
@@ -941,13 +941,13 @@ function readTokenFromFile() {
   return readConfig().token;
 }
 function resolveToken() {
-  const envToken = process.env.TRANSCODES_TOKEN?.trim();
-  if (envToken) {
-    return { token: envToken, source: "env" };
-  }
   const fileToken = readTokenFromFile();
   if (fileToken) {
     return { token: fileToken, source: "file" };
+  }
+  const envToken = process.env.TRANSCODES_TOKEN?.trim();
+  if (envToken) {
+    return { token: envToken, source: "env" };
   }
   return { token: null, source: "none" };
 }
