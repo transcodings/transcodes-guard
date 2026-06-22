@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.3...transcodes-guard-v0.19.0) (2026-06-22)
+
+
+### Features
+
+* **cli:** finish local dashboard as CLI panel for tokens and rules ([41995a9](https://github.com/transcodings/transcodes-guard/commit/41995a905335d1093cf0e19379f3f176ace3fc27))
+
 ## [0.18.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.18.2...transcodes-guard-v0.18.3) (2026-06-21)
 
 
