@@ -331,12 +331,31 @@ function dashboardHtml(): string {
       object-fit: contain;
       background: #f4f4f6;
       padding: 8px;
+      display: block;
+    }
+    .header-logo-link {
+      flex-shrink: 0;
+      border-radius: 14px;
+      line-height: 0;
+      transition: opacity 0.15s ease, box-shadow 0.15s ease;
+    }
+    .header-logo-link:hover {
+      opacity: 0.88;
+      box-shadow: 0 0 0 3px var(--accent-soft);
     }
     .header h1 {
       margin: 0;
       font-size: var(--text-xl);
       font-weight: 700;
       letter-spacing: -0.02em;
+    }
+    .header-title-link {
+      color: inherit;
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+    .header-title-link:hover {
+      color: var(--accent);
     }
     .header-title-row {
       display: flex;
@@ -929,6 +948,40 @@ function dashboardHtml(): string {
       flex-direction: column;
       gap: 10px;
     }
+    .guide-groups {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .guide-group-label {
+      margin: 0 0 10px;
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: 0.01em;
+    }
+    a.guide-group-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      color: var(--ink);
+    }
+    a.guide-group-label:hover {
+      color: var(--accent);
+    }
+    a.guide-group-label:hover .guide-group-link-icon {
+      color: var(--accent);
+    }
+    .guide-group-link-icon {
+      display: inline-flex;
+      align-items: center;
+      color: var(--muted);
+      line-height: 0;
+      transition: color 0.15s ease;
+    }
+    .guide-group--panel .guide-group-label { color: var(--accent); }
+    .guide-group--agent .guide-group-label { color: #5a5a64; }
     .guide-step {
       display: flex;
       gap: 14px;
@@ -971,6 +1024,15 @@ function dashboardHtml(): string {
       border: 1px solid var(--line);
       padding: 1px 6px;
       border-radius: 6px;
+    }
+    .guide-step-desc-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+    }
+    .guide-step .toast {
+      margin-top: 10px;
     }
     .guide-help {
       margin: 0 0 18px;
@@ -1023,10 +1085,12 @@ function dashboardHtml(): string {
 <body>
   <div class="card">
     <div class="header">
-      <img class="avatar" src="${LOGO_DATA_URI}" alt="Transcodes" />
+      <a class="header-logo-link" href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer" aria-label="Open Transcodes console">
+        <img class="avatar" src="${LOGO_DATA_URI}" alt="Transcodes" />
+      </a>
       <div>
         <div class="header-title-row">
-          <h1>Transcodes CLI Panel</h1>
+          <h1><a class="header-title-link" href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Transcodes</a> CLI Panel</h1>
           <span class="header-status">
             <span class="status-dot" aria-hidden="true"></span>
             Connected
@@ -1059,64 +1123,97 @@ function dashboardHtml(): string {
         ></mux-player>
       </div>
       <p class="list-label">Quick setup</p>
-      <ol class="guide-steps">
-        <li class="guide-step">
-          <span class="guide-step-num">1</span>
-          <div class="guide-step-body">
-            <p class="guide-step-title">Create a project</p>
-            <p class="guide-step-desc">In the Transcodes web console, create a new project for your app</p>
-          </div>
-        </li>
-        <li class="guide-step">
-          <span class="guide-step-num">2</span>
-          <div class="guide-step-body">
-            <p class="guide-step-title">Create an authentication cluster</p>
-            <p class="guide-step-desc">Add an authentication cluster to the project to define how members sign in and authenticate</p>
-          </div>
-        </li>
-        <li class="guide-step">
-          <span class="guide-step-num">3</span>
-          <div class="guide-step-body">
-            <p class="guide-step-title">Add a member</p>
-            <p class="guide-step-desc">Invite or add a member to the project so they can be issued an access token</p>
-          </div>
-        </li>
-        <li class="guide-step">
-          <span class="guide-step-num">4</span>
-          <div class="guide-step-body">
-            <p class="guide-step-title">Issue an access token</p>
-            <p class="guide-step-desc">Open the member detail page and issue a Member Access Token (MAT) for the agent</p>
-          </div>
-        </li>
-        <li class="guide-step">
-          <span class="guide-step-num">5</span>
-          <div class="guide-step-body">
-            <p class="guide-step-title">Add it here in the CLI dashboard</p>
-            <p class="guide-step-desc">Paste the token in the Tokens tab with a label (e.g. <code>transcodes-myapp-dev</code>) — the plugin reads it from <code>{{HOME_DIR}}/.transcodes/config.json</code></p>
-          </div>
-        </li>
-        <li class="guide-step">
-          <span class="guide-step-num">6</span>
-          <div class="guide-step-body">
-            <p class="guide-step-title">Ask your local agent to add a custom rule</p>
-            <p class="guide-step-desc">From your agent, request a guard rule (e.g. <code>add_tool_rule</code> / <code>add_user_pattern</code>) — it is registered as <code>inactive</code></p>
-          </div>
-        </li>
-        <li class="guide-step">
-          <span class="guide-step-num">7</span>
-          <div class="guide-step-body">
-            <p class="guide-step-title">Approve it in the console</p>
-            <p class="guide-step-desc">Switch the rule to <code>active</code> in the Transcodes web console — only then is it enforced</p>
-          </div>
-        </li>
-        <li class="guide-step">
-          <span class="guide-step-num">8</span>
-          <div class="guide-step-body">
-            <p class="guide-step-title">Refresh active rules locally</p>
-            <p class="guide-step-desc">Run <code>transcodes policy refresh</code> in your terminal, or tell your agent <code>/transcodes</code> (Codex: <code>$transcodes</code>) — e.g. “Update the active transcodes rules” — so newly activated console rules apply without restarting the host</p>
-          </div>
-        </li>
-      </ol>
+      <div class="guide-groups">
+        <section class="guide-group guide-group--console">
+          <a class="guide-group-label" href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Transcodes Console<span class="guide-group-link-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span></a>
+          <ol class="guide-steps">
+            <li class="guide-step">
+              <span class="guide-step-num">1</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Create a project</p>
+                <p class="guide-step-desc">Create a new project for your app</p>
+              </div>
+            </li>
+            <li class="guide-step">
+              <span class="guide-step-num">2</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Create an authentication cluster</p>
+                <p class="guide-step-desc">Add an authentication cluster to define how members sign in and authenticate</p>
+              </div>
+            </li>
+            <li class="guide-step">
+              <span class="guide-step-num">3</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Add a member</p>
+                <p class="guide-step-desc">Invite or add a member so they can be issued an access token</p>
+              </div>
+            </li>
+            <li class="guide-step">
+              <span class="guide-step-num">4</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Issue an access token</p>
+                <p class="guide-step-desc">Open the member detail page and issue a Member Access Token (MAT) for the agent</p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="guide-group guide-group--panel">
+          <p class="guide-group-label">This CLI panel</p>
+          <ol class="guide-steps">
+            <li class="guide-step">
+              <span class="guide-step-num">5</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Save the token</p>
+                <p class="guide-step-desc">Paste the token in the Tokens tab with a label (e.g. <code>transcodes-myapp-dev</code>) — the plugin reads it from <code>{{HOME_DIR}}/.transcodes/config.json</code></p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="guide-group guide-group--agent">
+          <p class="guide-group-label">LLM agent (Claude, Cursor, Codex, Antigravity)</p>
+          <ol class="guide-steps">
+            <li class="guide-step">
+              <span class="guide-step-num">6</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Ask your local agent to add a custom rule</p>
+                <p class="guide-step-desc">Use <code>add_tool_rule</code> or <code>add_user_pattern</code> — on first registration, rules are <code>inactive</code> and not applied to MCP</p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="guide-group guide-group--console">
+          <a class="guide-group-label" href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Transcodes Console<span class="guide-group-link-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span></a>
+          <ol class="guide-steps">
+            <li class="guide-step">
+              <span class="guide-step-num">7</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Approve the rule</p>
+                <p class="guide-step-desc">Switch the rule to <code>active</code> — only then is it enforced on MCP</p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="guide-group guide-group--panel">
+          <p class="guide-group-label">This CLI panel</p>
+          <ol class="guide-steps">
+            <li class="guide-step">
+              <span class="guide-step-num">8</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Refresh active rules locally</p>
+                <p class="guide-step-desc guide-step-desc-row">
+                  Run terminal <code>transcodes policy refresh</code> or
+                  <button type="button" class="btn-inline-action" id="guide-policy-refresh">Refresh</button>
+                </p>
+                <div id="guide-toast" class="toast"></div>
+              </div>
+            </li>
+          </ol>
+        </section>
+      </div>
     </div>
 
     <div class="panel" id="panel-tokens">
@@ -1594,11 +1691,17 @@ function dashboardHtml(): string {
       renderProjectRules(await res.json());
     }
 
-    const policyRefreshBtn = document.getElementById("policy-refresh");
-    policyRefreshBtn.addEventListener("click", async () => {
-      policyRefreshBtn.disabled = true;
-      const original = policyRefreshBtn.textContent;
-      policyRefreshBtn.textContent = "Refreshing…";
+    const guideToastEl = document.getElementById("guide-toast");
+    function showGuideToast(msg, kind) {
+      guideToastEl.textContent = msg;
+      guideToastEl.className = "toast show " + (kind || "success");
+      setTimeout(() => guideToastEl.classList.remove("show"), 4000);
+    }
+
+    async function runPolicyRefresh(btn, showToastFn) {
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = "Refreshing…";
       try {
         const res = await fetch("/api/policy/refresh", { method: "POST" });
         const data = await res.json();
@@ -1606,17 +1709,23 @@ function dashboardHtml(): string {
         const detail = data.revision != null
           ? " (revision " + data.revision + ", " + data.rules + " rules)"
           : "";
-        showRulesToast(
+        showToastFn(
           (data.outcome === "not-modified" ? "Policy already current" : "Policy bundle refreshed") + detail,
           "success");
         loadProjectRules();
       } catch (e) {
-        showRulesToast(e.message || "Refresh failed", "error");
+        showToastFn(e.message || "Refresh failed", "error");
       } finally {
-        policyRefreshBtn.disabled = false;
-        policyRefreshBtn.textContent = original;
+        btn.disabled = false;
+        btn.textContent = original;
       }
-    });
+    }
+
+    const policyRefreshBtn = document.getElementById("policy-refresh");
+    policyRefreshBtn.addEventListener("click", () => runPolicyRefresh(policyRefreshBtn, showRulesToast));
+    document.getElementById("guide-policy-refresh").addEventListener(
+      "click",
+      () => runPolicyRefresh(document.getElementById("guide-policy-refresh"), showGuideToast));
 
     function findEditingRule(id) {
       return (lastProjectRules.project || []).find((r) => r.id === id);
