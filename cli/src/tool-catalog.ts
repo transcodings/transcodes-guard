@@ -219,6 +219,15 @@ export const TRANSCODES_ADMIN_TOOLS: AdminToolEntry[] = [
     stepUpProtected: false,
   },
   {
+    name: 'check_project_assets',
+    title: 'Check project CDN assets',
+    description:
+      'Separate auth SDK webworker status from optional PWA manifest/sw.js status.',
+    category: 'Project',
+    access: 'api',
+    stepUpProtected: false,
+  },
+  {
     name: 'project_pwa_auth_console',
     title: 'PWA / auth config (console-only)',
     description:

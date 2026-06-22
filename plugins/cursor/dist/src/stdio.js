@@ -10,7 +10,7 @@ import {
   findFirstMatch,
   getGateBackend,
   objectType
-} from "../chunk-BER2HJMI.js";
+} from "../chunk-ZEE7H6XG.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17053,8 +17053,10 @@ var TRANSCODES_ROUTER_BODY = 'You are the transcodes-guard control surface \u201
 var RBAC_ACTION_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first to fetch valid resource keys, then pass `stepupResource` (must match one of those keys; validated against the backend) and `stepupAction` (CRUD). System rules use resource `system`. This maps the rule onto the project's RBAC permission matrix and audit log.";
 var TOOL_RULE_RBAC_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first, then pass `resource` (must match a valid key) and `action` (create|read|update|delete). System rules use resource `system`.";
 var MCP_TOOL_NAME_GUIDANCE = "MCP tool name as emitted by the host PreToolUse hook (full wire name). Call simulate_tool_call with the same string to verify before saving. Before saving, also confirm this MCP tool is actually connected to the host (see the add_tool_rule existence pre-check) \u2014 never register a rule for an MCP that is not available.";
+var MCP_TOOL_LOOKUP_NAME_GUIDANCE = "MCP full wire name, or a canonical tool id/alias shown by tool-rules://list. Alias lookup is display-only and reports will_trigger_hook=false; use the full wire name to verify actual hook behavior.";
 var MCP_EXISTENCE_PRECHECK = "MCP EXISTENCE PRE-CHECK (mandatory, do this FIRST): a rule must only be registered for an MCP tool that is actually connected to THIS host. Inspect your own available-tools list and confirm the target MCP server/tool is present \u2014 e.g. before adding a Google Calendar rule, verify a Google Calendar MCP tool (mcp__..._google_calendar__...) is actually available in this agent (this applies to every host: Claude Code / Codex / Cursor / Antigravity). If the MCP is NOT connected, you MUST REFUSE: do not call add_tool_rule, and tell the user the rule was rejected because the MCP is not connected to this host. Only proceed when the MCP is confirmed present.";
 var ID_COLLISION_HINT = "Each host (claude/codex/cursor/antigravity) needs its OWN rule because the same tool has a different wire name per host. Pick a NEW provider-prefixed id (e.g. `claude-<slug>`, `codex-<slug>`). Provider is set automatically from this MCP server's host \u2014 do NOT use update_tool_rule to repoint another host's rule.";
+var TRANSCODES_GUARD_WIRE_PREFIX = "mcp__plugin_transcodes-guard_transcodes-guard__";
 function lockedHostProvider() {
   const provider = currentHostProvider();
   if (provider === void 0) {
@@ -17096,13 +17098,62 @@ function formatToolRulesMarkdown(rules) {
     `${rules.length} rule(s) gate MCP tool invocations via the PreToolUse hook.`,
     "Project rules are stored in the Transcodes backend; register via `add_tool_rule` / edit via `update_tool_rule`. Rules are created inactive and can only be activated or deleted in the Next.js console. System rules are immutable.",
     "",
-    "| source | id | name | label | description | action | resource | matcher |",
-    "| ------ | -- | ---- | ----- | ----------- | ------ | -------- | ------- |"
+    "| source | rule id | canonical tool id | display name | aliases | wire name / pattern | description | action | resource | matcher |",
+    "| ------ | ------- | ----------------- | ------------ | ------- | ------------------- | ----------- | ------ | -------- | ------- |"
   ];
   for (const r of rules) {
-    lines.push(`| ${r.source} | \`${r.id}\` | \`${r.name}\` | ${r.label} | ${r.description} | ${r.action ?? "\u2014"} | ${r.resource ?? "\u2014"} | ${r.matcher} |`);
+    const metadata = describeToolRuleName(r);
+    lines.push(`| ${r.source} | \`${r.id}\` | ${formatCanonicalToolId(metadata)} | ${metadata.display_name} | ${formatAliases(metadata)} | \`${r.name}\` | ${r.description} | ${r.action ?? "\u2014"} | ${r.resource ?? "\u2014"} | ${r.matcher} |`);
   }
   return lines.join("\n");
+}
+function describeToolRuleName(rule) {
+  const isExactMcp = rule.type === "mcp" && rule.matcher === "exact";
+  const canonical = isExactMcp ? rule.name.startsWith(TRANSCODES_GUARD_WIRE_PREFIX) ? rule.name.slice(TRANSCODES_GUARD_WIRE_PREFIX.length) : rule.name : void 0;
+  const aliases = /* @__PURE__ */ new Set();
+  if (canonical && canonical !== rule.name)
+    aliases.add(rule.name);
+  return {
+    canonical_tool_id: canonical,
+    display_name: rule.label || canonical || rule.name,
+    aliases: [...aliases]
+  };
+}
+function findToolRulesByAlias(toolName, rules) {
+  const target = toolName.toLowerCase();
+  return rules.filter((rule) => {
+    if (rule.type !== "mcp" || rule.matcher !== "exact")
+      return false;
+    const metadata = describeToolRuleName(rule);
+    return [
+      ...metadata.canonical_tool_id ? [metadata.canonical_tool_id] : [],
+      ...metadata.aliases
+    ].some((name) => name.toLowerCase() === target);
+  });
+}
+function toolRuleSummary(rule) {
+  const metadata = describeToolRuleName(rule);
+  return {
+    id: rule.id,
+    canonical_tool_id: metadata.canonical_tool_id,
+    display_name: metadata.display_name,
+    aliases: metadata.aliases,
+    source: rule.source,
+    type: rule.type,
+    label: rule.label,
+    description: rule.description,
+    name: rule.name,
+    matcher: rule.matcher,
+    provider: rule.provider,
+    action: rule.action,
+    resource: rule.resource
+  };
+}
+function formatCanonicalToolId(metadata) {
+  return metadata.canonical_tool_id ? `\`${metadata.canonical_tool_id}\`` : "\u2014";
+}
+function formatAliases(metadata) {
+  return metadata.aliases.length ? metadata.aliases.map((alias) => `\`${alias}\``).join(", ") : "\u2014";
 }
 function textResult(text, isError = false) {
   return {
@@ -17660,33 +17711,49 @@ provider: ${saved.provider}` : ""}`);
   });
   server.registerTool("simulate_tool_call", {
     title: "Simulate a tool-rule lookup",
-    description: "Given the full MCP wire tool name from a PreToolUse hook (e.g. mcp__github__delete_repository), report whether any system or project tool-rule matches. Read-only \u2014 does not invoke the hook or call the backend. Use to verify a rule name before calling add_tool_rule.",
+    description: "Given a full MCP wire tool name from a PreToolUse hook (e.g. mcp__github__delete_repository) or a listed canonical tool id/alias, report whether any system or project tool-rule matches. Read-only \u2014 does not invoke the hook or call the backend. Use to verify a rule name before calling add_tool_rule.",
     inputSchema: {
-      tool_name: external_exports.string().min(1).describe(MCP_TOOL_NAME_GUIDANCE),
+      tool_name: external_exports.string().min(1).describe(MCP_TOOL_LOOKUP_NAME_GUIDANCE),
       tool_input: external_exports.unknown().optional()
     }
   }, async ({ tool_name }) => {
     const rules = backend.loadMergedToolRules();
-    const match = backend.findFirstToolRule(tool_name, rules);
-    if (!match) {
-      return textResult(JSON.stringify({ tool_name, matched: false, rule_count: rules.length }, null, 2));
+    const directMatch = backend.findFirstToolRule(tool_name, rules);
+    if (directMatch) {
+      return textResult(JSON.stringify({
+        tool_name,
+        matched: true,
+        will_trigger_hook: true,
+        matched_by: "wire_name_or_pattern",
+        rule: toolRuleSummary(directMatch.matched)
+      }, null, 2));
     }
-    const r = match.matched;
+    const aliasMatches = findToolRulesByAlias(tool_name, rules);
+    if (aliasMatches.length === 0) {
+      return textResult(JSON.stringify({
+        tool_name,
+        matched: false,
+        will_trigger_hook: false,
+        rule_count: rules.length
+      }, null, 2));
+    }
+    if (aliasMatches.length > 1) {
+      return textResult(JSON.stringify({
+        tool_name,
+        matched: false,
+        will_trigger_hook: false,
+        alias_ambiguous: true,
+        candidates: aliasMatches.map(toolRuleSummary),
+        note: "Alias matched multiple tool-rules. Use the full wire name / pattern to simulate hook behavior."
+      }, null, 2));
+    }
     return textResult(JSON.stringify({
       tool_name,
-      matched: true,
-      rule: {
-        id: r.id,
-        source: r.source,
-        type: r.type,
-        label: r.label,
-        description: r.description,
-        name: r.name,
-        matcher: r.matcher,
-        provider: r.provider,
-        action: r.action,
-        resource: r.resource
-      }
+      matched: false,
+      will_trigger_hook: false,
+      alias_resolved: true,
+      resolved_rule: toolRuleSummary(aliasMatches[0]),
+      note: "Alias resolution is display-only. Use resolved_rule.name as the full wire name / pattern to simulate hook behavior."
     }, null, 2));
   });
   return server;
