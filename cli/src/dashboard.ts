@@ -22,11 +22,13 @@ import {
   ToolRuleValidationError,
 } from '@transcodes-guard/danger-patterns';
 import {
+  clearTokenFile,
   listGuardRules,
   loadEffectivePatterns,
   loadEffectiveToolRules,
   loadStepupConfig,
   parseMemberAccessToken,
+  readCachedPolicyBundle,
   readTokenFromFile,
   readTokenList,
   readTokenRecords,
@@ -336,10 +338,32 @@ function dashboardHtml(): string {
       font-weight: 700;
       letter-spacing: -0.02em;
     }
-    .header p {
-      margin: 5px 0 0;
+    .header-title-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+    }
+    .header-tagline {
+      margin: 6px 0 0;
       font-size: var(--text-sm);
       color: var(--muted);
+    }
+    .header-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--text-2xs);
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.22);
     }
     .tabs {
       display: flex;
@@ -378,7 +402,52 @@ function dashboardHtml(): string {
     .section-sub {
       font-size: var(--text-base);
       color: var(--muted);
-      margin: 0 0 20px;
+      margin: 0 0 16px;
+    }
+    .cli-map-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0 0 16px;
+      font-size: var(--text-2xs);
+      font-weight: 400;
+      color: var(--muted);
+    }
+    .cli-map-row .cli-map-label {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .cli-map-row .cli-map-label--title {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .cli-map-row .cli-map-label--danger {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: #c0392f;
+    }
+    .cli-map-row .cli-map-label--ink { color: var(--ink); }
+    .cli-map-row code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: var(--text-2xs);
+      font-weight: 600;
+    }
+    .cli-map-row--list {
+      margin: 26px 0 10px;
+    }
+    .cli-map-row--section {
+      margin: 0 0 4px;
+    }
+    .cli-map-row--danger {
+      margin: 0;
     }
     textarea {
       width: 100%;
@@ -443,6 +512,67 @@ function dashboardHtml(): string {
       color: #5a5a64;
     }
     .btn-secondary:hover:not(:disabled) { background: #ececf0; }
+    .btn-inline-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-size: var(--text-2xs);
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: none;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .btn-inline-action:hover:not(:disabled) { background: #e3e1f7; }
+    .btn-inline-action:disabled { opacity: 0.55; cursor: default; }
+    .danger-zone {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 28px;
+      padding: 18px 20px;
+      border: 1px solid #f0d9d6;
+      border-radius: 16px;
+      background: #fdf6f5;
+    }
+    .danger-zone-desc {
+      margin: 4px 0 0;
+      font-size: var(--text-2xs);
+      color: #8a8a94;
+      line-height: 1.5;
+    }
+    .btn-danger {
+      padding: 11px 22px;
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: #fff;
+      background: #c0392f;
+      border: none;
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-danger:hover:not(:disabled) { background: #a52f26; }
+    .btn-danger:disabled { opacity: 0.55; cursor: default; }
+    .policy-refresh-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfbfc;
+    }
+    .policy-refresh-bar .cli-map-row { margin: 0; flex: 1; min-width: 0; }
     .list-label {
       margin: 26px 0 10px;
       font-size: var(--text-sm);
@@ -578,6 +708,39 @@ function dashboardHtml(): string {
     .perm-chip-1 { color: #166534; border-color: #86efac; background: #f0fdf4; }
     .perm-chip-2 { color: #7c3aed; border-color: #d8b4fe; background: #faf5ff; }
     .field-k-rbac { color: #8a3ffc; font-weight: 600; }
+    .field-status {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+    }
+    .status-chip {
+      display: inline-block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 6px;
+      border: 1px solid;
+      text-transform: lowercase;
+      line-height: inherit;
+      vertical-align: baseline;
+    }
+    .status-chip-active {
+      color: #166534;
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
+    .status-chip-inactive {
+      color: #9f1239;
+      border-color: #fda4af;
+      background: #fff1f2;
+    }
+    .status-hint {
+      font-size: var(--text-2xs);
+      color: var(--muted);
+      line-height: 1.45;
+    }
     .admin-tools-count {
       font-size: var(--text-sm);
       color: var(--muted);
@@ -862,8 +1025,14 @@ function dashboardHtml(): string {
     <div class="header">
       <img class="avatar" src="${LOGO_DATA_URI}" alt="Transcodes" />
       <div>
-        <h1>Transcodes</h1>
-        <p>CLI Dashboard</p>
+        <div class="header-title-row">
+          <h1>Transcodes CLI Panel</h1>
+          <span class="header-status">
+            <span class="status-dot" aria-hidden="true"></span>
+            Connected
+          </span>
+        </div>
+        <p class="header-tagline">Manage credentials and rules from one panel — no CLI typing required</p>
       </div>
     </div>
     <div class="tabs">
@@ -923,7 +1092,7 @@ function dashboardHtml(): string {
           <span class="guide-step-num">5</span>
           <div class="guide-step-body">
             <p class="guide-step-title">Add it here in the CLI dashboard</p>
-            <p class="guide-step-desc">Paste the token in the Tokens tab with a label (e.g. <code>transcodes-myapp-dev</code>) — the plugin reads it from <code>~/.transcodes/config.json</code></p>
+            <p class="guide-step-desc">Paste the token in the Tokens tab with a label (e.g. <code>transcodes-myapp-dev</code>) — the plugin reads it from <code>{{HOME_DIR}}/.transcodes/config.json</code></p>
           </div>
         </li>
         <li class="guide-step">
@@ -951,7 +1120,10 @@ function dashboardHtml(): string {
     </div>
 
     <div class="panel" id="panel-tokens">
-      <p class="section-title">MCP Agent Token</p>
+      <p class="cli-map-row cli-map-row--section">
+        <span class="cli-map-label cli-map-label--title">MCP Access Token</span>
+        <code>transcodes set &lt;token&gt; -l &lt;label&gt;</code>
+      </p>
       <p class="section-sub">Paste the token from your Transcodes console member detail page</p>
       <textarea id="token" placeholder="eyJhbGciOi…" spellcheck="false" autocomplete="off"></textarea>
       <input type="text" id="label" class="label-input" placeholder="Label (required) — e.g. transcodes-{project_name}-{env}" autocomplete="off" required />
@@ -960,8 +1132,21 @@ function dashboardHtml(): string {
         <button type="button" class="btn-secondary" id="clear">Clear</button>
       </div>
       <div id="toast" class="toast"></div>
-      <p class="list-label">Saved tokens</p>
+      <p class="cli-map-row cli-map-row--list">
+        <span class="cli-map-label">Saved tokens</span>
+        <code>transcodes tokens</code>
+      </p>
       <div class="token-list" id="token-list"></div>
+      <div class="danger-zone">
+        <div class="danger-zone-text">
+          <p class="cli-map-row cli-map-row--danger">
+            <span class="cli-map-label cli-map-label--danger">Reset all tokens</span>
+            <code>transcodes reset</code>
+          </p>
+          <p class="danger-zone-desc">Remove every saved token from this machine</p>
+        </div>
+        <button type="button" class="btn-danger" id="reset-all">Reset all</button>
+      </div>
       <p class="hint">Saved to <code>{{HOME_DIR}}/.transcodes/config.json</code><br />Press Ctrl+C in the terminal to stop</p>
     </div>
 
@@ -976,11 +1161,11 @@ function dashboardHtml(): string {
     <div class="panel" id="panel-rules">
       <p id="policy-token-warning" class="policy-token-warning" hidden>transcodes를 로컬 에이전트에서 이용하기 위해선 토큰이 하나 이상 등록이 되어야 합니다</p>
       <div class="tabs sub-tabs" role="tablist" aria-label="Rule type">
-        <button type="button" class="tab active" data-policy="project" role="tab">Project Rules</button>
-        <button type="button" class="tab" data-policy="admin" role="tab">Admin MCP</button>
+        <button type="button" class="tab active" data-policy="project" role="tab">Project</button>
+        <button type="button" class="tab" data-policy="admin" role="tab">Transcodes</button>
       </div>
       <div class="policy-pane active" id="policy-pane-project">
-        <p class="section-title">Step-up Guard Rules</p>
+        <p class="section-title">Custom Project Step-up Rules</p>
         <p class="section-sub">When an active rule matches an agent action, Transcodes step-up authentication is triggered. Rules are registered only from your local agent; activating and deleting them is done in the Transcodes web console</p>
         <div class="usage">
           <p class="usage-title">How rules work</p>
@@ -996,15 +1181,22 @@ function dashboardHtml(): string {
             <span class="q">→ the agent registers it as <code>inactive</code>; activate it in the Transcodes web console to start enforcing</span>
           </div>
         </div>
+        <div class="policy-refresh-bar">
+          <p class="cli-map-row">
+            <span class="cli-map-label cli-map-label--ink">Refresh Custom Project Rules</span>
+            <code>transcodes policy refresh</code>
+          </p>
+          <button type="button" class="btn-inline-action" id="policy-refresh">Refresh</button>
+        </div>
         <div id="rules-toast" class="toast"></div>
-        <p class="list-label">Your project rules</p>
+        <p class="list-label">Your Project MCP Rules</p>
         <div class="token-list" id="project-rules-list"></div>
         <p class="list-label">System bash patterns (read-only)</p>
         <div class="token-list" id="system-patterns-list"></div>
       </div>
 
       <div class="policy-pane" id="policy-pane-admin">
-        <p class="section-title">Transcodes Admin MCP</p>
+        <p class="section-title">Transcodes MCP Rules</p>
         <p class="section-sub">Backend API tools exposed via MCP — agents call these through the transcodes-guard plugin. Read-only reference for system tool-rules.</p>
         <div class="rbac-legend">
           <p class="rbac-legend-title">Role permission check</p>
@@ -1243,6 +1435,28 @@ function dashboardHtml(): string {
       tokenEl.focus();
     });
 
+    const resetAllBtn = document.getElementById("reset-all");
+    resetAllBtn.addEventListener("click", async () => {
+      const count = (lastStatus.tokens || []).length;
+      if (count === 0) {
+        showToast("No tokens to reset", "error");
+        return;
+      }
+      if (!confirm("Remove ALL " + count + " saved token(s)? This cannot be undone.")) return;
+      resetAllBtn.disabled = true;
+      try {
+        const res = await fetch("/api/tokens", { method: "DELETE" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Reset failed");
+        showToast("All tokens removed", "success");
+        refresh();
+      } catch (e) {
+        showToast(e.message || "Reset failed", "error");
+      } finally {
+        resetAllBtn.disabled = false;
+      }
+    });
+
     const rulesToastEl = document.getElementById("rules-toast");
     const projectRulesListEl = document.getElementById("project-rules-list");
     const systemPatternsListEl = document.getElementById("system-patterns-list");
@@ -1269,6 +1483,41 @@ function dashboardHtml(): string {
             '</div>' +
           '</div>' +
         '</div>'
+      );
+    }
+
+    function ruleStatusField(status) {
+      if (!status) return "";
+      const chipClass =
+        status === "active"
+          ? "status-chip-active"
+          : status === "inactive"
+            ? "status-chip-inactive"
+            : "";
+      const chip = chipClass
+        ? '<span class="status-chip ' + chipClass + '">' + esc(status) + "</span>"
+        : "<code>" + esc(status) + "</code>";
+      const hint =
+        status === "inactive"
+          ? '<span class="status-hint">Activate in the console to take effect on MCP</span>'
+          : "";
+      return (
+        '<div class="field field-status">' +
+          '<span class="k">status</span> ' +
+          chip +
+          hint +
+        "</div>"
+      );
+    }
+
+    function ruleResourceActionField(r) {
+      const resource = r.resource || "—";
+      const action = r.action || "—";
+      return (
+        '<div class="field">' +
+          '<span class="k">resource / action</span> ' +
+          "<code>" + esc(resource) + "</code> / <code>" + esc(action) + "</code>" +
+        "</div>"
       );
     }
 
@@ -1303,19 +1552,14 @@ function dashboardHtml(): string {
       const description = r.description
         ? '<div class="label">' + esc(r.description) + '</div>'
         : '';
+      const status = ruleStatusField(r.status);
+      const resourceAction = ruleResourceActionField(r);
       const matcher =
         '<div class="field"><span class="k">matcher</span> <code>' + esc(r.matcher || (r.type === 'bash' ? 'regex' : 'exact')) + '</code></div>';
-      const action =
-        '<div class="field"><span class="k">action</span> <code>' + esc(r.action || '—') + '</code></div>';
-      const resource =
-        '<div class="field"><span class="k">resource</span> <code>' + esc(r.resource || '—') + '</code></div>';
-      const status = r.status
-        ? '<div class="field"><span class="k">status</span> <code>' + esc(r.status) + '</code></div>'
-        : '';
       return (
         '<div class="token-row">' +
           '<div class="token-top">' +
-            '<div class="token-info">' + description + typeField + idField + labelField + matcher + action + resource + status + '</div>' +
+            '<div class="token-info">' + description + status + resourceAction + typeField + idField + labelField + matcher + '</div>' +
           '</div>' +
           '<div class="token-actions">' +
             '<button type="button" class="btn-edit" data-edit-rule="' + esc(r.id) + '">EDIT</button>' +
@@ -1349,6 +1593,30 @@ function dashboardHtml(): string {
       const res = await fetch("/api/project-rules");
       renderProjectRules(await res.json());
     }
+
+    const policyRefreshBtn = document.getElementById("policy-refresh");
+    policyRefreshBtn.addEventListener("click", async () => {
+      policyRefreshBtn.disabled = true;
+      const original = policyRefreshBtn.textContent;
+      policyRefreshBtn.textContent = "Refreshing…";
+      try {
+        const res = await fetch("/api/policy/refresh", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Refresh failed");
+        const detail = data.revision != null
+          ? " (revision " + data.revision + ", " + data.rules + " rules)"
+          : "";
+        showRulesToast(
+          (data.outcome === "not-modified" ? "Policy already current" : "Policy bundle refreshed") + detail,
+          "success");
+        loadProjectRules();
+      } catch (e) {
+        showRulesToast(e.message || "Refresh failed", "error");
+      } finally {
+        policyRefreshBtn.disabled = false;
+        policyRefreshBtn.textContent = original;
+      }
+    });
 
     function findEditingRule(id) {
       return (lastProjectRules.project || []).find((r) => r.id === id);
@@ -1403,10 +1671,9 @@ function dashboardHtml(): string {
         ? '<div class="tool-badges"><span class="tool-badge rbac-gated" title="Outcome follows your role matrix: 0 block, 1 allow, 2 step-up MFA">Role permission check</span></div>'
         : '';
       const rbacFields = t.rbacGated
-        ? '<div class="field"><span class="k field-k-rbac">permission action</span> <code>' +
-          esc(t.rbacAction || 'update') + '</code></div>' +
-          '<div class="field"><span class="k field-k-rbac">RBAC resource</span> <code>' +
-          esc(t.rbacResource || 'system') + '</code></div>'
+        ? '<div class="field"><span class="k field-k-rbac">Resource / Action</span> : ' +
+          '<code>' + esc(t.rbacResource || 'system') + '</code> / <code>' +
+          esc(t.rbacAction || 'update') + '</code></div>'
         : '';
       return (
         '<div class="token-row">' +
@@ -1563,6 +1830,40 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
           }
           removeTokenFromFile(token);
           sendJson(res, 200, { ok: true, ...buildStatus() });
+          return;
+        }
+
+        if (method === 'DELETE' && url === '/api/tokens') {
+          clearTokenFile();
+          sendJson(res, 200, { ok: true, ...buildStatus() });
+          return;
+        }
+
+        if (method === 'POST' && url === '/api/policy/refresh') {
+          let config: ReturnType<typeof loadStepupConfig>;
+          try {
+            config = loadStepupConfig();
+          } catch (err) {
+            sendJson(res, 400, {
+              error: err instanceof Error ? err.message : String(err),
+            });
+            return;
+          }
+          const outcome = await refreshPolicyBundle(config, { force: true });
+          if (outcome === 'failed') {
+            sendJson(res, 502, {
+              error:
+                'policy bundle refresh failed — previous cache (if any) kept',
+            });
+            return;
+          }
+          const cached = readCachedPolicyBundle(config.projectId);
+          sendJson(res, 200, {
+            ok: true,
+            outcome,
+            revision: cached?.bundle.revision,
+            rules: cached?.bundle.rules.length,
+          });
           return;
         }
 
