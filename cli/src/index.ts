@@ -2,7 +2,7 @@
  * Transcodes CLI — manages the transcodes-guard member MCP token.
  *
  * The plugins (Claude Code / Codex / Cursor / Antigravity) and their hooks
- * read the token via `resolveToken()` (env → ~/.transcodes/config.json).
+ * read the token via `resolveToken()` (~/.transcodes/config.json → env).
  * This CLI is the safe way to populate that file: the token is pasted into
  * the terminal, never into the agent chat (which would leak it into the
  * transcript). All token logic lives in `@transcodes-guard/stepup-core`;

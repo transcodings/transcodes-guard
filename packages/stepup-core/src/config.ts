@@ -35,7 +35,7 @@ export type StepupConfig = {
 
 /**
  * Build StepupConfig from the environment + token store. The token is
- * resolved with the precedence env → ~/.transcodes/config.json → none
+ * resolved with the precedence ~/.transcodes/config.json → env → none
  * (see token-store.ts). Throws when no token is found or it is invalid.
  * Callers in fail-safe contexts (the hook) should catch and treat the
  * throw as "step-up unavailable → block".
