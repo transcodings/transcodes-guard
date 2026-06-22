@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.20.1...transcodes-guard-v0.20.2) (2026-06-22)
+
+
+### Bug Fixes
+
+* **ci:** 플러그인 CLI peer 범위 0.5.x 상향 + Node 매트릭스 22/24 ([87b3e0a](https://github.com/transcodings/transcodes-guard/commit/87b3e0aa7aaf0b83b9c2a077140cd8d08eaf0be5))
+* **ci:** 플러그인 CLI peer 범위 0.5.x로 상향 + Node 매트릭스 22/24 ([9584804](https://github.com/transcodings/transcodes-guard/commit/9584804552b034e4854e44ac0e5c25af373711f6))
+
 ## [0.20.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.20.0...transcodes-guard-v0.20.1) (2026-06-22)
 
 
