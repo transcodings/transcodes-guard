@@ -30,7 +30,7 @@
     "zod": "^3.23.0"
   },
   "peerDependencies": {
-    "@bigstrider/transcodes-cli": ">=0.3.0 <0.5.0"
+    "@bigstrider/transcodes-cli": ">=0.5.0 <0.6.0"
   },
   "peerDependenciesMeta": {
     "@bigstrider/transcodes-cli": {
