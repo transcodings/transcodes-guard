@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.21.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.21.0...transcodes-guard-v0.21.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* **token:** config.json을 env보다 우선해 토큰 해석 ([d335b4b](https://github.com/transcodings/transcodes-guard/commit/d335b4b80e4bb56f82da18de7e3ab2bf30583015))
+* **token:** config.json을 환경변수보다 우선해 토큰을 해석한다 ([d472d08](https://github.com/transcodings/transcodes-guard/commit/d472d08d5cac41001ce02adebfa106bdac5ffd17))
+* **token:** 사용자 대면 런타임 출력의 precedence 서술을 config-first로 정정 ([5ff7574](https://github.com/transcodings/transcodes-guard/commit/5ff7574e42960bd0ca28e35f11c519218540a661))
+
+
+### Documentation
+
+* **token:** plugin README 8개의 precedence 서술을 config-first로 정정 ([52d09f2](https://github.com/transcodings/transcodes-guard/commit/52d09f227509223e7a3f52ed4b3827701736fdb1))
+* **token:** 소스 docstring의 precedence 순서를 config-first로 정정 ([3ade50b](https://github.com/transcodings/transcodes-guard/commit/3ade50b6c3f00fe65e1e7093bdb0785c3595ead3))
+
 ## [0.21.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.20.2...transcodes-guard-v0.21.0) (2026-06-22)
 
 
