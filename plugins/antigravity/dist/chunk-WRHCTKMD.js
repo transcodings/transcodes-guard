@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "claude";
+process.env.TRANSCODES_GUARD_HOST = "antigravity";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -6279,6 +6279,7 @@ function inspectStepupState(now = Date.now()) {
 
 // ../../packages/transcodes-mcp-tools/dist/stepup-helper.js
 var RBAC_TTL_MS = 5 * 6e4;
+var SYSTEM_WIRE_PREFIX = "mcp__plugin_transcodes-guard_transcodes-guard__";
 var rbacCache = /* @__PURE__ */ new Map();
 async function getCachedRbacLevel(config, resource, action) {
   const key = `${config.memberId}:${resource}:${action}`;
@@ -6289,9 +6290,51 @@ async function getCachedRbacLevel(config, resource, action) {
   rbacCache.set(key, { level, exp: Date.now() + RBAC_TTL_MS });
   return level;
 }
+function resolveProtectedToolRule(toolName, rules = loadMergedToolRules()) {
+  if (toolName.startsWith("mcp__")) {
+    return rules.find((r) => toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r));
+  }
+  return rules.find((r) => {
+    if (r.source !== "system" || r.type !== "mcp" || r.matcher !== "exact") {
+      return false;
+    }
+    if (!ruleAppliesToHost(r))
+      return false;
+    if (!r.name.startsWith(SYSTEM_WIRE_PREFIX))
+      return false;
+    return r.name.slice(SYSTEM_WIRE_PREFIX.length) === toolName;
+  });
+}
+function stepupRequiredResult(toolName, rule) {
+  return {
+    isError: true,
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({
+          ok: false,
+          blocked: true,
+          code: "STEP_UP_REQUIRED",
+          message: "Step-up MFA is required before running this protected MCP tool.",
+          tool: toolName,
+          rule: {
+            id: rule.id,
+            resource: rule.resource,
+            action: rule.action
+          },
+          next_actions: [
+            "Use the host MCP tool path so the PreToolUse hook can create a step-up session.",
+            "Complete WebAuthn in the opened browser window.",
+            `When verification succeeds, retry ${toolName} with the same arguments.`
+          ]
+        }, null, 2)
+      }
+    ]
+  };
+}
 async function execProtectedTool(toolName, run) {
   const verified = readVerified();
-  const rule = loadMergedToolRules().find((r) => toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r));
+  const rule = resolveProtectedToolRule(toolName);
   if (rule?.action !== void 0 && rule.resource !== void 0) {
     let level = 2;
     try {
@@ -6312,15 +6355,7 @@ async function execProtectedTool(toolName, run) {
       };
     }
     if (level === 2 && !verified) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: `transcodes-guard: step-up MFA required (${rule.resource}/${rule.action}) \u2014 ${toolName}. Complete WebAuthn (create_stepup_session \u2192 poll_stepup_session) or use the IDE MCP tool path.`
-          }
-        ]
-      };
+      return stepupRequiredResult(toolName, rule);
     }
     const sid = level === 2 ? verified?.sid : void 0;
     try {
@@ -6329,7 +6364,7 @@ async function execProtectedTool(toolName, run) {
         content: [{ type: "text", text: await run(sid) }]
       };
     } finally {
-      if (level === 2 && verified) {
+      if (verified) {
         consumeVerified();
         clearPending();
       }
@@ -6341,7 +6376,17 @@ async function execProtectedTool(toolName, run) {
       content: [
         {
           type: "text",
-          text: `step-up verified record missing for ${toolName}`
+          text: JSON.stringify({
+            ok: false,
+            blocked: true,
+            code: "STEP_UP_VERIFIED_RECORD_MISSING",
+            message: "This protected MCP tool has no verified step-up record and no matching tool-rule was found.",
+            tool: toolName,
+            next_actions: [
+              "Use the IDE MCP tool path so the PreToolUse hook can create a step-up session.",
+              "If this keeps happening, check that the system tool-rule name matches the installed MCP wire name."
+            ]
+          }, null, 2)
         }
       ]
     };
@@ -6955,11 +7000,172 @@ function registerPasscodeTools(server) {
 }
 
 // ../../packages/transcodes-mcp-tools/dist/project.js
+var DEFAULT_CDN_BASE_URL = "https://cdn.transcodes.link";
+var ASSET_CHECK_TIMEOUT_MS = 5e3;
+var AUTH_APP_URL_PROD = "https://auth.transcodes.io";
+var AUTH_APP_URL_DEV = "https://auth.automexpert.com";
 var textResult5 = (text, isError = false) => ({
   isError,
   content: [{ type: "text", text }]
 });
+var PROJECT_ASSETS = [
+  ["auth_sdk", "authentication", "webworker.js"],
+  ["pwa_manifest", "installable_pwa", "manifest.json"],
+  ["pwa_service_worker", "installable_pwa", "sw.js"]
+];
 var MSG_PROJECT_PWA_AUTH_CONSOLE = "PWA and authentication configuration (manifest, service worker, widget, branding, WebAuthn, related origins, token expiry, etc.) must be performed in the Transcodes console. Changes to these settings require the project SDK to be rebuilt and redeployed \u2014 a process that the console handles automatically. Modifying them directly via API without going through the console build pipeline will leave the deployed SDK out of sync with your configuration. This MCP tool does not call the API.";
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function toOrigin(value) {
+  if (typeof value !== "string" || !value.trim())
+    return null;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+function resolveAuthHostOrigins() {
+  return new Set([AUTH_APP_URL_PROD, AUTH_APP_URL_DEV].map(toOrigin).filter((origin) => Boolean(origin)));
+}
+function resolveCdnBaseUrl() {
+  const value = process.env.TRANSCODES_CDN_BASE_URL?.trim() || DEFAULT_CDN_BASE_URL;
+  try {
+    return new URL(value).href.replace(/\/$/, "");
+  } catch {
+    throw new Error(`CDN base URL is not valid: ${value}`);
+  }
+}
+function extractProjectPayload(envelope) {
+  if (!isRecord(envelope) || !isRecord(envelope.data))
+    return null;
+  const { payload } = envelope.data;
+  const project = Array.isArray(payload) ? payload[0] : payload;
+  return isRecord(project) ? project : null;
+}
+async function fetchWithTimeout(fetcher, url, method) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ASSET_CHECK_TIMEOUT_MS);
+  try {
+    return await fetcher(url, { method, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function probeAsset(url, fetcher) {
+  try {
+    let response = await fetchWithTimeout(fetcher, url, "HEAD");
+    if (response.status === 405 || response.status === 501) {
+      response = await fetchWithTimeout(fetcher, url, "GET");
+    }
+    const status = response.ok ? "available" : response.status === 404 ? "missing" : "unreachable";
+    return { status, http_status: response.status, ok: response.ok };
+  } catch (err) {
+    return {
+      status: "unreachable",
+      http_status: null,
+      ok: false,
+      error: err instanceof Error ? err.message : String(err)
+    };
+  }
+}
+function checkRelatedOriginRegistration(project, redirectUriOrOrigin) {
+  const checkedOrigin = toOrigin(redirectUriOrOrigin);
+  if (!checkedOrigin) {
+    return {
+      ok: false,
+      message: "redirect_uri or origin must be a valid URL."
+    };
+  }
+  const authHostOrigins = resolveAuthHostOrigins();
+  const relatedOrigins = Array.isArray(project.authentication?.related_origins) ? project.authentication.related_origins : [];
+  const registeredOrigins = /* @__PURE__ */ new Set();
+  const ignoredRelatedOrigins = [];
+  for (const candidate of relatedOrigins) {
+    const origin = toOrigin(candidate);
+    if (origin) {
+      registeredOrigins.add(origin);
+    } else {
+      ignoredRelatedOrigins.push(candidate);
+    }
+  }
+  const domainOrigin = toOrigin(project.domain_url);
+  const domainUrlCountsAsRedirectOrigin = domainOrigin !== null && !authHostOrigins.has(domainOrigin);
+  if (domainUrlCountsAsRedirectOrigin && domainOrigin) {
+    registeredOrigins.add(domainOrigin);
+  }
+  const matched = registeredOrigins.has(checkedOrigin);
+  return {
+    ok: matched,
+    checked_origin: checkedOrigin,
+    registered_origins: [...registeredOrigins],
+    source: {
+      domain_url: project.domain_url ?? null,
+      domain_url_origin: domainOrigin,
+      domain_url_counts_as_redirect_origin: domainUrlCountsAsRedirectOrigin,
+      related_origins: relatedOrigins,
+      ignored_related_origins: ignoredRelatedOrigins,
+      auth_host_origins: [...authHostOrigins]
+    },
+    diagnostics: matched ? [
+      "This redirect origin is registered for sign-in callbacks.",
+      "WebAuthn credentials still live on the hosted auth origin; related_origins is only the redirect allow-list for sign-in callbacks."
+    ] : [
+      "redirect_uri origin is not registered for this project.",
+      "Add the checked_origin to Transcodes Console > Project > Authentication > Related origins, then rebuild/redeploy the project SDK from the console."
+    ],
+    next_action: matched ? null : {
+      add_related_origin: checkedOrigin,
+      console_path: "Transcodes Console > Project > Authentication > Related origins"
+    }
+  };
+}
+async function checkProjectAssets(projectId, fetcher = fetch) {
+  const baseUrl = resolveCdnBaseUrl();
+  const assets = await Promise.all(PROJECT_ASSETS.map(async ([kind, requiredFor, file]) => {
+    const url = `${baseUrl}/${encodeURIComponent(projectId)}/${file}`;
+    return {
+      kind,
+      required_for: requiredFor,
+      file,
+      url,
+      ...await probeAsset(url, fetcher)
+    };
+  }));
+  const auth = assets.find((asset) => asset.kind === "auth_sdk");
+  const pwaAssets = assets.filter((asset) => asset.required_for === "installable_pwa");
+  const pwaState = pwaAssets.some((asset) => asset.status === "unreachable") ? "unreachable" : pwaAssets.every((asset) => asset.status === "available") ? "configured" : pwaAssets.every((asset) => asset.status === "missing") ? "not_configured_or_missing" : "partial";
+  const authOk = auth?.status === "available";
+  return {
+    ok: authOk,
+    project_id: projectId,
+    cdn_base_url: baseUrl,
+    summary: {
+      auth_sdk: auth?.status ?? "unreachable",
+      auth_sdk_ok: authOk,
+      pwa_assets: pwaState
+    },
+    assets,
+    diagnostics: [
+      authOk ? "Authentication SDK webworker.js is available. Missing PWA assets do not block authentication-only setup." : "Authentication SDK webworker.js is not available. Check project ID, CDN base URL, and Console SDK build state.",
+      pwaState === "configured" ? "PWA/Web App Kit assets are available." : pwaState === "unreachable" ? "PWA/Web App Kit asset state is unclear because one or more assets could not be checked." : "PWA/Web App Kit assets are missing or partial. Treat this separately from auth SDK availability."
+    ]
+  };
+}
+async function loadProjectForOriginCheck() {
+  const config = loadStepupConfig();
+  const text = await req(config, { method: "GET" }, "get_project", `/${config.projectId}`);
+  const envelope = JSON.parse(text);
+  if (isRecord(envelope) && envelope.ok === false) {
+    throw new Error(`Could not fetch project: ${text}`);
+  }
+  const project = extractProjectPayload(envelope);
+  if (!project) {
+    throw new Error(`Could not read project payload: ${text}`);
+  }
+  return project;
+}
 function registerProjectTools(server) {
   server.registerTool("get_project", {
     title: "Get project",
@@ -6969,6 +7175,48 @@ function registerProjectTools(server) {
     const config = loadStepupConfig();
     const text = await req(config, { method: "GET" }, "get_project", `/${config.projectId}`);
     return textResult5(text);
+  });
+  server.registerTool("check_related_origin", {
+    title: "Check sign-in related origin",
+    description: "Read-only diagnostic for hosted sign-in redirect setup. Checks whether a redirect_uri/origin is present in the active project authentication.related_origins allow-list, matching the backend sign-in callback policy.",
+    inputSchema: {
+      redirect_uri: external_exports.string().optional(),
+      origin: external_exports.string().optional()
+    }
+  }, async ({ redirect_uri, origin }) => {
+    try {
+      const target = redirect_uri?.trim() || origin?.trim();
+      if (!target) {
+        return textResult5(JSON.stringify({
+          ok: false,
+          message: "Pass redirect_uri or origin."
+        }, null, 2), true);
+      }
+      const project = await loadProjectForOriginCheck();
+      const report = checkRelatedOriginRegistration(project, target);
+      return textResult5(JSON.stringify(report, null, 2), !report.ok);
+    } catch (err) {
+      return textResult5(JSON.stringify({
+        ok: false,
+        message: `Could not check related origin: ${err instanceof Error ? err.message : String(err)}`
+      }, null, 2), true);
+    }
+  });
+  server.registerTool("check_project_assets", {
+    title: "Check project CDN assets",
+    description: "Read-only CDN asset diagnostic for the active project. Separates Authentication-only SDK availability (`webworker.js`) from installable PWA/Web App Kit assets (`manifest.json`, `sw.js`) so PWA 404s are not mistaken for auth failures. Use when webworker/manifest/sw.js status, CDN setup, auth-only install, or PWA installability is unclear.",
+    inputSchema: {}
+  }, async () => {
+    try {
+      const config = loadStepupConfig();
+      const report = await checkProjectAssets(config.projectId);
+      return textResult5(JSON.stringify(report, null, 2), !report.ok);
+    } catch (err) {
+      return textResult5(JSON.stringify({
+        ok: false,
+        message: `Could not check project assets: ${err instanceof Error ? err.message : String(err)}`
+      }, null, 2), true);
+    }
   });
   server.registerTool("project_pwa_auth_console", {
     title: "PWA / auth config (console-only)",
@@ -7282,6 +7530,7 @@ export {
   __toESM,
   findFirstMatch,
   currentHostProvider,
+  ruleAppliesToHost,
   ZodOptional,
   ZodFirstPartyTypeKind,
   objectType,
