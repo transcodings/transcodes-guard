@@ -23,10 +23,12 @@ import {
 } from '@transcodes-guard/danger-patterns';
 import {
   clearTokenFile,
+  fetchMemberProfile,
   listGuardRules,
   loadEffectivePatterns,
   loadEffectiveToolRules,
   loadStepupConfig,
+  openConsoleSession,
   parseMemberAccessToken,
   readCachedPolicyBundle,
   readTokenFromFile,
@@ -34,6 +36,7 @@ import {
   readTokenRecords,
   refreshPolicyBundle,
   removeTokenFromFile,
+  resolveToken,
   setActiveToken,
   setTokenLabel,
   transcodesConfigFile,
@@ -62,10 +65,21 @@ type TokenEntry = {
   active: boolean;
 };
 
+type ActiveMemberInfo = {
+  memberId?: string;
+  projectId?: string;
+  organizationId?: string;
+  label?: string;
+  name?: string;
+  email?: string;
+  role?: string;
+};
+
 type StatusPayload = {
   configPath: string;
   envOverridesFile: boolean;
   tokens: TokenEntry[];
+  activeMember: ActiveMemberInfo | null;
 };
 
 function fingerprint(token: string): string {
@@ -92,15 +106,11 @@ function readJsonBody(req: IncomingMessage): Promise<unknown> {
   });
 }
 
-function buildStatus(): StatusPayload {
-  const configPath = transcodesConfigFile();
+function buildTokenEntries(): TokenEntry[] {
   const records = readTokenRecords();
   const active = readTokenFromFile();
-  const envOverridesFile = Boolean(
-    process.env.TRANSCODES_TOKEN?.trim() && active,
-  );
 
-  const tokens: TokenEntry[] = records.map(({ token, label }) => {
+  return records.map(({ token, label }) => {
     const entry: TokenEntry = {
       id: fingerprint(token),
       active: token === active,
@@ -117,8 +127,55 @@ function buildStatus(): StatusPayload {
     }
     return entry;
   });
+}
 
-  return { configPath, envOverridesFile, tokens };
+async function buildActiveMemberInfo(): Promise<ActiveMemberInfo | null> {
+  const { token, source } = resolveToken();
+  if (source === 'none' || !token) return null;
+
+  let claims;
+  try {
+    claims = parseMemberAccessToken(token).claims;
+  } catch {
+    return null;
+  }
+
+  const records = readTokenRecords();
+  const active = readTokenFromFile();
+  const label = records.find((r) => r.token === active)?.label;
+
+  const base: ActiveMemberInfo = {
+    memberId: claims.memberId,
+    projectId: claims.projectId,
+    organizationId: claims.organizationId,
+    ...(label ? { label } : {}),
+  };
+
+  try {
+    const config = loadStepupConfig();
+    const profile = await fetchMemberProfile(config);
+    if (profile) {
+      return { ...base, ...profile };
+    }
+  } catch {
+    // Profile fetch is best-effort — JWT claims still populate the header.
+  }
+
+  return base;
+}
+
+async function buildStatus(): Promise<StatusPayload> {
+  const configPath = transcodesConfigFile();
+  const envOverridesFile = Boolean(
+    process.env.TRANSCODES_TOKEN?.trim() && readTokenFromFile(),
+  );
+
+  return {
+    configPath,
+    envOverridesFile,
+    tokens: buildTokenEntries(),
+    activeMember: await buildActiveMemberInfo(),
+  };
 }
 
 /** Find a stored token by its fingerprint id. */
@@ -318,10 +375,15 @@ function dashboardHtml(): string {
     }
     .header {
       display: flex;
-      align-items: center;
-      gap: 16px;
+      flex-direction: column;
+      gap: 14px;
       padding-bottom: 24px;
       border-bottom: 1px solid var(--line);
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 16px;
     }
     .avatar {
       width: 56px;
@@ -367,6 +429,92 @@ function dashboardHtml(): string {
       margin: 6px 0 0;
       font-size: var(--text-sm);
       color: var(--muted);
+    }
+    .header-body { flex: 1; min-width: 0; }
+    [hidden] { display: none !important; }
+    .header-token-empty {
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #f5c6cb;
+      background: #fdf0f0;
+      color: #c0392f;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      line-height: 1.45;
+    }
+    .header-profile {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 14px;
+      background: #fbfbfc;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .header-profile-info { min-width: 0; }
+    .header-profile-name {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.35;
+    }
+    .header-profile-meta {
+      margin-top: 4px;
+      font-size: var(--text-xs);
+      color: var(--muted);
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    .header-profile-meta code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: var(--text-2xs);
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+    .btn-manage-auth {
+      flex-shrink: 0;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      cursor: pointer;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .btn-manage-auth:hover:not(:disabled) { opacity: 0.92; }
+    .btn-manage-auth:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .header-profile-actions {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .header-profile-cli-hint {
+      margin: 0;
+      font-size: var(--text-2xs);
+      color: var(--muted);
+      text-align: right;
+      white-space: nowrap;
+    }
+    .header-profile-cli-hint code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: var(--text-2xs);
+      font-weight: 600;
     }
     .header-status {
       display: inline-flex;
@@ -1085,18 +1233,31 @@ function dashboardHtml(): string {
 <body>
   <div class="card">
     <div class="header">
-      <a class="header-logo-link" href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer" aria-label="Open Transcodes console">
-        <img class="avatar" src="${LOGO_DATA_URI}" alt="Transcodes" />
-      </a>
-      <div>
-        <div class="header-title-row">
-          <h1><a class="header-title-link" href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Transcodes</a> CLI Panel</h1>
-          <span class="header-status">
-            <span class="status-dot" aria-hidden="true"></span>
-            Connected
-          </span>
+      <div class="header-top">
+        <a class="header-logo-link" href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer" aria-label="Open Transcodes console">
+          <img class="avatar" src="${LOGO_DATA_URI}" alt="Transcodes" />
+        </a>
+        <div class="header-body">
+          <div class="header-title-row">
+            <h1><a class="header-title-link" href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Transcodes</a> CLI Panel</h1>
+            <span class="header-status">
+              <span class="status-dot" aria-hidden="true"></span>
+              Connected
+            </span>
+          </div>
+          <p class="header-tagline">Manage credentials and rules from one panel — no CLI typing required</p>
         </div>
-        <p class="header-tagline">Manage credentials and rules from one panel — no CLI typing required</p>
+      </div>
+      <p id="header-token-empty" class="header-token-empty" hidden>Please register a token first</p>
+      <div class="header-profile" id="header-profile" hidden>
+        <div class="header-profile-info">
+          <div class="header-profile-name" id="header-profile-name"></div>
+          <div class="header-profile-meta" id="header-profile-meta"></div>
+        </div>
+        <div class="header-profile-actions">
+          <button type="button" class="btn-manage-auth" id="manage-auth-btn">Manage Auth</button>
+          <p class="header-profile-cli-hint"><code>transcodes console</code></p>
+        </div>
       </div>
     </div>
     <div class="tabs">
@@ -1256,7 +1417,7 @@ function dashboardHtml(): string {
     </div>
 
     <div class="panel" id="panel-rules">
-      <p id="policy-token-warning" class="policy-token-warning" hidden>transcodes를 로컬 에이전트에서 이용하기 위해선 토큰이 하나 이상 등록이 되어야 합니다</p>
+      <p id="policy-token-warning" class="policy-token-warning" hidden>Save a token on the Tokens tab to activate rules</p>
       <div class="tabs sub-tabs" role="tablist" aria-label="Rule type">
         <button type="button" class="tab active" data-policy="project" role="tab">Project</button>
         <button type="button" class="tab" data-policy="admin" role="tab">Transcodes</button>
@@ -1317,10 +1478,32 @@ function dashboardHtml(): string {
     const saveBtn = document.getElementById("save");
     const clearBtn = document.getElementById("clear");
     const policyTokenWarningEl = document.getElementById("policy-token-warning");
+    const headerTokenEmptyEl = document.getElementById("header-token-empty");
+    const headerProfileEl = document.getElementById("header-profile");
+    const headerProfileNameEl = document.getElementById("header-profile-name");
+    const headerProfileMetaEl = document.getElementById("header-profile-meta");
+    const manageAuthBtn = document.getElementById("manage-auth-btn");
+
+    let lastStatus = { tokens: [], activeMember: null };
+    let editingId = null;
+
+    function hasSavedTokens(s) {
+      return Array.isArray(s.tokens) && s.tokens.length > 0;
+    }
+
+    function updateTokenEmptyState() {
+      const empty = !hasSavedTokens(lastStatus);
+      headerTokenEmptyEl.hidden = !empty;
+      policyTokenWarningEl.hidden = !empty;
+      if (empty) {
+        headerProfileEl.hidden = true;
+        return;
+      }
+      renderHeaderProfile(lastStatus);
+    }
 
     function updatePolicyTokenWarning() {
-      const empty = !lastStatus.tokens || lastStatus.tokens.length === 0;
-      policyTokenWarningEl.hidden = !empty;
+      updateTokenEmptyState();
     }
 
     document.querySelectorAll(".tab[data-tab]").forEach((tab) => {
@@ -1361,8 +1544,27 @@ function dashboardHtml(): string {
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     }
 
-    let lastStatus = { tokens: [] };
-    let editingId = null;
+    function renderHeaderProfile(s) {
+      if (!hasSavedTokens(s)) {
+        headerProfileEl.hidden = true;
+        return;
+      }
+      const am = s.activeMember;
+      if (!am || !am.projectId) {
+        headerProfileEl.hidden = true;
+        return;
+      }
+      headerProfileEl.hidden = false;
+      const displayName =
+        am.name || am.email || am.label || am.memberId || "Member";
+      headerProfileNameEl.textContent = displayName;
+      const metaParts = [];
+      if (am.role) metaParts.push(esc(am.role));
+      if (am.email && am.name) metaParts.push(esc(am.email));
+      if (am.label && am.label !== displayName) metaParts.push(esc(am.label));
+      metaParts.push('Project <code>' + esc(am.projectId) + "</code>");
+      headerProfileMetaEl.innerHTML = metaParts.join(" · ");
+    }
 
     function renderTokens(s) {
       if (!s.tokens || s.tokens.length === 0) {
@@ -1414,8 +1616,24 @@ function dashboardHtml(): string {
     async function refresh() {
       const res = await fetch("/api/status");
       lastStatus = await res.json();
+      updateTokenEmptyState();
       renderTokens(lastStatus);
     }
+
+    manageAuthBtn.addEventListener("click", async () => {
+      manageAuthBtn.disabled = true;
+      try {
+        const res = await fetch("/api/console/open", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not open auth settings");
+        if (data.browserUrl) window.open(data.browserUrl, "_blank", "noopener,noreferrer");
+        showToast("Opening auth settings in your browser", "success");
+      } catch (e) {
+        showToast(e.message || "Failed to open auth settings", "error");
+      } finally {
+        manageAuthBtn.disabled = false;
+      }
+    });
 
     async function saveLabel(id) {
       const input = listEl.querySelector('[data-edit-input="' + id + '"]');
@@ -1863,7 +2081,27 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
         }
 
         if (method === 'GET' && url === '/api/status') {
-          sendJson(res, 200, buildStatus());
+          sendJson(res, 200, await buildStatus());
+          return;
+        }
+
+        if (method === 'POST' && url === '/api/console/open') {
+          const result = await openConsoleSession({ openBrowser: false });
+          if (!result.ok) {
+            sendJson(res, 400, {
+              error:
+                result.reason === 'no-token'
+                  ? 'No active token — save a token first'
+                  : (result.detail ?? result.reason),
+            });
+            return;
+          }
+          sendJson(res, 200, {
+            ok: true,
+            sid: result.sid,
+            browserUrl: result.browserUrl,
+            expiresAt: result.expiresAt,
+          });
           return;
         }
 
@@ -1891,7 +2129,7 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
             return;
           }
           writeTokenToFile(token, label);
-          sendJson(res, 200, { ok: true, ...buildStatus() });
+          sendJson(res, 200, { ok: true, ...(await buildStatus()) });
           return;
         }
 
@@ -1912,7 +2150,7 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
             return;
           }
           setTokenLabel(token, label);
-          sendJson(res, 200, { ok: true, ...buildStatus() });
+          sendJson(res, 200, { ok: true, ...(await buildStatus()) });
           return;
         }
 
@@ -1925,7 +2163,7 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
             return;
           }
           setActiveToken(token);
-          sendJson(res, 200, { ok: true, ...buildStatus() });
+          sendJson(res, 200, { ok: true, ...(await buildStatus()) });
           return;
         }
 
@@ -1938,13 +2176,13 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
             return;
           }
           removeTokenFromFile(token);
-          sendJson(res, 200, { ok: true, ...buildStatus() });
+          sendJson(res, 200, { ok: true, ...(await buildStatus()) });
           return;
         }
 
         if (method === 'DELETE' && url === '/api/tokens') {
           clearTokenFile();
-          sendJson(res, 200, { ok: true, ...buildStatus() });
+          sendJson(res, 200, { ok: true, ...(await buildStatus()) });
           return;
         }
 

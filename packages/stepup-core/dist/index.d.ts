@@ -11,6 +11,7 @@
  * without collision.
  */
 export { type Envelope, type RequestInput as HttpRequestInput, request, } from './client.js';
+export { CONSOLE_SESSION_COMMENT, type ConsoleSessionResult, fetchMemberProfile, type MemberProfileSummary, openConsoleSession, } from './console.js';
 export { DEFAULT_BACKEND_URL, loadStepupConfig, STEPUP_TTL_MS, type StepupConfig, } from './config.js';
 export { DECISION_AUDIT_TAG, DECISION_AUDIT_TIMEOUT_MS, type DecisionAuditEvent, decisionAuditEventOf, sendDecisionAudit, sendGateDecisionAudit, } from './decision-audit.js';
 export { type BlockResult, evaluatePreToolUse, type GateDecision, type ToolCallInput, } from './evaluate.js';

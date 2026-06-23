@@ -23,6 +23,13 @@ export {
   type StepupConfig,
 } from './config.js';
 export {
+  CONSOLE_SESSION_COMMENT,
+  type ConsoleSessionResult,
+  fetchMemberProfile,
+  type MemberProfileSummary,
+  openConsoleSession,
+} from './console.js';
+export {
   DECISION_AUDIT_TAG,
   DECISION_AUDIT_TIMEOUT_MS,
   type DecisionAuditEvent,

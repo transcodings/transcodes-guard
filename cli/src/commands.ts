@@ -37,6 +37,11 @@ export const CLI_COMMAND_SPECS: readonly CliCommandSpec[] = [
     description: 'List all saved tokens (active one marked with *)',
   },
   {
+    usage: 'transcodes console',
+    description:
+      'Open auth settings (passkeys, TOTP) for the active token in your browser',
+  },
+  {
     usage: 'transcodes policy refresh',
     description: 'Force-refresh the org policy bundle cache now',
   },

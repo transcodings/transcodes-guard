@@ -51,6 +51,8 @@ export async function execProtectedTool(toolName, run) {
                 ],
             };
         }
+        // Level 1 = allowed without step-up: the backend guard resolves RBAC itself
+        // and requires no sid, so only level 2 attaches the verified sid here.
         const sid = level === 2 ? verified?.sid : undefined;
         try {
             return {

@@ -15,6 +15,7 @@
  *   transcodes status          Show the active token source + expiry.
  *   transcodes tokens          List all saved tokens (active marked with *).
  *   transcodes policy refresh  Force-refresh the org policy bundle cache.
+ *   transcodes console           Open auth settings for the active token.
  *   transcodes help            Usage.
  *
  * Command list SSOT: ./commands.ts (dashboard reads the same source).
@@ -23,6 +24,7 @@
 import {
   clearTokenFile,
   loadStepupConfig,
+  openConsoleSession,
   parseMemberAccessToken,
   policyBundleCachePath,
   readCachedPolicyBundle,
@@ -155,6 +157,34 @@ function cmdTokens(): void {
  * (PRD Unit G "캐시" — the hooks refresh on session start only; this is the
  * human's way to pull a just-published rule change without restarting).
  */
+async function cmdConsole(args: string[]): Promise<void> {
+  let open = true;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--no-open') {
+      open = false;
+    } else {
+      fail(`unknown flag "${args[i]}". Usage: transcodes console [--no-open]`);
+    }
+  }
+
+  const result = await openConsoleSession({ openBrowser: open });
+  if (!result.ok) {
+    const msg =
+      result.reason === 'no-token'
+        ? 'No token configured. Run `transcodes set <token> -l <label>` or open the dashboard first.'
+        : (result.detail ?? result.reason);
+    fail(msg);
+  }
+
+  process.stdout.write(`Console session created (sid=${result.sid})\n`);
+  if (result.launched) {
+    process.stdout.write(`Opened in browser: ${result.browserUrl}\n`);
+  } else {
+    process.stdout.write(`Visit: ${result.browserUrl}\n`);
+  }
+  process.exit(0);
+}
+
 async function cmdPolicy(args: string[]): Promise<void> {
   if (args[0] !== 'refresh' || args.length > 1) {
     fail('usage: transcodes policy refresh');
@@ -220,6 +250,9 @@ function main(): void {
       break;
     case 'tokens':
       cmdTokens();
+      break;
+    case 'console':
+      void cmdConsole(rest);
       break;
     case 'policy':
       void cmdPolicy(rest);

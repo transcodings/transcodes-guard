@@ -23,20 +23,20 @@ declare const bundleToolRuleSchema: z.ZodObject<{
     resource: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     label: string;
+    name: string;
     type: "mcp" | "bash";
     id: string;
     description: string;
-    name: string;
     matcher: "exact" | "glob" | "regex";
     provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
     action?: "create" | "read" | "update" | "delete" | undefined;
     resource?: string | undefined;
 }, {
     label: string;
+    name: string;
     type: "mcp" | "bash";
     id: string;
     description: string;
-    name: string;
     matcher: "exact" | "glob" | "regex";
     provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
     action?: "create" | "read" | "update" | "delete" | undefined;
@@ -57,20 +57,20 @@ declare const policyBundleSchema: z.ZodObject<{
         resource: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         label: string;
+        name: string;
         type: "mcp" | "bash";
         id: string;
         description: string;
-        name: string;
         matcher: "exact" | "glob" | "regex";
         provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
         action?: "create" | "read" | "update" | "delete" | undefined;
         resource?: string | undefined;
     }, {
         label: string;
+        name: string;
         type: "mcp" | "bash";
         id: string;
         description: string;
-        name: string;
         matcher: "exact" | "glob" | "regex";
         provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
         action?: "create" | "read" | "update" | "delete" | undefined;
@@ -81,10 +81,10 @@ declare const policyBundleSchema: z.ZodObject<{
     revision: string;
     rules: {
         label: string;
+        name: string;
         type: "mcp" | "bash";
         id: string;
         description: string;
-        name: string;
         matcher: "exact" | "glob" | "regex";
         provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
         action?: "create" | "read" | "update" | "delete" | undefined;
@@ -95,10 +95,10 @@ declare const policyBundleSchema: z.ZodObject<{
     revision: string;
     rules: {
         label: string;
+        name: string;
         type: "mcp" | "bash";
         id: string;
         description: string;
-        name: string;
         matcher: "exact" | "glob" | "regex";
         provider?: "claude" | "codex" | "cursor" | "antigravity" | undefined;
         action?: "create" | "read" | "update" | "delete" | undefined;

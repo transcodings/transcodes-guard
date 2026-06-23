@@ -10,8 +10,8 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
-  createStepupSession,
   loadStepupConfig,
+  openConsoleSession,
 } from '@transcodes-guard/stepup-core';
 import { z } from 'zod';
 import { req } from './transcodes-client.js';
@@ -114,25 +114,35 @@ export function registerMetaTools(server: McpServer): void {
       inputSchema: {},
     },
     async () => {
-      const config = loadStepupConfig();
-      const result = await createStepupSession(config, {
+      const result = await openConsoleSession({
+        openBrowser: false,
         comment: 'Open the Transcodes console (browser-only action)',
-        action: 'verify',
-        resource: 'transcodes:console',
-        mode: 'console',
       });
+      if (!result.ok) {
+        return textResult(
+          JSON.stringify(
+            {
+              ok: false,
+              reason: result.reason,
+              detail: result.detail,
+              message:
+                'Could not mint a console step-up session. Check the token and backend connectivity',
+            },
+            null,
+            2,
+          ),
+          true,
+        );
+      }
       return textResult(
         JSON.stringify(
           {
-            ok: result.envelope.ok,
-            status: result.envelope.status,
+            ok: true,
             sid: result.sid,
             browser_url: result.browserUrl,
             expires_at: result.expiresAt,
-            message: result.browserUrl
-              ? 'Console access is protected by step-up MFA. Direct the user to browser_url to authenticate, then complete the browser-only action.'
-              : 'Could not mint a console step-up session. Check the token and backend connectivity.',
-            raw: result.envelope.data,
+            message:
+              'Console access is protected by step-up MFA. Direct the user to browser_url to authenticate, then complete the browser-only action.',
           },
           null,
           2,
@@ -176,7 +186,9 @@ export function registerMetaTools(server: McpServer): void {
         return textResult(content);
       } catch (err) {
         return textResult(
-          `Could not fetch the integration guide: ${err instanceof Error ? err.message : String(err)}`,
+          `Could not fetch the integration guide: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
           true,
         );
       } finally {
