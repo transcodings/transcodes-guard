@@ -6,6 +6,7 @@ import {
   findFirstMatch,
   type GuardProvider,
   type MergedPattern,
+  ruleAppliesToHost,
 } from '@transcodes-guard/danger-patterns';
 import {
   type GateBackend,
@@ -136,6 +137,9 @@ function findToolRulesByAlias(
   const target = toolName.toLowerCase();
   return rules.filter((rule) => {
     if (rule.type !== 'mcp' || rule.matcher !== 'exact') return false;
+    // 실제 게이트(resolveProtectedToolRule)와 동일하게 host-scoping을 적용해,
+    // 다른 호스트 전용 룰을 이 호스트에서 "적용됨"으로 오보하지 않는다.
+    if (!ruleAppliesToHost(rule)) return false;
     const metadata = describeToolRuleName(rule);
     return [
       ...(metadata.canonical_tool_id ? [metadata.canonical_tool_id] : []),

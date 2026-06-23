@@ -7530,6 +7530,7 @@ export {
   __toESM,
   findFirstMatch,
   currentHostProvider,
+  ruleAppliesToHost,
   ZodOptional,
   ZodFirstPartyTypeKind,
   objectType,

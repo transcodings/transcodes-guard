@@ -9,8 +9,9 @@ import {
   external_exports,
   findFirstMatch,
   getGateBackend,
-  objectType
-} from "../chunk-KALI4JHF.js";
+  objectType,
+  ruleAppliesToHost
+} from "../chunk-BH23YNBH.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17123,6 +17124,8 @@ function findToolRulesByAlias(toolName, rules) {
   const target = toolName.toLowerCase();
   return rules.filter((rule) => {
     if (rule.type !== "mcp" || rule.matcher !== "exact")
+      return false;
+    if (!ruleAppliesToHost(rule))
       return false;
     const metadata = describeToolRuleName(rule);
     return [

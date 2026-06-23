@@ -1,7 +1,7 @@
 import { spawn as childSpawn } from 'node:child_process';
 import path from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { currentHostProvider, findFirstMatch, } from '@transcodes-guard/danger-patterns';
+import { currentHostProvider, findFirstMatch, ruleAppliesToHost, } from '@transcodes-guard/danger-patterns';
 import { getGateBackend, } from '@transcodes-guard/gate-contract';
 import { z } from 'zod';
 import { PLUGIN_VERSION } from './build-info.js';
@@ -90,6 +90,10 @@ function findToolRulesByAlias(toolName, rules) {
     const target = toolName.toLowerCase();
     return rules.filter((rule) => {
         if (rule.type !== 'mcp' || rule.matcher !== 'exact')
+            return false;
+        // 실제 게이트(resolveProtectedToolRule)와 동일하게 host-scoping을 적용해,
+        // 다른 호스트 전용 룰을 이 호스트에서 "적용됨"으로 오보하지 않는다.
+        if (!ruleAppliesToHost(rule))
             return false;
         const metadata = describeToolRuleName(rule);
         return [

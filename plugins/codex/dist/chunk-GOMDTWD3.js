@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "antigravity";
+process.env.TRANSCODES_GUARD_HOST = "codex";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -7530,6 +7530,7 @@ export {
   __toESM,
   findFirstMatch,
   currentHostProvider,
+  ruleAppliesToHost,
   ZodOptional,
   ZodFirstPartyTypeKind,
   objectType,
