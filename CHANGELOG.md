@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.22.0...transcodes-guard-v0.23.0) (2026-06-23)
+
+
+### Features
+
+* **cli:** add console command and dashboard auth profile ([7cde19e](https://github.com/transcodings/transcodes-guard/commit/7cde19e1f33286d222fc93fcd9ed3d70e5c26fd1))
+
 ## [0.22.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.21.2...transcodes-guard-v0.22.0) (2026-06-23)
 
 
