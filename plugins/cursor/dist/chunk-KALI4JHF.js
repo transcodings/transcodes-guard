@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "antigravity";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -6291,9 +6291,9 @@ async function getCachedRbacLevel(config, resource, action) {
   return level;
 }
 function resolveProtectedToolRule(toolName, rules = loadMergedToolRules()) {
-  const exact = rules.find((r) => toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r));
-  if (exact)
-    return exact;
+  if (toolName.startsWith("mcp__")) {
+    return rules.find((r) => toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r));
+  }
   return rules.find((r) => {
     if (r.source !== "system" || r.type !== "mcp" || r.matcher !== "exact") {
       return false;

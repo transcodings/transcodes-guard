@@ -97,22 +97,16 @@ describe('checkRelatedOriginRegistration', () => {
     );
   });
 
-  it('keeps legacy/custom domain_url compatibility', () => {
-    const previous = process.env.TRANSCODES_AUTH_APP_URL;
-    process.env.TRANSCODES_AUTH_APP_URL = 'https://app.example.com';
-    try {
-      const report = checkRelatedOriginRegistration(
-        {
-          domain_url: 'https://app.example.com',
-        },
-        'https://app.example.com/callback',
-      );
+  it('keeps non-hosted domain_url compatibility without local auth env overrides', () => {
+    const report = checkRelatedOriginRegistration(
+      {
+        domain_url: 'https://app.example.com',
+      },
+      'https://app.example.com/callback',
+    );
 
-      assert.equal(report.ok, true);
-      assert.deepEqual(report.registered_origins, ['https://app.example.com']);
-    } finally {
-      process.env.TRANSCODES_AUTH_APP_URL = previous;
-    }
+    assert.equal(report.ok, true);
+    assert.deepEqual(report.registered_origins, ['https://app.example.com']);
   });
 
   it('does not let MCP-local auth env change backend default hosted origins', () => {
@@ -128,8 +122,13 @@ describe('checkRelatedOriginRegistration', () => {
 
       assert.equal(report.ok, false);
       assert.deepEqual(report.registered_origins, []);
+      assert.deepEqual(report.source.auth_host_origins, [
+        'https://auth.transcodes.io',
+        'https://auth.automexpert.com',
+      ]);
     } finally {
-      process.env.TRANSCODES_AUTH_APP_URL = previous;
+      if (previous !== undefined) process.env.TRANSCODES_AUTH_APP_URL = previous;
+      else delete process.env.TRANSCODES_AUTH_APP_URL;
     }
   });
 
@@ -148,8 +147,13 @@ describe('checkRelatedOriginRegistration', () => {
       assert.deepEqual(report.registered_origins, [
         'https://custom-auth.example.com',
       ]);
+      assert.deepEqual(report.source.auth_host_origins, [
+        'https://auth.transcodes.io',
+        'https://auth.automexpert.com',
+      ]);
     } finally {
-      process.env.TRANSCODES_AUTH_APP_URL = previous;
+      if (previous !== undefined) process.env.TRANSCODES_AUTH_APP_URL = previous;
+      else delete process.env.TRANSCODES_AUTH_APP_URL;
     }
   });
 });

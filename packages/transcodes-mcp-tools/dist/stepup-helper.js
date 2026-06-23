@@ -22,9 +22,9 @@ async function getCachedRbacLevel(config, resource, action) {
 export function resolveProtectedToolRule(toolName, rules = loadMergedToolRules()) {
     // host-scoping 가드: provider-scoped 룰은 자기 호스트에서만 적용해야 한다
     // (그렇지 않으면 다른 호스트용 룰이 엉뚱한 호스트의 도구를 막는다).
-    const exact = rules.find((r) => toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r));
-    if (exact)
-        return exact;
+    if (toolName.startsWith('mcp__')) {
+        return rules.find((r) => toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r));
+    }
     return rules.find((r) => {
         if (r.source !== 'system' || r.type !== 'mcp' || r.matcher !== 'exact') {
             return false;
