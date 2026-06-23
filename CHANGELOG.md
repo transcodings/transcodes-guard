@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.21.2...transcodes-guard-v0.22.0) (2026-06-23)
+
+
+### Features
+
+* **mcp:** hosted auth 진단 도구 정합성 개선 ([#103](https://github.com/transcodings/transcodes-guard/issues/103)) ([ff05db2](https://github.com/transcodings/transcodes-guard/commit/ff05db2fde68be4cb6b8c3f5e2f05b43d8fc481d))
+
 ## [0.21.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.21.1...transcodes-guard-v0.21.2) (2026-06-22)
 
 
