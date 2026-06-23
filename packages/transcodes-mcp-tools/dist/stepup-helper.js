@@ -3,10 +3,12 @@
  * Hook is first line; this re-checks on handler run (stdio/curl bypass backstop).
  * Matrix: 0=block, 1=pass (no sid), 2=step-up (verified sid required).
  */
-import { loadMergedToolRules, toolNameMatchesRule, } from '@transcodes-guard/danger-patterns';
+import { loadMergedToolRules, ruleAppliesToHost, toolNameMatchesRule, } from '@transcodes-guard/danger-patterns';
 import { checkRbacPermission, clearPending, consumeVerified, loadStepupConfig, readVerified, } from '@transcodes-guard/stepup-core';
 const RBAC_TTL_MS = 5 * 60_000;
+const SYSTEM_WIRE_PREFIX = 'mcp__plugin_transcodes-guard_transcodes-guard__';
 const rbacCache = new Map();
+// 동일 멤버/리소스/액션 조합의 RBAC 판정을 짧게 캐시해 반복 호출 비용을 줄인다.
 async function getCachedRbacLevel(config, resource, action) {
     const key = `${config.memberId}:${resource}:${action}`;
     const hit = rbacCache.get(key);
@@ -16,9 +18,56 @@ async function getCachedRbacLevel(config, resource, action) {
     rbacCache.set(key, { level, exp: Date.now() + RBAC_TTL_MS });
     return level;
 }
+// 로컬 handler 이름과 MCP wire 이름을 모두 시스템 tool-rule 기준으로 해석한다.
+export function resolveProtectedToolRule(toolName, rules = loadMergedToolRules()) {
+    // host-scoping 가드: provider-scoped 룰은 자기 호스트에서만 적용해야 한다
+    // (그렇지 않으면 다른 호스트용 룰이 엉뚱한 호스트의 도구를 막는다).
+    if (toolName.startsWith('mcp__')) {
+        return rules.find((r) => toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r));
+    }
+    return rules.find((r) => {
+        if (r.source !== 'system' || r.type !== 'mcp' || r.matcher !== 'exact') {
+            return false;
+        }
+        if (!ruleAppliesToHost(r))
+            return false;
+        if (!r.name.startsWith(SYSTEM_WIRE_PREFIX))
+            return false;
+        return r.name.slice(SYSTEM_WIRE_PREFIX.length) === toolName;
+    });
+}
+// step-up이 필요한 상황을 에이전트가 바로 재시도 흐름으로 이어갈 수 있게 구조화한다.
+function stepupRequiredResult(toolName, rule) {
+    return {
+        isError: true,
+        content: [
+            {
+                type: 'text',
+                text: JSON.stringify({
+                    ok: false,
+                    blocked: true,
+                    code: 'STEP_UP_REQUIRED',
+                    message: 'Step-up MFA is required before running this protected MCP tool.',
+                    tool: toolName,
+                    rule: {
+                        id: rule.id,
+                        resource: rule.resource,
+                        action: rule.action,
+                    },
+                    next_actions: [
+                        'Use the host MCP tool path so the PreToolUse hook can create a step-up session.',
+                        'Complete WebAuthn in the opened browser window.',
+                        `When verification succeeds, retry ${toolName} with the same arguments.`,
+                    ],
+                }, null, 2),
+            },
+        ],
+    };
+}
+// 보호된 MCP tool 실행 전 RBAC와 step-up verified record를 최종 방어선으로 재확인한다.
 export async function execProtectedTool(toolName, run) {
     const verified = readVerified();
-    const rule = loadMergedToolRules().find((r) => toolNameMatchesRule(toolName, r));
+    const rule = resolveProtectedToolRule(toolName);
     if (rule?.action !== undefined && rule.resource !== undefined) {
         let level = 2;
         try {
@@ -40,16 +89,7 @@ export async function execProtectedTool(toolName, run) {
             };
         }
         if (level === 2 && !verified) {
-            return {
-                isError: true,
-                content: [
-                    {
-                        type: 'text',
-                        text: `transcodes-guard: step-up MFA required (${rule.resource}/${rule.action}) — ${toolName}. ` +
-                            'Complete WebAuthn (create_stepup_session → poll_stepup_session) or use the IDE MCP tool path.',
-                    },
-                ],
-            };
+            return stepupRequiredResult(toolName, rule);
         }
         // Level 1 = allowed without step-up: the backend guard resolves RBAC itself
         // and requires no sid, so only level 2 attaches the verified sid here.
@@ -61,7 +101,7 @@ export async function execProtectedTool(toolName, run) {
             };
         }
         finally {
-            if (level === 2 && verified) {
+            if (verified) {
                 consumeVerified();
                 clearPending();
             }
@@ -73,7 +113,17 @@ export async function execProtectedTool(toolName, run) {
             content: [
                 {
                     type: 'text',
-                    text: `step-up verified record missing for ${toolName}`,
+                    text: JSON.stringify({
+                        ok: false,
+                        blocked: true,
+                        code: 'STEP_UP_VERIFIED_RECORD_MISSING',
+                        message: 'This protected MCP tool has no verified step-up record and no matching tool-rule was found.',
+                        tool: toolName,
+                        next_actions: [
+                            'Use the IDE MCP tool path so the PreToolUse hook can create a step-up session.',
+                            'If this keeps happening, check that the system tool-rule name matches the installed MCP wire name.',
+                        ],
+                    }, null, 2),
                 },
             ],
         };

@@ -56,7 +56,7 @@ export type ResolvedToken = {
 };
 /**
  * Resolve the active token following the documented precedence
- * (env → file → none). Returns the source too so callers (e.g. a CLI
+ * (file → env → none). Returns the source too so callers (e.g. a CLI
  * `status` command) can show where the token came from.
  */
 export declare function resolveToken(): ResolvedToken;

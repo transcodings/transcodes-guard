@@ -52,7 +52,9 @@ export const denyByDefaultBackend: GateBackend = {
     return false;
   },
   async sendGateDecisionAudit() {},
-  async refreshPolicyBundle() {},
+  async refreshPolicyBundle() {
+    return 'skipped' as const;
+  },
 
   // server path — call-shaped methods throw
   createStepupSession() {

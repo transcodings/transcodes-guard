@@ -1,4 +1,4 @@
-import { createStepupSession, loadStepupConfig, } from '@transcodes-guard/stepup-core';
+import { loadStepupConfig, openConsoleSession, } from '@transcodes-guard/stepup-core';
 import { z } from 'zod';
 import { req } from './transcodes-client.js';
 const INSTRUCTIONS_URL = 'https://transcodes.io/instructions';
@@ -57,23 +57,24 @@ export function registerMetaTools(server) {
             'Direct the user to visit the returned browser_url and complete the action there.',
         inputSchema: {},
     }, async () => {
-        const config = loadStepupConfig();
-        const result = await createStepupSession(config, {
+        const result = await openConsoleSession({
+            openBrowser: false,
             comment: 'Open the Transcodes console (browser-only action)',
-            action: 'verify',
-            resource: 'transcodes:console',
-            mode: 'console',
         });
+        if (!result.ok) {
+            return textResult(JSON.stringify({
+                ok: false,
+                reason: result.reason,
+                detail: result.detail,
+                message: 'Could not mint a console step-up session. Check the token and backend connectivity',
+            }, null, 2), true);
+        }
         return textResult(JSON.stringify({
-            ok: result.envelope.ok,
-            status: result.envelope.status,
+            ok: true,
             sid: result.sid,
             browser_url: result.browserUrl,
             expires_at: result.expiresAt,
-            message: result.browserUrl
-                ? 'Console access is protected by step-up MFA. Direct the user to browser_url to authenticate, then complete the browser-only action.'
-                : 'Could not mint a console step-up session. Check the token and backend connectivity.',
-            raw: result.envelope.data,
+            message: 'Console access is protected by step-up MFA. Direct the user to browser_url to authenticate, then complete the browser-only action.',
         }, null, 2));
     });
     server.registerTool('get_integration_guide', {

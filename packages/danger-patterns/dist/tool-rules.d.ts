@@ -10,7 +10,7 @@ export interface ToolRule {
     /** MCP wire name/glob, or Bash regex when `type` is `bash`. */
     name: string;
     matcher: GuardMatcher;
-    /** Optional MCP host label — stored for future use; does not affect matching today. */
+    /** Optional MCP host label — scopes matching to that host (absent ⇒ every host). */
     provider?: GuardProvider;
     /** Step-up RBAC verb — omitted when the rule only gates tool access. */
     action?: RbacAction;
@@ -40,7 +40,24 @@ export interface ToolRuleMatch {
     matched: MergedToolRule;
 }
 export declare function toolNameMatchesRule(toolName: string, rule: ToolRule): boolean;
-export declare function findFirstToolRule(toolName: string, rules: MergedToolRule[]): ToolRuleMatch | null;
+/**
+ * Map a host / provider string to the canonical rule `provider` slug.
+ * Canonical values: claude | codex | cursor | antigravity.
+ * Legacy alias `claude-code` → `claude` (old records only; host.ts sets `claude`).
+ */
+export declare function mapHostToProvider(host: string | undefined): GuardProvider | undefined;
+/** Provider of the host this process runs under, read from the env var. */
+export declare function currentHostProvider(): GuardProvider | undefined;
+/**
+ * Whether a rule applies to the given host. Fail-safe by design:
+ *  - A rule WITHOUT `provider` (e.g. all 14 system baseline rules) applies to
+ *    EVERY host — never weaken baseline protection.
+ *  - A provider-scoped rule applies only on its own host.
+ *  - When the host is unknown (`undefined`), every rule applies (fail-closed:
+ *    we would rather over-gate than silently skip a rule).
+ */
+export declare function ruleAppliesToHost(rule: ToolRule, hostProvider?: GuardProvider | undefined): boolean;
+export declare function findFirstToolRule(toolName: string, rules: MergedToolRule[], hostProvider?: GuardProvider | undefined): ToolRuleMatch | null;
 /** Whether PreToolUse should consume the verified record for this MCP rule. */
 export declare function mcpConsumesInHook(rule: MergedToolRule): boolean;
 export declare class ToolRuleValidationError extends Error {

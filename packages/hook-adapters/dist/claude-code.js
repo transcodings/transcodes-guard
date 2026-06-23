@@ -15,7 +15,7 @@ function readString(v) {
     return typeof v === 'string' ? v : undefined;
 }
 export const claudeCodeAdapter = {
-    host: 'claude-code',
+    host: 'claude',
     parsePreToolUseStdin(raw) {
         const payload = JSON.parse(raw);
         const toolName = readString(payload.tool_name);

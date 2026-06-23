@@ -57,14 +57,14 @@ jobs:
 
       - name: Checkout Release PR branch
         if: ${{ steps.release.outputs.prs_created == 'true' && env.release_branch != '' && env.release_branch != 'null' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ env.release_branch }}
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         if: ${{ steps.release.outputs.prs_created == 'true' && env.release_branch != '' && env.release_branch != 'null' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20.x
           cache: npm

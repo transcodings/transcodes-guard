@@ -28,11 +28,19 @@ function normalizeRule(r) {
             resource: coerceRbacResource(r.resource),
         };
     }
+    // Defensively normalize the stored provider: a legacy/mis-written record may
+    // carry the raw host id `claude-code` (or another non-canonical value).
+    // `mapHostToProvider` folds `claude-code` → `claude` and drops anything that
+    // is not a real provider, so matching never breaks on a stray host id.
+    // Strip the raw provider out of the spread so a non-canonical stored value
+    // can't survive `...rest`; re-attach the key only when it normalizes cleanly.
+    const { provider: rawProvider, ...rest } = r;
+    const provider = rawProvider !== undefined ? mapHostToProvider(rawProvider) : undefined;
     return {
-        ...r,
+        ...rest,
         type: 'mcp',
         matcher: r.matcher ?? 'exact',
-        ...(r.provider !== undefined ? { provider: r.provider } : {}),
+        ...(provider !== undefined ? { provider } : {}),
         ...(r.action !== undefined ? { action: coerceRbacAction(r.action) } : {}),
         ...(r.resource !== undefined
             ? { resource: coerceRbacResource(r.resource) }
@@ -70,10 +78,42 @@ export function toolNameMatchesRule(toolName, rule) {
     const name = rule.name.toLowerCase();
     return rule.matcher === 'glob' ? globMatches(name, target) : name === target;
 }
-export function findFirstToolRule(toolName, rules) {
+/**
+ * Map a host / provider string to the canonical rule `provider` slug.
+ * Canonical values: claude | codex | cursor | antigravity.
+ * Legacy alias `claude-code` → `claude` (old records only; host.ts sets `claude`).
+ */
+export function mapHostToProvider(host) {
+    if (!host)
+        return undefined;
+    const normalized = host === 'claude-code' ? 'claude' : host;
+    return isGuardProvider(normalized) ? normalized : undefined;
+}
+/** Provider of the host this process runs under, read from the env var. */
+export function currentHostProvider() {
+    return mapHostToProvider(process.env.TRANSCODES_GUARD_HOST);
+}
+/**
+ * Whether a rule applies to the given host. Fail-safe by design:
+ *  - A rule WITHOUT `provider` (e.g. all 14 system baseline rules) applies to
+ *    EVERY host — never weaken baseline protection.
+ *  - A provider-scoped rule applies only on its own host.
+ *  - When the host is unknown (`undefined`), every rule applies (fail-closed:
+ *    we would rather over-gate than silently skip a rule).
+ */
+export function ruleAppliesToHost(rule, hostProvider = currentHostProvider()) {
+    if (rule.provider === undefined)
+        return true;
+    if (hostProvider === undefined)
+        return true;
+    return rule.provider === hostProvider;
+}
+export function findFirstToolRule(toolName, rules, hostProvider = currentHostProvider()) {
     for (const r of rules) {
-        if (toolNameMatchesRule(toolName, r))
+        if (toolNameMatchesRule(toolName, r) &&
+            ruleAppliesToHost(r, hostProvider)) {
             return { matched: r };
+        }
     }
     return null;
 }
@@ -187,6 +227,18 @@ export function validateNewToolRule(input) {
     return rule;
 }
 export function mergeToolRuleChanges(existing, changes) {
+    // Build the input with conditional spreads so optional keys are omitted
+    // (not set to `undefined`) when neither side supplies them — required under
+    // `exactOptionalPropertyTypes`, and it keeps the merged rule key-clean.
+    const provider = changes.provider ?? existing.provider;
+    const action = changes.action ??
+        (existing.action !== undefined
+            ? coerceRbacAction(existing.action)
+            : undefined);
+    const resource = changes.resource ??
+        (existing.resource !== undefined
+            ? coerceRbacResource(existing.resource)
+            : undefined);
     return validateNewToolRule({
         id: existing.id,
         type: changes.type ?? existing.type,
@@ -194,15 +246,9 @@ export function mergeToolRuleChanges(existing, changes) {
         description: changes.description ?? existing.description,
         name: changes.name ?? existing.name,
         matcher: changes.matcher ?? existing.matcher,
-        provider: changes.provider ?? existing.provider,
-        action: changes.action ??
-            (existing.action !== undefined
-                ? coerceRbacAction(existing.action)
-                : undefined),
-        resource: changes.resource ??
-            (existing.resource !== undefined
-                ? coerceRbacResource(existing.resource)
-                : undefined),
+        ...(provider !== undefined ? { provider } : {}),
+        ...(action !== undefined ? { action } : {}),
+        ...(resource !== undefined ? { resource } : {}),
     });
 }
 export function systemToolRuleIds() {

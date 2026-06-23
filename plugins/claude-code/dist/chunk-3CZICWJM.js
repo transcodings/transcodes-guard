@@ -7,7 +7,7 @@ function readString(v) {
   return typeof v === "string" ? v : void 0;
 }
 var claudeCodeAdapter = {
-  host: "claude-code",
+  host: "claude",
   parsePreToolUseStdin(raw) {
     const payload = JSON.parse(raw);
     const toolName = readString(payload.tool_name);
@@ -73,33 +73,7 @@ var claudeCodeAdapter = {
   }
 };
 
-// ../../packages/hook-adapters/dist/codex.js
-var codexAdapter = {
-  host: "codex",
-  // Stdin field names match Claude Code's snake_case schema verbatim, so
-  // the parse logic is identical. Delegating preserves a single source of
-  // truth for stdin shape parsing.
-  parsePreToolUseStdin(raw) {
-    return claudeCodeAdapter.parsePreToolUseStdin(raw);
-  },
-  parseUserPromptSubmitStdin(raw) {
-    return claudeCodeAdapter.parseUserPromptSubmitStdin(raw);
-  },
-  emitPreToolUse(decision) {
-    return claudeCodeAdapter.emitPreToolUse(decision);
-  },
-  emitSessionStartContext(additionalContext) {
-    return claudeCodeAdapter.emitSessionStartContext(additionalContext);
-  },
-  emitUserPromptSubmitContext(additionalContext) {
-    return claudeCodeAdapter.emitUserPromptSubmitContext(additionalContext);
-  },
-  emitStop(reason) {
-    return claudeCodeAdapter.emitStop(reason);
-  }
-};
-
 export {
   COMPLETION_PATTERN,
-  codexAdapter
+  claudeCodeAdapter
 };

@@ -1,7 +1,7 @@
 {
   "name": "@transcodes-guard/plugin-paths",
   "version": "0.1.0",
-  "description": "Host-aware persistent data + cache directory resolution for transcodes-guard plugins. Single source of truth for CLAUDE_PLUGIN_DATA vs legacy ~/.claude/ai-action-tracker path selection across 4 hosts (Claude Code / Codex / Antigravity / Cursor).",
+  "description": "Persistent data + cache directory resolution for transcodes-guard plugins. Single source of truth that resolves all plugin-managed state to ~/.transcodes/state/ across the 4 hosts (Claude Code / Codex / Antigravity / Cursor), with fail-open migration from the legacy ~/.claude/transcodes-guard + OS cache locations.",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
