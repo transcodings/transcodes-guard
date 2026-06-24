@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.23.0...transcodes-guard-v0.24.0) (2026-06-24)
+
+
+### Features
+
+* **cli:** add version command and dashboard footer ([430cc70](https://github.com/transcodings/transcodes-guard/commit/430cc70f45636c04b7a66750e6add18e721e05e7))
+
 ## [0.23.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.22.0...transcodes-guard-v0.23.0) (2026-06-23)
 
 
