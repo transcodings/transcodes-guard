@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "codex";
+process.env.TRANSCODES_GUARD_HOST = "antigravity";
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -982,120 +982,8 @@ function loadStepupConfig() {
   };
 }
 
-// ../../packages/stepup-core/dist/decision-audit.js
-var DECISION_AUDIT_TAG = "guard_gate_decision";
-var DECISION_AUDIT_TIMEOUT_MS = 1e3;
-function decisionAuditEventOf(decision) {
-  if (decision.kind === "pass")
-    return null;
-  return {
-    decision: decision.kind,
-    resource: decision.block.stepupResource,
-    action: decision.block.stepupAction,
-    ruleId: decision.block.ruleId,
-    ...decision.kind === "allow" && decision.fp ? { fp: decision.fp } : {},
-    ...decision.kind === "deny-stepup-pending" && decision.pending.fp ? { fp: decision.pending.fp } : {}
-  };
-}
-async function sendDecisionAudit(config, event, opts = {}) {
-  try {
-    const env = await request(config, {
-      method: "POST",
-      path: "/audit/logs",
-      timeoutMs: opts.timeoutMs ?? DECISION_AUDIT_TIMEOUT_MS,
-      body: {
-        project_id: config.projectId,
-        member_id: config.memberId,
-        tag: DECISION_AUDIT_TAG,
-        severity: event.decision === "allow" ? "low" : "medium",
-        status: true,
-        metadata: event
-      }
-    });
-    if (!env.ok) {
-      console.error(`transcodes-guard: decision audit not recorded (status ${env.status})`);
-    }
-  } catch (err) {
-    console.error(`transcodes-guard: decision audit not recorded (${err instanceof Error ? err.message : String(err)})`);
-  }
-}
-async function sendGateDecisionAudit(decision) {
-  const event = decisionAuditEventOf(decision);
-  if (!event)
-    return;
-  let config;
-  try {
-    config = loadStepupConfig();
-  } catch {
-    return;
-  }
-  await sendDecisionAudit(config, event);
-}
-
-// ../../packages/stepup-core/dist/evaluate.js
-import { execFileSync } from "child_process";
-import path6 from "path";
-
-// ../../packages/stepup-core/dist/gate.js
+// ../../packages/stepup-core/dist/console.js
 import { spawn } from "child_process";
-import { createHash } from "crypto";
-import { mkdirSync as mkdirSync3, readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "fs";
-import path3 from "path";
-
-// ../../packages/plugin-paths/dist/index.js
-import { copyFileSync, existsSync, mkdirSync as mkdirSync2, renameSync } from "fs";
-import os2 from "os";
-import path2 from "path";
-var CLAUDE_PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA";
-function transcodesDir() {
-  return path2.join(os2.homedir(), ".transcodes");
-}
-function stateDir() {
-  return path2.join(transcodesDir(), "state");
-}
-function legacyDataDir() {
-  return path2.join(os2.homedir(), ".claude", "transcodes-guard");
-}
-function legacyCacheDir() {
-  if (process.platform === "win32") {
-    const base2 = process.env.LOCALAPPDATA?.trim() || path2.join(os2.homedir(), "AppData", "Local");
-    return path2.join(base2, "transcodes-guard", "Cache");
-  }
-  if (process.platform === "darwin") {
-    return path2.join(os2.homedir(), "Library", "Caches", "transcodes-guard");
-  }
-  const xdg = process.env.XDG_CACHE_HOME?.trim();
-  const base = xdg && xdg.length > 0 ? xdg : path2.join(os2.homedir(), ".cache");
-  return path2.join(base, "transcodes-guard");
-}
-function cacheDir() {
-  return stateDir();
-}
-function migrateLegacyFile(name, kind) {
-  void kind;
-  try {
-    const target = stateDir();
-    const newPath = path2.join(target, name);
-    if (existsSync(newPath)) {
-      return;
-    }
-    const candidates = [];
-    const plug = process.env[CLAUDE_PLUGIN_DATA_ENV]?.trim();
-    if (plug && plug.length > 0) {
-      candidates.push(path2.join(plug, name));
-    }
-    candidates.push(path2.join(legacyDataDir(), name));
-    candidates.push(path2.join(legacyCacheDir(), name));
-    const oldPath = candidates.find((p) => p !== newPath && existsSync(p));
-    if (!oldPath) {
-      return;
-    }
-    mkdirSync2(target, { recursive: true });
-    copyFileSync(oldPath, newPath);
-    renameSync(oldPath, `${oldPath}.bak`);
-  } catch {
-  }
-}
 
 // ../../packages/stepup-core/dist/session.js
 var STEPUP_PATH = "/auth/temp-session/step-up/session";
@@ -1201,6 +1089,186 @@ async function pollStepupSessionWait(config, sid, options = {}) {
   }
 }
 
+// ../../packages/stepup-core/dist/console.js
+var CONSOLE_SESSION_COMMENT = "Manage your authentication methods (passkeys, TOTP, security keys)";
+function openBrowser(url) {
+  const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
+  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+  try {
+    const child = spawn(opener, args, {
+      stdio: "ignore",
+      detached: true
+    });
+    child.on("error", () => {
+    });
+    child.unref();
+  } catch {
+  }
+}
+async function openConsoleSession(options) {
+  if (!resolveToken().token) {
+    return { ok: false, reason: "no-token" };
+  }
+  let config;
+  try {
+    config = loadStepupConfig();
+  } catch (err) {
+    return {
+      ok: false,
+      reason: "error",
+      detail: err instanceof Error ? err.message : String(err)
+    };
+  }
+  let created;
+  try {
+    created = await createStepupSession(config, {
+      comment: options?.comment ?? CONSOLE_SESSION_COMMENT,
+      action: "verify",
+      resource: "transcodes:console",
+      mode: "console"
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      reason: "create-failed",
+      detail: err instanceof Error ? err.message : String(err)
+    };
+  }
+  if (!created.envelope.ok || !created.sid || !created.browserUrl) {
+    return {
+      ok: false,
+      reason: "create-failed",
+      detail: `backend rejected console session (status ${created.envelope.status})`
+    };
+  }
+  const shouldOpen = options?.openBrowser !== false;
+  if (shouldOpen) {
+    openBrowser(created.browserUrl);
+  }
+  return {
+    ok: true,
+    sid: created.sid,
+    browserUrl: created.browserUrl,
+    expiresAt: created.expiresAt,
+    launched: shouldOpen
+  };
+}
+
+// ../../packages/stepup-core/dist/decision-audit.js
+var DECISION_AUDIT_TAG = "guard_gate_decision";
+var DECISION_AUDIT_TIMEOUT_MS = 1e3;
+function decisionAuditEventOf(decision) {
+  if (decision.kind === "pass")
+    return null;
+  return {
+    decision: decision.kind,
+    resource: decision.block.stepupResource,
+    action: decision.block.stepupAction,
+    ruleId: decision.block.ruleId,
+    ...decision.kind === "allow" && decision.fp ? { fp: decision.fp } : {},
+    ...decision.kind === "deny-stepup-pending" && decision.pending.fp ? { fp: decision.pending.fp } : {}
+  };
+}
+async function sendDecisionAudit(config, event, opts = {}) {
+  try {
+    const env = await request(config, {
+      method: "POST",
+      path: "/audit/logs",
+      timeoutMs: opts.timeoutMs ?? DECISION_AUDIT_TIMEOUT_MS,
+      body: {
+        project_id: config.projectId,
+        member_id: config.memberId,
+        tag: DECISION_AUDIT_TAG,
+        severity: event.decision === "allow" ? "low" : "medium",
+        status: true,
+        metadata: event
+      }
+    });
+    if (!env.ok) {
+      console.error(`transcodes-guard: decision audit not recorded (status ${env.status})`);
+    }
+  } catch (err) {
+    console.error(`transcodes-guard: decision audit not recorded (${err instanceof Error ? err.message : String(err)})`);
+  }
+}
+async function sendGateDecisionAudit(decision) {
+  const event = decisionAuditEventOf(decision);
+  if (!event)
+    return;
+  let config;
+  try {
+    config = loadStepupConfig();
+  } catch {
+    return;
+  }
+  await sendDecisionAudit(config, event);
+}
+
+// ../../packages/stepup-core/dist/evaluate.js
+import { execFileSync } from "child_process";
+import path6 from "path";
+
+// ../../packages/stepup-core/dist/gate.js
+import { spawn as spawn2 } from "child_process";
+import { createHash } from "crypto";
+import { mkdirSync as mkdirSync3, readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "fs";
+import path3 from "path";
+
+// ../../packages/plugin-paths/dist/index.js
+import { copyFileSync, existsSync, mkdirSync as mkdirSync2, renameSync } from "fs";
+import os2 from "os";
+import path2 from "path";
+var CLAUDE_PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA";
+function transcodesDir() {
+  return path2.join(os2.homedir(), ".transcodes");
+}
+function stateDir() {
+  return path2.join(transcodesDir(), "state");
+}
+function legacyDataDir() {
+  return path2.join(os2.homedir(), ".claude", "transcodes-guard");
+}
+function legacyCacheDir() {
+  if (process.platform === "win32") {
+    const base2 = process.env.LOCALAPPDATA?.trim() || path2.join(os2.homedir(), "AppData", "Local");
+    return path2.join(base2, "transcodes-guard", "Cache");
+  }
+  if (process.platform === "darwin") {
+    return path2.join(os2.homedir(), "Library", "Caches", "transcodes-guard");
+  }
+  const xdg = process.env.XDG_CACHE_HOME?.trim();
+  const base = xdg && xdg.length > 0 ? xdg : path2.join(os2.homedir(), ".cache");
+  return path2.join(base, "transcodes-guard");
+}
+function cacheDir() {
+  return stateDir();
+}
+function migrateLegacyFile(name, kind) {
+  void kind;
+  try {
+    const target = stateDir();
+    const newPath = path2.join(target, name);
+    if (existsSync(newPath)) {
+      return;
+    }
+    const candidates = [];
+    const plug = process.env[CLAUDE_PLUGIN_DATA_ENV]?.trim();
+    if (plug && plug.length > 0) {
+      candidates.push(path2.join(plug, name));
+    }
+    candidates.push(path2.join(legacyDataDir(), name));
+    candidates.push(path2.join(legacyCacheDir(), name));
+    const oldPath = candidates.find((p) => p !== newPath && existsSync(p));
+    if (!oldPath) {
+      return;
+    }
+    mkdirSync2(target, { recursive: true });
+    copyFileSync(oldPath, newPath);
+    renameSync(oldPath, `${oldPath}.bak`);
+  } catch {
+  }
+}
+
 // ../../packages/stepup-core/dist/gate.js
 var BROWSER_LOCK_TTL_MS = 15e3;
 var BROWSER_LOCK_FILE = "stepup-browser-lock.json";
@@ -1231,11 +1299,11 @@ function claimBrowserLaunch(fingerprintKey) {
   }
   return true;
 }
-function openBrowser(url) {
+function openBrowser2(url) {
   const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
   const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
   try {
-    const child = spawn(opener, args, {
+    const child = spawn2(opener, args, {
       stdio: "ignore",
       detached: true
     });
@@ -1282,7 +1350,7 @@ async function requestStepup(input) {
   }
   const launched = claimBrowserLaunch(input.fingerprintKey);
   if (launched) {
-    openBrowser(created.browserUrl);
+    openBrowser2(created.browserUrl);
   }
   return {
     ok: true,
@@ -6825,21 +6893,24 @@ function registerMetaTools(server) {
     description: "Mint a step-up-protected console URL. Console access is gated behind step-up MFA (mode=console) so this tool creates a step-up session and returns the browser URL the user must visit to authenticate (WebAuthn) before reaching the console. Use when the user needs to perform browser-only actions: passkey register/update/revoke, authenticator register/update/revoke, TOTP enroll/update/revoke, OTP flows, JWK backup, or subscription portal (cancel, payment method, invoices). Direct the user to visit the returned browser_url and complete the action there.",
     inputSchema: {}
   }, async () => {
-    const config = loadStepupConfig();
-    const result = await createStepupSession(config, {
-      comment: "Open the Transcodes console (browser-only action)",
-      action: "verify",
-      resource: "transcodes:console",
-      mode: "console"
+    const result = await openConsoleSession({
+      openBrowser: false,
+      comment: "Open the Transcodes console (browser-only action)"
     });
+    if (!result.ok) {
+      return textResult4(JSON.stringify({
+        ok: false,
+        reason: result.reason,
+        detail: result.detail,
+        message: "Could not mint a console step-up session. Check the token and backend connectivity"
+      }, null, 2), true);
+    }
     return textResult4(JSON.stringify({
-      ok: result.envelope.ok,
-      status: result.envelope.status,
+      ok: true,
       sid: result.sid,
       browser_url: result.browserUrl,
       expires_at: result.expiresAt,
-      message: result.browserUrl ? "Console access is protected by step-up MFA. Direct the user to browser_url to authenticate, then complete the browser-only action." : "Could not mint a console step-up session. Check the token and backend connectivity.",
-      raw: result.envelope.data
+      message: "Console access is protected by step-up MFA. Direct the user to browser_url to authenticate, then complete the browser-only action."
     }, null, 2));
   });
   server.registerTool("get_integration_guide", {
