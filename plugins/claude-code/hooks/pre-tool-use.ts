@@ -49,10 +49,11 @@ async function main(): Promise<void> {
   const decision = await backend.evaluatePreToolUse(input);
 
   switch (decision.kind) {
-    case 'pass':
+    case 'proceed-ungated':
+    case 'proceed-by-policy':
       process.exit(0);
 
-    case 'allow':
+    case 'proceed-by-verification':
       process.stdout.write(
         claudeCodeAdapter.emitPreToolUse({
           kind: 'allow',
@@ -67,7 +68,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'deny-no-token':
+    case 'block-no-token':
       process.stdout.write(
         claudeCodeAdapter.emitPreToolUse({
           kind: 'deny',
@@ -79,7 +80,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'deny-rbac-denied':
+    case 'block-by-policy':
       process.stdout.write(
         claudeCodeAdapter.emitPreToolUse({
           kind: 'deny',
@@ -91,7 +92,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'deny-stepup-failure':
+    case 'block-stepup-create-failed':
       process.stdout.write(
         claudeCodeAdapter.emitPreToolUse({
           kind: 'deny',
@@ -103,7 +104,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'deny-stepup-pending':
+    case 'block-stepup-challenged':
       // Emit deny FIRST: writePending below may throw on disk failure, and
       // the deny JSON must already be on stdout in that case.
       process.stdout.write(

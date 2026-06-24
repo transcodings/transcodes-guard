@@ -27,7 +27,7 @@ function notInstalled(): never {
 export const denyByDefaultBackend: GateBackend = {
   // hook path — inert no-ops / empty reads
   async evaluatePreToolUse() {
-    return { kind: 'pass' };
+    return { kind: 'proceed-ungated' };
   },
   writePending() {},
   consumeVerified() {},

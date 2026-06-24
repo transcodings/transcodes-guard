@@ -1,11 +1,17 @@
 /**
  * Gate decision audit — fire-and-forget visibility (Phase 3 v2 Unit H, H2).
  *
- * Every non-pass gate decision (deny / step-up pending / allow-by-verified)
- * is reported to the backend's existing generic audit module
+ * Every step-up MFA *outcome* — an action authorized by step-up
+ * (`proceed-by-verification`), or a step-up session explicitly refused by the
+ * backend (`block-stepup-create-failed` w/ `reason === 'create-failed'`) — is
+ * reported to the backend's existing generic audit module
  * (`POST /v1/audit/logs`, src/audit/ in transcode-backend-nestjs-v1) under
  * the `guard_gate_decision` tag. Evasion-attempt visibility is the
  * compensating control for publishing the policy data (PRD §6).
+ *
+ * Step-up-irrelevant verdicts (gate uninvolved, policy-only allow/deny,
+ * no-token, step-up challenged-but-unfinished) are NOT audited — they carry
+ * no MFA forensic value and the audit log is the MFA compensating control.
  *
  * Invariants:
  *  - NEVER blocks or fails the gate: callers invoke this AFTER the decision
@@ -23,7 +29,7 @@ export const DECISION_AUDIT_TAG = 'guard_gate_decision';
 export const DECISION_AUDIT_TIMEOUT_MS = 1_000;
 
 export type DecisionAuditEvent = {
-  decision: Exclude<GateDecision['kind'], 'pass'>;
+  decision: 'proceed-by-verification' | 'block-stepup-create-failed';
   resource: string;
   action: string;
   ruleId: string;
@@ -32,24 +38,38 @@ export type DecisionAuditEvent = {
 };
 
 /**
- * Map a gate decision onto its audit event. `pass` returns null — safe
- * commands are not audited (volume + privacy; the gate made no decision
- * worth recording).
+ * Map a gate decision onto its audit event. Returns null for every
+ * non-recorded kind (gate-uninvolved, policy-only allow/deny, no-token,
+ * step-up challenged-but-unfinished) and for the `block-stepup-create-failed`
+ * branches that are not a backend explicit refusal (`reason === 'no-token'`
+ * or `'error'`). Only the two MFA-outcome events are recorded.
  */
 export function decisionAuditEventOf(
   decision: GateDecision,
 ): DecisionAuditEvent | null {
-  if (decision.kind === 'pass') return null;
-  return {
-    decision: decision.kind,
-    resource: decision.block.stepupResource,
-    action: decision.block.stepupAction,
-    ruleId: decision.block.ruleId,
-    ...(decision.kind === 'allow' && decision.fp ? { fp: decision.fp } : {}),
-    ...(decision.kind === 'deny-stepup-pending' && decision.pending.fp
-      ? { fp: decision.pending.fp }
-      : {}),
-  };
+  switch (decision.kind) {
+    case 'proceed-by-verification':
+      return {
+        decision: decision.kind,
+        resource: decision.block.stepupResource,
+        action: decision.block.stepupAction,
+        ruleId: decision.block.ruleId,
+        ...(decision.fp ? { fp: decision.fp } : {}),
+      };
+    case 'block-stepup-create-failed':
+      // Narrow: only the backend explicit refusal is audited. The `no-token`
+      // race (semantically `block-no-token`) and the `error` (local config
+      // load failure, not a backend refusal) are excluded.
+      if (decision.failure.reason !== 'create-failed') return null;
+      return {
+        decision: decision.kind,
+        resource: decision.block.stepupResource,
+        action: decision.block.stepupAction,
+        ruleId: decision.block.ruleId,
+      };
+    default:
+      return null;
+  }
 }
 
 /**
@@ -70,7 +90,8 @@ export async function sendDecisionAudit(
         project_id: config.projectId,
         member_id: config.memberId,
         tag: DECISION_AUDIT_TAG,
-        severity: event.decision === 'allow' ? 'low' : 'medium',
+        severity:
+          event.decision === 'proceed-by-verification' ? 'low' : 'medium',
         status: true,
         metadata: event,
       },

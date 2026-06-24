@@ -58,9 +58,15 @@ export interface BlockResult {
 }
 
 export type GateDecision =
-  | { kind: 'pass' }
+  | { kind: 'proceed-ungated' }
   | {
-      kind: 'allow';
+      kind: 'proceed-by-policy';
+      block: BlockResult;
+      resource: string;
+      action: string;
+    }
+  | {
+      kind: 'proceed-by-verification';
       block: BlockResult;
       /** True → the hook itself consumes the verified record (Bash + user
        * tool-rules). False → consume is deferred to the tool handler
@@ -72,22 +78,22 @@ export type GateDecision =
        * (GLOBAL store). */
       fp?: string;
     }
-  | { kind: 'deny-no-token'; block: BlockResult }
+  | { kind: 'block-no-token'; block: BlockResult }
   | {
       /** RBAC matrix returned permission 0 (deny) for this resource+action.
        * Step-up cannot help — the member's role has no access. Hard block. */
-      kind: 'deny-rbac-denied';
+      kind: 'block-by-policy';
       block: BlockResult;
       resource: string;
       action: string;
     }
   | {
-      kind: 'deny-stepup-failure';
+      kind: 'block-stepup-create-failed';
       block: BlockResult;
       failure: Extract<RequestResult, { ok: false }>;
     }
   | {
-      kind: 'deny-stepup-pending';
+      kind: 'block-stepup-challenged';
       block: BlockResult;
       sid: string;
       browserUrl: string;
@@ -329,9 +335,9 @@ export async function evaluatePreToolUse(
   try {
     classified = classifyToolCall(input);
   } catch {
-    return { kind: 'pass' };
+    return { kind: 'proceed-ungated' };
   }
-  if (!classified) return { kind: 'pass' };
+  if (!classified) return { kind: 'proceed-ungated' };
 
   const block: BlockResult | null =
     classified.kind === 'bash'
@@ -347,7 +353,7 @@ export async function evaluatePreToolUse(
           stepupAction: classified.rule.action ?? 'update',
         };
 
-  if (!block) return { kind: 'pass' };
+  if (!block) return { kind: 'proceed-ungated' };
 
   // Consume semantics (see stepup-gate.md):
   //   Bash + bundle MCP rules → FP-keyed verified file, hook consumes on allow.
@@ -366,7 +372,7 @@ export async function evaluatePreToolUse(
     // FP-keyed path (Bash + bundle MCP rules) needs backend re-check. GLOBAL
     // path (system MCP rules) skips it — handler re-validates sid via header.
     if (!consumeHere || (await recheckVerifiedSid(verified.sid)) === 'trust') {
-      return { kind: 'allow', block, consumeHere, fp };
+      return { kind: 'proceed-by-verification', block, consumeHere, fp };
     }
     // Backend says this record is no longer (or never was) verified — discard
     // the stale/forged record and fall through to a fresh step-up below.
@@ -375,7 +381,7 @@ export async function evaluatePreToolUse(
   }
 
   if (!resolveToken().token) {
-    return { kind: 'deny-no-token', block };
+    return { kind: 'block-no-token', block };
   }
 
   // The matched rule only maps this command/tool onto an RBAC coordinate; the
@@ -402,12 +408,12 @@ export async function evaluatePreToolUse(
   }
 
   if (level === 0) {
-    return { kind: 'deny-rbac-denied', block, resource, action };
+    return { kind: 'block-by-policy', block, resource, action };
   }
   if (level === 1) {
     // RBAC grants this without step-up → let the command through. The local
     // rule is a classifier, not an independent floor.
-    return { kind: 'pass' };
+    return { kind: 'proceed-by-policy', block, resource, action };
   }
 
   const gateInput = {
@@ -423,7 +429,7 @@ export async function evaluatePreToolUse(
 
   const req = await requestStepup(gateInput);
   if (!req.ok) {
-    return { kind: 'deny-stepup-failure', block, failure: req };
+    return { kind: 'block-stepup-create-failed', block, failure: req };
   }
 
   const pending: PendingState = {
@@ -439,7 +445,7 @@ export async function evaluatePreToolUse(
   };
 
   return {
-    kind: 'deny-stepup-pending',
+    kind: 'block-stepup-challenged',
     block,
     sid: req.sid,
     browserUrl: req.browserUrl,

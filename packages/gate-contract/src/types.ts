@@ -67,27 +67,33 @@ export type RbacLevel = 0 | 1 | 2;
 
 /** Host-agnostic PreToolUse gate decision. Mirrors evaluate.ts `GateDecision`. */
 export type GateDecision =
-  | { kind: 'pass' }
+  | { kind: 'proceed-ungated' }
   | {
-      kind: 'allow';
-      block: BlockResult;
-      consumeHere: boolean;
-      fp?: string;
-    }
-  | { kind: 'deny-no-token'; block: BlockResult }
-  | {
-      kind: 'deny-rbac-denied';
+      kind: 'proceed-by-policy';
       block: BlockResult;
       resource: string;
       action: string;
     }
   | {
-      kind: 'deny-stepup-failure';
+      kind: 'proceed-by-verification';
+      block: BlockResult;
+      consumeHere: boolean;
+      fp?: string;
+    }
+  | { kind: 'block-no-token'; block: BlockResult }
+  | {
+      kind: 'block-by-policy';
+      block: BlockResult;
+      resource: string;
+      action: string;
+    }
+  | {
+      kind: 'block-stepup-create-failed';
       block: BlockResult;
       failure: StepupFailure;
     }
   | {
-      kind: 'deny-stepup-pending';
+      kind: 'block-stepup-challenged';
       block: BlockResult;
       sid: string;
       browserUrl: string;
