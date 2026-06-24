@@ -10,7 +10,11 @@
  * the `GateDecision` shape, carry no backend coupling, and let every host hook
  * render decisions without importing private code.
  */
-import type { BlockResult, GateDecision } from './types.js';
+import {
+  type BlockResult,
+  GATE_DECISION_KIND,
+  type GateDecision,
+} from './types.js';
 
 /**
  * Session-start notice text shown when no Transcodes token is configured.
@@ -57,7 +61,10 @@ export function formatBlockedSummary(block: BlockResult): string {
 }
 
 export function formatAllowReason(
-  decision: Extract<GateDecision, { kind: 'proceed-by-verification' }>,
+  decision: Extract<
+    GateDecision,
+    { kind: typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION }
+  >,
 ): string {
   return (
     'transcodes-guard: step-up MFA verified — overriding default permission policy. ' +
@@ -89,7 +96,10 @@ export function formatNoTokenSystemMessage(block: BlockResult): string {
 }
 
 export function formatRbacDeniedReason(
-  decision: Extract<GateDecision, { kind: 'block-by-policy' }>,
+  decision: Extract<
+    GateDecision,
+    { kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY }
+  >,
 ): string {
   return (
     `Blocked by transcodes-guard: ${decision.block.reason}. ` +
@@ -100,7 +110,10 @@ export function formatRbacDeniedReason(
 }
 
 export function formatRbacDeniedSystemMessage(
-  decision: Extract<GateDecision, { kind: 'block-by-policy' }>,
+  decision: Extract<
+    GateDecision,
+    { kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY }
+  >,
 ): string {
   return [
     formatBlockedSummary(decision.block),
@@ -113,7 +126,10 @@ export function formatRbacDeniedSystemMessage(
 }
 
 export function formatStepupFailureDetail(
-  decision: Extract<GateDecision, { kind: 'block-stepup-create-failed' }>,
+  decision: Extract<
+    GateDecision,
+    { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED }
+  >,
 ): string {
   const { failure } = decision;
   return failure.reason === 'no-token'
@@ -128,7 +144,10 @@ export function formatStepupFailureDetail(
 }
 
 export function formatStepupFailureReason(
-  decision: Extract<GateDecision, { kind: 'block-stepup-create-failed' }>,
+  decision: Extract<
+    GateDecision,
+    { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED }
+  >,
 ): string {
   return (
     `Bash blocked by transcodes-guard: ${
@@ -139,7 +158,10 @@ export function formatStepupFailureReason(
 }
 
 export function formatStepupFailureSystemMessage(
-  decision: Extract<GateDecision, { kind: 'block-stepup-create-failed' }>,
+  decision: Extract<
+    GateDecision,
+    { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED }
+  >,
 ): string {
   return `${formatBlockedSummary(
     decision.block,
@@ -147,7 +169,10 @@ export function formatStepupFailureSystemMessage(
 }
 
 export function formatStepupPendingReason(
-  decision: Extract<GateDecision, { kind: 'block-stepup-challenged' }>,
+  decision: Extract<
+    GateDecision,
+    { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED }
+  >,
 ): string {
   return (
     `Step-up MFA pending. sid=${decision.sid}. Open ${decision.browserUrl}, ` +
@@ -157,7 +182,10 @@ export function formatStepupPendingReason(
 }
 
 export function formatStepupPendingSystemMessage(
-  decision: Extract<GateDecision, { kind: 'block-stepup-challenged' }>,
+  decision: Extract<
+    GateDecision,
+    { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED }
+  >,
 ): string {
   const launchLine = decision.browserLaunched
     ? 'A browser tab has been opened automatically:'
@@ -192,18 +220,18 @@ export function formatStepupPendingSystemMessage(
  */
 export function formatStderrTag(decision: GateDecision): string {
   switch (decision.kind) {
-    case 'proceed-ungated':
-    case 'proceed-by-policy':
+    case GATE_DECISION_KIND.PROCEED_UNGATED:
+    case GATE_DECISION_KIND.PROCEED_BY_POLICY:
       return 'transcodes-guard: pass';
-    case 'proceed-by-verification':
+    case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
       return `transcodes-guard: ALLOWED (stepup-verified) — ${decision.block.command}`;
-    case 'block-no-token':
+    case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
       return `transcodes-guard: BLOCKED (no token) — ${decision.block.command}`;
-    case 'block-by-policy':
+    case GATE_DECISION_KIND.BLOCK_BY_POLICY:
       return `transcodes-guard: BLOCKED (rbac-denied ${decision.resource}/${decision.action}) — ${decision.block.command}`;
-    case 'block-stepup-create-failed':
+    case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
       return `transcodes-guard: BLOCKED (stepup-failure) — ${decision.block.command}`;
-    case 'block-stepup-challenged':
+    case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
       return `transcodes-guard: STEPUP-PENDING sid=${decision.sid} — ${decision.block.command}`;
   }
 }

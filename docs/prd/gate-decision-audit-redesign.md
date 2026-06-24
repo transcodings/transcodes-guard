@@ -133,13 +133,41 @@ export function decisionAuditEventOf(
 
 Each host hook currently calls `await backend.sendGateDecisionAudit(decision)` in 5 switch branches (20 call sites total). Since `sendGateDecisionAudit` internally calls `decisionAuditEventOf` (which now filters to 2 kinds), the call can be hoisted to a **single site per host** after the switch (before `process.exit(0)`), eliminating the 5× duplication. `block-stepup-challenged`'s `writePending` side-effect must remain *before* the audit call (fail-safe order: deny JSON on stdout → disk write → audit). Consolidation is behavior-preserving because the filter already gates recording.
 
-### 4.4 Wire-format caution
+### 4.4 Wire-translation seam (backend assumed unchangeable)
 
-`decision-audit.ts` sends `event.decision` (the kind literal) as `metadata.decision` in the `POST /v1/audit/logs` body. Renaming kinds changes this wire value. **Before merging**, confirm with the backend (`transcode-backend-nestjs-v1`, `src/audit/`) that:
-- the `metadata.decision` field is free-form / not validated against an enum, or
-- the backend enum is updated in lockstep.
+The backend (`transcode-backend-nestjs-v1`, `src/audit/`) knows only the
+*legacy* kind strings. Renaming the `GateDecision` union locally must not
+break the wire. A translation map at the send boundary keeps the legacy
+values on the wire while internal code uses the new kind constants:
 
-This is the one cross-repo coordination point. If the backend validates, a wire-safe variant (separate stable wire enum mapped at the boundary) must precede the rename.
+```ts
+// decision-audit.ts — the single translation seam
+const LEGACY_WIRE_DECISION: Record<RecordedDecisionKind, string> = {
+  [GATE_DECISION_KIND.PROCEED_BY_VERIFICATION]: 'allow',
+  [GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED]: 'deny-stepup-failure',
+};
+
+// in sendDecisionAudit:
+metadata: { ...event, decision: LEGACY_WIRE_DECISION[event.decision] },
+```
+
+Only the two recorded kinds need a mapping (every other kind is filtered
+out before reaching the wire). Internal `DecisionAuditEvent.decision` keeps
+the new kind; only `metadata.decision` on the wire carries the legacy value.
+Severity is likewise keyed off the new kind via `legacySeverity()`. When the
+backend ships a matching enum, deleting `LEGACY_WIRE_DECISION` and sending
+`event.decision` directly is the only change required.
+
+### 4.5 Kind constants (source of truth)
+
+The 7 kind strings are exported as `GATE_DECISION_KIND` (a `const` object) and
+the discriminated union derives its literal types from it via
+`typeof GATE_DECISION_KIND.<MEMBER>`. This makes the constant the single
+source of truth: every `switch`/`case`, comparison, and construction site
+references the constant, so a rename is a one-place edit. Mirrored in
+`gate-contract/src/types.ts` and `stepup-core/src/evaluate.ts` (import
+firewall — both copies kept in lockstep; the `gate-backend` drift alarm
+catches a missed sync).
 
 ## 5. Decision log
 
@@ -147,3 +175,5 @@ This is the one cross-repo coordination point. If the backend validates, a wire-
 - 2026-06-25: audit scope narrowed to 2 events — `proceed-by-verification` (all branches) + `block-stepup-create-failed` (`reason === 'create-failed'` only). `block-stepup-challenged` explicitly excluded as an attempt, not an outcome.
 - 2026-06-25: `block-stepup-create-failed` narrow interpretation confirmed — only backend explicit refusal (`'create-failed'`); `'no-token'` and `'error'` excluded.
 - 2026-06-25: poll-tool authentication-failure audit deferred (separate future task, out of scope here).
+- 2026-06-25: backend assumed unchangeable — wire-translation seam (`LEGACY_WIRE_DECISION`) added so the backend keeps receiving legacy kind strings (`allow` / `deny-stepup-failure`) while internal code uses the renamed kinds.
+- 2026-06-25: kind strings constantized as `GATE_DECISION_KIND` (mirrored across the import firewall); union derives literal types from it; all switch/case/construction sites use the constant.

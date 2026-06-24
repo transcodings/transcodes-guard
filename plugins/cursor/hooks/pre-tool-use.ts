@@ -28,6 +28,7 @@ import {
   formatStepupFailureSystemMessage,
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
+  GATE_DECISION_KIND,
   getGateBackend,
 } from '@transcodes-guard/gate-contract';
 import { cursorAdapter } from '@transcodes-guard/hook-adapters';
@@ -46,11 +47,11 @@ async function main(): Promise<void> {
   const decision = await backend.evaluatePreToolUse(input);
 
   switch (decision.kind) {
-    case 'proceed-ungated':
-    case 'proceed-by-policy':
+    case GATE_DECISION_KIND.PROCEED_UNGATED:
+    case GATE_DECISION_KIND.PROCEED_BY_POLICY:
       process.exit(0);
 
-    case 'proceed-by-verification':
+    case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: 'allow',
@@ -65,7 +66,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'block-no-token':
+    case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: 'deny',
@@ -77,7 +78,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'block-by-policy':
+    case GATE_DECISION_KIND.BLOCK_BY_POLICY:
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: 'deny',
@@ -89,7 +90,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'block-stepup-create-failed':
+    case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: 'deny',
@@ -101,7 +102,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'block-stepup-challenged':
+    case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: 'deny',

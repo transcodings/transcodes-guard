@@ -23,19 +23,46 @@
  */
 import { request } from './client.js';
 import { loadStepupConfig, type StepupConfig } from './config.js';
-import type { GateDecision } from './evaluate.js';
+import { GATE_DECISION_KIND, type GateDecision } from './evaluate.js';
 
 export const DECISION_AUDIT_TAG = 'guard_gate_decision';
 export const DECISION_AUDIT_TIMEOUT_MS = 1_000;
 
+/** The two recorded decision kinds (the MFA outcomes). */
+export type RecordedDecisionKind =
+  | typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION
+  | typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
+
 export type DecisionAuditEvent = {
-  decision: 'proceed-by-verification' | 'block-stepup-create-failed';
+  decision: RecordedDecisionKind;
   resource: string;
   action: string;
   ruleId: string;
   /** Command fingerprint (16-hex) when the decision carries one. */
   fp?: string;
 };
+
+/**
+ * Wire-translation map: the backend (`transcode-backend-nestjs-v1`,
+ * `src/audit/`) knows only the *legacy* kind strings. We renamed the union
+ * locally, but until the backend ships a matching enum we must send the
+ * legacy values on the wire. This map is the single translation seam —
+ * internal code uses the new kind constants, the wire payload uses the old.
+ *
+ * Only the two recorded kinds need a legacy mapping; every other kind is
+ * filtered out by `decisionAuditEventOf` before it reaches the wire.
+ */
+const LEGACY_WIRE_DECISION: Record<RecordedDecisionKind, string> = {
+  [GATE_DECISION_KIND.PROCEED_BY_VERIFICATION]: 'allow',
+  [GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED]: 'deny-stepup-failure',
+};
+
+/** Legacy severity the backend expects: `allow` is low, everything else medium. */
+function legacySeverity(decision: RecordedDecisionKind): 'low' | 'medium' {
+  return decision === GATE_DECISION_KIND.PROCEED_BY_VERIFICATION
+    ? 'low'
+    : 'medium';
+}
 
 /**
  * Map a gate decision onto its audit event. Returns null for every
@@ -48,7 +75,7 @@ export function decisionAuditEventOf(
   decision: GateDecision,
 ): DecisionAuditEvent | null {
   switch (decision.kind) {
-    case 'proceed-by-verification':
+    case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
       return {
         decision: decision.kind,
         resource: decision.block.stepupResource,
@@ -56,7 +83,7 @@ export function decisionAuditEventOf(
         ruleId: decision.block.ruleId,
         ...(decision.fp ? { fp: decision.fp } : {}),
       };
-    case 'block-stepup-create-failed':
+    case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
       // Narrow: only the backend explicit refusal is audited. The `no-token`
       // race (semantically `block-no-token`) and the `error` (local config
       // load failure, not a backend refusal) are excluded.
@@ -90,10 +117,11 @@ export async function sendDecisionAudit(
         project_id: config.projectId,
         member_id: config.memberId,
         tag: DECISION_AUDIT_TAG,
-        severity:
-          event.decision === 'proceed-by-verification' ? 'low' : 'medium',
+        severity: legacySeverity(event.decision),
         status: true,
-        metadata: event,
+        // Wire-translation seam: send the legacy kind string the backend
+        // knows, not the renamed local kind. See LEGACY_WIRE_DECISION.
+        metadata: { ...event, decision: LEGACY_WIRE_DECISION[event.decision] },
       },
     });
     if (!env.ok) {
