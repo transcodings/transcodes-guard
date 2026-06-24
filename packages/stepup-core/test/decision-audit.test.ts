@@ -46,6 +46,21 @@ describe('decisionAuditEventOf — recorded kinds', () => {
     });
   });
 
+  it('maps proceed-by-verification without fp (MCP system rule path)', () => {
+    const decision: GateDecision = {
+      kind: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
+      block: BLOCK,
+      consumeHere: false,
+    };
+    const event = decisionAuditEventOf(decision);
+    assert.ok(event);
+    assert.equal(event.decision, GATE_DECISION_KIND.PROCEED_BY_VERIFICATION);
+    assert.equal(event.resource, 'system');
+    assert.equal(event.action, 'delete');
+    assert.equal(event.ruleId, 'rm-rf-root');
+    assert.equal(event.fp, undefined);
+  });
+
   it('maps block-stepup-create-failed (reason create-failed) without fp', () => {
     const decision: GateDecision = {
       kind: GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED,
