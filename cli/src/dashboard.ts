@@ -46,6 +46,7 @@ import {
 import { renderCliCommandsHtml } from './commands.js';
 import { LOGO_DATA_URI } from './logo.js';
 import { buildAdminToolsPayload } from './tool-catalog.js';
+import { CLI_VERSION } from './version.js';
 
 const DEFAULT_PORT = 3847;
 const HOST = '127.0.0.1';
@@ -360,8 +361,8 @@ function dashboardHtml(): string {
       background: var(--bg);
       color: var(--ink);
       display: flex;
-      align-items: flex-start;
-      justify-content: center;
+      flex-direction: column;
+      align-items: center;
       padding: 40px 32px;
       -webkit-font-smoothing: antialiased;
     }
@@ -507,7 +508,9 @@ function dashboardHtml(): string {
       text-align: right;
       white-space: nowrap;
     }
-    .header-profile-cli-hint code {
+    .cli-cmd,
+    .header-profile-cli-hint code,
+    .cli-map-row code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       background: var(--accent-soft);
       color: var(--accent);
@@ -515,6 +518,7 @@ function dashboardHtml(): string {
       border-radius: 6px;
       font-size: var(--text-2xs);
       font-weight: 600;
+      border: none;
     }
     .header-status {
       display: inline-flex;
@@ -598,15 +602,6 @@ function dashboardHtml(): string {
       color: #c0392f;
     }
     .cli-map-row .cli-map-label--ink { color: var(--ink); }
-    .cli-map-row code {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      background: var(--accent-soft);
-      color: var(--accent);
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-size: var(--text-2xs);
-      font-weight: 600;
-    }
     .cli-map-row--list {
       margin: 26px 0 10px;
     }
@@ -1173,6 +1168,13 @@ function dashboardHtml(): string {
       padding: 1px 6px;
       border-radius: 6px;
     }
+    .guide-step-desc code.cli-cmd {
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: none;
+      padding: 2px 8px;
+      font-weight: 600;
+    }
     .guide-step-desc-row {
       display: flex;
       align-items: center;
@@ -1226,6 +1228,20 @@ function dashboardHtml(): string {
       padding: 2px 7px;
       border-radius: 6px;
       color: #8a8a94;
+    }
+    .dashboard-footer {
+      width: 100%;
+      max-width: var(--card-max);
+      margin: 18px 0 0;
+      padding: 0 8px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: var(--text-2xs);
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
     }
   </style>
   <script type="module" src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
@@ -1366,7 +1382,7 @@ function dashboardHtml(): string {
               <div class="guide-step-body">
                 <p class="guide-step-title">Refresh active rules locally</p>
                 <p class="guide-step-desc guide-step-desc-row">
-                  Run terminal <code>transcodes policy refresh</code> or
+                  Run terminal <code class="cli-cmd">transcodes policy refresh</code> or
                   <button type="button" class="btn-inline-action" id="guide-policy-refresh">Refresh</button>
                 </p>
                 <div id="guide-toast" class="toast"></div>
@@ -1470,6 +1486,8 @@ function dashboardHtml(): string {
       </div>
     </div>
   </div>
+
+  <p class="dashboard-footer">Ver ${CLI_VERSION} <code class="cli-cmd">transcodes version</code></p>
   <script>
     const tokenEl = document.getElementById("token");
     const labelEl = document.getElementById("label");

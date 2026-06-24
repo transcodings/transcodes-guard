@@ -15,7 +15,8 @@
  *   transcodes status          Show the active token source + expiry.
  *   transcodes tokens          List all saved tokens (active marked with *).
  *   transcodes policy refresh  Force-refresh the org policy bundle cache.
- *   transcodes console           Open auth settings for the active token.
+ *   transcodes console         Open auth settings for the active token.
+ *   transcodes version         Print the installed CLI npm package version.
  *   transcodes help            Usage.
  *
  * Command list SSOT: ./commands.ts (dashboard reads the same source).
@@ -37,10 +38,15 @@ import {
 } from '@transcodes-guard/stepup-core';
 import { formatCliUsage } from './commands.js';
 import { runDashboard } from './dashboard.js';
+import { CLI_PACKAGE_NAME, CLI_VERSION } from './version.js';
 
 function fail(message: string): never {
   process.stderr.write(`transcodes: ${message}\n`);
   process.exit(1);
+}
+
+function cmdVersion(): void {
+  process.stdout.write(`${CLI_PACKAGE_NAME} ${CLI_VERSION}\n`);
 }
 
 function expiryLine(token: string): string {
@@ -53,7 +59,9 @@ function expiryLine(token: string): string {
         : '';
     return `member=${parsed.claims.memberId} project=${parsed.claims.projectId} expires=${exp}${warn}`;
   } catch (err) {
-    return `unable to decode token: ${err instanceof Error ? err.message : String(err)}`;
+    return `unable to decode token: ${
+      err instanceof Error ? err.message : String(err)
+    }`;
   }
 }
 
@@ -94,12 +102,16 @@ function cmdSet(args: string[]): void {
     writeTokenToFile(trimmed, trimmedLabel);
   } catch (err) {
     fail(
-      `could not write token file: ${err instanceof Error ? err.message : String(err)}`,
+      `could not write token file: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
     );
   }
 
   process.stdout.write(
-    `Saved to ${transcodesConfigFile()}\n  label=${trimmedLabel} ${expiryLine(trimmed)}\n`,
+    `Saved to ${transcodesConfigFile()}\n  label=${trimmedLabel} ${expiryLine(
+      trimmed,
+    )}\n`,
   );
 }
 
@@ -204,7 +216,9 @@ async function cmdPolicy(args: string[]): Promise<void> {
     ? ` revision=${cached.bundle.revision} rules=${cached.bundle.rules.length}`
     : '';
   process.stdout.write(
-    `Policy bundle ${outcome === 'not-modified' ? 'already current' : 'refreshed'}:${detail}\n  cache: ${policyBundleCachePath(config.projectId)}\n`,
+    `Policy bundle ${
+      outcome === 'not-modified' ? 'already current' : 'refreshed'
+    }:${detail}\n  cache: ${policyBundleCachePath(config.projectId)}\n`,
   );
   process.exit(0);
 }
@@ -255,6 +269,12 @@ function main(): void {
       break;
     case 'policy':
       void cmdPolicy(rest);
+      break;
+    case 'version':
+    case '--version':
+    case '-V':
+    case '-v':
+      cmdVersion();
       break;
     case 'help':
     case '--help':

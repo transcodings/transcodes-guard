@@ -46,6 +46,11 @@ export const CLI_COMMAND_SPECS: readonly CliCommandSpec[] = [
     description: 'Force-refresh the org policy bundle cache now',
   },
   {
+    usage: 'transcodes version',
+    description:
+      'Print the installed @bigstrider/transcodes-cli npm version (also: --version, -V)',
+  },
+  {
     usage: 'transcodes help',
     description: 'Show the full command list and how to use each one',
   },
