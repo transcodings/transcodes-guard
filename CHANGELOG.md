@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.24.0...transcodes-guard-v0.25.0) (2026-06-25)
+
+
+### Features
+
+* **cli:** improve dashboard guideline copy and footer links ([ca533a4](https://github.com/transcodings/transcodes-guard/commit/ca533a48746557052a4a4b18e36225a7b7307049))
+
 ## [0.24.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.23.0...transcodes-guard-v0.24.0) (2026-06-24)
 
 
