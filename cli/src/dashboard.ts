@@ -1204,6 +1204,39 @@ function dashboardHtml(): string {
       text-decoration: none;
     }
     .guide-help-line a:hover { text-decoration: underline; }
+    .guide-help-line code.cli-cmd { white-space: nowrap; }
+    .guide-help-examples {
+      margin: 10px 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .guide-help-examples code.cli-cmd {
+      display: block;
+      width: fit-content;
+      max-width: 100%;
+      white-space: normal;
+      word-break: break-word;
+    }
+    .guide-footer {
+      margin: 20px 0 0;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+    .guide-footer-line {
+      margin: 0;
+      font-size: var(--text-sm);
+      color: var(--muted);
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .guide-footer-line + .guide-footer-line { margin-top: 4px; }
+    .guide-footer-line a {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .guide-footer-line a:hover { text-decoration: underline; }
     .toast {
       margin-top: 14px;
       padding: 12px 16px;
@@ -1287,8 +1320,11 @@ function dashboardHtml(): string {
       <p class="section-title">Getting Started</p>
       <p class="section-sub">New to Transcodes? Watch the walkthrough, then follow the steps below</p>
       <div class="guide-help">
-        <p class="guide-help-line">Questions or trouble setting up? <a href="https://www.transcodes.io/booking" target="_blank" rel="noopener noreferrer">Book a schedule with us →</a></p>
-        <p class="guide-help-line">Full documentation: <a href="https://www.transcodes.io/docs" target="_blank" rel="noopener noreferrer">https://www.transcodes.io/docs</a></p>
+        <p class="guide-help-line"><strong>For LLM agents</strong> — prefix prompts with <code class="cli-cmd">/transcodes</code> to reduce hallucinations</p>
+        <div class="guide-help-examples">
+          <code class="cli-cmd">/transcodes add custom rule for adding google calendar event</code>
+          <code class="cli-cmd">/transcodes add signin / stepup / console in our admin dashboard</code>
+        </div>
       </div>
       <div class="guide-video">
         <mux-player
@@ -1390,6 +1426,10 @@ function dashboardHtml(): string {
             </li>
           </ol>
         </section>
+      </div>
+      <div class="guide-footer">
+        <p class="guide-footer-line">Questions or trouble setting up? <a href="https://www.transcodes.io/booking" target="_blank" rel="noopener noreferrer">https://www.transcodes.io/booking</a></p>
+        <p class="guide-footer-line">Full documentation: <a href="https://www.transcodes.io/docs" target="_blank" rel="noopener noreferrer">https://www.transcodes.io/docs</a></p>
       </div>
     </div>
 
