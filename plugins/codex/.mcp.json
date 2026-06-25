@@ -2,7 +2,8 @@
   "mcpServers": {
     "transcodes-guard": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/src/stdio.js"]
+      "args": ["./dist/src/stdio.js"],
+      "cwd": "."
     }
   }
 }

@@ -34,33 +34,23 @@ For team auto-registration, add this to your project's `.claude/settings.json`:
 
 ### Codex
 
-Prerequisites: a Codex CLI build with plugin + hooks support (the `codex plugin` subcommands and the `hooks` / `skills` feature flags — verify with `codex plugin --help`), Node >= 20.
+Prerequisites: a Codex CLI build with plugin + hooks support (`codex plugin --help` should work), Node >= 20.
 
-**Step 1 — enable hooks and skills** in `~/.codex/config.toml`:
-
-```toml
-[features]
-hooks = true
-skills = true
-```
-
-Without `hooks = true`, Codex silently ignores the plugin's hooks and the gate never runs. Without `skills = true`, the bundled `$transcodes` skill is not loaded.
-
-**Step 2 — install via the Codex marketplace.** The repo ships `.codex-plugin/marketplace.json`, a `local` catalog pointing at `../plugins/codex`. Clone, build the committed `dist/`, register the catalog, then install:
+**Step 1 — install via the Codex marketplace.** The repo ships `.agents/plugins/marketplace.json`, a Codex catalog pointing at `./plugins/codex`. Clone, build the committed `dist/`, register the repo root as the marketplace, then install:
 
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git
 cd transcodes-guard
 npm install && npm run build:plugin
 
-codex plugin marketplace add ./.codex-plugin   # registers the "bigstrider" marketplace
+codex plugin marketplace add .                 # registers the "bigstrider" marketplace
 codex plugin add transcodes-guard@bigstrider   # installs the plugin
 # or in Codex: /plugins → install "transcodes-guard" from the bigstrider marketplace
 ```
 
-**Step 3 — first run.** Codex prompts a one-time hook trust review (`/hooks` to inspect). Approve it once. Do **not** use `--dangerously-bypass-hook-trust`.
+**Step 2 — first run.** Codex prompts a one-time hook trust review (`/hooks` to inspect). Approve it once. Do **not** use `--dangerously-bypass-hook-trust`.
 
-**Step 4 — save your token** (the member MCP JWT) so step-up can start. Recommended: `npm install -g @bigstrider/transcodes-cli` then run `transcodes` to open the local dashboard (URL printed in the terminal; default port 3847) and paste your token (persisted to `~/.transcodes/config.json` for every session). Non-interactive: `transcodes set <token> -l <label>`. For config-less envs (CI), export `TRANSCODES_TOKEN` instead — it's a fallback used only when no token is saved. Without any of these, the hook still DENIES danger commands but cannot open a step-up session.
+**Step 3 — save your token** (the member MCP JWT) so step-up can start. Recommended: `npm install -g @bigstrider/transcodes-cli` then run `transcodes` to open the local dashboard (URL printed in the terminal; default port 3847) and paste your token (persisted to `~/.transcodes/config.json` for every session). Non-interactive: `transcodes set <token> -l <label>`. For config-less envs (CI), export `TRANSCODES_TOKEN` instead — it's a fallback used only when no token is saved. Without any of these, the hook still DENIES danger commands but cannot open a step-up session.
 
 ### Cursor
 

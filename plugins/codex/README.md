@@ -8,40 +8,30 @@ Shares the same step-up MFA gate logic as the Claude Code plugin (`@transcodes-g
 
 ## Prerequisites
 
-- **A Codex CLI build with plugin + hooks support** (the `codex plugin` subcommands and the `hooks` / `skills` feature flags). Verify the subcommand exists with `codex plugin --help`.
+- **A Codex CLI build with plugin + hooks support**. Verify the subcommand exists with `codex plugin --help`.
 - **Node.js ≥ 20**.
 
 ## Installation
 
-### 1. Enable hooks and skills in `~/.codex/config.toml`
+### 1. Install the plugin
 
-```toml
-[features]
-hooks = true
-skills = true
-```
-
-Without `hooks = true`, Codex silently ignores `plugin.json`'s `hooks` field — the gate would never run. Without `skills = true`, the bundled `$transcodes` skill is not loaded.
-
-### 2. Install the plugin
-
-The plugin manifest lives at `plugins/codex/.codex-plugin/plugin.json`, and the repo ships a Codex marketplace catalog at `.codex-plugin/marketplace.json` (a `local` source pointing at `../plugins/codex`). Clone the repo, build the committed `dist/`, register the catalog, then install the plugin:
+The plugin manifest lives at `plugins/codex/.codex-plugin/plugin.json`, and the repo ships a Codex marketplace catalog at `.agents/plugins/marketplace.json` (a `local` source pointing at `./plugins/codex`). Clone the repo, build the committed `dist/`, register the repo root as the catalog, then install the plugin:
 
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git
 cd transcodes-guard
 npm install && npm run build:plugin
 
-codex plugin marketplace add ./.codex-plugin   # registers the "bigstrider" marketplace
+codex plugin marketplace add .                 # registers the "bigstrider" marketplace
 codex plugin add transcodes-guard@bigstrider   # installs the plugin
 # or open Codex → /plugins and install "transcodes-guard" from the bigstrider marketplace
 ```
 
-### 3. Trust the hook on first run
+### 2. Trust the hook on first run
 
 The first time the hook is about to fire, Codex prompts a trust review (`/hooks` to inspect manually). Approve once and Codex caches the trust decision. **Do not** use `--dangerously-bypass-hook-trust` — that defeats the gate's authority.
 
-### 4. Save your token
+### 3. Save your token
 
 The MCP server and the step-up hook both authenticate against the Transcodes backend using a member MCP JWT. **Recommended** — install the CLI control plane once, then enter the token in the dashboard. It persists in `~/.transcodes/config.json` and every agent session reads it (no env var needed):
 
@@ -80,7 +70,7 @@ $transcodes list the current rules
 $transcodes is "git push --force" blocked?
 ```
 
-The skill ships in the plugin's `skills/` directory and is declared in `.codex-plugin/plugin.json` (`"skills": "./skills/"`), so `codex plugin add` loads it automatically — no manual copy. It requires `skills = true` in step 1 above.
+The skill ships in the plugin's `skills/` directory and is declared in `.codex-plugin/plugin.json` (`"skills": "./skills/"`), so `codex plugin add` loads it automatically — no manual copy.
 
 It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
 
@@ -90,17 +80,17 @@ The step-up response protocol the agent must follow on a `PreToolUse` deny (tell
 
 ## Enabling / disabling
 
-There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (Codex: remove from `config.toml` — `[features]` hooks/skills flags and/or the marketplace entry). Enabling the gate is safe for an agent; disabling it is a human-only action.
+There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (Codex: remove the plugin or disable it from the plugins UI). Enabling the gate is safe for an agent; disabling it is a human-only action.
 
 ## Environment
 
-Token resolution: the recommended store is `~/.transcodes/config.json` (via `transcodes` dashboard or `transcodes set`). When `TRANSCODES_TOKEN` is set, it **overrides** the saved file — use for CI or one-off overrides only.
+Token resolution: the recommended store is `~/.transcodes/config.json` (via `transcodes` dashboard or `transcodes set`). `TRANSCODES_TOKEN` is a **fallback** used only when no token is saved to the file — use it for config-less environments such as CI.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `TRANSCODES_TOKEN` | CI/override only (overrides saved file) | Member MCP JWT used as `x-transcodes-token`. Omit when using CLI storage. |
+| `TRANSCODES_TOKEN` | config-less env fallback (only when no token is saved) | Member MCP JWT used as `x-transcodes-token`. Omit when using CLI storage. |
 | `TRANSCODES_BACKEND_URL` | no | Override the default backend (`https://api.transcodesapis.com`). |
-| `CLAUDE_PLUGIN_ROOT` | host-set | The Codex hook/MCP manifests resolve every command path against `${CLAUDE_PLUGIN_ROOT}`. The `simulate_hook_invocation` MCP tool additionally accepts `PLUGIN_ROOT` as a fallback when locating the hook binary. |
+| `PLUGIN_ROOT` | host-set | Used by Codex hook commands to locate the plugin root. The MCP server uses `cwd: "."` plus relative paths. `simulate_hook_invocation` can also use this as a fallback when run outside the plugin. |
 
 ## Cross-host state sharing
 
@@ -108,10 +98,10 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 
 ## Troubleshooting
 
-- **Hook does not fire.** Check `~/.codex/config.toml` has `[features] hooks = true`, then verify trust with `codex` → `/hooks`.
-- **`$transcodes` not available.** Check `~/.codex/config.toml` has `[features] skills = true`.
+- **Hook does not fire.** Check the plugin is installed/enabled, then verify trust with `codex` → `/hooks`.
+- **`$transcodes` not available.** Check the plugin is installed/enabled and listed by `codex plugin list`; Codex exposes bundled skills through `/skills` and `$` mentions.
 - **`permissionDecision: deny` but no step-up URL.** The hook is blocking without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`). For CI only, export `TRANSCODES_TOKEN`.
-- **`simulate_hook_invocation` reports "CLAUDE_PLUGIN_ROOT must be set".** Neither `CLAUDE_PLUGIN_ROOT` nor `PLUGIN_ROOT` is set — this happens when the MCP server is invoked outside a plugin (e.g. `codex mcp add` with an absolute path). Export `PLUGIN_ROOT` to the plugin directory before invoking.
+- **`simulate_hook_invocation` reports "CLAUDE_PLUGIN_ROOT (or PLUGIN_ROOT for Codex) must be set".** `PLUGIN_ROOT` is not set — this happens when the MCP server is invoked outside a plugin (e.g. `codex mcp add` with an absolute path). Export `PLUGIN_ROOT` to the plugin directory before invoking.
 
 ## License
 
