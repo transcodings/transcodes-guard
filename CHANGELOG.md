@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.26.0...transcodes-guard-v0.27.0) (2026-06-26)
+
+
+### Features
+
+* **gate:** GateDecision 종류를 개명하고 감사 범위를 MFA 결과로 좁힘 ([#117](https://github.com/transcodings/transcodes-guard/issues/117)) ([7ab117b](https://github.com/transcodings/transcodes-guard/commit/7ab117b40560749bd6204df0149ed2a57dcdc6a7))
+
 ## [0.26.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.25.1...transcodes-guard-v0.26.0) (2026-06-26)
 
 
