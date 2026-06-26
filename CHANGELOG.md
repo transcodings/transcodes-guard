@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.26.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.25.1...transcodes-guard-v0.26.0) (2026-06-26)
+
+
+### Features
+
+* **cursor:** add one-shot plugin manifest and update install docs ([b669839](https://github.com/transcodings/transcodes-guard/commit/b669839b5efa1e622cfe161131d0ef6c7f020480))
+
+
+### Documentation
+
+* add git checkout main to install instructions ([5300cb5](https://github.com/transcodings/transcodes-guard/commit/5300cb58cf34cfa1aecb9cf12a19b2e62c5b097d))
+
 ## [0.25.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.25.0...transcodes-guard-v0.25.1) (2026-06-26)
 
 
