@@ -45,7 +45,6 @@ if (isLocal) {
 } else {
   // Global installation for both Desktop App/IDE and CLI (agy)
   targetDirs.push(resolveHome('~/.gemini/config/plugins/transcodes-guard'));
-  targetDirs.push(resolveHome('~/.gemini/antigravity-cli/plugins/transcodes-guard'));
 }
 
 // Assets to copy

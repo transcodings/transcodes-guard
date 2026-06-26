@@ -49,14 +49,14 @@ export declare function removeTokenFromFile(token: string): void;
  * Best-effort.
  */
 export declare function clearTokenFile(): void;
-export type TokenSource = 'env' | 'file' | 'none';
+export type TokenSource = 'file' | 'none';
 export type ResolvedToken = {
     token: string | null;
     source: TokenSource;
 };
 /**
- * Resolve the active token following the documented precedence
- * (file → env → none). Returns the source too so callers (e.g. a CLI
- * `status` command) can show where the token came from.
+ * Resolve the active token from `~/.transcodes/config.json` — the single
+ * source of truth. Returns the source too so callers (e.g. a CLI `status`
+ * command) can show where the token came from.
  */
 export declare function resolveToken(): ResolvedToken;

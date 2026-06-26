@@ -37,13 +37,7 @@ transcodes   # opens the local dashboard — URL is printed in the terminal (def
 
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
 
-For config-less envs (CI), export the `TRANSCODES_TOKEN` environment variable — it's a **fallback** used only when no token is saved to the file:
-
-```bash
-export TRANSCODES_TOKEN="$(read-your-token-here)"
-```
-
-If neither is set, the hook still **denies** danger commands but cannot start a step-up session — Antigravity will surface a reason telling you to provide a token.
+Without a token, the hook still **denies** danger commands but cannot start a step-up session — Antigravity will surface a reason telling you to provide a token.
 
 ## What the plugin does
 
@@ -58,7 +52,7 @@ If neither is set, the hook still **denies** danger commands but cannot start a 
 ## Supported surfaces (1차 출시)
 
 - ✅ **Antigravity 2.0 desktop app** — the global installer copies the plugin into `~/.gemini/config/plugins/transcodes-guard`, which Antigravity auto-loads.
-- ✅ **Antigravity CLI (`agy`)** — the same global installer also copies into `~/.gemini/antigravity-cli/plugins/transcodes-guard`, so `node install.mjs` covers both surfaces in one run. `agy plugin list` should then show `transcodes-guard`.
+- ✅ **Antigravity CLI (`agy`)** — shares the same `~/.gemini/config/plugins/transcodes-guard` directory as the desktop app (since CLI v1.0). `agy plugin list` should then show `transcodes-guard`.
 - ❌ **Managed Agents in Gemini API** — cloud-hosted, no access to the user's browser for WebAuthn. Not supported in 1차 출시.
 - ❌ **Scheduled Tasks (`schedule` tool)** — hook firing behavior under cron-style invocation is undocumented. Not supported in 1차 출시.
 - ❌ **Antigravity SDK (Python)** — separate language and packaging channel (`pip install google-antigravity`); out of this monorepo's scope.
@@ -89,11 +83,10 @@ There is no runtime kill-switch. To turn protection off, disable or uninstall th
 
 ## Environment
 
-Token resolution: the recommended store is `~/.transcodes/config.json` (via `transcodes` dashboard or `transcodes set`). When `TRANSCODES_TOKEN` is set, it **overrides** the saved file — use for CI or one-off overrides only.
+Token resolution: the token is read solely from `~/.transcodes/config.json` (via the `transcodes` dashboard or `transcodes set`).
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `TRANSCODES_TOKEN` | CI/override only (overrides saved file) | Member MCP JWT used as `x-transcodes-token`. Omit when using CLI storage. |
 | `TRANSCODES_BACKEND_URL` | no | Override the default backend (`https://api.transcodesapis.com`). |
 
 ## Cross-host state sharing

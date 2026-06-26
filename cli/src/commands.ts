@@ -67,9 +67,8 @@ function escapeHtml(s: string): string {
 export function formatCliUsageFooter(
   configPath = transcodesConfigFile(),
 ): string {
-  return `The token is read by the transcodes-guard plugins/hooks with precedence:
-  1. ${configPath} (written by this CLI, the source of truth)
-  2. TRANSCODES_TOKEN environment variable (fallback for config-less envs)
+  return `The token is read by the transcodes-guard plugins/hooks from:
+  ${configPath} (written by this CLI, the single source of truth)
 `;
 }
 

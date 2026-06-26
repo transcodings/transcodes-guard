@@ -11,8 +11,10 @@ import {
 } from '@transcodes-guard/danger-patterns';
 import {
   clearPending,
+  clearTokenFile,
   consumeVerified,
   readVerified,
+  writeTokenToFile,
   writeVerified,
 } from '@transcodes-guard/stepup-core';
 import {
@@ -182,12 +184,12 @@ describe('execProtectedTool step-up backstop', () => {
     permission = 2;
     consumeVerified();
     clearPending();
-    delete process.env.TRANSCODES_TOKEN;
+    clearTokenFile();
     delete process.env.TRANSCODES_BACKEND_URL;
   });
 
   it('denies level-2 without creating a step-up session from the handler', async () => {
-    process.env.TRANSCODES_TOKEN = fakeToken('member-level-2');
+    writeTokenToFile(fakeToken('member-level-2'), 'test');
     process.env.TRANSCODES_BACKEND_URL = baseUrl;
     let called = false;
 
@@ -203,7 +205,7 @@ describe('execProtectedTool step-up backstop', () => {
   });
 
   it('consumes a stale verified record after a level-1 allow path', async () => {
-    process.env.TRANSCODES_TOKEN = fakeToken('member-level-1');
+    writeTokenToFile(fakeToken('member-level-1'), 'test');
     process.env.TRANSCODES_BACKEND_URL = baseUrl;
     permission = 1;
     writeVerified({ sid: 'stale-sid', verifiedAt: Date.now() });

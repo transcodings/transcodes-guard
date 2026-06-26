@@ -52,12 +52,6 @@ transcodes   # opens the local dashboard — URL is printed in the terminal (def
 
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
 
-For config-less envs (CI), export the `TRANSCODES_TOKEN` environment variable in the shell that launches Cursor — it's a **fallback** used only when no token is saved to the file:
-
-```bash
-export TRANSCODES_TOKEN="$(read-your-token-here)"
-```
-
 If neither is set, the hook still **denies** danger commands but cannot start a step-up session.
 
 ## What the plugin does
@@ -125,5 +119,5 @@ These four items were not validated against a live Cursor build before release. 
 ## Troubleshooting
 
 - **Hook doesn't fire.** Open Settings → Hooks. Ensure the path in `.cursor/hooks.json` is absolute and `node` is in Cursor's `PATH` (Cursor inherits your login shell env on macOS only if launched from a terminal).
-- **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`). For CI only, export `TRANSCODES_TOKEN`, then restart Cursor.
+- **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`).
 - **MCP tool calls hang.** Check `~/.cursor/mcp.json` was written and `dist/src/stdio.js` exists. Cursor logs MCP failures to the Output panel.

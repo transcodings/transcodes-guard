@@ -41,8 +41,8 @@ transcodes   # opens the local dashboard — URL is printed in the terminal (def
 ```
 
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
-Without a token, the hook still **denies** danger commands but cannot start a
-step-up session — Codex will surface a reason telling you to provide a token.
+
+Without a token, the hook still **denies** danger commands but cannot start a step-up session — Codex will surface a reason telling you to provide a token.
 
 ## What the plugin does
 
@@ -78,8 +78,7 @@ There is no runtime kill-switch. To turn protection off, disable or uninstall th
 
 ## Environment
 
-Token resolution: the token is read solely from `~/.transcodes/config.json`
-(via `transcodes` dashboard or `transcodes set`).
+Token resolution: the token is read solely from `~/.transcodes/config.json` (via the `transcodes` dashboard or `transcodes set`).
 
 | Variable | Required | Purpose |
 |---|---|---|

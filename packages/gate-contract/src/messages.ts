@@ -36,11 +36,6 @@ export function formatNoTokenSessionNotice(): string {
     '',
     '  Non-interactive alternative (same store, e.g. for scripts):',
     '    transcodes set <token> -l <label>',
-    '',
-    '  For config-less envs (CI): set the TRANSCODES_TOKEN environment',
-    '  variable before launching the host (a fallback used only when no token is',
-    '  saved). Note: GUI-launched apps often do NOT inherit your shell env, so the',
-    '  CLI dashboard above is the more reliable option for desktop hosts.',
   ].join('\n');
 }
 
@@ -72,8 +67,7 @@ export function formatNoTokenReason(block: BlockResult): string {
     'Tell the user to install the CLI (`npm install -g @bigstrider/transcodes-cli`) ' +
     'and run `transcodes` to open the dashboard and paste a token from the Transcodes ' +
     'console (member detail page, https://app.transcodes.io). Non-interactive: ' +
-    '`transcodes set <token> -l <label>`. For CI only, set the TRANSCODES_TOKEN ' +
-    'environment variable. Or run the command outside the agent.'
+    '`transcodes set <token> -l <label>`. Or run the command outside the agent.'
   );
 }
 
@@ -84,7 +78,7 @@ export function formatNoTokenSystemMessage(block: BlockResult): string {
     'Ask the user to install the CLI (`npm install -g @bigstrider/transcodes-cli`), run\n' +
     '`transcodes` to open the dashboard, and paste a token from the Transcodes console →\n' +
     'member detail page (https://app.transcodes.io). Non-interactive: `transcodes set <token>\n' +
-    '-l <label>`; CI only: TRANSCODES_TOKEN. Then retry. Do not have the user paste the token into this chat.'
+    '-l <label>`. Then retry. Do not have the user paste the token into this chat.'
   );
 }
 

@@ -35,10 +35,10 @@ export type StepupConfig = {
 
 /**
  * Build StepupConfig from the environment + token store. The token is
- * resolved with the precedence ~/.transcodes/config.json → env → none
- * (see token-store.ts). Throws when no token is found or it is invalid.
- * Callers in fail-safe contexts (the hook) should catch and treat the
- * throw as "step-up unavailable → block".
+ * resolved solely from ~/.transcodes/config.json (see token-store.ts).
+ * Throws when no token is found or it is invalid. Callers in fail-safe
+ * contexts (the hook) should catch and treat the throw as "step-up
+ * unavailable → block".
  */
 export function loadStepupConfig(): StepupConfig {
   const rawUrl =
@@ -58,14 +58,13 @@ export function loadStepupConfig(): StepupConfig {
         '(`npm install -g @bigstrider/transcodes-cli`), run `transcodes` to open ' +
         'the dashboard, and paste a token from the Transcodes console (member ' +
         'detail page, https://app.transcodes.io). Non-interactive: ' +
-        '`transcodes set <token> -l <label>`. For CI only, set the ' +
-        'TRANSCODES_TOKEN environment variable.',
+        '`transcodes set <token> -l <label>`.',
     );
   }
 
   const parsed = parseMemberAccessToken(tokenRaw);
   for (const w of parsed.warnings) {
-    process.stderr.write(`[transcodes-guard] WARN TRANSCODES_TOKEN: ${w}\n`);
+    process.stderr.write(`[transcodes-guard] WARN token: ${w}\n`);
   }
 
   return {
