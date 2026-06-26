@@ -22,10 +22,31 @@ export interface BlockResult {
     stepupResource: string;
     stepupAction: RbacAction;
 }
+/**
+ * Runtime + type-level kind constants for `GateDecision`. Source of truth for
+ * the discriminated union below and for every `switch`/comparison across the
+ * codebase. Mirrored in `gate-contract/src/types.ts` (import firewall — the
+ * two copies must stay in lockstep; the `gate-backend` drift alarm catches a
+ * missed sync).
+ */
+export declare const GATE_DECISION_KIND: {
+    readonly PROCEED_UNGATED: "proceed-ungated";
+    readonly PROCEED_BY_POLICY: "proceed-by-policy";
+    readonly PROCEED_BY_VERIFICATION: "proceed-by-verification";
+    readonly BLOCK_NO_TOKEN: "block-no-token";
+    readonly BLOCK_BY_POLICY: "block-by-policy";
+    readonly BLOCK_STEPUP_CREATE_FAILED: "block-stepup-create-failed";
+    readonly BLOCK_STEPUP_CHALLENGED: "block-stepup-challenged";
+};
 export type GateDecision = {
-    kind: 'pass';
+    kind: typeof GATE_DECISION_KIND.PROCEED_UNGATED;
 } | {
-    kind: 'allow';
+    kind: typeof GATE_DECISION_KIND.PROCEED_BY_POLICY;
+    block: BlockResult;
+    resource: string;
+    action: string;
+} | {
+    kind: typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION;
     block: BlockResult;
     /** True → the hook itself consumes the verified record (Bash + user
      * tool-rules). False → consume is deferred to the tool handler
@@ -37,23 +58,23 @@ export type GateDecision = {
      * (GLOBAL store). */
     fp?: string;
 } | {
-    kind: 'deny-no-token';
+    kind: typeof GATE_DECISION_KIND.BLOCK_NO_TOKEN;
     block: BlockResult;
 } | {
     /** RBAC matrix returned permission 0 (deny) for this resource+action.
      * Step-up cannot help — the member's role has no access. Hard block. */
-    kind: 'deny-rbac-denied';
+    kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY;
     block: BlockResult;
     resource: string;
     action: string;
 } | {
-    kind: 'deny-stepup-failure';
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
     block: BlockResult;
     failure: Extract<RequestResult, {
         ok: false;
     }>;
 } | {
-    kind: 'deny-stepup-pending';
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
     block: BlockResult;
     sid: string;
     browserUrl: string;

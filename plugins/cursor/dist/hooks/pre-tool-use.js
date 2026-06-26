@@ -3,6 +3,7 @@ import {
   cursorAdapter
 } from "../chunk-QEUV275V.js";
 import {
+  GATE_DECISION_KIND,
   formatAllowReason,
   formatNoTokenReason,
   formatNoTokenSystemMessage,
@@ -14,7 +15,7 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   getGateBackend
-} from "../chunk-OFO7RYG3.js";
+} from "../chunk-DDP22LWY.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
@@ -29,9 +30,10 @@ async function main() {
   const backend = getGateBackend();
   const decision = await backend.evaluatePreToolUse(input);
   switch (decision.kind) {
-    case "pass":
+    case GATE_DECISION_KIND.PROCEED_UNGATED:
+    case GATE_DECISION_KIND.PROCEED_BY_POLICY:
       process.exit(0);
-    case "allow":
+    case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: "allow",
@@ -46,7 +48,7 @@ async function main() {
 `);
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
-    case "deny-no-token":
+    case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: "deny",
@@ -58,7 +60,7 @@ async function main() {
 `);
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
-    case "deny-rbac-denied":
+    case GATE_DECISION_KIND.BLOCK_BY_POLICY:
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: "deny",
@@ -70,7 +72,7 @@ async function main() {
 `);
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
-    case "deny-stepup-failure":
+    case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: "deny",
@@ -82,7 +84,7 @@ async function main() {
 `);
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
-    case "deny-stepup-pending":
+    case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: "deny",

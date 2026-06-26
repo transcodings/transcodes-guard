@@ -54,28 +54,48 @@ export interface VerifiedStepup {
 }
 /** RBAC permission level: 0 deny, 1 allow, 2 allow+step-up. Mirrors rbac-check.ts. */
 export type RbacLevel = 0 | 1 | 2;
+/**
+ * Runtime + type-level kind constants for `GateDecision`. Source of truth
+ * for the discriminated union below. Mirrored in `stepup-core/src/evaluate.ts`
+ * (import firewall — the two copies must stay in lockstep; the `gate-backend`
+ * drift alarm catches a missed sync).
+ */
+export declare const GATE_DECISION_KIND: {
+    readonly PROCEED_UNGATED: "proceed-ungated";
+    readonly PROCEED_BY_POLICY: "proceed-by-policy";
+    readonly PROCEED_BY_VERIFICATION: "proceed-by-verification";
+    readonly BLOCK_NO_TOKEN: "block-no-token";
+    readonly BLOCK_BY_POLICY: "block-by-policy";
+    readonly BLOCK_STEPUP_CREATE_FAILED: "block-stepup-create-failed";
+    readonly BLOCK_STEPUP_CHALLENGED: "block-stepup-challenged";
+};
 /** Host-agnostic PreToolUse gate decision. Mirrors evaluate.ts `GateDecision`. */
 export type GateDecision = {
-    kind: 'pass';
+    kind: typeof GATE_DECISION_KIND.PROCEED_UNGATED;
 } | {
-    kind: 'allow';
-    block: BlockResult;
-    consumeHere: boolean;
-    fp?: string;
-} | {
-    kind: 'deny-no-token';
-    block: BlockResult;
-} | {
-    kind: 'deny-rbac-denied';
+    kind: typeof GATE_DECISION_KIND.PROCEED_BY_POLICY;
     block: BlockResult;
     resource: string;
     action: string;
 } | {
-    kind: 'deny-stepup-failure';
+    kind: typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION;
+    block: BlockResult;
+    consumeHere: boolean;
+    fp?: string;
+} | {
+    kind: typeof GATE_DECISION_KIND.BLOCK_NO_TOKEN;
+    block: BlockResult;
+} | {
+    kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY;
+    block: BlockResult;
+    resource: string;
+    action: string;
+} | {
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
     block: BlockResult;
     failure: StepupFailure;
 } | {
-    kind: 'deny-stepup-pending';
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
     block: BlockResult;
     sid: string;
     browserUrl: string;

@@ -1,4 +1,17 @@
 /**
+ * Host-agnostic user-facing text for PreToolUse decisions.
+ *
+ * Each host's hook entrypoint calls these formatters to fill in `reason`
+ * and `systemMessage` on its adapter's `emitPreToolUse(...)`. The strings
+ * here are stable across hosts because the agent-facing protocol
+ * instructions don't depend on which CLI ran the hook.
+ *
+ * These live in gate-contract (public) — they are pure text formatters over
+ * the `GateDecision` shape, carry no backend coupling, and let every host hook
+ * render decisions without importing private code.
+ */
+import { GATE_DECISION_KIND, } from './types.js';
+/**
  * Session-start notice text shown when no Transcodes token is configured.
  *
  * Pure formatter — it does NOT decide whether to show itself. The caller is
@@ -124,17 +137,18 @@ export function formatStepupPendingSystemMessage(decision) {
  */
 export function formatStderrTag(decision) {
     switch (decision.kind) {
-        case 'pass':
+        case GATE_DECISION_KIND.PROCEED_UNGATED:
+        case GATE_DECISION_KIND.PROCEED_BY_POLICY:
             return 'transcodes-guard: pass';
-        case 'allow':
+        case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
             return `transcodes-guard: ALLOWED (stepup-verified) — ${decision.block.command}`;
-        case 'deny-no-token':
+        case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
             return `transcodes-guard: BLOCKED (no token) — ${decision.block.command}`;
-        case 'deny-rbac-denied':
+        case GATE_DECISION_KIND.BLOCK_BY_POLICY:
             return `transcodes-guard: BLOCKED (rbac-denied ${decision.resource}/${decision.action}) — ${decision.block.command}`;
-        case 'deny-stepup-failure':
+        case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
             return `transcodes-guard: BLOCKED (stepup-failure) — ${decision.block.command}`;
-        case 'deny-stepup-pending':
+        case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
             return `transcodes-guard: STEPUP-PENDING sid=${decision.sid} — ${decision.block.command}`;
     }
 }

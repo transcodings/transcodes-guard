@@ -29,7 +29,18 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "antigravity";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
+
+// ../../packages/gate-contract/dist/types.js
+var GATE_DECISION_KIND = {
+  PROCEED_UNGATED: "proceed-ungated",
+  PROCEED_BY_POLICY: "proceed-by-policy",
+  PROCEED_BY_VERIFICATION: "proceed-by-verification",
+  BLOCK_NO_TOKEN: "block-no-token",
+  BLOCK_BY_POLICY: "block-by-policy",
+  BLOCK_STEPUP_CREATE_FAILED: "block-stepup-create-failed",
+  BLOCK_STEPUP_CHALLENGED: "block-stepup-challenged"
+};
 
 // ../../packages/gate-contract/dist/messages.js
 function formatNoTokenSessionNotice() {
@@ -124,17 +135,18 @@ function formatStepupPendingSystemMessage(decision) {
 }
 function formatStderrTag(decision) {
   switch (decision.kind) {
-    case "pass":
+    case GATE_DECISION_KIND.PROCEED_UNGATED:
+    case GATE_DECISION_KIND.PROCEED_BY_POLICY:
       return "transcodes-guard: pass";
-    case "allow":
+    case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
       return `transcodes-guard: ALLOWED (stepup-verified) \u2014 ${decision.block.command}`;
-    case "deny-no-token":
+    case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
       return `transcodes-guard: BLOCKED (no token) \u2014 ${decision.block.command}`;
-    case "deny-rbac-denied":
+    case GATE_DECISION_KIND.BLOCK_BY_POLICY:
       return `transcodes-guard: BLOCKED (rbac-denied ${decision.resource}/${decision.action}) \u2014 ${decision.block.command}`;
-    case "deny-stepup-failure":
+    case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
       return `transcodes-guard: BLOCKED (stepup-failure) \u2014 ${decision.block.command}`;
-    case "deny-stepup-pending":
+    case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
       return `transcodes-guard: STEPUP-PENDING sid=${decision.sid} \u2014 ${decision.block.command}`;
   }
 }
@@ -147,7 +159,7 @@ function notInstalled() {
 var denyByDefaultBackend = {
   // hook path — inert no-ops / empty reads
   async evaluatePreToolUse() {
-    return { kind: "pass" };
+    return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
   },
   writePending() {
   },
@@ -1143,56 +1155,6 @@ async function openConsoleSession(options) {
     expiresAt: created.expiresAt,
     launched: shouldOpen
   };
-}
-
-// ../../packages/stepup-core/dist/decision-audit.js
-var DECISION_AUDIT_TAG = "guard_gate_decision";
-var DECISION_AUDIT_TIMEOUT_MS = 1e3;
-function decisionAuditEventOf(decision) {
-  if (decision.kind === "pass")
-    return null;
-  return {
-    decision: decision.kind,
-    resource: decision.block.stepupResource,
-    action: decision.block.stepupAction,
-    ruleId: decision.block.ruleId,
-    ...decision.kind === "allow" && decision.fp ? { fp: decision.fp } : {},
-    ...decision.kind === "deny-stepup-pending" && decision.pending.fp ? { fp: decision.pending.fp } : {}
-  };
-}
-async function sendDecisionAudit(config, event, opts = {}) {
-  try {
-    const env = await request(config, {
-      method: "POST",
-      path: "/audit/logs",
-      timeoutMs: opts.timeoutMs ?? DECISION_AUDIT_TIMEOUT_MS,
-      body: {
-        project_id: config.projectId,
-        member_id: config.memberId,
-        tag: DECISION_AUDIT_TAG,
-        severity: event.decision === "allow" ? "low" : "medium",
-        status: true,
-        metadata: event
-      }
-    });
-    if (!env.ok) {
-      console.error(`transcodes-guard: decision audit not recorded (status ${env.status})`);
-    }
-  } catch (err) {
-    console.error(`transcodes-guard: decision audit not recorded (${err instanceof Error ? err.message : String(err)})`);
-  }
-}
-async function sendGateDecisionAudit(decision) {
-  const event = decisionAuditEventOf(decision);
-  if (!event)
-    return;
-  let config;
-  try {
-    config = loadStepupConfig();
-  } catch {
-    return;
-  }
-  await sendDecisionAudit(config, event);
 }
 
 // ../../packages/stepup-core/dist/evaluate.js
@@ -5820,6 +5782,15 @@ async function checkRbacPermission(config, resource, action) {
 }
 
 // ../../packages/stepup-core/dist/evaluate.js
+var GATE_DECISION_KIND2 = {
+  PROCEED_UNGATED: "proceed-ungated",
+  PROCEED_BY_POLICY: "proceed-by-policy",
+  PROCEED_BY_VERIFICATION: "proceed-by-verification",
+  BLOCK_NO_TOKEN: "block-no-token",
+  BLOCK_BY_POLICY: "block-by-policy",
+  BLOCK_STEPUP_CREATE_FAILED: "block-stepup-create-failed",
+  BLOCK_STEPUP_CHALLENGED: "block-stepup-challenged"
+};
 function checkPatternMatch(command) {
   const hit = findFirstMatch(command, loadEffectivePatterns());
   if (!hit)
@@ -5965,10 +5936,10 @@ async function evaluatePreToolUse(input) {
   try {
     classified = classifyToolCall(input);
   } catch {
-    return { kind: "pass" };
+    return { kind: GATE_DECISION_KIND2.PROCEED_UNGATED };
   }
   if (!classified)
-    return { kind: "pass" };
+    return { kind: GATE_DECISION_KIND2.PROCEED_UNGATED };
   const block = classified.kind === "bash" ? checkPatternMatch(classified.command) ?? checkRmGitTracked(classified.command, classified.cwd) : {
     reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` \u2014 ${classified.rule.description}`,
     command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
@@ -5977,20 +5948,25 @@ async function evaluatePreToolUse(input) {
     stepupAction: classified.rule.action ?? "update"
   };
   if (!block)
-    return { kind: "pass" };
+    return { kind: GATE_DECISION_KIND2.PROCEED_UNGATED };
   const consumeHere = classified.kind === "bash" || classified.kind === "mcp" && mcpConsumesInHook(classified.rule);
   const fingerprintKey = classified.kind === "bash" ? classified.command : `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
   const fp = consumeHere ? fingerprintOf(fingerprintKey) : void 0;
   const verified = readVerified(fp);
   if (verified) {
     if (!consumeHere || await recheckVerifiedSid(verified.sid) === "trust") {
-      return { kind: "allow", block, consumeHere, fp };
+      return {
+        kind: GATE_DECISION_KIND2.PROCEED_BY_VERIFICATION,
+        block,
+        consumeHere,
+        fp
+      };
     }
     consumeVerified(fp);
     clearPending(fp);
   }
   if (!resolveToken().token) {
-    return { kind: "deny-no-token", block };
+    return { kind: GATE_DECISION_KIND2.BLOCK_NO_TOKEN, block };
   }
   const { stepupResource: resource, stepupAction: action } = block;
   const hasRbacCoord = classified.kind === "bash" || classified.rule.action !== void 0 && classified.rule.resource !== void 0;
@@ -6004,10 +5980,20 @@ async function evaluatePreToolUse(input) {
     }
   }
   if (level === 0) {
-    return { kind: "deny-rbac-denied", block, resource, action };
+    return {
+      kind: GATE_DECISION_KIND2.BLOCK_BY_POLICY,
+      block,
+      resource,
+      action
+    };
   }
   if (level === 1) {
-    return { kind: "pass" };
+    return {
+      kind: GATE_DECISION_KIND2.PROCEED_BY_POLICY,
+      block,
+      resource,
+      action
+    };
   }
   const gateInput = {
     reason: block.reason,
@@ -6018,7 +6004,11 @@ async function evaluatePreToolUse(input) {
   };
   const req2 = await requestStepup(gateInput);
   if (!req2.ok) {
-    return { kind: "deny-stepup-failure", block, failure: req2 };
+    return {
+      kind: GATE_DECISION_KIND2.BLOCK_STEPUP_CREATE_FAILED,
+      block,
+      failure: req2
+    };
   }
   const pending = {
     sid: req2.sid,
@@ -6032,13 +6022,83 @@ async function evaluatePreToolUse(input) {
     ...fp ? { fp } : {}
   };
   return {
-    kind: "deny-stepup-pending",
+    kind: GATE_DECISION_KIND2.BLOCK_STEPUP_CHALLENGED,
     block,
     sid: req2.sid,
     browserUrl: req2.browserUrl,
     browserLaunched: req2.launched,
     pending
   };
+}
+
+// ../../packages/stepup-core/dist/decision-audit.js
+var DECISION_AUDIT_TAG = "guard_gate_decision";
+var DECISION_AUDIT_TIMEOUT_MS = 1e3;
+var LEGACY_WIRE_DECISION = {
+  [GATE_DECISION_KIND2.PROCEED_BY_VERIFICATION]: "allow",
+  [GATE_DECISION_KIND2.BLOCK_STEPUP_CREATE_FAILED]: "deny-stepup-failure"
+};
+function legacySeverity(decision) {
+  return decision === GATE_DECISION_KIND2.PROCEED_BY_VERIFICATION ? "low" : "medium";
+}
+function decisionAuditEventOf(decision) {
+  switch (decision.kind) {
+    case GATE_DECISION_KIND2.PROCEED_BY_VERIFICATION:
+      return {
+        decision: decision.kind,
+        resource: decision.block.stepupResource,
+        action: decision.block.stepupAction,
+        ruleId: decision.block.ruleId,
+        ...decision.fp ? { fp: decision.fp } : {}
+      };
+    case GATE_DECISION_KIND2.BLOCK_STEPUP_CREATE_FAILED:
+      if (decision.failure.reason !== "create-failed")
+        return null;
+      return {
+        decision: decision.kind,
+        resource: decision.block.stepupResource,
+        action: decision.block.stepupAction,
+        ruleId: decision.block.ruleId
+      };
+    default:
+      return null;
+  }
+}
+async function sendDecisionAudit(config, event, opts = {}) {
+  try {
+    const env = await request(config, {
+      method: "POST",
+      path: "/audit/logs",
+      timeoutMs: opts.timeoutMs ?? DECISION_AUDIT_TIMEOUT_MS,
+      body: {
+        project_id: config.projectId,
+        member_id: config.memberId,
+        tag: DECISION_AUDIT_TAG,
+        severity: legacySeverity(event.decision),
+        status: true,
+        // Wire-translation seam: send the legacy kind string the backend
+        // knows, not the renamed local kind. See LEGACY_WIRE_DECISION.
+        metadata: { ...event, decision: LEGACY_WIRE_DECISION[event.decision] }
+      }
+    });
+    if (!env.ok) {
+      console.error(`transcodes-guard: decision audit not recorded (status ${env.status})`);
+    }
+  } catch (err) {
+    console.error(`transcodes-guard: decision audit not recorded (${err instanceof Error ? err.message : String(err)})`);
+  }
+}
+async function sendGateDecisionAudit(decision) {
+  const event = decisionAuditEventOf(decision);
+  if (!event)
+    return;
+  let config;
+  try {
+    config = loadStepupConfig();
+  } catch {
+    return;
+  }
+  await sendDecisionAudit(config, event);
 }
 
 // ../../packages/stepup-core/dist/guard-rules.js
@@ -7597,6 +7657,7 @@ export {
   ZodFirstPartyTypeKind,
   objectType,
   external_exports,
+  GATE_DECISION_KIND,
   formatNoTokenSessionNotice,
   formatAllowReason,
   formatNoTokenReason,
