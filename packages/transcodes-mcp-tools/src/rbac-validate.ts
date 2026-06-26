@@ -100,7 +100,7 @@ export async function assertRbacCoordinate(
     throw new RbacCoordinateError(
       'could not fetch RBAC resources from the backend to validate `resource` ' +
         '(network failure, auth error, empty project resources, or unparseable response). ' +
-        'Token is read from TRANSCODES_TOKEN or ~/.transcodes/config.json — not env-only. ' +
+        'The token is read from ~/.transcodes/config.json (written by the transcodes CLI). ' +
         'If `get_resources` already succeeded, retry after updating the plugin build. ' +
         'Inspect valid resources with the `get_resources` tool.',
     );

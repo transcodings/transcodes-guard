@@ -79,4 +79,5 @@ fi
 
 echo ""
 echo "Done. Restart Cursor to pick up the new hooks."
-echo "Don't forget: export TRANSCODES_TOKEN=... before launching Cursor."
+echo "Don't forget to save your token: install the CLI (npm install -g @bigstrider/transcodes-cli)"
+echo "then run 'transcodes' (dashboard) or 'transcodes set <token> -l <label>'."

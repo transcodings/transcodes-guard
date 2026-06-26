@@ -7523,7 +7523,7 @@ async function assertRbacCoordinate(config, resource, action) {
   }
   const keys = await fetchRbacResourceKeys(config);
   if (keys === null) {
-    throw new RbacCoordinateError("could not fetch RBAC resources from the backend to validate `resource` (network failure, auth error, empty project resources, or unparseable response). Token is read from TRANSCODES_TOKEN or ~/.transcodes/config.json \u2014 not env-only. If `get_resources` already succeeded, retry after updating the plugin build. Inspect valid resources with the `get_resources` tool.");
+    throw new RbacCoordinateError("could not fetch RBAC resources from the backend to validate `resource` (network failure, auth error, empty project resources, or unparseable response). The token is read from ~/.transcodes/config.json (written by the transcodes CLI). If `get_resources` already succeeded, retry after updating the plugin build. Inspect valid resources with the `get_resources` tool.");
   }
   if (!keys.includes(resource.trim())) {
     throw new RbacCoordinateError(`resource "${resource}" is not a known RBAC resource for this project. Valid resources: ${keys.join(", ")}. Call \`get_resources\` to inspect, or create it first with \`create_resource\`.`);
