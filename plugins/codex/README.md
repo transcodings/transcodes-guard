@@ -41,14 +41,8 @@ transcodes   # opens the local dashboard — URL is printed in the terminal (def
 ```
 
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
-
-For config-less envs (CI), export the `TRANSCODES_TOKEN` environment variable — it's a **fallback** used only when no token is saved to the file:
-
-```bash
-export TRANSCODES_TOKEN="$(read-your-token-here)"
-```
-
-If neither is set, the hook still **denies** danger commands but cannot start a step-up session — Codex will surface a reason telling you to provide a token.
+Without a token, the hook still **denies** danger commands but cannot start a
+step-up session — Codex will surface a reason telling you to provide a token.
 
 ## What the plugin does
 
@@ -84,11 +78,11 @@ There is no runtime kill-switch. To turn protection off, disable or uninstall th
 
 ## Environment
 
-Token resolution: the recommended store is `~/.transcodes/config.json` (via `transcodes` dashboard or `transcodes set`). `TRANSCODES_TOKEN` is a **fallback** used only when no token is saved to the file — use it for config-less environments such as CI.
+Token resolution: the token is read solely from `~/.transcodes/config.json`
+(via `transcodes` dashboard or `transcodes set`).
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `TRANSCODES_TOKEN` | config-less env fallback (only when no token is saved) | Member MCP JWT used as `x-transcodes-token`. Omit when using CLI storage. |
 | `TRANSCODES_BACKEND_URL` | no | Override the default backend (`https://api.transcodesapis.com`). |
 | `PLUGIN_ROOT` | host-set | Used by Codex hook commands to locate the plugin root. The MCP server uses `cwd: "."` plus relative paths. `simulate_hook_invocation` can also use this as a fallback when run outside the plugin. |
 
@@ -100,7 +94,7 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 
 - **Hook does not fire.** Check the plugin is installed/enabled, then verify trust with `codex` → `/hooks`.
 - **`$transcodes` not available.** Check the plugin is installed/enabled and listed by `codex plugin list`; Codex exposes bundled skills through `/skills` and `$` mentions.
-- **`permissionDecision: deny` but no step-up URL.** The hook is blocking without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`). For CI only, export `TRANSCODES_TOKEN`.
+- **`permissionDecision: deny` but no step-up URL.** The hook is blocking without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`).
 - **`simulate_hook_invocation` reports "CLAUDE_PLUGIN_ROOT (or PLUGIN_ROOT for Codex) must be set".** `PLUGIN_ROOT` is not set — this happens when the MCP server is invoked outside a plugin (e.g. `codex mcp add` with an absolute path). Export `PLUGIN_ROOT` to the plugin directory before invoking.
 
 ## License
