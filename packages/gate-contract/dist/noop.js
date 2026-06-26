@@ -1,3 +1,4 @@
+import { GATE_DECISION_KIND } from './types.js';
 const NOT_INSTALLED = 'transcodes-guard: gate backend not installed';
 function notInstalled() {
     throw new Error(NOT_INSTALLED);
@@ -5,7 +6,7 @@ function notInstalled() {
 export const denyByDefaultBackend = {
     // hook path — inert no-ops / empty reads
     async evaluatePreToolUse() {
-        return { kind: 'pass' };
+        return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
     },
     writePending() { },
     consumeVerified() { },

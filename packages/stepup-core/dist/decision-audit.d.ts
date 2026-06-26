@@ -1,9 +1,11 @@
 import { type StepupConfig } from './config.js';
-import type { GateDecision } from './evaluate.js';
+import { GATE_DECISION_KIND, type GateDecision } from './evaluate.js';
 export declare const DECISION_AUDIT_TAG = "guard_gate_decision";
 export declare const DECISION_AUDIT_TIMEOUT_MS = 1000;
+/** The two recorded decision kinds (the MFA outcomes). */
+export type RecordedDecisionKind = typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION | typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
 export type DecisionAuditEvent = {
-    decision: Exclude<GateDecision['kind'], 'pass'>;
+    decision: RecordedDecisionKind;
     resource: string;
     action: string;
     ruleId: string;
@@ -11,9 +13,11 @@ export type DecisionAuditEvent = {
     fp?: string;
 };
 /**
- * Map a gate decision onto its audit event. `pass` returns null — safe
- * commands are not audited (volume + privacy; the gate made no decision
- * worth recording).
+ * Map a gate decision onto its audit event. Returns null for every
+ * non-recorded kind (gate-uninvolved, policy-only allow/deny, no-token,
+ * step-up challenged-but-unfinished) and for the `block-stepup-create-failed`
+ * branches that are not a backend explicit refusal (`reason === 'no-token'`
+ * or `'error'`). Only the two MFA-outcome events are recorded.
  */
 export declare function decisionAuditEventOf(decision: GateDecision): DecisionAuditEvent | null;
 /**

@@ -10,7 +10,7 @@
  * the `GateDecision` shape, carry no backend coupling, and let every host hook
  * render decisions without importing private code.
  */
-import type { BlockResult, GateDecision } from './types.js';
+import { type BlockResult, GATE_DECISION_KIND, type GateDecision } from './types.js';
 /**
  * Session-start notice text shown when no Transcodes token is configured.
  *
@@ -21,30 +21,30 @@ import type { BlockResult, GateDecision } from './types.js';
 export declare function formatNoTokenSessionNotice(): string;
 export declare function formatBlockedSummary(block: BlockResult): string;
 export declare function formatAllowReason(decision: Extract<GateDecision, {
-    kind: 'allow';
+    kind: typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION;
 }>): string;
 export declare function formatNoTokenReason(block: BlockResult): string;
 export declare function formatNoTokenSystemMessage(block: BlockResult): string;
 export declare function formatRbacDeniedReason(decision: Extract<GateDecision, {
-    kind: 'deny-rbac-denied';
+    kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY;
 }>): string;
 export declare function formatRbacDeniedSystemMessage(decision: Extract<GateDecision, {
-    kind: 'deny-rbac-denied';
+    kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY;
 }>): string;
 export declare function formatStepupFailureDetail(decision: Extract<GateDecision, {
-    kind: 'deny-stepup-failure';
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
 }>): string;
 export declare function formatStepupFailureReason(decision: Extract<GateDecision, {
-    kind: 'deny-stepup-failure';
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
 }>): string;
 export declare function formatStepupFailureSystemMessage(decision: Extract<GateDecision, {
-    kind: 'deny-stepup-failure';
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
 }>): string;
 export declare function formatStepupPendingReason(decision: Extract<GateDecision, {
-    kind: 'deny-stepup-pending';
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
 }>): string;
 export declare function formatStepupPendingSystemMessage(decision: Extract<GateDecision, {
-    kind: 'deny-stepup-pending';
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
 }>): string;
 /**
  * Stderr 1-line summary tag for the hook process. Distinct from the
