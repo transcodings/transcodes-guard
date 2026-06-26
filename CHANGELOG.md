@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.25.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.25.0...transcodes-guard-v0.25.1) (2026-06-26)
+
+
+### Bug Fixes
+
+* **antigravity:** update install paths for CLI v1.0 relocation ([be06f5f](https://github.com/transcodings/transcodes-guard/commit/be06f5f9c41d58a67497b9baba899740bdbb1ca3))
+* **codex:** install guard from Codex marketplace ([1f8e70f](https://github.com/transcodings/transcodes-guard/commit/1f8e70f359fb173cf2079291f0e597d2215e0ef6))
+
+
+### Documentation
+
+* **codex:** remove TRANSCODES_TOKEN fallback from install guides ([3e4e432](https://github.com/transcodings/transcodes-guard/commit/3e4e432e73d5e5fc3c7ab6ce692a5607bd656602))
+
+
+### Code Refactoring
+
+* **token:** clean up two remaining TRANSCODES_TOKEN references ([60a6f77](https://github.com/transcodings/transcodes-guard/commit/60a6f77bf219bc2968f14ac113485c0be5eae0f4))
+* **token:** drop TRANSCODES_TOKEN env fallback; config.json is the only source ([7dd85b4](https://github.com/transcodings/transcodes-guard/commit/7dd85b4b279cf2b44faad5ea659ec83a9eb58d61))
+
 ## [0.25.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.24.0...transcodes-guard-v0.25.0) (2026-06-25)
 
 
