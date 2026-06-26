@@ -2,7 +2,7 @@
 
 [English](./README.md) | **한국어**
 
-OpenAI Codex CLI용 위험 bash 인터셉터(`PreToolUse` hook) + 감사 MCP 서버.
+OpenAI Codex CLI용 위험 셸 인터셉터(`PreToolUse` hook) + step-up MFA 감사 MCP 서버.
 
 Claude Code 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`)을 공유하며, Codex에 특화된 부분은 hook 어댑터와 플러그인 매니페스트뿐입니다.
 

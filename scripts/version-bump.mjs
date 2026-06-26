@@ -47,6 +47,7 @@ const targets = [
   "plugins/claude-code/.claude-plugin/plugin.json",
   "plugins/codex/package.json",
   "plugins/cursor/package.json",
+  "plugins/cursor/.cursor-plugin/plugin.json",
   "plugins/antigravity/package.json",
 ];
 

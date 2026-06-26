@@ -12,6 +12,7 @@
     "dist",
     "README.md",
     ".cursor",
+    ".cursor-plugin",
     "mcp.json",
     "install.sh"
   ],

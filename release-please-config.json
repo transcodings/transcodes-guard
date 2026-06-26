@@ -56,6 +56,11 @@
         },
         {
           "type": "json",
+          "path": "plugins/cursor/.cursor-plugin/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
           "path": "mcp/package.json",
           "jsonpath": "$.version"
         }

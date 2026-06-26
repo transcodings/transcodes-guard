@@ -8,15 +8,18 @@
 #
 # What it does:
 #  1. Resolves PLUGIN_ROOT to this script's absolute directory.
-#  2. Substitutes __TRANSCODES_GUARD_ROOT__ in .cursor/hooks.json and mcp.json
-#     with that absolute path.
+#  2. Substitutes ${CURSOR_PLUGIN_ROOT} in .cursor/hooks.json and mcp.json
+#     with that absolute path. (Cursor only sets ${CURSOR_PLUGIN_ROOT} for
+#     marketplace-installed plugin hooks; a workspace/user .cursor/hooks.json
+#     is a plain project hook with no such variable, so we bake in the path.)
 #  3. Copies the rendered hooks.json to <target>/.cursor/hooks.json.
 #  4. Merges mcp.json into <target>/.cursor/mcp.json (or ~/.cursor/mcp.json
 #     for --user) — if a file already exists, prints the line the user must
 #     add manually instead of clobbering their other servers.
 #
-# Cursor does not auto-discover plugin directories; placing hooks.json into
-# .cursor/ is required for the gate to fire. See README.md for details.
+# This script is only for manual (non-marketplace) install. If you install the
+# plugin via the Cursor marketplace, Cursor resolves ${CURSOR_PLUGIN_ROOT}
+# itself and you do not need this script. See README.md for details.
 
 set -euo pipefail
 
@@ -52,7 +55,7 @@ cursor_dir="$target/.cursor"
 mkdir -p "$cursor_dir"
 
 # Render hooks.json with absolute plugin root.
-sed "s|__TRANSCODES_GUARD_ROOT__|$PLUGIN_ROOT|g" \
+sed "s|\${CURSOR_PLUGIN_ROOT}|$PLUGIN_ROOT|g" \
   "$PLUGIN_ROOT/.cursor/hooks.json" > "$cursor_dir/hooks.json"
 echo "wrote $cursor_dir/hooks.json"
 
@@ -65,7 +68,7 @@ if [[ -d "$PLUGIN_ROOT/.cursor/commands" ]]; then
 fi
 
 # mcp.json: merge-aware. Refuse to clobber an existing file.
-rendered_mcp="$(sed "s|__TRANSCODES_GUARD_ROOT__|$PLUGIN_ROOT|g" "$PLUGIN_ROOT/mcp.json")"
+rendered_mcp="$(sed "s|\${CURSOR_PLUGIN_ROOT}|$PLUGIN_ROOT|g" "$PLUGIN_ROOT/mcp.json")"
 if [[ -e "$cursor_dir/mcp.json" ]]; then
   echo ""
   echo "$cursor_dir/mcp.json already exists — not overwriting."

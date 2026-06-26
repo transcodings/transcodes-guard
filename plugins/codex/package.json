@@ -1,7 +1,7 @@
 {
   "name": "@bigstrider/transcodes-guard-codex",
   "version": "0.25.0",
-  "description": "Risky-bash interceptor + step-up MFA audit MCP server — OpenAI Codex CLI plugin.",
+  "description": "Risky-shell interceptor + step-up MFA audit MCP server — OpenAI Codex CLI plugin",
   "type": "module",
   "main": "dist/src/stdio.js",
   "bin": {

@@ -1,22 +1,14 @@
 {
   "name": "transcodes-guard",
   "version": "0.25.0",
-  "description": "Risky-bash interceptor (PreToolUse hook) and audit MCP server for OpenAI Codex CLI.",
+  "description": "Risky-shell interceptor (PreToolUse hook) and step-up MFA audit MCP server for OpenAI Codex CLI",
   "author": {
     "name": "bigstrider"
   },
   "homepage": "https://github.com/transcodings/transcodes-guard",
   "repository": "https://github.com/transcodings/transcodes-guard",
   "license": "FSL-1.1-ALv2",
-  "keywords": [
-    "safety",
-    "hook",
-    "mcp",
-    "audit",
-    "security",
-    "bash",
-    "codex"
-  ],
+  "keywords": ["safety", "hook", "mcp", "audit", "security", "bash", "codex"],
   "hooks": "./hooks/hooks.json",
   "mcpServers": "./.mcp.json",
   "skills": "./skills/"

@@ -36,18 +36,15 @@ For team auto-registration, add this to your project's `.claude/settings.json`:
 
 Prerequisites: a Codex CLI build with plugin + hooks support (`codex plugin --help` should work), Node >= 20.
 
-**Step 1 — install via the Codex marketplace.** The repo ships `.agents/plugins/marketplace.json`, a Codex catalog pointing at `./plugins/codex`. Clone, build the committed `dist/`, register the repo root as the marketplace, then install:
+**Step 1 — install via the Codex marketplace.** The repo ships `.agents/plugins/marketplace.json`, a Codex catalog pointing at `./plugins/codex`. `codex plugin marketplace add` accepts a GitHub repo directly (Codex clones it for you), and `dist/` is committed, so no manual clone or build is needed:
 
 ```bash
-git clone https://github.com/transcodings/transcodes-guard.git
-cd transcodes-guard
-git checkout main
-npm install && npm run build:plugin
-
-codex plugin marketplace add .                 # registers the "bigstrider" marketplace
-codex plugin add transcodes-guard@bigstrider   # installs the plugin
+codex plugin marketplace add transcodings/transcodes-guard   # registers the "bigstrider" marketplace
+codex plugin add transcodes-guard@bigstrider                 # installs the plugin
 # or in Codex: /plugins → install "transcodes-guard" from the bigstrider marketplace
 ```
+
+Codex resolves `.agents/plugins/marketplace.json` ahead of the legacy `.claude-plugin/marketplace.json`, so it always installs the Codex plugin (`./plugins/codex`), not the Claude one. Pin a tag with `codex plugin marketplace add transcodings/transcodes-guard --ref transcodes-guard-v0.25.0` if you want a fixed version.
 
 **Step 2 — first run.** Codex prompts a one-time hook trust review (`/hooks` to inspect). Approve it once. Do **not** use `--dangerously-bypass-hook-trust`.
 
@@ -55,9 +52,30 @@ codex plugin add transcodes-guard@bigstrider   # installs the plugin
 
 ### Cursor
 
-Prerequisites: Cursor 0.46+ with Hooks enabled (Settings → Hooks), Node >= 20 in PATH, and the Cursor **desktop** app (cloud agents are not wired as of 2026-05).
+Prerequisites: Cursor **desktop** with Hooks enabled (Settings → Hooks), Node >= 20 in PATH (cloud agents are not wired as of 2026-05).
 
-Cursor has no `plugin.json` concept, so installation is git clone + build + `install.sh`, which writes absolute paths into `.cursor/hooks.json` and `.cursor/mcp.json`.
+The repo ships a Cursor plugin manifest (`plugins/cursor/.cursor-plugin/plugin.json`) and a marketplace manifest (`.cursor-plugin/marketplace.json`), and `dist/` is committed — so hooks and the MCP server auto-wire via `${CURSOR_PLUGIN_ROOT}`, no build needed. Cursor has **no "install plugin from a URL" CLI**; which install path you use depends on your plan.
+
+**Individual / Pro — local plugin (works today, no plan or review).** Symlink the plugin into Cursor's local plugin directory and reload:
+
+```bash
+git clone https://github.com/transcodings/transcodes-guard.git   # dist/ committed, no build needed
+ln -s "$PWD/transcodes-guard/plugins/cursor" ~/.cursor/plugins/local/transcodes-guard
+# Cursor → command palette → "Developer: Reload Window"
+```
+
+Cursor reads `.cursor-plugin/plugin.json` and wires up the hooks + MCP server. On first run it prompts a one-time hook trust review (command palette → "Cursor: Review Hooks"); approve once.
+
+**Teams / Enterprise — team marketplace (one-shot URL).** An admin imports the repo once, then every developer installs in one click (this dashboard import is a paid feature — not available on Individual/Pro):
+
+1. Dashboard → Settings → Plugins → Team Marketplaces → **Import Marketplace**.
+2. Paste `https://github.com/transcodings/transcodes-guard` and continue; Cursor parses `.cursor-plugin/marketplace.json`.
+3. Mark `transcodes-guard` **Required** (auto-installed) or **Optional**, set access groups, then save.
+4. Developers install from **Customize → Plugins** (Required plugins install automatically); approve the one-time hook trust review on first run.
+
+**Public listing — official marketplace.** To give everyone (any plan) a one-click install, submit the repo for review at `cursor.com/marketplace/publish`. Once Cursor approves and lists it, users install it from **Customize** regardless of plan.
+
+**Legacy fallback — `install.sh`.** For older Cursor builds without plugin support, `install.sh` writes absolute paths into `.cursor/hooks.json` and `.cursor/mcp.json` (it substitutes `${CURSOR_PLUGIN_ROOT}` because a plain project/user hook is not a marketplace plugin and gets no such variable).
 
 Project scope (per-workspace):
 
@@ -77,7 +95,7 @@ User scope (all workspaces) writes `~/.cursor/hooks.json` and `~/.cursor/mcp.jso
 /path/to/transcodes-guard/plugins/cursor/install.sh --user
 ```
 
-On first run, Cursor prompts a one-time hook trust review (command palette → "Cursor: Review Hooks"). Also save your token — recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
+Save your token — recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
 
 ### Antigravity
 

@@ -9,7 +9,7 @@
     {
       "name": "transcodes-guard",
       "source": "./plugins/claude-code",
-      "description": "Risky-bash interceptor (PreToolUse hook) and audit MCP server.",
+      "description": "Risky-shell interceptor (PreToolUse hook) and step-up MFA audit MCP server",
       "category": "security",
       "tags": ["safety", "hook", "mcp", "audit", "bash"],
       "strict": true

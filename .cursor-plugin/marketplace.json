@@ -1,0 +1,16 @@
+{
+  "name": "bigstrider",
+  "owner": {
+    "name": "bigstrider"
+  },
+  "metadata": {
+    "description": "Risky-shell interceptor (PreToolUse hook) + step-up MFA audit MCP server."
+  },
+  "plugins": [
+    {
+      "name": "transcodes-guard",
+      "source": "plugins/cursor",
+      "description": "Risky-shell interceptor (beforeShellExecution / beforeMCPExecution) and step-up MFA audit MCP server"
+    }
+  ]
+}
