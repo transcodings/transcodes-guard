@@ -29,6 +29,7 @@ import {
   formatStepupFailureSystemMessage,
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
+  GATE_DECISION_KIND,
   getGateBackend,
 } from '@transcodes-guard/gate-contract';
 import { antigravityAdapter } from '@transcodes-guard/hook-adapters';
@@ -47,10 +48,11 @@ async function main(): Promise<void> {
   const decision = await backend.evaluatePreToolUse(input);
 
   switch (decision.kind) {
-    case 'pass':
+    case GATE_DECISION_KIND.PROCEED_UNGATED:
+    case GATE_DECISION_KIND.PROCEED_BY_POLICY:
       process.exit(0);
 
-    case 'allow':
+    case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
       process.stdout.write(
         antigravityAdapter.emitPreToolUse({
           kind: 'allow',
@@ -65,7 +67,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'deny-no-token':
+    case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
       process.stdout.write(
         antigravityAdapter.emitPreToolUse({
           kind: 'deny',
@@ -77,7 +79,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'deny-rbac-denied':
+    case GATE_DECISION_KIND.BLOCK_BY_POLICY:
       process.stdout.write(
         antigravityAdapter.emitPreToolUse({
           kind: 'deny',
@@ -89,7 +91,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'deny-stepup-failure':
+    case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
       process.stdout.write(
         antigravityAdapter.emitPreToolUse({
           kind: 'deny',
@@ -101,7 +103,7 @@ async function main(): Promise<void> {
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
-    case 'deny-stepup-pending':
+    case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
       // Emit deny JSON before any side effect that can throw — the
       // asymmetric fail policy in evaluate.ts demands the stdout payload
       // be on the wire before writePending touches disk.

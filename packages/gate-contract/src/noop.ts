@@ -17,6 +17,7 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { GateBackend } from './backend.js';
+import { GATE_DECISION_KIND } from './types.js';
 
 const NOT_INSTALLED = 'transcodes-guard: gate backend not installed';
 
@@ -27,7 +28,7 @@ function notInstalled(): never {
 export const denyByDefaultBackend: GateBackend = {
   // hook path — inert no-ops / empty reads
   async evaluatePreToolUse() {
-    return { kind: 'pass' };
+    return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
   },
   writePending() {},
   consumeVerified() {},

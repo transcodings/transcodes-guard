@@ -40,6 +40,7 @@ export {
 export {
   type BlockResult,
   evaluatePreToolUse,
+  GATE_DECISION_KIND,
   type GateDecision,
   type ToolCallInput,
 } from './evaluate.js';
