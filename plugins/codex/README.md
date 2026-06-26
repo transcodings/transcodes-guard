@@ -20,6 +20,7 @@ The plugin manifest lives at `plugins/codex/.codex-plugin/plugin.json`, and the 
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git
 cd transcodes-guard
+git checkout main
 npm install && npm run build:plugin
 
 codex plugin marketplace add .                 # registers the "bigstrider" marketplace

@@ -20,6 +20,7 @@ Claude Code 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcode
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git
 cd transcodes-guard
+git checkout main
 npm install && npm run build:plugin
 
 codex plugin marketplace add .                 # "bigstrider" 마켓플레이스 등록

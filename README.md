@@ -41,6 +41,7 @@ Prerequisites: a Codex CLI build with plugin + hooks support (`codex plugin --he
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git
 cd transcodes-guard
+git checkout main
 npm install && npm run build:plugin
 
 codex plugin marketplace add .                 # registers the "bigstrider" marketplace
@@ -63,6 +64,7 @@ Project scope (per-workspace):
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git
 cd transcodes-guard
+git checkout main
 npm install
 npm run build:plugin
 cd /path/to/your/project
