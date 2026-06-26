@@ -52,7 +52,7 @@ Without a token, the hook still **denies** danger commands but cannot start a st
 ## Supported surfaces (1차 출시)
 
 - ✅ **Antigravity 2.0 desktop app** — the global installer copies the plugin into `~/.gemini/config/plugins/transcodes-guard`, which Antigravity auto-loads.
-- ✅ **Antigravity CLI (`agy`)** — the same global installer also copies into `~/.gemini/antigravity-cli/plugins/transcodes-guard`, so `node install.mjs` covers both surfaces in one run. `agy plugin list` should then show `transcodes-guard`.
+- ✅ **Antigravity CLI (`agy`)** — shares the same `~/.gemini/config/plugins/transcodes-guard` directory as the desktop app (since CLI v1.0). `agy plugin list` should then show `transcodes-guard`.
 - ❌ **Managed Agents in Gemini API** — cloud-hosted, no access to the user's browser for WebAuthn. Not supported in 1차 출시.
 - ❌ **Scheduled Tasks (`schedule` tool)** — hook firing behavior under cron-style invocation is undocumented. Not supported in 1차 출시.
 - ❌ **Antigravity SDK (Python)** — separate language and packaging channel (`pip install google-antigravity`); out of this monorepo's scope.
