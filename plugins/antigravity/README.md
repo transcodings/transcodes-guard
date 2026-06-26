@@ -37,13 +37,7 @@ transcodes   # opens the local dashboard — URL is printed in the terminal (def
 
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
 
-For config-less envs (CI), export the `TRANSCODES_TOKEN` environment variable — it's a **fallback** used only when no token is saved to the file:
-
-```bash
-export TRANSCODES_TOKEN="$(read-your-token-here)"
-```
-
-If neither is set, the hook still **denies** danger commands but cannot start a step-up session — Antigravity will surface a reason telling you to provide a token.
+Without a token, the hook still **denies** danger commands but cannot start a step-up session — Antigravity will surface a reason telling you to provide a token.
 
 ## What the plugin does
 
@@ -89,11 +83,10 @@ There is no runtime kill-switch. To turn protection off, disable or uninstall th
 
 ## Environment
 
-Token resolution: the recommended store is `~/.transcodes/config.json` (via `transcodes` dashboard or `transcodes set`). When `TRANSCODES_TOKEN` is set, it **overrides** the saved file — use for CI or one-off overrides only.
+Token resolution: the token is read solely from `~/.transcodes/config.json` (via the `transcodes` dashboard or `transcodes set`).
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `TRANSCODES_TOKEN` | CI/override only (overrides saved file) | Member MCP JWT used as `x-transcodes-token`. Omit when using CLI storage. |
 | `TRANSCODES_BACKEND_URL` | no | Override the default backend (`https://api.transcodesapis.com`). |
 
 ## Cross-host state sharing

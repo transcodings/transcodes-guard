@@ -10,15 +10,15 @@
  * subprocesses, none of which inherit a GUI host's shell environment. The
  * CLI (`@bigstrider/transcodes-cli`) writes here; `resolveToken()` reads here.
  *
- * Token precedence (resolveToken):
- *   1. ~/.transcodes/config.json     — written by the CLI, the source of truth
- *   2. process.env.TRANSCODES_TOKEN  — fallback for config-less envs (CI, power users)
- *   3. null                          — caller fail-safes (hook → block)
+ * Token resolution (resolveToken):
+ *   1. ~/.transcodes/config.json     — written by the CLI, the only source
+ *   2. null                          — caller fail-safes (hook → block)
  *
- * Rationale for config-first: a stray TRANSCODES_TOKEN left in the user's
- * shell used to silently shadow whatever `transcodes set` wrote, so config
- * edits appeared to have no effect (the hooks have no stdout to warn on). The
- * CLI-managed file now wins; env only fills in when no config token exists.
+ * The config file is the single source of truth. There is no environment-
+ * variable path: a stray env token used to silently shadow whatever
+ * `transcodes set` wrote, so config edits appeared to have no effect (the
+ * hooks have no stdout to warn on). The CLI-managed file is now the only way
+ * to supply a token.
  *
  * File schema (multi-token, labelled):
  *   {
@@ -286,7 +286,7 @@ export function clearTokenFile(): void {
   }
 }
 
-export type TokenSource = 'env' | 'file' | 'none';
+export type TokenSource = 'file' | 'none';
 
 export type ResolvedToken = {
   token: string | null;
@@ -294,18 +294,14 @@ export type ResolvedToken = {
 };
 
 /**
- * Resolve the active token following the documented precedence
- * (file → env → none). Returns the source too so callers (e.g. a CLI
- * `status` command) can show where the token came from.
+ * Resolve the active token from `~/.transcodes/config.json` — the single
+ * source of truth. Returns the source too so callers (e.g. a CLI `status`
+ * command) can show where the token came from.
  */
 export function resolveToken(): ResolvedToken {
   const fileToken = readTokenFromFile();
   if (fileToken) {
     return { token: fileToken, source: 'file' };
-  }
-  const envToken = process.env.TRANSCODES_TOKEN?.trim();
-  if (envToken) {
-    return { token: envToken, source: 'env' };
   }
   return { token: null, source: 'none' };
 }

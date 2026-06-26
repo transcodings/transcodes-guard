@@ -78,7 +78,6 @@ type ActiveMemberInfo = {
 
 type StatusPayload = {
   configPath: string;
-  envOverridesFile: boolean;
   tokens: TokenEntry[];
   activeMember: ActiveMemberInfo | null;
 };
@@ -166,14 +165,8 @@ async function buildActiveMemberInfo(): Promise<ActiveMemberInfo | null> {
 }
 
 async function buildStatus(): Promise<StatusPayload> {
-  const configPath = transcodesConfigFile();
-  const envOverridesFile = Boolean(
-    process.env.TRANSCODES_TOKEN?.trim() && readTokenFromFile(),
-  );
-
   return {
-    configPath,
-    envOverridesFile,
+    configPath: transcodesConfigFile(),
     tokens: buildTokenEntries(),
     activeMember: await buildActiveMemberInfo(),
   };

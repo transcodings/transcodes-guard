@@ -48,12 +48,7 @@ function formatNoTokenSessionNotice() {
     "  Saved to ~/.transcodes/config.json so every agent session can find it.",
     "",
     "  Non-interactive alternative (same store, e.g. for scripts):",
-    "    transcodes set <token> -l <label>",
-    "",
-    "  For config-less envs (CI): set the TRANSCODES_TOKEN environment",
-    "  variable before launching the host (a fallback used only when no token is",
-    "  saved). Note: GUI-launched apps often do NOT inherit your shell env, so the",
-    "  CLI dashboard above is the more reliable option for desktop hosts."
+    "    transcodes set <token> -l <label>"
   ].join("\n");
 }
 function formatBlockedSummary(block) {
@@ -69,7 +64,7 @@ function formatAllowReason(decision) {
   return `transcodes-guard: step-up MFA verified \u2014 overriding default permission policy. Original danger match: ${decision.block.reason}. Command: ${decision.block.command}`;
 }
 function formatNoTokenReason(block) {
-  return `Bash blocked by transcodes-guard: ${block.reason}. Step-up MFA gate is not configured (no Transcodes token found). Tell the user to install the CLI (\`npm install -g @bigstrider/transcodes-cli\`) and run \`transcodes\` to open the dashboard and paste a token from the Transcodes console (member detail page, https://app.transcodes.io). Non-interactive: \`transcodes set <token> -l <label>\`. For CI only, set the TRANSCODES_TOKEN environment variable. Or run the command outside the agent.`;
+  return `Bash blocked by transcodes-guard: ${block.reason}. Step-up MFA gate is not configured (no Transcodes token found). Tell the user to install the CLI (\`npm install -g @bigstrider/transcodes-cli\`) and run \`transcodes\` to open the dashboard and paste a token from the Transcodes console (member detail page, https://app.transcodes.io). Non-interactive: \`transcodes set <token> -l <label>\`. Or run the command outside the agent.`;
 }
 function formatNoTokenSystemMessage(block) {
   return `${formatBlockedSummary(block)}
@@ -78,7 +73,7 @@ Step-up MFA gate is not configured (no Transcodes token found).
 Ask the user to install the CLI (\`npm install -g @bigstrider/transcodes-cli\`), run
 \`transcodes\` to open the dashboard, and paste a token from the Transcodes console \u2192
 member detail page (https://app.transcodes.io). Non-interactive: \`transcodes set <token>
--l <label>\`; CI only: TRANSCODES_TOKEN. Then retry. Do not have the user paste the token into this chat.`;
+-l <label>\`. Then retry. Do not have the user paste the token into this chat.`;
 }
 function formatRbacDeniedReason(decision) {
   return `Blocked by transcodes-guard: ${decision.block.reason}. Your RBAC role denies this action (resource="${decision.resource}", action="${decision.action}") \u2014 step-up MFA cannot grant it. Report this to the user; do not retry. An admin must grant the permission in the Transcodes console (RBAC \u2192 Roles).`;
@@ -945,10 +940,6 @@ function resolveToken() {
   if (fileToken) {
     return { token: fileToken, source: "file" };
   }
-  const envToken = process.env.TRANSCODES_TOKEN?.trim();
-  if (envToken) {
-    return { token: envToken, source: "env" };
-  }
   return { token: null, source: "none" };
 }
 
@@ -965,11 +956,11 @@ function loadStepupConfig() {
   }
   const { token: tokenRaw } = resolveToken();
   if (!tokenRaw) {
-    throw new Error("No Transcodes token found. Install the CLI (`npm install -g @bigstrider/transcodes-cli`), run `transcodes` to open the dashboard, and paste a token from the Transcodes console (member detail page, https://app.transcodes.io). Non-interactive: `transcodes set <token> -l <label>`. For CI only, set the TRANSCODES_TOKEN environment variable.");
+    throw new Error("No Transcodes token found. Install the CLI (`npm install -g @bigstrider/transcodes-cli`), run `transcodes` to open the dashboard, and paste a token from the Transcodes console (member detail page, https://app.transcodes.io). Non-interactive: `transcodes set <token> -l <label>`.");
   }
   const parsed = parseMemberAccessToken(tokenRaw);
   for (const w of parsed.warnings) {
-    process.stderr.write(`[transcodes-guard] WARN TRANSCODES_TOKEN: ${w}
+    process.stderr.write(`[transcodes-guard] WARN token: ${w}
 `);
   }
   return {

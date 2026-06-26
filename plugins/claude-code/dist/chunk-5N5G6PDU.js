@@ -10,7 +10,7 @@ import {
   getGateBackend,
   objectType,
   ruleAppliesToHost
-} from "./chunk-JZ6WTFVX.js";
+} from "./chunk-FUTK2SWG.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({

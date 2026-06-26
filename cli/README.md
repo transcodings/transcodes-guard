@@ -46,11 +46,10 @@ Options:
 
 ## Token precedence
 
-The plugins resolve the token in this order (see `@transcodes-guard/stepup-core` `resolveToken()`):
+The plugins resolve the token from a single source (see `@transcodes-guard/stepup-core` `resolveToken()`):
 
-1. `~/.transcodes/config.json` — written by this CLI, the source of truth
-2. `TRANSCODES_TOKEN` environment variable — fallback for config-less envs (CI / power users)
-3. none → the hook fail-safes (blocks danger commands, cannot start step-up)
+1. `~/.transcodes/config.json` — written by this CLI, the only source of truth
+2. none → the hook fail-safes (blocks danger commands, cannot start step-up)
 
 ## Notes
 

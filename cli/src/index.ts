@@ -130,12 +130,8 @@ function cmdStatus(): void {
     );
     return;
   }
-  const where =
-    source === 'env'
-      ? 'TRANSCODES_TOKEN environment variable'
-      : transcodesConfigFile();
   process.stdout.write(
-    `Active token source: ${where}\n  ${expiryLine(token)}\n`,
+    `Active token source: ${transcodesConfigFile()}\n  ${expiryLine(token)}\n`,
   );
 }
 
@@ -155,12 +151,6 @@ function cmdTokens(): void {
     process.stdout.write(`      ${expiryLine(token)}\n`);
   }
   process.stdout.write('\n* = active token used by the plugins/hooks.\n');
-  const envToken = process.env.TRANSCODES_TOKEN?.trim();
-  if (envToken) {
-    process.stdout.write(
-      'Note: TRANSCODES_TOKEN is set but ignored — the saved active token above takes precedence.\n',
-    );
-  }
 }
 
 /**

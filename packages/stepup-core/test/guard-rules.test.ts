@@ -19,6 +19,7 @@ import {
   policyBundleSha384,
   writeCachedPolicyBundle,
 } from '../src/policy-bundle.js';
+import { clearTokenFile, writeTokenToFile } from '../src/token-store.js';
 
 process.env.HOME = mkdtempSync(path.join(os.tmpdir(), 'guard-rules-flow-'));
 
@@ -104,7 +105,7 @@ describe('guard tool-rule backend write flows', () => {
 
   beforeEach(() => {
     lastWrite = null;
-    process.env.TRANSCODES_TOKEN = fakeToken(PROJECT);
+    writeTokenToFile(fakeToken(PROJECT), 'test');
     writeRespond = () => ({ status: 200, body: { payload: [{ revision: '2' }] } });
   });
 
@@ -185,7 +186,7 @@ describe('guard tool-rule backend write flows', () => {
   });
 
   it('throws when no token is configured (no local fallback)', async () => {
-    delete process.env.TRANSCODES_TOKEN;
+    clearTokenFile();
     await assert.rejects(addToolRule({ ...validInput }), /No Transcodes token/);
   });
 });

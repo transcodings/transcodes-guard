@@ -18,6 +18,7 @@ import {
   verifyAndParsePolicyBundle,
   writeCachedPolicyBundle,
 } from '../src/policy-bundle.js';
+import { clearTokenFile, writeTokenToFile } from '../src/token-store.js';
 
 process.env.HOME = mkdtempSync(path.join(os.tmpdir(), 'guard-effective-rules-'));
 
@@ -94,26 +95,19 @@ describe('loadEffectiveToolRules', () => {
       manifest: { sha384: policyBundleSha384(body) },
     });
     writeCachedPolicyBundle(PROJECT, bundle);
-    const prev = process.env.TRANSCODES_TOKEN;
-    process.env.TRANSCODES_TOKEN = fakeToken(PROJECT);
+    writeTokenToFile(fakeToken(PROJECT), 'test');
     try {
       const merged = loadEffectiveToolRules();
       assert.equal(merged.find((r) => r.id === 'bundle-rule')?.source, 'bundle');
     } finally {
-      if (prev !== undefined) process.env.TRANSCODES_TOKEN = prev;
-      else delete process.env.TRANSCODES_TOKEN;
+      clearTokenFile();
     }
   });
 
   it('degrades to the baseline when no token is resolvable', () => {
-    const prev = process.env.TRANSCODES_TOKEN;
-    delete process.env.TRANSCODES_TOKEN;
-    try {
-      const merged = loadEffectiveToolRules();
-      assert.equal(merged.find((r) => r.id === 'bundle-rule'), undefined);
-      assert.ok(merged.some((r) => r.source === 'system'));
-    } finally {
-      if (prev !== undefined) process.env.TRANSCODES_TOKEN = prev;
-    }
+    clearTokenFile();
+    const merged = loadEffectiveToolRules();
+    assert.equal(merged.find((r) => r.id === 'bundle-rule'), undefined);
+    assert.ok(merged.some((r) => r.source === 'system'));
   });
 });

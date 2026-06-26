@@ -17,6 +17,7 @@ import {
   verifyAndParsePolicyBundle,
   writeCachedPolicyBundle,
 } from '../src/policy-bundle.js';
+import { clearTokenFile, writeTokenToFile } from '../src/token-store.js';
 
 process.env.HOME = mkdtempSync(
   path.join(os.tmpdir(), 'guard-effective-patterns-'),
@@ -64,8 +65,7 @@ describe('loadEffectivePatterns', () => {
       manifest: { sha384: policyBundleSha384(body) },
     });
     writeCachedPolicyBundle(PROJECT, bundle);
-    const prev = process.env.TRANSCODES_TOKEN;
-    process.env.TRANSCODES_TOKEN = fakeToken(PROJECT);
+    writeTokenToFile(fakeToken(PROJECT), 'test');
     try {
       const merged = loadEffectivePatterns();
       const systemCount = loadMergedPatterns().length;
@@ -78,8 +78,7 @@ describe('loadEffectivePatterns', () => {
       assert.equal(fromBundle.stepupAction, 'delete');
       assert.equal(fromBundle.stepupResource, 'system');
     } finally {
-      if (prev !== undefined) process.env.TRANSCODES_TOKEN = prev;
-      else delete process.env.TRANSCODES_TOKEN;
+      clearTokenFile();
     }
   });
 
@@ -106,27 +105,20 @@ describe('loadEffectivePatterns', () => {
       manifest: { sha384: policyBundleSha384(body) },
     });
     writeCachedPolicyBundle(PROJECT, bundle);
-    const prev = process.env.TRANSCODES_TOKEN;
-    process.env.TRANSCODES_TOKEN = fakeToken(PROJECT);
+    writeTokenToFile(fakeToken(PROJECT), 'test');
     try {
       const merged = loadEffectivePatterns();
       assert.equal(merged.find((p) => p.id === 'bundle-bash')?.source, 'bundle');
       assert.equal(merged.find((p) => p.id === 'mcp-only'), undefined);
     } finally {
-      if (prev !== undefined) process.env.TRANSCODES_TOKEN = prev;
-      else delete process.env.TRANSCODES_TOKEN;
+      clearTokenFile();
     }
   });
 
   it('degrades to system-only when no token is resolvable', () => {
-    const prev = process.env.TRANSCODES_TOKEN;
-    delete process.env.TRANSCODES_TOKEN;
-    try {
-      const merged = loadEffectivePatterns();
-      assert.equal(merged.find((p) => p.id === 'bundle-bash'), undefined);
-      assert.ok(merged.every((p) => p.source === 'system'));
-    } finally {
-      if (prev !== undefined) process.env.TRANSCODES_TOKEN = prev;
-    }
+    clearTokenFile();
+    const merged = loadEffectivePatterns();
+    assert.equal(merged.find((p) => p.id === 'bundle-bash'), undefined);
+    assert.ok(merged.every((p) => p.source === 'system'));
   });
 });

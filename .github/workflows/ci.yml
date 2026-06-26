@@ -193,32 +193,34 @@ jobs:
           set -e
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
+          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
           NOW=$(node -e 'console.log(Date.now())')
           printf '{"fetchedAt":%s,"bundle":{"schemaVersion":3,"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","type":"mcp","label":"CI bundle","description":"CI bundle smoke","name":"mcp__ci_bundle_tool","matcher":"exact","action":"delete","resource":"system"}]}}' "$NOW" \
             > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
           OUT=$(echo '{"tool_name":"mcp__ci_bundle_tool","tool_input":{"a":1}}' \
-            | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for bundle-gated tool"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Fresh bundle cache did not gate the tool"; exit 1; }
           echo "$OUT" | grep -q 'ci-bundle-rule' || { echo "::error::Deny did not carry the bundle rule id"; exit 1; }
-          rm -f "$HOME/.transcodes/state/policy-bundle.proj-ci.json" "$HOME/.transcodes/state/stepup-pending.json"
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state/policy-bundle.proj-ci.json" "$HOME/.transcodes/state/stepup-pending.json"
 
       - name: claude-code · fail-closed row 2 — stale bundle cache is last-known-good (G3)
         run: |
           set -e
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
+          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OLD=$(node -e 'console.log(Date.now()-7200000)')
           printf '{"fetchedAt":%s,"bundle":{"schemaVersion":3,"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","type":"mcp","label":"CI bundle","description":"CI bundle smoke","name":"mcp__ci_bundle_tool","matcher":"exact","action":"delete","resource":"system"}]}}' "$OLD" \
             > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
           OUT=$(echo '{"tool_name":"mcp__ci_bundle_tool","tool_input":{"a":1}}' \
-            | TRANSCODES_TOKEN="$TOKEN" TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for stale-bundle case"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Stale bundle cache was not used as last-known-good"; exit 1; }
           echo "$OUT" | grep -q 'ci-bundle-rule' || { echo "::error::Deny did not carry the bundle rule id"; exit 1; }
-          rm -f "$HOME/.transcodes/state/policy-bundle.proj-ci.json" "$HOME/.transcodes/state/stepup-pending.json"
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state/policy-bundle.proj-ci.json" "$HOME/.transcodes/state/stepup-pending.json"
 
       - name: claude-code · fail-closed row 3 — no cache + backend unreachable → baseline deny (G3)
         run: |

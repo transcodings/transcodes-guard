@@ -24,6 +24,7 @@ import {
   verifyAndParsePolicyBundle,
   writeCachedPolicyBundle,
 } from '../src/policy-bundle.js';
+import { clearTokenFile } from '../src/token-store.js';
 
 process.env.HOME = mkdtempSync(path.join(os.tmpdir(), 'guard-policy-bundle-'));
 
@@ -350,13 +351,8 @@ describe('refreshPolicyBundle', () => {
 
 describe('refreshPolicyBundleIfConfigured', () => {
   it('skips silently when no token is resolvable', async () => {
-    const prev = process.env.TRANSCODES_TOKEN;
-    delete process.env.TRANSCODES_TOKEN;
-    try {
-      // HOME points at the test tmp dir, so no token file exists either.
-      assert.equal(await refreshPolicyBundleIfConfigured(), 'skipped');
-    } finally {
-      if (prev !== undefined) process.env.TRANSCODES_TOKEN = prev;
-    }
+    // HOME points at the test tmp dir; clear any token file so none resolves.
+    clearTokenFile();
+    assert.equal(await refreshPolicyBundleIfConfigured(), 'skipped');
   });
 });
