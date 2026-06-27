@@ -34,6 +34,20 @@ For team auto-registration, add this to your project's `.claude/settings.json`:
 }
 ```
 
+#### How to write prompt
+
+Type `/transcodes`, press **Tab** to select **transcodes-guard**, then type your request.
+
+```text
+/transcodes <your prompt>
+```
+
+Example:
+
+```text
+/transcodes make transcodes google calendar event custom rule
+```
+
 ### Codex
 
 Prerequisites: a Codex CLI build with plugin + hooks support (`codex plugin --help` should work), Node >= 20.
@@ -51,6 +65,20 @@ Codex resolves `.agents/plugins/marketplace.json` ahead of the legacy `.claude-p
 **Step 2 — first run.** Codex prompts a one-time hook trust review (`/hooks` to inspect). Approve it once. Do **not** use `--dangerously-bypass-hook-trust`.
 
 **Step 3 — save your token** (the member MCP JWT) so step-up can start. Recommended: `npm install -g @bigstrider/transcodes-cli` then run `transcodes` to open the local dashboard (URL printed in the terminal; default port 3847) and paste your token (persisted to `~/.transcodes/config.json` for every session). Non-interactive: `transcodes set <token> -l <label>`. Without a token, the hook still DENIES danger commands but cannot open a step-up session.
+
+#### How to write prompt
+
+Type `$transcodes`, press **Tab** to select **transcodes-guard**, then type your request.
+
+```text
+$transcodes <your prompt>
+```
+
+Example:
+
+```text
+$transcodes make transcodes google calendar event custom rule
+```
 
 ### Antigravity (Beta)
 
@@ -73,6 +101,20 @@ The bundled installer copies the Antigravity plugin into `~/.gemini/config/plugi
 Re-run the same one-liner to update — it overwrites the existing install in place.
 
 Also save your token — recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
+
+#### How to write prompt
+
+Type `/transcodes`, press **Tab** to select **transcodes-guard**, then type your request.
+
+```text
+/transcodes <your prompt>
+```
+
+Example:
+
+```text
+/transcodes make transcodes google calendar event custom rule
+```
 
 > **Do not use** `agy plugin install https://github.com/transcodings/transcodes-guard`. That command treats this repo as a bulk multi-plugin catalog and installs **both** the Antigravity and Claude Code adapters into Antigravity (wire-format mismatch), and it skips the `__PLUGIN_DIR__` path rewrite — hooks and MCP then fail at runtime. Use the one-liner above instead.
 >
@@ -100,6 +142,20 @@ Either path reads `.cursor-plugin/plugin.json` and auto-wires the hooks and MCP 
 **Step 3 — save your token.** Recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
 
 To **update**, reinstall from Marketplace (or update in Customize → Plugins) then **Developer: Reload Window**.
+
+#### How to write prompt
+
+Type `/transcodes`, press **Tab** to select **transcodes-guard**, then type your request.
+
+```text
+/transcodes <your prompt>
+```
+
+Example:
+
+```text
+/transcodes make transcodes google calendar event custom rule
+```
 
 ## CLI installation
 
