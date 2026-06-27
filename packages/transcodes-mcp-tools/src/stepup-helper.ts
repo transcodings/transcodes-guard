@@ -11,12 +11,16 @@ import {
 } from '@transcodes-guard/danger-patterns';
 import {
   checkRbacPermission,
+  clearMcpInflight,
   clearPending,
   consumeVerified,
   loadStepupConfig,
+  mcpGrantActive,
   type RbacLevel,
+  readMcpGrant,
   readVerified,
   type StepupConfig,
+  writeMcpGrant,
 } from '@transcodes-guard/stepup-core';
 
 const RBAC_TTL_MS = 5 * 60_000;
@@ -132,13 +136,20 @@ export async function execProtectedTool(
       };
     }
 
-    if (level === 2 && !verified) {
+    // MCP-only 5-minute grant: once any MCP step-up has verified, a live grant
+    // lets level-2 calls through without a fresh verified record. RBAC level 0
+    // was already hard-denied above, so the grant skips the MFA prompt, never
+    // the permission. The grant's own sid is the backstop the backend re-checks.
+    const grant = mcpGrantActive() ? readMcpGrant() : null;
+
+    if (level === 2 && !verified && !grant) {
       return stepupRequiredResult(toolName, rule);
     }
 
     // Level 1 = allowed without step-up: the backend guard resolves RBAC itself
-    // and requires no sid, so only level 2 attaches the verified sid here.
-    const sid = level === 2 ? verified?.sid : undefined;
+    // and requires no sid, so only level 2 attaches a sid here (the verified
+    // record's, or — on the grant fast-path — the grant's vetted sid).
+    const sid = level === 2 ? (verified?.sid ?? grant?.sid) : undefined;
     try {
       return {
         isError: false,
@@ -146,6 +157,13 @@ export async function execProtectedTool(
       };
     } finally {
       if (verified) {
+        // First MCP verification reaching the handler path → open the shared
+        // grant so the next 5 minutes of MCP calls reuse it, then release the
+        // in-flight lock. Done before consuming the single-shot record below.
+        if (level === 2) {
+          writeMcpGrant(verified.sid);
+          clearMcpInflight();
+        }
         consumeVerified();
         clearPending();
       }
@@ -184,6 +202,12 @@ export async function execProtectedTool(
       content: [{ type: 'text', text: await run(verified.sid) }],
     };
   } finally {
+    // No tool-rule here means no RBAC coordinate to re-check, so this fallback
+    // path is NOT grant-exempted (a grant must never let an unverifiable call
+    // through). It still arms the grant off a real verified record so the rest
+    // of the 5-minute window's MCP calls benefit.
+    writeMcpGrant(verified.sid);
+    clearMcpInflight();
     consumeVerified();
     clearPending();
   }

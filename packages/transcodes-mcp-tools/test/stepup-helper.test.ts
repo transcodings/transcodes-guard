@@ -9,10 +9,14 @@ import {
   type MergedToolRule,
 } from '@transcodes-guard/danger-patterns';
 import {
+  clearMcpInflight,
   clearPending,
   clearTokenFile,
+  consumeMcpGrant,
   consumeVerified,
+  mcpGrantActive,
   readVerified,
+  writeMcpGrant,
   writeTokenToFile,
   writeVerified,
 } from '@transcodes-guard/stepup-core';
@@ -184,6 +188,8 @@ describe('execProtectedTool step-up backstop', () => {
     permission = 2;
     consumeVerified();
     clearPending();
+    consumeMcpGrant();
+    clearMcpInflight();
     clearTokenFile();
     delete process.env.TRANSCODES_BACKEND_URL;
   });
@@ -218,5 +224,53 @@ describe('execProtectedTool step-up backstop', () => {
     assert.equal(result.isError, false);
     assert.equal(result.content[0]?.text, 'ok');
     assert.equal(readVerified(), null);
+  });
+
+  it('arms the MCP grant from a level-2 verified handler run', async () => {
+    writeTokenToFile(fakeToken('member-arms-grant'), 'test');
+    process.env.TRANSCODES_BACKEND_URL = baseUrl;
+    writeVerified({ sid: 'sid-first', verifiedAt: Date.now() });
+
+    const result = await execProtectedTool('create_resource', async (sid) => {
+      assert.equal(sid, 'sid-first');
+      return 'ok';
+    });
+
+    assert.equal(result.isError, false);
+    assert.equal(mcpGrantActive(), true, 'grant opened off the verified record');
+    assert.equal(readVerified(), null, 'single-shot record still consumed');
+  });
+
+  it('passes a level-2 call with no verified record while a grant is live', async () => {
+    writeTokenToFile(fakeToken('member-grant-pass'), 'test');
+    process.env.TRANSCODES_BACKEND_URL = baseUrl;
+    writeMcpGrant('sid-prev'); // an earlier MCP step-up opened the grant
+    let called = false;
+
+    const result = await execProtectedTool('create_resource', async (sid) => {
+      called = true;
+      assert.equal(sid, 'sid-prev', 'grant sid is the backstop');
+      return 'ok';
+    });
+
+    assert.equal(result.isError, false);
+    assert.equal(called, true, 'ran without a fresh step-up');
+  });
+
+  it('still hard-denies RBAC level 0 even while a grant is live', async () => {
+    writeTokenToFile(fakeToken('member-grant-deny'), 'test');
+    process.env.TRANSCODES_BACKEND_URL = baseUrl;
+    permission = 0;
+    writeMcpGrant('sid-prev');
+    let called = false;
+
+    const result = await execProtectedTool('create_resource', async () => {
+      called = true;
+      return 'should not run';
+    });
+
+    assert.equal(result.isError, true);
+    assert.equal(called, false);
+    assert.match(result.content[0]?.text ?? '', /rbac-denied/);
   });
 });
