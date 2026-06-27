@@ -18,7 +18,7 @@ MENU — Guard & SDK
    - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.
    - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking — never guess.
    - `simulate_tool_call` to verify it matches → `get_resources` to pick resource + action (create|read|update|delete) → confirm details with the user → `add_tool_rule`. If a CLI command also triggers it, pass `cliRegex`.
-   - PER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the same logical tool under a different wire name — one rule per host. PREFIX `id` with the host slug (`claude-…`, `codex-…`); provider is set automatically from this MCP server.
+   - PER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the same logical tool under a different wire name — one rule per host. PREFIX `id` with the host slug (`claude-…`, `codex-…`); provider is set automatically from this MCP server (TRANSCODES_GUARD_HOST always wins).
    - ADD, do not OVERWRITE: to protect the same tool on another host, call `add_tool_rule` there with a NEW id. NEVER `update_tool_rule` to repoint another host's rule. If `add_tool_rule` returns "already exists", pick a new id — do not fall back to update.
 2) Block a dangerous Bash command
    - Derive a regex → `simulate_command` with one matching and one NON-matching example (catch false positives) → `get_resources` for resource + action → confirm → `add_user_pattern`.
