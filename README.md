@@ -52,7 +52,9 @@ Codex resolves `.agents/plugins/marketplace.json` ahead of the legacy `.claude-p
 
 **Step 3 — save your token** (the member MCP JWT) so step-up can start. Recommended: `npm install -g @bigstrider/transcodes-cli` then run `transcodes` to open the local dashboard (URL printed in the terminal; default port 3847) and paste your token (persisted to `~/.transcodes/config.json` for every session). Non-interactive: `transcodes set <token> -l <label>`. Without a token, the hook still DENIES danger commands but cannot open a step-up session.
 
-### Antigravity
+### Antigravity (Beta Version)
+
+> Antigravity plugin support is in **beta** — install flow and APIs may change.
 
 Prerequisites: **Node >= 20** and **Google Antigravity 2.0** (desktop app or the `agy` CLI). Install the CLI if you do not have it yet:
 

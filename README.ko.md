@@ -50,7 +50,9 @@ Codex는 legacy `.claude-plugin/marketplace.json`보다 `.agents/plugins/marketp
 
 **3단계 — 토큰 저장**(멤버 MCP JWT). 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`를 실행하면 로컬 대시보드가 열립니다(터미널에 URL 출력, 기본 포트 3847) — 거기에 토큰을 붙여넣으세요(`~/.transcodes/config.json`에 저장되어 모든 세션이 읽음). 비대화형: `transcodes set <token> -l <label>`. 토큰이 없으면 hook은 위험 명령을 여전히 DENY 하지만 step-up 세션은 열지 못합니다.
 
-### Antigravity
+### Antigravity (Beta Version)
+
+> Antigravity 플러그인 지원은 **베타** 중입니다 — 설치 방법과 API가 바뀔 수 있습니다.
 
 사전 요구사항: **Node >= 20**, **Google Antigravity 2.0**(데스크톱 앱 또는 `agy` CLI). CLI가 없으면 먼저 설치하세요:
 
@@ -76,7 +78,7 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 
 > 참고: Antigravity의 PreToolUse matcher는 `run_command|mcp_.*|call_mcp_tool`로, 셸 실행 **및** MCP tool 호출을 게이트합니다 — Antigravity가 범용 `call_mcp_tool` 래퍼로 dispatch하는 lazy-loaded 호출까지 포함합니다(어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑). 파일 편집 도구(`write_to_file` 등)는 게이트되지 않습니다.
 
-### Cursor (Beta)
+### Cursor (Beta Version)
 
 > Cursor 플러그인 지원은 **베타** 중입니다 — 설치 방법과 API가 바뀔 수 있습니다.
 
