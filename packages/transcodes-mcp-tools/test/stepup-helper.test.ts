@@ -4,7 +4,6 @@ import type { Server } from 'node:http';
 import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { after, afterEach, before, describe, it } from 'node:test';
 import {
   loadMergedToolRules,
   type MergedToolRule,
@@ -17,6 +16,7 @@ import {
   writeTokenToFile,
   writeVerified,
 } from '@transcodes-guard/stepup-core';
+import { afterAll, afterEach, beforeAll, describe, it } from 'vitest';
 import {
   execProtectedTool,
   resolveProtectedToolRule,
@@ -150,7 +150,7 @@ describe('execProtectedTool step-up backstop', () => {
   let requestedPaths: string[] = [];
   let permission: 0 | 1 | 2 = 2;
 
-  before(async () => {
+  beforeAll(async () => {
     server = createServer((req, res) => {
       requestedPaths.push(`${req.method} ${req.url}`);
       if (req.url === '/v1/auth/role/check-permission') {
@@ -177,7 +177,7 @@ describe('execProtectedTool step-up backstop', () => {
     baseUrl = `http://127.0.0.1:${address.port}`;
   });
 
-  after(() => server.close());
+  afterAll(() => server.close());
 
   afterEach(() => {
     requestedPaths = [];
@@ -204,7 +204,7 @@ describe('execProtectedTool step-up backstop', () => {
     assert.deepEqual(requestedPaths, ['POST /v1/auth/role/check-permission']);
   });
 
-  it('consumes a stale verified record after a level-1 allow path', async () => {
+  it('consumes a stale verified record afterAll a level-1 allow path', async () => {
     writeTokenToFile(fakeToken('member-level-1'), 'test');
     process.env.TRANSCODES_BACKEND_URL = baseUrl;
     permission = 1;

@@ -30,7 +30,8 @@
     "esbuild": "^0.28.0",
     "javascript-obfuscator": "^5.4.3",
     "lefthook": "^1.13.6",
-    "turbo": "^2.0.0"
+    "turbo": "^2.0.0",
+    "vitest": "^4.1.9"
   },
   "engines": {
     "node": ">=20"

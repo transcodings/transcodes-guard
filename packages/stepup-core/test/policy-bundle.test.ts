@@ -12,7 +12,7 @@ import type { Server } from 'node:http';
 import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { after, before, beforeEach, describe, it } from 'node:test';
+import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import type { StepupConfig } from '../src/config.js';
 import {
   GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
@@ -230,7 +230,7 @@ describe('refreshPolicyBundle', () => {
   // Per-test response program: status + JSON body.
   let respond: (revision: string | null) => { status: number; body?: unknown };
 
-  before(async () => {
+  beforeAll(async () => {
     server = createServer((req, res) => {
       requestCount += 1;
       const url = new URL(req.url ?? '/', 'http://localhost');
@@ -251,7 +251,7 @@ describe('refreshPolicyBundle', () => {
     baseUrl = `http://127.0.0.1:${address.port}`;
   });
 
-  after(() => server.close());
+  afterAll(() => server.close());
 
   beforeEach(() => {
     clearCache();
@@ -325,7 +325,7 @@ describe('refreshPolicyBundle', () => {
     assert.equal(readCachedPolicyBundle(ORG), null);
   });
 
-  it('unwraps the backend response envelope (payload[0]) before verifying', async () => {
+  it('unwraps the backend response envelope (payload[0]) beforeAll verifying', async () => {
     respond = () => ({
       status: 200,
       body: {

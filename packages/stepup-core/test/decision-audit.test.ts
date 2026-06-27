@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict';
 import type { Server } from 'node:http';
 import { createServer } from 'node:http';
-import { after, before, beforeEach, describe, it } from 'node:test';
+import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import type { StepupConfig } from '../src/config.js';
 import {
   DECISION_AUDIT_TAG,
@@ -163,7 +163,7 @@ describe('sendDecisionAudit', () => {
   let received: { url: string; body: unknown } | null = null;
   let hangMs = 0;
 
-  before(async () => {
+  beforeAll(async () => {
     server = createServer((req, res) => {
       let raw = '';
       req.on('data', (c) => {
@@ -184,7 +184,7 @@ describe('sendDecisionAudit', () => {
     baseUrl = `http://127.0.0.1:${address.port}`;
   });
 
-  after(() => server.close());
+  afterAll(() => server.close());
 
   beforeEach(() => {
     received = null;

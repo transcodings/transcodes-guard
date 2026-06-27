@@ -5,12 +5,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, it } from 'node:test';
 import {
   loadMergedToolRules,
   loadSystemToolRules,
   type ToolRule,
 } from '@transcodes-guard/danger-patterns';
+import { describe, it } from 'vitest';
 import {
   GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
   loadEffectiveToolRules,

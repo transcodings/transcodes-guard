@@ -7,8 +7,8 @@ import type { Server } from 'node:http';
 import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { after, before, beforeEach, describe, it } from 'node:test';
 import { loadSystemToolRules } from '@transcodes-guard/danger-patterns';
+import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import {
   addToolRule,
   removeToolRule,
@@ -55,7 +55,7 @@ describe('guard tool-rule backend write flows', () => {
   let lastWrite: Captured | null = null;
   let writeRespond: () => { status: number; body?: unknown };
 
-  before(async () => {
+  beforeAll(async () => {
     server = createServer((req, res) => {
       const url = new URL(req.url ?? '/', 'http://localhost');
       let raw = '';
@@ -101,7 +101,7 @@ describe('guard tool-rule backend write flows', () => {
     process.env.TRANSCODES_BACKEND_URL = `http://127.0.0.1:${address.port}`;
   });
 
-  after(() => server.close());
+  afterAll(() => server.close());
 
   beforeEach(() => {
     lastWrite = null;
@@ -126,7 +126,7 @@ describe('guard tool-rule backend write flows', () => {
     await assert.rejects(addToolRule({ ...validInput }), /already exists/);
   });
 
-  it('rejects a malformed rule before any network call', async () => {
+  it('rejects a malformed rule beforeAll any network call', async () => {
     let hit = false;
     writeRespond = () => {
       hit = true;

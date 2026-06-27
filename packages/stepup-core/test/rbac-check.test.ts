@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import type { Server } from 'node:http';
 import { createServer } from 'node:http';
-import { after, before, describe, it } from 'node:test';
+import { afterAll, beforeAll, describe, it } from 'vitest';
 import type { StepupConfig } from '../src/config.js';
 import { checkRbacPermission } from '../src/rbac-check.js';
 
@@ -20,7 +20,7 @@ describe('checkRbacPermission', () => {
   // Per-test response program.
   let respond: () => { status: number; body: unknown };
 
-  before(async () => {
+  beforeAll(async () => {
     server = createServer((req, res) => {
       assert.equal(req.url, '/v1/auth/role/check-permission');
       const { status, body } = respond();
@@ -34,7 +34,7 @@ describe('checkRbacPermission', () => {
     baseUrl = `http://127.0.0.1:${address.port}`;
   });
 
-  after(() => server.close());
+  afterAll(() => server.close());
 
   function config(): StepupConfig {
     return {

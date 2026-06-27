@@ -2,7 +2,7 @@
  * RBAC resource key extraction — must match NestJS NormalizedResponse envelope.
  */
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import { extractResourceKeys } from '../src/rbac-validate.js';
 
 describe('extractResourceKeys', () => {
