@@ -4,7 +4,7 @@
 
 Cursor용 위험 셸 인터셉터(`beforeShellExecution` / `beforeMCPExecution`) + 감사 MCP 서버.
 
-Claude Code / Codex / Antigravity 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`)을 공유하며, Cursor에 특화된 부분은 hook 어댑터(`cursorAdapter`)와 아래 설치 레이아웃뿐입니다. Cursor에는 `plugin.json` 개념이 없으므로(마켓플레이스 번들 스펙이 비공개) 설치는 소스 빌드(`git clone` + `npm run build:plugin`) 후 `install.sh`를 실행하는 방식입니다.
+Claude Code / Codex / Antigravity 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`)을 공유하며, Cursor에 특화된 부분은 hook 어댑터(`cursorAdapter`)와 아래 설치 레이아웃뿐입니다. 이 플러그인은 Cursor 매니페스트(`.cursor-plugin/plugin.json`)를 제공하고 리포지토리는 마켓플레이스 매니페스트(`.cursor-plugin/marketplace.json`)를 제공하므로, 네이티브 Cursor 플러그인으로 설치됩니다 — `dist/`가 커밋되어 있어 빌드가 필요 없습니다. 아래의 `install.sh` 소스 빌드 경로는 플러그인을 지원하지 않는 구버전 Cursor 빌드를 위한 **legacy fallback**입니다.
 
 ## 사전 요구사항
 
@@ -14,7 +14,29 @@ Claude Code / Codex / Antigravity 플러그인과 동일한 스텝업 MFA 게이
 
 ## 설치
 
-### 프로젝트 범위 (워크스페이스별)
+Cursor에는 **"URL에서 플러그인 설치" CLI가 없으며**, 어떤 경로를 쓸지는 플랜에 따라 다릅니다. 아래 세 가지 네이티브 경로는 모두 `.cursor-plugin/plugin.json`을 읽어 `${CURSOR_PLUGIN_ROOT}`로 hook + MCP 서버를 연결합니다 — `dist/`가 커밋되어 있어 빌드가 필요 없습니다.
+
+### 개인 / Pro — 로컬 플러그인 (오늘 바로 동작, 플랜·심사 불필요)
+
+플러그인을 Cursor의 로컬 플러그인 디렉터리에 심볼릭 링크하고 리로드합니다:
+
+```bash
+git clone https://github.com/transcodings/transcodes-guard.git   # dist/ 커밋됨, 빌드 불필요
+ln -s "$PWD/transcodes-guard/plugins/cursor" ~/.cursor/plugins/local/transcodes-guard
+# Cursor → 명령 팔레트 → "Developer: Reload Window"
+```
+
+### 팀 / 엔터프라이즈 — 팀 마켓플레이스 (일회성 URL)
+
+관리자가 리포지토리를 한 번 임포트하면(Dashboard → Settings → Plugins → Team Marketplaces → **Import Marketplace**, `https://github.com/transcodings/transcodes-guard` 붙여넣기), Cursor가 `.cursor-plugin/marketplace.json`을 파싱합니다. `transcodes-guard`를 **Required** 또는 **Optional**로 표시하면 개발자는 **Customize → Plugins**에서 설치합니다. (대시보드 임포트는 유료 기능 — 개인/Pro에는 없음.)
+
+### 공개 리스팅 — 공식 마켓플레이스
+
+누구나 원클릭으로 설치하게 하려면 `cursor.com/marketplace/publish`에 리포지토리를 심사 제출합니다.
+
+### Legacy fallback — `install.sh` (플러그인을 지원하지 않는 구버전 Cursor 빌드용)
+
+`install.sh`는 `.cursor/hooks.json`과 `.cursor/mcp.json`에 절대 경로를 작성합니다(평범한 프로젝트/사용자 hook은 마켓플레이스 플러그인이 아니라 `${CURSOR_PLUGIN_ROOT}`를 받지 못하므로 `__TRANSCODES_GUARD_ROOT__`를 치환합니다):
 
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git
@@ -22,20 +44,15 @@ cd transcodes-guard
 npm install
 npm run build:plugin
 
-# 대상 워크스페이스에서:
+# 프로젝트 범위 (워크스페이스별):
 cd /path/to/your/project
 /path/to/transcodes-guard/plugins/cursor/install.sh
+
+# 사용자 범위 (모든 워크스페이스): install.sh --user
+# 사용자 지정 대상:                install.sh --target /path/to/workspace
 ```
 
-`<project>/.cursor/hooks.json`을 플러그인 `dist/`에 대한 절대 경로로 작성합니다. `mcp.json`은 **병합 인식(merge-aware)** 방식입니다: `<project>/.cursor/mcp.json`이 아직 없을 때만 작성하며, 이미 존재하면 `install.sh`가 덮어쓰기를 거부하고 `mcpServers` 아래에 수동으로 추가할 `transcodes-guard` 항목을 출력합니다(다른 MCP 서버를 보존하기 위함). 이 수동 단계를 건너뛰면 MCP 서버는 등록되지 않습니다.
-
-### 사용자 범위 (모든 워크스페이스)
-
-```bash
-/path/to/transcodes-guard/plugins/cursor/install.sh --user
-```
-
-`~/.cursor/hooks.json`(그리고 동일한 병합 인식 규칙이 적용되는 `~/.cursor/mcp.json`)을 작성합니다. 모든 Cursor 워크스페이스에서 게이트를 활성화하려는 경우 유용합니다. 사용자 지정 대상도 지원됩니다: `install.sh --target /path/to/workspace`.
+`mcp.json`은 **병합 인식(merge-aware)** 방식입니다: `<target>/.cursor/mcp.json`이 아직 없을 때만 작성하며, 이미 존재하면 `install.sh`가 덮어쓰기를 거부하고 `mcpServers` 아래에 수동으로 추가할 `transcodes-guard` 항목을 출력합니다(다른 MCP 서버를 보존하기 위함). 이 수동 단계를 건너뛰면 MCP 서버는 등록되지 않습니다.
 
 ### 첫 실행 시 hook 신뢰 승인
 

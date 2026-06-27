@@ -4,7 +4,7 @@
 
 Risky-shell interceptor (`beforeShellExecution` / `beforeMCPExecution`) and audit MCP server for Cursor.
 
-Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`) and the install layout below. Cursor has no `plugin.json` concept (Marketplace bundle spec is non-public), so installation is a source build (`git clone` + `npm run build:plugin`) followed by `install.sh`.
+Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`) and the install layout below. The plugin ships a Cursor manifest (`.cursor-plugin/plugin.json`) and the repo ships a marketplace manifest (`.cursor-plugin/marketplace.json`), so it installs as a native Cursor plugin — `dist/` is committed, no build needed. The `install.sh` source-build path below is a **legacy fallback** for older Cursor builds without plugin support.
 
 ## Prerequisites
 
@@ -14,7 +14,29 @@ Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity 
 
 ## Installation
 
-### Project scope (per-workspace)
+Cursor has **no "install plugin from a URL" CLI**; which path you use depends on your plan. All three native paths read `.cursor-plugin/plugin.json` and wire up the hooks + MCP server via `${CURSOR_PLUGIN_ROOT}` — `dist/` is committed, so none need a build.
+
+### Individual / Pro — local plugin (works today, no plan or review)
+
+Symlink the plugin into Cursor's local plugin directory and reload:
+
+```bash
+git clone https://github.com/transcodings/transcodes-guard.git   # dist/ committed, no build needed
+ln -s "$PWD/transcodes-guard/plugins/cursor" ~/.cursor/plugins/local/transcodes-guard
+# Cursor → command palette → "Developer: Reload Window"
+```
+
+### Teams / Enterprise — team marketplace (one-shot URL)
+
+An admin imports the repo once (Dashboard → Settings → Plugins → Team Marketplaces → **Import Marketplace**, paste `https://github.com/transcodings/transcodes-guard`); Cursor parses `.cursor-plugin/marketplace.json`. Mark `transcodes-guard` **Required** or **Optional**, then developers install from **Customize → Plugins**. (Dashboard import is a paid feature — not on Individual/Pro.)
+
+### Public listing — official marketplace
+
+To give everyone a one-click install, submit the repo for review at `cursor.com/marketplace/publish`.
+
+### Legacy fallback — `install.sh` (older Cursor builds without plugin support)
+
+`install.sh` writes absolute paths into `.cursor/hooks.json` and `.cursor/mcp.json` (it substitutes `__TRANSCODES_GUARD_ROOT__` because a plain project/user hook is not a marketplace plugin and gets no `${CURSOR_PLUGIN_ROOT}`):
 
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git
@@ -22,20 +44,15 @@ cd transcodes-guard
 npm install
 npm run build:plugin
 
-# In your target workspace:
+# Project scope (per-workspace):
 cd /path/to/your/project
 /path/to/transcodes-guard/plugins/cursor/install.sh
+
+# User scope (all workspaces): install.sh --user
+# Custom destination:          install.sh --target /path/to/workspace
 ```
 
-Writes `<project>/.cursor/hooks.json` with absolute paths to the plugin's `dist/`. `mcp.json` is **merge-aware**: it is written only if `<project>/.cursor/mcp.json` does not already exist — otherwise `install.sh` refuses to clobber it and prints the `transcodes-guard` entry for you to add manually under `mcpServers` (so your other MCP servers are preserved). If you skip that manual step, the MCP server is never registered.
-
-### User scope (all workspaces)
-
-```bash
-/path/to/transcodes-guard/plugins/cursor/install.sh --user
-```
-
-Writes `~/.cursor/hooks.json` (and `~/.cursor/mcp.json`, subject to the same merge-aware rule). Useful if you want the gate active in every Cursor workspace. A custom destination is also supported: `install.sh --target /path/to/workspace`.
+`mcp.json` is **merge-aware**: it is written only if `<target>/.cursor/mcp.json` does not already exist — otherwise `install.sh` refuses to clobber it and prints the `transcodes-guard` entry for you to add manually under `mcpServers` (so your other MCP servers are preserved). If you skip that manual step, the MCP server is never registered.
 
 ### Trust the hooks on first run
 
@@ -78,7 +95,7 @@ A single "front door" for managing the gate's own rules. Type `/transcodes` foll
 /transcodes is "git push --force" blocked?
 ```
 
-`install.sh` copies it into `<workspace>/.cursor/commands/transcodes.md`, so it shows up when you type `/` in the Agent input. It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
+It lives in the plugin's `.cursor/commands/` directory, which `plugin.json` declares (`"commands": "./.cursor/commands/"`) so a native plugin install loads it automatically; the legacy `install.sh` copies it into `<workspace>/.cursor/commands/transcodes.md` instead. Either way it shows up when you type `/` in the Agent input. It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
 
 ## For AI agents
 
