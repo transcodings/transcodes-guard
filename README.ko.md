@@ -119,10 +119,15 @@ npm install -g @bigstrider/transcodes-cli # 또는 전역 설치 → `transcodes
 
 명령:
 
-- `transcodes status` — 활성 토큰 소스 + 만료
-- `transcodes tokens` — 저장된 토큰 목록
-- `transcodes set <token> -l <label>` — 토큰 저장
 - `transcodes` (인자 없음) — GUI 대시보드
+- `transcodes set <token> -l <label>` — 토큰 저장
+- `transcodes tokens` — 저장된 토큰 목록
+- `transcodes status` — 활성 토큰 소스 + 만료
+- `transcodes console` — 브라우저에서 인증 설정(passkey, TOTP) 열기
+- `transcodes reset` — 저장된 토큰 전체 삭제
+- `transcodes policy refresh` — 조직 정책 번들 캐시 강제 갱신
+- `transcodes version` — 설치된 CLI 버전 출력
+- `transcodes help` — 전체 명령 목록과 사용법
 
 멤버 토큰은 `~/.transcodes/config.json`에 저장되며, hooks와 MCP 서버가 공유 resolver를 통해 읽습니다. CLI에는 게이트 on/off 토글이 **없습니다** — 보호를 끄려면 호스트의 네이티브 방식으로 플러그인을 비활성화하거나 제거하세요.
 

@@ -121,10 +121,15 @@ npm install -g @bigstrider/transcodes-cli # or install globally → `transcodes`
 
 Commands:
 
-- `transcodes status` — active token source + expiry
-- `transcodes tokens` — list stored tokens
-- `transcodes set <token> -l <label>` — store a token
 - `transcodes` (no args) — GUI dashboard
+- `transcodes set <token> -l <label>` — store a token
+- `transcodes tokens` — list stored tokens
+- `transcodes status` — active token source + expiry
+- `transcodes console` — open auth settings (passkeys, TOTP) in your browser
+- `transcodes reset` — delete all saved tokens
+- `transcodes policy refresh` — force-refresh the org policy bundle cache
+- `transcodes version` — print the installed CLI version
+- `transcodes help` — full command list and usage
 
 The member token is stored at `~/.transcodes/config.json`; the hooks and the MCP server read it via the shared resolver. There is **no** gate on/off toggle in the CLI — to turn protection off, disable or uninstall the plugin via the host's native mechanism.
 
