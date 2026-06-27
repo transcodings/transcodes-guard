@@ -81,8 +81,8 @@ export function registerMetaTools(server) {
         title: 'Get integration guide',
         description: 'IMPORTANT: You MUST call this tool BEFORE writing ANY Transcodes-related code. ' +
             'Fetches the official Transcodes integration guide (llms.txt) — the single source of truth for all implementation details. ' +
-            'Trigger keywords: install, setup, integrate, SDK, PWA, passkey, auth, login, signup, redirect, ' +
-            'step-up, MFA, JWT, token, audit, webhook, RBAC, role, service worker, manifest, CDN, webworker, ' +
+            'Trigger keywords: install, setup, integrate, SDK, passkey, auth, login, signup, redirect, ' +
+            'step-up, MFA, JWT, token, audit, webhook, RBAC, role, CDN, webworker, ' +
             'sign-in, sign-out, session, member, console, admin, IDP, OTP, TOTP, biometric, WebAuthn. ' +
             'The returned guide contains exact API signatures, code examples, framework setup (React, Next.js, Vue, Vite), ' +
             'CSP rules, JWT verification, and common mistakes. You MUST follow it instead of guessing. ' +

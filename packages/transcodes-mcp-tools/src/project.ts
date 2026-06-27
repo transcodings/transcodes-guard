@@ -44,7 +44,7 @@ const PROJECT_ASSETS = [
 ] as const;
 
 const MSG_PROJECT_PWA_AUTH_CONSOLE =
-  'PWA and authentication configuration (manifest, service worker, widget, branding, WebAuthn, related origins, token expiry, etc.) must be performed in the Transcodes console. ' +
+  'Authentication and console configuration (manifest, service worker, widget, branding, WebAuthn, related origins, token expiry, etc.) must be performed in the Transcodes console. ' +
   'Changes to these settings require the project SDK to be rebuilt and redeployed — a process that the console handles automatically. ' +
   'Modifying them directly via API without going through the console build pipeline will leave the deployed SDK out of sync with your configuration. ' +
   'This MCP tool does not call the API.';
@@ -198,7 +198,7 @@ export function checkRelatedOriginRegistration(
   };
 }
 
-// 프로젝트 CDN asset 결과를 auth SDK와 PWA 자산 상태로 나눠 보고한다.
+// 프로젝트 CDN asset 결과를 auth SDK와 Web App Kit 자산 상태로 나눠 보고한다.
 export async function checkProjectAssets(
   projectId: string,
   fetcher: FetchLike = fetch,
@@ -242,13 +242,13 @@ export async function checkProjectAssets(
     assets,
     diagnostics: [
       authOk
-        ? 'Authentication SDK webworker.js is available. Missing PWA assets do not block authentication-only setup.'
+        ? 'Authentication SDK webworker.js is available. Missing install assets do not block authentication-only setup.'
         : 'Authentication SDK webworker.js is not available. Check project ID, CDN base URL, and Console SDK build state.',
       pwaState === 'configured'
-        ? 'PWA/Web App Kit assets are available.'
+        ? 'Web App Kit assets (manifest.json, sw.js) are available.'
         : pwaState === 'unreachable'
-          ? 'PWA/Web App Kit asset state is unclear because one or more assets could not be checked.'
-          : 'PWA/Web App Kit assets are missing or partial. Treat this separately from auth SDK availability.',
+          ? 'Web App Kit asset state is unclear because one or more assets could not be checked.'
+          : 'Web App Kit assets are missing or partial. Treat this separately from auth SDK availability.',
     ],
   };
 }
@@ -280,7 +280,7 @@ export function registerProjectTools(server: McpServer): void {
       title: 'Get project',
       description:
         'Fetch the active project (fixed by TRANSCODES_TOKEN pid claim). ' +
-        'Returns all information about the project — including toolkit, pwa, domain_url, title, description, and created/updated timestamps. ' +
+        'Returns all information about the project — including toolkit, domain_url, title, description, and created/updated timestamps. ' +
         'No arguments — project is determined by the token.',
       inputSchema: {},
     },
@@ -349,8 +349,8 @@ export function registerProjectTools(server: McpServer): void {
       title: 'Check project CDN assets',
       description:
         'Read-only CDN asset diagnostic for the active project. ' +
-        'Separates Authentication-only SDK availability (`webworker.js`) from installable PWA/Web App Kit assets (`manifest.json`, `sw.js`) so PWA 404s are not mistaken for auth failures. ' +
-        'Use when webworker/manifest/sw.js status, CDN setup, auth-only install, or PWA installability is unclear.',
+        'Separates Authentication-only SDK availability (`webworker.js`) from optional Web App Kit install assets (`manifest.json`, `sw.js`) so missing manifest/sw.js is not mistaken for auth failures. ' +
+        'Use when webworker/manifest/sw.js status, CDN setup, auth-only install, or installable app assets are unclear.',
       inputSchema: {},
     },
     async () => {
@@ -377,9 +377,9 @@ export function registerProjectTools(server: McpServer): void {
   server.registerTool(
     'project_pwa_auth_console',
     {
-      title: 'PWA / auth config (console-only)',
+      title: 'Auth config (console-only)',
       description:
-        'Blocked: PWA and authentication configuration (manifest, service worker, branding, WebAuthn, related origins, token expiry, etc.) must be done in the Transcodes console. ' +
+        'Blocked: Authentication and console configuration (manifest, service worker, branding, WebAuthn, related origins, token expiry, etc.) must be done in the Transcodes console. ' +
         'These settings trigger an SDK rebuild and redeployment — a pipeline the console manages automatically. ' +
         'Applying changes directly via API skips that pipeline and leaves the live SDK out of sync with the new configuration.',
       inputSchema: {},

@@ -227,7 +227,7 @@ export const MCP_TOOLS = [
   {
     name: 'check_project_assets',
     description:
-      'Separate auth SDK webworker status from optional PWA manifest/sw.js status.',
+      'Separate auth SDK webworker status from optional manifest/sw.js install assets.',
     category: 'Project',
     access: 'api',
     stepUpProtected: false,
@@ -245,7 +245,7 @@ export const MCP_TOOLS = [
   {
     name: 'project_pwa_auth_console',
     description:
-      'PWA and auth configuration must be done in the Transcodes console.',
+      'Auth and console configuration must be done in the Transcodes console.',
     category: 'Project',
     access: 'console-only',
     stepUpProtected: false,

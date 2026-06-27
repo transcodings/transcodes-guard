@@ -35,7 +35,7 @@ MENU — Guard & SDK
 7) Refresh rules after a Next.js console change
    - When an admin just activated/deactivated or edited a rule in the console and it is not yet visible here, call `refresh_rules`. It force-refreshes the policy bundle cache now (same as CLI `transcodes policy refresh`) and returns the currently active rules. Report the outcome (refreshed / already current / failed-stale / skipped).
 8) Integrate / install the Transcodes SDK into the app (frontend)
-   - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions — the single source of truth; pass a `topic` like pwa/auth/passkey/jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user's frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, service worker/manifest). Never guess API signatures — use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.
+   - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions — the single source of truth; pass a `topic` like auth/webauthn/server-jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user's frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, CDN webworker). Never guess API signatures — use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.
 
 MENU — Transcodes Admin API (transcodes-guard MCP server)
 9) Identity & session context (read-only)
@@ -51,7 +51,7 @@ MENU — Transcodes Admin API (transcodes-guard MCP server)
 12) Platform users
    - Read: `user_get_current`, `user_find`.
    - Mutating (confirm first): `user_create` (console-only stub — direct to Transcodes console).
-13) Project & PWA diagnostics
+13) Project & asset diagnostics
    - `get_project`, `check_related_origin`, `check_project_assets`, `project_pwa_auth_console`.
 14) Membership & billing
    - Read: `membership_plans`, `membership_plans_limits`, `membership_customer_status_by_project`, `membership_customer_status_by_organization`.
@@ -93,9 +93,9 @@ Meta & Identity (6):
 
 Project (4):
 20) `get_project` — Fetch the active project (fixed by TRANSCODES_TOKEN pid claim). [read-only]
-21) `check_project_assets` — Separate auth SDK webworker status from optional PWA manifest/sw.js status. [read-only]
+21) `check_project_assets` — Separate auth SDK webworker status from optional manifest/sw.js install assets. [read-only]
 22) `check_related_origin` — Check whether a redirect_uri/origin is registered in project authentication.related_origins. [read-only]
-23) `project_pwa_auth_console` — PWA and auth configuration must be done in the Transcodes console. [console-only]
+23) `project_pwa_auth_console` — Auth and console configuration must be done in the Transcodes console. [console-only]
 
 Members (9):
 24) `get_member` — Get one member profile by member_id or email. [read-only]

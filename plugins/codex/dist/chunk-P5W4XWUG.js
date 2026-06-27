@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "cursor";
+process.env.TRANSCODES_GUARD_HOST = "codex";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -6969,7 +6969,7 @@ function registerMetaTools(server) {
   });
   server.registerTool("get_integration_guide", {
     title: "Get integration guide",
-    description: "IMPORTANT: You MUST call this tool BEFORE writing ANY Transcodes-related code. Fetches the official Transcodes integration guide (llms.txt) \u2014 the single source of truth for all implementation details. Trigger keywords: install, setup, integrate, SDK, PWA, passkey, auth, login, signup, redirect, step-up, MFA, JWT, token, audit, webhook, RBAC, role, service worker, manifest, CDN, webworker, sign-in, sign-out, session, member, console, admin, IDP, OTP, TOTP, biometric, WebAuthn. The returned guide contains exact API signatures, code examples, framework setup (React, Next.js, Vue, Vite), CSP rules, JWT verification, and common mistakes. You MUST follow it instead of guessing. Call once per conversation \u2014 the result stays in context for follow-up requests.",
+    description: "IMPORTANT: You MUST call this tool BEFORE writing ANY Transcodes-related code. Fetches the official Transcodes integration guide (llms.txt) \u2014 the single source of truth for all implementation details. Trigger keywords: install, setup, integrate, SDK, passkey, auth, login, signup, redirect, step-up, MFA, JWT, token, audit, webhook, RBAC, role, CDN, webworker, sign-in, sign-out, session, member, console, admin, IDP, OTP, TOTP, biometric, WebAuthn. The returned guide contains exact API signatures, code examples, framework setup (React, Next.js, Vue, Vite), CSP rules, JWT verification, and common mistakes. You MUST follow it instead of guessing. Call once per conversation \u2014 the result stays in context for follow-up requests.",
     inputSchema: {
       topic: external_exports.string().optional()
     }
@@ -7065,7 +7065,7 @@ var PROJECT_ASSETS = [
   ["pwa_manifest", "installable_pwa", "manifest.json"],
   ["pwa_service_worker", "installable_pwa", "sw.js"]
 ];
-var MSG_PROJECT_PWA_AUTH_CONSOLE = "PWA and authentication configuration (manifest, service worker, widget, branding, WebAuthn, related origins, token expiry, etc.) must be performed in the Transcodes console. Changes to these settings require the project SDK to be rebuilt and redeployed \u2014 a process that the console handles automatically. Modifying them directly via API without going through the console build pipeline will leave the deployed SDK out of sync with your configuration. This MCP tool does not call the API.";
+var MSG_PROJECT_PWA_AUTH_CONSOLE = "Authentication and console configuration (manifest, service worker, widget, branding, WebAuthn, related origins, token expiry, etc.) must be performed in the Transcodes console. Changes to these settings require the project SDK to be rebuilt and redeployed \u2014 a process that the console handles automatically. Modifying them directly via API without going through the console build pipeline will leave the deployed SDK out of sync with your configuration. This MCP tool does not call the API.";
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -7200,8 +7200,8 @@ async function checkProjectAssets(projectId, fetcher = fetch) {
     },
     assets,
     diagnostics: [
-      authOk ? "Authentication SDK webworker.js is available. Missing PWA assets do not block authentication-only setup." : "Authentication SDK webworker.js is not available. Check project ID, CDN base URL, and Console SDK build state.",
-      pwaState === "configured" ? "PWA/Web App Kit assets are available." : pwaState === "unreachable" ? "PWA/Web App Kit asset state is unclear because one or more assets could not be checked." : "PWA/Web App Kit assets are missing or partial. Treat this separately from auth SDK availability."
+      authOk ? "Authentication SDK webworker.js is available. Missing install assets do not block authentication-only setup." : "Authentication SDK webworker.js is not available. Check project ID, CDN base URL, and Console SDK build state.",
+      pwaState === "configured" ? "Web App Kit assets (manifest.json, sw.js) are available." : pwaState === "unreachable" ? "Web App Kit asset state is unclear because one or more assets could not be checked." : "Web App Kit assets are missing or partial. Treat this separately from auth SDK availability."
     ]
   };
 }
@@ -7221,7 +7221,7 @@ async function loadProjectForOriginCheck() {
 function registerProjectTools(server) {
   server.registerTool("get_project", {
     title: "Get project",
-    description: "Fetch the active project (fixed by TRANSCODES_TOKEN pid claim). Returns all information about the project \u2014 including toolkit, pwa, domain_url, title, description, and created/updated timestamps. No arguments \u2014 project is determined by the token.",
+    description: "Fetch the active project (fixed by TRANSCODES_TOKEN pid claim). Returns all information about the project \u2014 including toolkit, domain_url, title, description, and created/updated timestamps. No arguments \u2014 project is determined by the token.",
     inputSchema: {}
   }, async () => {
     const config = loadStepupConfig();
@@ -7256,7 +7256,7 @@ function registerProjectTools(server) {
   });
   server.registerTool("check_project_assets", {
     title: "Check project CDN assets",
-    description: "Read-only CDN asset diagnostic for the active project. Separates Authentication-only SDK availability (`webworker.js`) from installable PWA/Web App Kit assets (`manifest.json`, `sw.js`) so PWA 404s are not mistaken for auth failures. Use when webworker/manifest/sw.js status, CDN setup, auth-only install, or PWA installability is unclear.",
+    description: "Read-only CDN asset diagnostic for the active project. Separates Authentication-only SDK availability (`webworker.js`) from optional Web App Kit install assets (`manifest.json`, `sw.js`) so missing manifest/sw.js is not mistaken for auth failures. Use when webworker/manifest/sw.js status, CDN setup, auth-only install, or installable app assets are unclear.",
     inputSchema: {}
   }, async () => {
     try {
@@ -7271,8 +7271,8 @@ function registerProjectTools(server) {
     }
   });
   server.registerTool("project_pwa_auth_console", {
-    title: "PWA / auth config (console-only)",
-    description: "Blocked: PWA and authentication configuration (manifest, service worker, branding, WebAuthn, related origins, token expiry, etc.) must be done in the Transcodes console. These settings trigger an SDK rebuild and redeployment \u2014 a pipeline the console manages automatically. Applying changes directly via API skips that pipeline and leaves the live SDK out of sync with the new configuration.",
+    title: "Auth config (console-only)",
+    description: "Blocked: Authentication and console configuration (manifest, service worker, branding, WebAuthn, related origins, token expiry, etc.) must be done in the Transcodes console. These settings trigger an SDK rebuild and redeployment \u2014 a pipeline the console manages automatically. Applying changes directly via API skips that pipeline and leaves the live SDK out of sync with the new configuration.",
     inputSchema: {}
   }, async () => blockedResult(MSG_PROJECT_PWA_AUTH_CONSOLE));
 }

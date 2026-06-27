@@ -215,7 +215,7 @@ export const TRANSCODES_ADMIN_TOOLS: AdminToolEntry[] = [
     name: 'check_project_assets',
     title: 'Check project CDN assets',
     description:
-      'Separate auth SDK webworker status from optional PWA manifest/sw.js status.',
+      'Separate auth SDK webworker status from optional manifest/sw.js install assets.',
     category: 'Project',
     access: 'api',
     stepUpProtected: false,
@@ -231,9 +231,9 @@ export const TRANSCODES_ADMIN_TOOLS: AdminToolEntry[] = [
   },
   {
     name: 'project_pwa_auth_console',
-    title: 'PWA / auth config (console-only)',
+    title: 'Auth config (console-only)',
     description:
-      'Blocked — PWA and auth configuration must be done in the Transcodes console.',
+      'Blocked — Auth and console configuration must be done in the Transcodes console.',
     category: 'Project',
     access: 'console-only',
     stepUpProtected: false,
