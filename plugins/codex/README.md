@@ -15,18 +15,24 @@ Shares the same step-up MFA gate logic as the Claude Code plugin (`@transcodes-g
 
 ### 1. Install the plugin
 
-The plugin manifest lives at `plugins/codex/.codex-plugin/plugin.json`, and the repo ships a Codex marketplace catalog at `.agents/plugins/marketplace.json` (a `local` source pointing at `./plugins/codex`). Clone the repo, build the committed `dist/`, register the repo root as the catalog, then install the plugin:
+The repo ships a Codex marketplace catalog at `.agents/plugins/marketplace.json` (pointing at `./plugins/codex`), and `dist/` is committed. `codex plugin marketplace add` accepts a GitHub repo directly (Codex clones it for you), so **no manual clone or build is needed**:
 
 ```bash
-git clone https://github.com/transcodings/transcodes-guard.git
-cd transcodes-guard
-git checkout main
-npm install && npm run build:plugin
-
-codex plugin marketplace add .                 # registers the "bigstrider" marketplace
-codex plugin add transcodes-guard@bigstrider   # installs the plugin
+codex plugin marketplace add transcodings/transcodes-guard   # registers the "bigstrider" marketplace
+codex plugin add transcodes-guard@bigstrider                 # installs the plugin
 # or open Codex → /plugins and install "transcodes-guard" from the bigstrider marketplace
 ```
+
+For a reproducible install, pick a release tag from GitHub and pass it with `--ref`; the unpinned command above follows the current marketplace source.
+
+> **Authoring / local development.** To install from a local checkout instead of the remote repo, clone it, build the committed `dist/`, and register the working copy as a `local` marketplace:
+>
+> ```bash
+> git clone https://github.com/transcodings/transcodes-guard.git
+> cd transcodes-guard && npm install && npm run build:plugin
+> codex plugin marketplace add .                 # registers the local marketplace
+> codex plugin add transcodes-guard@bigstrider
+> ```
 
 ### 2. Trust the hook on first run
 
@@ -55,7 +61,7 @@ Without a token, the hook still **denies** danger commands but cannot start a st
 | `UserPromptSubmit` hook | Detects user "auth done" prompts (`"완료"`, `"done"`, …) and surfaces the pending `sid` so the agent can poll. |
 | `Stop` hook | Catches dangling step-up loops; silently reaps orphan verified/pending records. |
 
-## Slash command: `$transcodes`
+## `$`-mention: `$transcodes`
 
 A single "front door" for managing the gate's own rules. Codex surfaces bundled skills as **`$`-mentions** (not `/`), so invoke it as `$transcodes` followed by a plain-language request; the agent routes it to the right guard workflow, asking for any missing detail:
 
