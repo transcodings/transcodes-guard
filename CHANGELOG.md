@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.1...transcodes-guard-v0.28.2) (2026-06-27)
+
+
+### Bug Fixes
+
+* **mcp:** env-first provider for add/update tool-rule ([0ac4bcc](https://github.com/transcodings/transcodes-guard/commit/0ac4bcc954091ec39118c893b3a8553fee993c51))
+
 ## [0.28.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.0...transcodes-guard-v0.28.1) (2026-06-27)
 
 
