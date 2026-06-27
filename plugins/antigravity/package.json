@@ -1,6 +1,6 @@
 {
   "name": "@bigstrider/transcodes-guard-antigravity",
-  "version": "0.28.5",
+  "version": "0.28.6",
   "description": "Risky-shell interceptor + step-up MFA audit MCP server — Google Antigravity 2.0 plugin.",
   "type": "module",
   "main": "dist/src/stdio.js",

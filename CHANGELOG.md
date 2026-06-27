@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.6](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.5...transcodes-guard-v0.28.6) (2026-06-27)
+
+
+### Documentation
+
+* **readme:** mark Antigravity as Beta Version ([3ca6172](https://github.com/transcodings/transcodes-guard/commit/3ca61724db073fc88cbf997ca86b614121d7bfcb))
+
 ## [0.28.5](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.4...transcodes-guard-v0.28.5) (2026-06-27)
 
 
