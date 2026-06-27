@@ -23,17 +23,6 @@ codex plugin add transcodes-guard@bigstrider                 # installs the plug
 # or open Codex → /plugins and install "transcodes-guard" from the bigstrider marketplace
 ```
 
-For a reproducible install, pick a release tag from GitHub and pass it with `--ref`; the unpinned command above follows the current marketplace source.
-
-> **Authoring / local development.** To install from a local checkout instead of the remote repo, clone it, build the committed `dist/`, and register the working copy as a `local` marketplace:
->
-> ```bash
-> git clone https://github.com/transcodings/transcodes-guard.git
-> cd transcodes-guard && npm install && npm run build:plugin
-> codex plugin marketplace add .                 # registers the local marketplace
-> codex plugin add transcodes-guard@bigstrider
-> ```
-
 ### 2. Trust the hook on first run
 
 The first time the hook is about to fire, Codex prompts a trust review (`/hooks` to inspect manually). Approve once and Codex caches the trust decision. **Do not** use `--dangerously-bypass-hook-trust` — that defeats the gate's authority.

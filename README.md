@@ -46,7 +46,7 @@ codex plugin add transcodes-guard@bigstrider                 # installs the plug
 # or in Codex: /plugins → install "transcodes-guard" from the bigstrider marketplace
 ```
 
-Codex resolves `.agents/plugins/marketplace.json` ahead of the legacy `.claude-plugin/marketplace.json`, so it always installs the Codex plugin (`./plugins/codex`), not the Claude one. For a reproducible install, choose the desired release tag from GitHub and pass it with `--ref`; the unpinned command above follows the current marketplace source.
+Codex resolves `.agents/plugins/marketplace.json` ahead of the legacy `.claude-plugin/marketplace.json`, so it always installs the Codex plugin (`./plugins/codex`), not the Claude one.
 
 **Step 2 — first run.** Codex prompts a one-time hook trust review (`/hooks` to inspect). Approve it once. Do **not** use `--dangerously-bypass-hook-trust`.
 

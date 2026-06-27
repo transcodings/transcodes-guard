@@ -6,7 +6,7 @@ The Transcodes Guard step-up MFA audit **MCP server**, to be published as a stan
 
 This is a thin transport adapter package, modeled on `cli/`.
 
-> **Not yet published.** The standalone package is pending release; the commands below describe how to connect it once it ships. Until then, use one of the four host plugins.
+> **Not yet published.** The standalone package is pending release; the commands below describe how to connect it once it ships. Until then, use the Claude Code or Codex plugin (the stable, supported hosts; Cursor and Antigravity are beta).
 
 ## Connecting
 
