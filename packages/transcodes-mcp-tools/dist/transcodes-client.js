@@ -53,6 +53,9 @@ const ENDPOINT_MAP = {
     membership_create_checkout_session: '/membership/mcp/session',
     // Passcode
     passcode_create: '/auth/passcode/create',
+    // Platform users
+    user_get_current: '/user',
+    user_find: '/user',
 };
 /**
  * Resolve the tool's base path from ENDPOINT_MAP + optional `pathSuffix`

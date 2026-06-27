@@ -15,18 +15,20 @@
  *
  * Usage: node scripts/generate-router-files.mjs [--check]
  */
-import { readFileSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { HOSTS, RUNTIME_BODY, renderHost } from "./router-body.mjs";
+import { readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { HOSTS, RUNTIME_BODY, renderHost } from './router-body.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const check = process.argv.includes("--check");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const check = process.argv.includes('--check');
 
 // Emit a single-quoted TS string literal matching the repo's biome formatter
 // (quoteStyle: single). Escaping mirrors what biome would print so the
 // generated file is already formatter-clean and the --check gate stays stable.
-const singleQuoted = `'${RUNTIME_BODY.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n")}'`;
+const singleQuoted = `'${RUNTIME_BODY.replace(/\\/g, '\\\\')
+  .replace(/'/g, "\\'")
+  .replace(/\n/g, '\\n')}'`;
 
 // biome wraps the long assignment onto its own indented line; match that shape.
 const routerBodyTs = `\
@@ -38,32 +40,34 @@ export const TRANSCODES_ROUTER_BODY =
 
 // [relativePath, expectedContent]
 const targets = [
-  ["packages/mcp-server-core/src/router-body.ts", routerBodyTs],
+  ['packages/mcp-server-core/src/router-body.ts', routerBodyTs],
   ...HOSTS.map((host) => [host.out, renderHost(host)]),
 ];
 
 if (check) {
   const drifted = [];
   for (const [rel, expected] of targets) {
-    let actual = "";
+    let actual = '';
     try {
-      actual = readFileSync(path.join(root, rel), "utf8");
+      actual = readFileSync(path.join(root, rel), 'utf8');
     } catch {
-      actual = "";
+      actual = '';
     }
     if (actual !== expected) drifted.push(rel);
   }
   if (drifted.length > 0) {
     console.error(
-      `router codegen drift in:\n${drifted.map((f) => `  - ${f}`).join("\n")}\n` +
-        "Run `node scripts/generate-router-files.mjs` and commit the result.",
+      `router codegen drift in:\n${drifted
+        .map((f) => `  - ${f}`)
+        .join('\n')}\n` +
+        'Run `node scripts/generate-router-files.mjs` and commit the result.'
     );
     process.exit(1);
   }
-  console.error("router codegen: up to date");
+  console.error('router codegen: up to date');
 } else {
   for (const [rel, content] of targets) {
-    writeFileSync(path.join(root, rel), content, "utf8");
+    writeFileSync(path.join(root, rel), content, 'utf8');
   }
   console.error(`generated router files: ${targets.length}`);
 }

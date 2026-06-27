@@ -11,18 +11,31 @@
  * zero build step, which is why this is .mjs and not .ts).
  */
 
+import {
+  MCP_RESOURCES,
+  MCP_TOOLS,
+  renderToolCatalogSection,
+} from './tool-catalog.mjs';
+
 // Shared opening sentence. Every host file and the runtime body begin with this
 // exact preamble; only the trailing clause (introTail) and the request line
 // differ per host.
 export const PREAMBLE =
-  'You are the transcodes-guard control surface — the single "front door" the user opens to manage step-up MFA protection AND to integrate the Transcodes SDK into their app.';
+  'You are the transcodes-guard control surface — the single "front door" the user opens to manage step-up MFA protection, Transcodes Admin API operations, AND to integrate the Transcodes SDK into their app.';
 
-// Everything from the "Identify which MENU item…" paragraph through MENU item 8.
+// Everything from the "Identify which MENU item…" paragraph through the last MENU item.
 // Byte-identical across the runtime body and all four host files.
-export const SHARED_BODY = [
-  'Identify which MENU item below matches their request, gather any missing detail by ASKING the user first, then run that workflow. Rules: never invent MCP tool wire names or resource keys; always verify with a simulate_* tool before any mutating call; if the request is empty or ambiguous, show this menu and ask what they want.',
+const WORKFLOW_MENU = [
+  'Identify which MENU item below matches their request, gather any missing detail by ASKING the user first, then run that workflow.',
   '',
-  'MENU',
+  'TOOL ACCESS RULES (all items):',
+  '- Every tool named below lives on the `transcodes-guard` MCP server — call by exact MCP tool name (e.g. `get_member`), NOT as a slash command.',
+  '- Before calling any tool, confirm `transcodes-guard` MCP is connected on THIS host. If disconnected, REFUSE and tell the user to enable/reload the plugin MCP server.',
+  '- Never invent MCP tool wire names (for host PreToolUse rules) or resource keys; always verify with a simulate_* tool before any mutating guard/rule call.',
+  '- Mutating Admin API calls: confirm intent + required ids with the user first; some are RBAC-gated or step-up-protected by hook tool-rules.',
+  '- If the request is empty or ambiguous, show this full menu and ask what they want.',
+  '',
+  'MENU — Guard & SDK',
   '1) Gate an MCP tool behind step-up MFA',
   '   - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.',
   '   - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking — never guess.',
@@ -43,6 +56,35 @@ export const SHARED_BODY = [
   '   - When an admin just activated/deactivated or edited a rule in the console and it is not yet visible here, call `refresh_rules`. It force-refreshes the policy bundle cache now (same as CLI `transcodes policy refresh`) and returns the currently active rules. Report the outcome (refreshed / already current / failed-stale / skipped).',
   '8) Integrate / install the Transcodes SDK into the app (frontend)',
   "   - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions — the single source of truth; pass a `topic` like pwa/auth/passkey/jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user's frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, service worker/manifest). Never guess API signatures — use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.",
+  '',
+  'MENU — Transcodes Admin API (transcodes-guard MCP server)',
+  '9) Identity & session context (read-only)',
+  '   - `get_current_project_id`, `get_current_organization_id`, `get_current_member_id`, `get_my_profile`, `get_console_url`.',
+  '   - Use these first when the user asks "who am I", "what project/org", or needs a console link.',
+  '10) Members — inspect & lifecycle',
+  '   - Read: `get_member`, `list_members_paginated`, `list_member_devices`, `get_member_suspension`.',
+  '   - Mutating (confirm first): `create_member`, `update_member`, `suspend_member`, `unsuspend_member`, `retire_member`.',
+  '11) RBAC — roles, resources, permissions',
+  '   - Read: `get_roles`, `get_resources`, `check_rbac_permission`.',
+  '   - Mutating (confirm first): `create_role`, `update_role`, `retire_role`, `set_role_permissions`, `update_member_role`, `create_resource`, `update_resource`, `retire_resource`.',
+  '   - When attaching step-up to a rule, call `get_resources` here to pick valid resource + action keys.',
+  '12) Platform users',
+  '   - Read: `user_get_current`, `user_find`.',
+  '   - Mutating (confirm first): `user_create` (console-only stub — direct to Transcodes console).',
+  '13) Project & PWA diagnostics',
+  '   - `get_project`, `check_related_origin`, `check_project_assets`, `project_pwa_auth_console`.',
+  '14) Membership & billing',
+  '   - Read: `membership_plans`, `membership_plans_limits`, `membership_customer_status_by_project`, `membership_customer_status_by_organization`.',
+  '   - Mutating (confirm first): `membership_create_checkout_session`.',
+  '15) Audit, auth devices, passcode, keys',
+  '   - Audit read: `get_security_logs`.',
+  '   - Auth devices read: `list_authenticators`, `list_passkeys`, `list_totps`.',
+  '   - Mutating (confirm first): `passcode_create`, `jwk_backup`.',
+];
+
+export const SHARED_BODY = [
+  WORKFLOW_MENU.join('\n'),
+  renderToolCatalogSection(MCP_TOOLS, MCP_RESOURCES),
 ].join('\n');
 
 // The runtime body uses a {{REQUEST}} placeholder that transcodesRouterBody()
@@ -61,14 +103,14 @@ export const RUNTIME_BODY = [
 // frontmatter is hand-tuned per host and kept verbatim here (not generated from
 // logic). cursor has none. antigravity and codex share identical frontmatter.
 const SKILL_FRONTMATTER =
-  '---\nname: transcodes\ndescription: transcodes-guard control surface. Use when the user wants to add, list, change, or check step-up MFA rules — gate an MCP tool or Bash command, inspect step-up state, test whether something is blocked, or integrate/install the Transcodes SDK into their frontend.\n---\n';
+  '---\nname: transcodes\ndescription: transcodes-guard control surface. Use when the user wants step-up MFA rules, Transcodes Admin API (members, RBAC, org, project, audit, devices), step-up state, block checks, or Transcodes SDK integration — routes to the transcodes-guard MCP server tools.\n---\n';
 
 export const HOSTS = [
   {
     name: 'claude-code',
     out: 'plugins/claude-code/commands/transcodes.md',
     frontmatter:
-      '---\ndescription: Open the transcodes-guard control surface — say what you want and the agent routes to the right guard tool\nargument-hint: [what you want to do]\n---\n',
+      '---\ndescription: Open the transcodes-guard control surface — step-up rules, Transcodes Admin API, SDK integration; routes to transcodes-guard MCP tools\nargument-hint: [what you want to do]\n---\n',
     introTail: ' The user said:',
     // claude-code keeps a blockquote request line (Claude Code native $ARGUMENTS).
     requestBlock: '\n\n> $ARGUMENTS',

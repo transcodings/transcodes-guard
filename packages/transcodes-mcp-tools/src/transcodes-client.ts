@@ -68,6 +68,10 @@ const ENDPOINT_MAP: Readonly<Record<string, string>> = {
 
   // Passcode
   passcode_create: '/auth/passcode/create',
+
+  // Platform users
+  user_get_current: '/user',
+  user_find: '/user',
 };
 
 export type ReqInput = Omit<RequestInput, 'path'>;
