@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.0...transcodes-guard-v0.28.1) (2026-06-27)
+
+
+### Code Refactoring
+
+* **mcp:** remove PWA wording from SDK integration tools and menus ([39ef3b7](https://github.com/transcodings/transcodes-guard/commit/39ef3b7fc631ead166bf0858d4b6f482a0dbeb09))
+
 ## [0.28.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.27.0...transcodes-guard-v0.28.0) (2026-06-27)
 
 
