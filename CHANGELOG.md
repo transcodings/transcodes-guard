@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.2...transcodes-guard-v0.28.3) (2026-06-27)
+
+
+### Documentation
+
+* clarify Codex marketplace ref pinning ([40f9bbc](https://github.com/transcodings/transcodes-guard/commit/40f9bbcb2a1f6129b44778162b4f2925ee9b898b))
+
 ## [0.28.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.1...transcodes-guard-v0.28.2) (2026-06-27)
 
 
