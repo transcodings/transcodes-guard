@@ -8,7 +8,7 @@ import {
 } from "../chunk-C7JQN5HU.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.28.6";
+var PLUGIN_VERSION = "0.28.7";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
