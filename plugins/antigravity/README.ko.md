@@ -13,18 +13,23 @@ Claude Code 및 Codex 플러그인과 동일한 스텝업 MFA 게이트 로직(`
 
 ## 설치
 
-대상 경로를 해석하고 절대 파일 시스템 경로를 자동으로 구성하는 설치 스크립트를 사용하세요:
+사전 요구사항: **Node.js ≥ 20**, **Google Antigravity 2.0**(데스크톱 앱 또는 `agy` CLI). CLI가 없으면:
 
-1. **전역(Global)** — 모든 워크스페이스(데스크톱 앱/IDE 및 CLI)에서 사용 가능:
-   ```bash
-   node plugins/antigravity/install.mjs
-   ```
-2. **워크스페이스(Workspace)** — 해당 워크스페이스 폴더 내에서만 사용 가능(`<cwd>/.agents/plugins/transcodes-guard`로 복사):
-   ```bash
-   node plugins/antigravity/install.mjs --local
-   ```
+```bash
+curl -fsSL https://antigravity.google/cli/install.sh | bash
+```
 
-Antigravity CLI에서는 이제 `agy plugin list`에 `transcodes-guard`가 표시됩니다.
+그다음 **한 줄** (`cd`·`npm install`·빌드 불필요 — `dist/` 커밋됨):
+
+```bash
+git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install && node /tmp/tg-install/plugins/antigravity/install.mjs && rm -rf /tmp/tg-install
+```
+
+`~/.gemini/config/plugins/transcodes-guard`에 복사하고 `hooks.json` / `mcp_config.json`의 `__PLUGIN_DIR__`를 절대 경로로 치환합니다. 업데이트도 같은 한 줄을 재실행하세요.
+
+> **`agy plugin install https://github.com/transcodings/transcodes-guard` 사용 금지** — 모노레포에서 여러 호스트 플러그인을 함께 설치하고 경로 치환을 건너뜁니다.
+
+**기여자 / 워크스페이스 전용:** 저장소 클론 후 `node plugins/antigravity/install.mjs --local`.
 
 ### 토큰 저장
 

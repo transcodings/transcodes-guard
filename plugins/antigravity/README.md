@@ -13,18 +13,23 @@ Shares the same step-up MFA gate logic as the Claude Code and Codex plugins (`@t
 
 ## Installation
 
-To install the plugin, use the automated installer script which resolves target paths and configures absolute file system paths automatically:
+Prerequisites: **Node.js ≥ 20** and **Google Antigravity 2.0** (desktop app or `agy` CLI). Install the CLI if needed:
 
-1. **Global** — available to all workspaces (Desktop App/IDE and CLI):
-   ```bash
-   node plugins/antigravity/install.mjs
-   ```
-2. **Workspace** — available only inside the workspace folder (copies into `<cwd>/.agents/plugins/transcodes-guard`):
-   ```bash
-   node plugins/antigravity/install.mjs --local
-   ```
+```bash
+curl -fsSL https://antigravity.google/cli/install.sh | bash
+```
 
-On Antigravity CLI: `agy plugin list` should now show `transcodes-guard`.
+Then run **one line** (no `cd`, no `npm install`, no build — `dist/` is committed):
+
+```bash
+git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install && node /tmp/tg-install/plugins/antigravity/install.mjs && rm -rf /tmp/tg-install
+```
+
+The installer copies into `~/.gemini/config/plugins/transcodes-guard` (shared by desktop and `agy` CLI) and rewrites `__PLUGIN_DIR__` in `hooks.json` / `mcp_config.json` to absolute paths. Re-run the same one-liner to update.
+
+> **Do not use** `agy plugin install https://github.com/transcodings/transcodes-guard` — it installs multiple host plugins from this monorepo and skips path rewriting.
+
+**Contributors / workspace-only:** clone the repo and run `node plugins/antigravity/install.mjs --local`.
 
 ### Save your token
 

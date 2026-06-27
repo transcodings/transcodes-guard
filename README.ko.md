@@ -50,74 +50,61 @@ Codex는 legacy `.claude-plugin/marketplace.json`보다 `.agents/plugins/marketp
 
 **3단계 — 토큰 저장**(멤버 MCP JWT). 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`를 실행하면 로컬 대시보드가 열립니다(터미널에 URL 출력, 기본 포트 3847) — 거기에 토큰을 붙여넣으세요(`~/.transcodes/config.json`에 저장되어 모든 세션이 읽음). 비대화형: `transcodes set <token> -l <label>`. 토큰이 없으면 hook은 위험 명령을 여전히 DENY 하지만 step-up 세션은 열지 못합니다.
 
-### Cursor
+### Antigravity
 
-사전 요구사항: Hooks가 활성화된 Cursor **데스크톱**(Settings → Hooks), PATH 상의 Node >= 20 (클라우드 에이전트는 2026-05 기준 미연동).
-
-저장소는 Cursor 플러그인 매니페스트(`plugins/cursor/.cursor-plugin/plugin.json`)와 마켓플레이스 매니페스트(`.cursor-plugin/marketplace.json`)를 제공하고 `dist/`가 커밋돼 있어, `${CURSOR_PLUGIN_ROOT}`로 hook과 MCP 서버가 자동 연결됩니다(빌드 불필요). Cursor에는 **"URL로 플러그인 설치"하는 CLI가 없으며**, 어떤 설치 경로를 쓰는지는 플랜에 따라 갈립니다.
-
-**개인 / Pro — 로컬 플러그인(지금 바로, 플랜·심사 불필요).** 플러그인을 Cursor 로컬 플러그인 디렉터리에 symlink 하고 리로드합니다.
+사전 요구사항: **Node >= 20**, **Google Antigravity 2.0**(데스크톱 앱 또는 `agy` CLI). CLI가 없으면 먼저 설치하세요:
 
 ```bash
-git clone https://github.com/transcodings/transcodes-guard.git   # dist/ 커밋됨, 빌드 불필요
-ln -s "$PWD/transcodes-guard/plugins/cursor" ~/.cursor/plugins/local/transcodes-guard
-# Cursor → 커맨드 팔레트 → "Developer: Reload Window"
+curl -fsSL https://antigravity.google/cli/install.sh | bash
 ```
 
-Cursor가 `.cursor-plugin/plugin.json`을 읽어 hook + MCP 서버를 자동 연결합니다. 최초 실행 시 일회성 hook 신뢰 검토를 띄웁니다(커맨드 팔레트 → "Cursor: Review Hooks"); 한 번 승인.
-
-**Teams / Enterprise — 팀 마켓플레이스(URL 한 방).** 관리자가 저장소를 한 번 import 하면 모든 개발자가 한 번 클릭으로 설치합니다(이 대시보드 import는 **유료 기능** — 개인/Pro에서는 불가):
-
-1. Dashboard → Settings → Plugins → Team Marketplaces → **Import Marketplace**.
-2. `https://github.com/transcodings/transcodes-guard`를 붙여넣고 진행 → Cursor가 `.cursor-plugin/marketplace.json`을 파싱합니다.
-3. `transcodes-guard`를 **Required**(자동 설치) 또는 **Optional**로 지정하고 access group을 설정한 뒤 저장.
-4. 개발자는 **Customize → Plugins**에서 설치(Required는 자동 설치). 최초 실행 시 일회성 hook 신뢰 검토를 승인.
-
-**공개 등록 — 공식 마켓플레이스.** 모든 사람(플랜 무관)에게 한 번 클릭 설치를 제공하려면 `cursor.com/marketplace/publish`에 심사를 제출합니다. Cursor 승인 후 목록에 오르면 플랜과 무관하게 **Customize**에서 설치할 수 있습니다.
-
-**구버전 폴백 — `install.sh`.** 플러그인을 지원하지 않는 옛 Cursor 빌드용. `install.sh`가 `.cursor/hooks.json`과 `.cursor/mcp.json`에 절대 경로를 기록합니다(일반 프로젝트/사용자 hook은 마켓플레이스 플러그인이 아니라 `${CURSOR_PLUGIN_ROOT}`가 주입되지 않으므로 절대경로로 치환).
-
-프로젝트 스코프(워크스페이스 단위):
+그다음 **한 줄**이면 됩니다 — `cd` 불필요, `npm install`·빌드 불필요(`dist/`는 커밋됨):
 
 ```bash
-git clone https://github.com/transcodings/transcodes-guard.git
-cd transcodes-guard
-git checkout main
-npm install
-npm run build:plugin
-cd /path/to/your/project
-/path/to/transcodes-guard/plugins/cursor/install.sh
+git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install && node /tmp/tg-install/plugins/antigravity/install.mjs && rm -rf /tmp/tg-install
 ```
 
-사용자 스코프(모든 워크스페이스)는 `~/.cursor/hooks.json`과 `~/.cursor/mcp.json`을 기록합니다.
+번들 인스톨러는 Antigravity 플러그인을 `~/.gemini/config/plugins/transcodes-guard`에 복사합니다(CLI v1.0 이후 데스크톱 앱과 `agy` CLI가 공유). `hooks.json` / `mcp_config.json`의 `__PLUGIN_DIR__` 플레이스홀더를 그 디렉터리의 절대 경로로 치환합니다. Antigravity는 플러그인 루트 경로 변수를 제공하지 않으므로 설치 시점에 절대 경로를 주입해야 합니다.
 
-```bash
-/path/to/transcodes-guard/plugins/cursor/install.sh --user
-```
+업데이트도 같은 한 줄을 다시 실행하면 기존 설치 위에 덮어씁니다.
 
 토큰도 저장하세요 — 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`.
 
-### Antigravity
-
-사전 요구사항: Google Antigravity 2.0 (데스크톱 앱 또는 `agy` CLI), Node >= 20.
-
-번들된 Node 인스톨러로 설치합니다. 이 인스톨러는 플러그인을 IDE/데스크톱 플러그인 디렉터리(`~/.gemini/config/plugins/transcodes-guard`)와 CLI 디렉터리(`~/.gemini/antigravity-cli/plugins/transcodes-guard`) **양쪽 모두**에 복사하고, 복사된 `hooks.json` / `mcp_config.json` 안의 `__PLUGIN_DIR__` 플레이스홀더를 설치 디렉터리의 절대 경로로 치환합니다. (Antigravity는 플러그인 루트 경로 변수를 지원하지 않으므로, 설치 시점에 절대 경로를 주입합니다.)
-
-저장소를 클론한 뒤:
-
-```bash
-# 전역(Desktop App / IDE + CLI):
-node plugins/antigravity/install.mjs
-
-# 워크스페이스 전용(.agents/plugins/transcodes-guard):
-node plugins/antigravity/install.mjs --local
-```
-
-CLI에서 `agy plugin list`를 실행하면 `transcodes-guard`가 표시됩니다. 토큰도 저장하세요 — 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`.
-
-> `agy plugin install` 대신 번들 설치 스크립트를 쓰는 이유: 그 명령은 순수 스테이징(CLI 디렉터리만 — IDE 디렉터리 복사·경로 치환 없음)입니다. Antigravity는 플러그인 루트 경로 변수를 제공하지 않고, hook/MCP 명령이 CWD를 `$HOME`으로 고정한 채 실행되므로(알려진 Antigravity 버그) 상대 경로가 깨집니다 — 그래서 설치 스크립트가 설치 시점에 `hooks.json` / `mcp_config.json`에 절대 경로를 주입합니다.
+> **`agy plugin install https://github.com/transcodings/transcodes-guard`는 사용하지 마세요.** 이 명령은 저장소를 bulk 멀티플러그인 카탈로그로 보고 Antigravity용뿐 아니라 Claude Code 어댑터까지 함께 설치합니다(와이어 포맷 불일치). `__PLUGIN_DIR__` 경로 치환도 건너뛰어 hook/MCP가 런타임에 실패합니다. 위 한 줄 명령을 사용하세요.
+>
+> **기여자 / 워크스페이스 전용:** 저장소를 클론한 뒤 `node plugins/antigravity/install.mjs --local` (`<cwd>/.agents/plugins/transcodes-guard`에 복사).
 
 > 참고: Antigravity의 PreToolUse matcher는 `run_command|mcp_.*|call_mcp_tool`로, 셸 실행 **및** MCP tool 호출을 게이트합니다 — Antigravity가 범용 `call_mcp_tool` 래퍼로 dispatch하는 lazy-loaded 호출까지 포함합니다(어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑). 파일 편집 도구(`write_to_file` 등)는 게이트되지 않습니다.
+
+### Cursor (Beta)
+
+> Cursor 플러그인 지원은 **베타** 중입니다 — 설치 방법과 API가 바뀔 수 있습니다.
+
+사전 요구사항: **Node >= 20**, Hooks가 켜진 Cursor **데스크톱**(Settings → Hooks). 클라우드 에이전트는 2026-05 기준 미연동.
+
+**1단계 — Cursor Agent CLI(`cursor-agent`) 설치:**
+
+```bash
+curl https://cursor.com/install -fsS | bash
+```
+
+**2단계 — Marketplace에서 설치.** `cursor-agent` CLI(또는 Cursor → Customize → Plugins → **Marketplace**)에서 **Plugins → Marketplace**를 연 뒤 아래 URL을 붙여넣습니다:
+
+```
+https://github.com/transcodings/transcodes-guard
+```
+
+**Transcodes (bigstrider)** 를 선택하고 **Install**:
+
+![Cursor Marketplace에서 transcodes-guard 설치 — GitHub repo URL 붙여넣기](./docs/images/cursor-marketplace-install.png)
+
+`.cursor-plugin/marketplace.json`이 `plugins/cursor`를 가리킵니다. `dist/`는 커밋돼 있어 clone·빌드가 필요 없고, hook과 MCP 서버는 `${CURSOR_PLUGIN_ROOT}`로 자동 연결됩니다.
+
+**3단계 — 첫 실행.** 일회성 hook 신뢰 검토를 승인합니다(커맨드 팔레트 → **Cursor: Review Hooks**).
+
+**4단계 — 토큰 저장.** 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`.
+
+**업데이트**는 Marketplace에서 재설치(또는 Customize → Plugins에서 업데이트) 후 **Developer: Reload Window**.
 
 ## CLI 설치
 

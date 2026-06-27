@@ -4,7 +4,7 @@
 
 ## Intro
 
-`transcodes-guard` is a PreToolUse-hook + MCP-server gate that intercepts risky shell commands (and protected MCP tool calls) from AI coding agents *right before execution* and forces a Transcodes Step-up MFA (WebAuthn) challenge against the Transcodes backend. Only verified commands run.
+`transcodes-guard` is a PreToolUse-hook + MCP-server gate that intercepts risky shell commands (and protected MCP tool calls) from AI coding agents _right before execution_ and forces a Transcodes Step-up MFA (WebAuthn) challenge against the Transcodes backend. Only verified commands run.
 
 It is one git repo with one shared core (npm workspaces) and four host plugins — Claude Code, Codex, Cursor, and Antigravity — each installed via its native mechanism. The plugins are not distributed via npm; only the `transcodes` CLI is. The repo, product, and plugins are all named `transcodes-guard`.
 
@@ -27,7 +27,9 @@ For team auto-registration, add this to your project's `.claude/settings.json`:
 
 ```json
 {
-  "extraKnownMarketplaces": [{ "source": "github", "repo": "transcodings/transcodes-guard" }],
+  "extraKnownMarketplaces": [
+    { "source": "github", "repo": "transcodings/transcodes-guard" }
+  ],
   "enabledPlugins": ["transcodes-guard@bigstrider"]
 }
 ```
@@ -50,74 +52,61 @@ Codex resolves `.agents/plugins/marketplace.json` ahead of the legacy `.claude-p
 
 **Step 3 — save your token** (the member MCP JWT) so step-up can start. Recommended: `npm install -g @bigstrider/transcodes-cli` then run `transcodes` to open the local dashboard (URL printed in the terminal; default port 3847) and paste your token (persisted to `~/.transcodes/config.json` for every session). Non-interactive: `transcodes set <token> -l <label>`. Without a token, the hook still DENIES danger commands but cannot open a step-up session.
 
-### Cursor
-
-Prerequisites: Cursor **desktop** with Hooks enabled (Settings → Hooks), Node >= 20 in PATH (cloud agents are not wired as of 2026-05).
-
-The repo ships a Cursor plugin manifest (`plugins/cursor/.cursor-plugin/plugin.json`) and a marketplace manifest (`.cursor-plugin/marketplace.json`), and `dist/` is committed — so hooks and the MCP server auto-wire via `${CURSOR_PLUGIN_ROOT}`, no build needed. Cursor has **no "install plugin from a URL" CLI**; which install path you use depends on your plan.
-
-**Individual / Pro — local plugin (works today, no plan or review).** Symlink the plugin into Cursor's local plugin directory and reload:
-
-```bash
-git clone https://github.com/transcodings/transcodes-guard.git   # dist/ committed, no build needed
-ln -s "$PWD/transcodes-guard/plugins/cursor" ~/.cursor/plugins/local/transcodes-guard
-# Cursor → command palette → "Developer: Reload Window"
-```
-
-Cursor reads `.cursor-plugin/plugin.json` and wires up the hooks + MCP server. On first run it prompts a one-time hook trust review (command palette → "Cursor: Review Hooks"); approve once.
-
-**Teams / Enterprise — team marketplace (one-shot URL).** An admin imports the repo once, then every developer installs in one click (this dashboard import is a paid feature — not available on Individual/Pro):
-
-1. Dashboard → Settings → Plugins → Team Marketplaces → **Import Marketplace**.
-2. Paste `https://github.com/transcodings/transcodes-guard` and continue; Cursor parses `.cursor-plugin/marketplace.json`.
-3. Mark `transcodes-guard` **Required** (auto-installed) or **Optional**, set access groups, then save.
-4. Developers install from **Customize → Plugins** (Required plugins install automatically); approve the one-time hook trust review on first run.
-
-**Public listing — official marketplace.** To give everyone (any plan) a one-click install, submit the repo for review at `cursor.com/marketplace/publish`. Once Cursor approves and lists it, users install it from **Customize** regardless of plan.
-
-**Legacy fallback — `install.sh`.** For older Cursor builds without plugin support, `install.sh` writes absolute paths into `.cursor/hooks.json` and `.cursor/mcp.json` (it substitutes `${CURSOR_PLUGIN_ROOT}` because a plain project/user hook is not a marketplace plugin and gets no such variable).
-
-Project scope (per-workspace):
-
-```bash
-git clone https://github.com/transcodings/transcodes-guard.git
-cd transcodes-guard
-git checkout main
-npm install
-npm run build:plugin
-cd /path/to/your/project
-/path/to/transcodes-guard/plugins/cursor/install.sh
-```
-
-User scope (all workspaces) writes `~/.cursor/hooks.json` and `~/.cursor/mcp.json`:
-
-```bash
-/path/to/transcodes-guard/plugins/cursor/install.sh --user
-```
-
-Save your token — recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
-
 ### Antigravity
 
-Prerequisites: Google Antigravity 2.0 (desktop app or the `agy` CLI), Node >= 20.
-
-Install via the bundled Node installer. It copies the plugin into **both** the IDE/desktop plugin dir (`~/.gemini/config/plugins/transcodes-guard`) and the CLI dir (`~/.gemini/antigravity-cli/plugins/transcodes-guard`), and rewrites a `__PLUGIN_DIR__` placeholder in the copied `hooks.json` / `mcp_config.json` to the install dir's absolute path. (Antigravity does not support a plugin-root path variable, so absolute paths are injected at install time.)
-
-Clone the repo, then:
+Prerequisites: **Node >= 20** and **Google Antigravity 2.0** (desktop app or the `agy` CLI). Install the CLI if you do not have it yet:
 
 ```bash
-# Global (Desktop App / IDE + CLI):
-node plugins/antigravity/install.mjs
-
-# Workspace-only (.agents/plugins/transcodes-guard):
-node plugins/antigravity/install.mjs --local
+curl -fsSL https://antigravity.google/cli/install.sh | bash
 ```
 
-On the CLI, `agy plugin list` should then show `transcodes-guard`. Also save your token — recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
+Then run **one line** — no manual `cd`, no `npm install`, no build step (`dist/` is committed):
 
-> Why the bundled installer instead of `agy plugin install`: that command is pure staging (CLI dir only — no IDE-dir copy, no path substitution). Antigravity exposes no plugin-root path variable, and hook/MCP commands run with the CWD pinned to `$HOME` (a known Antigravity bug), so relative paths break — the installer injects absolute paths into `hooks.json` / `mcp_config.json` at install time.
+```bash
+git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install && node /tmp/tg-install/plugins/antigravity/install.mjs && rm -rf /tmp/tg-install
+```
+
+The bundled installer copies the Antigravity plugin into `~/.gemini/config/plugins/transcodes-guard` (shared by the desktop app and `agy` CLI since CLI v1.0) and rewrites the `__PLUGIN_DIR__` placeholder in `hooks.json` / `mcp_config.json` to that directory's absolute path. Antigravity exposes no plugin-root path variable, so absolute paths must be injected at install time.
+
+Re-run the same one-liner to update — it overwrites the existing install in place.
+
+Also save your token — recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
+
+> **Do not use** `agy plugin install https://github.com/transcodings/transcodes-guard`. That command treats this repo as a bulk multi-plugin catalog and installs **both** the Antigravity and Claude Code adapters into Antigravity (wire-format mismatch), and it skips the `__PLUGIN_DIR__` path rewrite — hooks and MCP then fail at runtime. Use the one-liner above instead.
+>
+> **Contributors / workspace-only install:** clone the repo and run `node plugins/antigravity/install.mjs --local` (copies into `<cwd>/.agents/plugins/transcodes-guard`).
 
 > Note: Antigravity's PreToolUse matcher is `run_command|mcp_.*|call_mcp_tool`, gating shell execution **and** MCP tool calls — including lazy-loaded calls that Antigravity routes through a generic `call_mcp_tool` wrapper (the adapter unwraps the real tool name from `args.ToolName`). File-edit tools (`write_to_file`, …) are not gated.
+
+### Cursor (Beta Version)
+
+> Cursor plugin support is in **beta** — install flow and APIs may change.
+
+Prerequisites: **Node >= 20**, Cursor **desktop** with Hooks enabled (Settings → Hooks). Cloud agents are not wired as of 2026-05.
+
+**Step 1 — install the Cursor Agent CLI** (`cursor-agent`):
+
+```bash
+curl https://cursor.com/install -fsS | bash
+```
+
+**Step 2 — install from Marketplace.** Open **Plugins → Marketplace** in the `cursor-agent` CLI (or Cursor → Customize → Plugins → Marketplace) and paste:
+
+```
+https://github.com/transcodings/transcodes-guard
+```
+
+Select **Transcodes (bigstrider)** → **Install**:
+
+![Install transcodes-guard via Cursor Marketplace — paste the GitHub repo URL](./docs/images/cursor-marketplace-install.png)
+
+The repo ships `.cursor-plugin/marketplace.json` pointing at `plugins/cursor`; `dist/` is committed — no clone, no build. Hooks and the MCP server auto-wire via `${CURSOR_PLUGIN_ROOT}`.
+
+**Step 3 — first run.** Approve the one-time hook trust review (command palette → **Cursor: Review Hooks**).
+
+**Step 4 — save your token.** Recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
+
+To **update**, reinstall from Marketplace (or update in Customize → Plugins) then **Developer: Reload Window**.
 
 ## CLI installation
 
@@ -148,7 +137,7 @@ The core gate. The flow:
 3. The user completes WebAuthn in the browser → the agent confirms via the MCP tool `poll_stepup_session_wait` (a server-side long-poll).
 4. With a verified record, **re-running the same command** passes the hook. It is single-shot — the next danger command challenges again.
 
-**Asymmetric fail policy** (the security core): *before* a danger match (stdin parse, classify, pattern load) the gate is FAIL-OPEN — a crash never blocks a safe command. *After* a danger match it is FAIL-SAFE — a crash never silently allows a risky command. Blocking is fail-safe.
+**Asymmetric fail policy** (the security core): _before_ a danger match (stdin parse, classify, pattern load) the gate is FAIL-OPEN — a crash never blocks a safe command. _After_ a danger match it is FAIL-SAFE — a crash never silently allows a risky command. Blocking is fail-safe.
 
 Diagnostics MCP tools:
 
