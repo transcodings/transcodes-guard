@@ -1,8 +1,8 @@
-# transcodes-guard — Google Antigravity 2.0 플러그인 (Beta Version)
+# transcodes-guard — Google Antigravity 2.0 플러그인 (Beta)
 
 [English](./README.md) | **한국어**
 
-> Antigravity 플러그인 지원은 **베타** 중입니다 — 설치 방법과 API가 바뀔 수 있습니다.
+> ⚠️ **베타** — Antigravity 플러그인은 아직 베타 버전이라 크래시나 버그가 발생할 수 있고, 설치 방법과 API가 바뀔 수 있습니다. 안정적인 사용에는 정식 지원 호스트인 **Claude Code** 또는 **Codex** 플러그인을 권장합니다.
 
 Google Antigravity 2.0용 위험 셸 인터셉터(`PreToolUse` hook) + 감사 MCP 서버. 데스크톱 앱(Antigravity 2.0)과 `agy` CLI를 지원합니다.
 

@@ -1,10 +1,12 @@
-# transcodes-guard — Cursor IDE plugin
+# transcodes-guard — Cursor IDE plugin (Beta)
 
 **English** | [한국어](./README.ko.md)
 
+> ⚠️ **Beta** — the Cursor plugin is still in beta and may crash or misbehave; the install flow and APIs may change. For production use, prefer the **Claude Code** or **Codex** plugins, the stable supported hosts.
+
 Risky-shell interceptor (`beforeShellExecution` / `beforeMCPExecution`) and audit MCP server for Cursor.
 
-Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`) and the install layout below. Cursor has no `plugin.json` concept (Marketplace bundle spec is non-public), so installation is a source build (`git clone` + `npm run build:plugin`) followed by `install.sh`.
+Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`). The plugin ships a Cursor manifest (`.cursor-plugin/plugin.json`) and the repo ships a marketplace manifest (`.cursor-plugin/marketplace.json`), so it installs as a native Cursor plugin — `dist/` is committed, no build needed.
 
 ## Prerequisites
 
@@ -14,28 +16,15 @@ Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity 
 
 ## Installation
 
-### Project scope (per-workspace)
+Install from Cursor's plugin marketplace; the path depends on your plan. The repo ships `.cursor-plugin/plugin.json` and `.cursor-plugin/marketplace.json` (pointing at `plugins/cursor`) with `dist/` committed, so installation reads the manifest and wires up the hooks + MCP server via `${CURSOR_PLUGIN_ROOT}` — no clone, no build.
 
-```bash
-git clone https://github.com/transcodings/transcodes-guard.git
-cd transcodes-guard
-npm install
-npm run build:plugin
+### Individual / Pro
 
-# In your target workspace:
-cd /path/to/your/project
-/path/to/transcodes-guard/plugins/cursor/install.sh
-```
+In the editor, run `/add-plugin` or open **Customize → Plugins → Marketplace** (also at `cursor.com/marketplace`) and install **Transcodes (bigstrider)**.
 
-Writes `<project>/.cursor/hooks.json` with absolute paths to the plugin's `dist/`. `mcp.json` is **merge-aware**: it is written only if `<project>/.cursor/mcp.json` does not already exist — otherwise `install.sh` refuses to clobber it and prints the `transcodes-guard` entry for you to add manually under `mcpServers` (so your other MCP servers are preserved). If you skip that manual step, the MCP server is never registered.
+### Teams / Enterprise
 
-### User scope (all workspaces)
-
-```bash
-/path/to/transcodes-guard/plugins/cursor/install.sh --user
-```
-
-Writes `~/.cursor/hooks.json` (and `~/.cursor/mcp.json`, subject to the same merge-aware rule). Useful if you want the gate active in every Cursor workspace. A custom destination is also supported: `install.sh --target /path/to/workspace`.
+An admin imports the repo once (Dashboard → Settings → Plugins → Team Marketplaces → **Add Marketplace**, paste `https://github.com/transcodings/transcodes-guard`); Cursor parses `.cursor-plugin/marketplace.json`. Mark `transcodes-guard` **Required** or **Optional**, then developers install from **Customize → Plugins**.
 
 ### Trust the hooks on first run
 
@@ -78,7 +67,7 @@ A single "front door" for managing the gate's own rules. Type `/transcodes` foll
 /transcodes is "git push --force" blocked?
 ```
 
-`install.sh` copies it into `<workspace>/.cursor/commands/transcodes.md`, so it shows up when you type `/` in the Agent input. It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
+It lives in the plugin's `.cursor/commands/` directory, which `plugin.json` declares (`"commands": "./.cursor/commands/"`) so a native plugin install loads it automatically; it shows up when you type `/` in the Agent input. It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
 
 ## For AI agents
 
@@ -109,15 +98,18 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 
 ## Known limits / unverified slots
 
-These four items were not validated against a live Cursor build before release. File an issue if your environment exposes a different shape:
+These items were not validated against a live Cursor build before release. File an issue if your environment exposes a different shape:
 
 1. **Exact `tool_name` values** — Cursor docs document the matcher names (`Shell`, MCP tool prefix) but not the literal stdin `tool_name` strings. The classifier accepts `Shell`, `Bash`, `run_command` to be safe.
 2. **`beforeMCPExecution` payload shape** — the literal stdin `tool_name` strings Cursor emits for MCP calls are documented loosely; verify against a live event payload before authoring tight tool-rules.
 3. **`stop.followup_message` UX** — if Cursor doesn't render the reminder visibly to the model, switch the hook to silent reap by editing `hooks/stop.ts` to skip the `cursorAdapter.emitStop` call.
-4. **`__TRANSCODES_GUARD_ROOT__` substitution** — `install.sh` rewrites the placeholder to an absolute path. If you hand-edit `.cursor/hooks.json` later, keep the absolute path (Cursor does not expand `$CURSOR_PROJECT_DIR` inside `command` strings).
 
 ## Troubleshooting
 
-- **Hook doesn't fire.** Open Settings → Hooks. Ensure the path in `.cursor/hooks.json` is absolute and `node` is in Cursor's `PATH` (Cursor inherits your login shell env on macOS only if launched from a terminal).
+- **Hook doesn't fire.** Open Settings → Hooks and confirm the plugin is installed and hooks are trusted; ensure `node` is in Cursor's `PATH` (Cursor inherits your login shell env on macOS only if launched from a terminal).
 - **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`).
 - **MCP tool calls hang.** Check `~/.cursor/mcp.json` was written and `dist/src/stdio.js` exists. Cursor logs MCP failures to the Output panel.
+
+## License
+
+FSL-1.1-ALv2 (see the repository root).

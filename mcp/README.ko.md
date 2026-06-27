@@ -2,9 +2,11 @@
 
 [English](./README.md) | **한국어**
 
-Transcodes Guard의 step-up MFA 감사 **MCP 서버**를 단독 npm 패키지로 떼어낸 것입니다. 호스트 플러그인 4종(Claude Code / Codex / Antigravity / Cursor)이 공유하는 MCP 코어(`createServer()`)를 그대로 stdio 전송으로 노출하므로, 플러그인을 따로 깔지 않고도 **Claude Desktop / claude.ai 커넥터**나 임의의 MCP 클라이언트에 곧바로 붙일 수 있습니다.
+Transcodes Guard의 step-up MFA 감사 **MCP 서버**를 단독 npm 패키지로 떼어낸 것으로, 발행을 앞두고 있습니다. 호스트 플러그인 4종(Claude Code / Codex / Antigravity / Cursor)이 공유하는 MCP 코어(`createServer()`)를 그대로 stdio 전송으로 노출하므로, 발행되면 플러그인을 따로 깔지 않고도 **Claude Desktop / claude.ai 커넥터**나 임의의 MCP 클라이언트에 곧바로 붙일 수 있습니다.
 
 `cli/`를 본떠 만든 얇은 전송 어댑터 패키지입니다.
+
+> **아직 미발행.** 단독 패키지는 발행 예정이며, 아래 명령은 발행 이후 연결 방법을 설명합니다. 그전까지는 정식 지원 호스트인 Claude Code 또는 Codex 플러그인을 사용하세요(Cursor·Antigravity는 베타).
 
 ## 연결
 

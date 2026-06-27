@@ -6,7 +6,7 @@
 
 `transcodes-guard` is a PreToolUse-hook + MCP-server gate that intercepts risky shell commands (and protected MCP tool calls) from AI coding agents _right before execution_ and forces a Transcodes Step-up MFA (WebAuthn) challenge against the Transcodes backend. Only verified commands run.
 
-It is one git repo with one shared core (npm workspaces) and four host plugins — Claude Code, Codex, Cursor, and Antigravity — each installed via its native mechanism. The plugins are not distributed via npm; only the `transcodes` CLI is. The repo, product, and plugins are all named `transcodes-guard`.
+It is one git repo with one shared core (npm workspaces) and four host plugins — Claude Code, Codex, Cursor, and Antigravity — each installed via its native mechanism. **Claude Code and Codex are stable and supported; Cursor and Antigravity are still in beta** (may crash or misbehave). The plugins are not distributed via npm; only the `transcodes` CLI is. The repo, product, and plugins are all named `transcodes-guard`.
 
 Node.js >= 20 is required for all hosts.
 
@@ -46,15 +46,15 @@ codex plugin add transcodes-guard@bigstrider                 # installs the plug
 # or in Codex: /plugins → install "transcodes-guard" from the bigstrider marketplace
 ```
 
-Codex resolves `.agents/plugins/marketplace.json` ahead of the legacy `.claude-plugin/marketplace.json`, so it always installs the Codex plugin (`./plugins/codex`), not the Claude one. For a reproducible install, choose the desired release tag from GitHub and pass it with `--ref`; the unpinned command above follows the current marketplace source.
+Codex resolves `.agents/plugins/marketplace.json` ahead of the legacy `.claude-plugin/marketplace.json`, so it always installs the Codex plugin (`./plugins/codex`), not the Claude one.
 
 **Step 2 — first run.** Codex prompts a one-time hook trust review (`/hooks` to inspect). Approve it once. Do **not** use `--dangerously-bypass-hook-trust`.
 
 **Step 3 — save your token** (the member MCP JWT) so step-up can start. Recommended: `npm install -g @bigstrider/transcodes-cli` then run `transcodes` to open the local dashboard (URL printed in the terminal; default port 3847) and paste your token (persisted to `~/.transcodes/config.json` for every session). Non-interactive: `transcodes set <token> -l <label>`. Without a token, the hook still DENIES danger commands but cannot open a step-up session.
 
-### Antigravity (Beta Version)
+### Antigravity (Beta)
 
-> Antigravity plugin support is in **beta** — install flow and APIs may change.
+> ⚠️ **Beta** — the Antigravity plugin is still in beta and may crash or misbehave; the install flow and APIs may change. For production use, prefer the **Claude Code** or **Codex** plugins.
 
 Prerequisites: **Node >= 20** and **Google Antigravity 2.0** (desktop app or the `agy` CLI). Install the CLI if you do not have it yet:
 
@@ -80,33 +80,24 @@ Also save your token — recommended: `npm install -g @bigstrider/transcodes-cli
 
 > Note: Antigravity's PreToolUse matcher is `run_command|mcp_.*|call_mcp_tool`, gating shell execution **and** MCP tool calls — including lazy-loaded calls that Antigravity routes through a generic `call_mcp_tool` wrapper (the adapter unwraps the real tool name from `args.ToolName`). File-edit tools (`write_to_file`, …) are not gated.
 
-### Cursor (Beta Version)
+### Cursor (Beta)
 
-> Cursor plugin support is in **beta** — install flow and APIs may change.
+> ⚠️ **Beta** — the Cursor plugin is still in beta and may crash or misbehave; the install flow and APIs may change. For production use, prefer the **Claude Code** or **Codex** plugins.
 
 Prerequisites: **Node >= 20**, Cursor **desktop** with Hooks enabled (Settings → Hooks). Cloud agents are not wired as of 2026-05.
 
-**Step 1 — install the Cursor Agent CLI** (`cursor-agent`):
+**Step 1 — install the plugin.** The repo ships `.cursor-plugin/plugin.json` and `.cursor-plugin/marketplace.json` pointing at `plugins/cursor`, with `dist/` committed — so no clone and no build are needed. Which path you use depends on your plan (Cursor has no "install a plugin from a URL" CLI — plugin management lives in the editor and the team dashboard):
 
-```bash
-curl https://cursor.com/install -fsS | bash
-```
+- **Individual / Pro** — in the editor, run `/add-plugin` or open **Customize → Plugins → Marketplace** (also at [cursor.com/marketplace](https://cursor.com/marketplace)), then install **Transcodes (bigstrider)**.
+- **Teams / Enterprise** — an admin imports the repo once at **Dashboard → Settings → Plugins → Add Marketplace**, pastes `https://github.com/transcodings/transcodes-guard`, reviews the parsed plugins, and assigns Team Access; developers then install it from **Customize → Plugins**.
 
-**Step 2 — install from Marketplace.** Open **Plugins → Marketplace** in the `cursor-agent` CLI (or Cursor → Customize → Plugins → Marketplace) and paste:
+![Install transcodes-guard from the Cursor Marketplace](./docs/images/cursor-marketplace-install.png)
 
-```
-https://github.com/transcodings/transcodes-guard
-```
+Either path reads `.cursor-plugin/plugin.json` and auto-wires the hooks and MCP server via `${CURSOR_PLUGIN_ROOT}`.
 
-Select **Transcodes (bigstrider)** → **Install**:
+**Step 2 — first run.** Approve the one-time hook trust review (command palette → **Cursor: Review Hooks**).
 
-![Install transcodes-guard via Cursor Marketplace — paste the GitHub repo URL](./docs/images/cursor-marketplace-install.png)
-
-The repo ships `.cursor-plugin/marketplace.json` pointing at `plugins/cursor`; `dist/` is committed — no clone, no build. Hooks and the MCP server auto-wire via `${CURSOR_PLUGIN_ROOT}`.
-
-**Step 3 — first run.** Approve the one-time hook trust review (command palette → **Cursor: Review Hooks**).
-
-**Step 4 — save your token.** Recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
+**Step 3 — save your token.** Recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
 
 To **update**, reinstall from Marketplace (or update in Customize → Plugins) then **Developer: Reload Window**.
 
@@ -121,10 +112,15 @@ npm install -g @bigstrider/transcodes-cli # or install globally → `transcodes`
 
 Commands:
 
-- `transcodes status` — active token source + expiry
-- `transcodes tokens` — list stored tokens
-- `transcodes set <token> -l <label>` — store a token
 - `transcodes` (no args) — GUI dashboard
+- `transcodes set <token> -l <label>` — store a token
+- `transcodes tokens` — list stored tokens
+- `transcodes status` — active token source + expiry
+- `transcodes console` — open auth settings (passkeys, TOTP) in your browser
+- `transcodes reset` — delete all saved tokens
+- `transcodes policy refresh` — force-refresh the org policy bundle cache
+- `transcodes version` — print the installed CLI version
+- `transcodes help` — full command list and usage
 
 The member token is stored at `~/.transcodes/config.json`; the hooks and the MCP server read it via the shared resolver. There is **no** gate on/off toggle in the CLI — to turn protection off, disable or uninstall the plugin via the host's native mechanism.
 

@@ -2,9 +2,11 @@
 
 **English** | [한국어](./README.ko.md)
 
-The Transcodes Guard step-up MFA audit **MCP server**, published as a standalone npm package. It exposes the same MCP core (`createServer()`) shared by the four host plugins (Claude Code / Codex / Antigravity / Cursor) over a stdio transport, so you can connect it directly to **Claude Desktop / claude.ai connectors** or any MCP client — no plugin install required.
+The Transcodes Guard step-up MFA audit **MCP server**, to be published as a standalone npm package. It exposes the same MCP core (`createServer()`) shared by the four host plugins (Claude Code / Codex / Antigravity / Cursor) over a stdio transport, so once released you can connect it directly to **Claude Desktop / claude.ai connectors** or any MCP client — no plugin install required.
 
 This is a thin transport adapter package, modeled on `cli/`.
+
+> **Not yet published.** The standalone package is pending release; the commands below describe how to connect it once it ships. Until then, use the Claude Code or Codex plugin (the stable, supported hosts; Cursor and Antigravity are beta).
 
 ## Connecting
 
