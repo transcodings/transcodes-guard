@@ -1,6 +1,8 @@
-# transcodes-guard — Cursor IDE 플러그인
+# transcodes-guard — Cursor IDE 플러그인 (Beta)
 
 [English](./README.md) | **한국어**
+
+> ⚠️ **베타** — Cursor 플러그인은 아직 베타 버전이라 크래시나 버그가 발생할 수 있고, 설치 방법과 API가 바뀔 수 있습니다. 안정적인 사용에는 정식 지원 호스트인 **Claude Code** 또는 **Codex** 플러그인을 권장합니다.
 
 Cursor용 위험 셸 인터셉터(`beforeShellExecution` / `beforeMCPExecution`) + 감사 MCP 서버.
 
@@ -14,11 +16,15 @@ Claude Code / Codex / Antigravity 플러그인과 동일한 스텝업 MFA 게이
 
 ## 설치
 
-Cursor에는 **"URL에서 플러그인 설치" CLI가 없으며**, 어떤 경로를 쓸지는 플랜에 따라 다릅니다. 아래 세 가지 네이티브 경로는 모두 `.cursor-plugin/plugin.json`을 읽어 `${CURSOR_PLUGIN_ROOT}`로 hook + MCP 서버를 연결합니다 — `dist/`가 커밋되어 있어 빌드가 필요 없습니다.
+Cursor에는 **"URL에서 플러그인 설치" CLI가 없으며**, 플러그인 관리는 에디터와 팀 대시보드에서 합니다. 어떤 경로를 쓸지는 플랜에 따라 다릅니다. 아래 네이티브 경로는 모두 `.cursor-plugin/plugin.json`을 읽어 `${CURSOR_PLUGIN_ROOT}`로 hook + MCP 서버를 연결합니다 — `dist/`가 커밋되어 있어 빌드가 필요 없습니다.
 
-### 개인 / Pro — 로컬 플러그인 (오늘 바로 동작, 플랜·심사 불필요)
+### 개인 / Pro — 마켓플레이스
 
-플러그인을 Cursor의 로컬 플러그인 디렉터리에 심볼릭 링크하고 리로드합니다:
+에디터에서 `/add-plugin`을 실행하거나 **Customize → Plugins → Marketplace**(`cursor.com/marketplace`)를 연 뒤, 목록에 오른 **Transcodes (bigstrider)** 를 설치합니다.
+
+### 로컬 테스트 — 심볼릭 링크 (개발용, 심사 불필요)
+
+이 리포지토리를 대상으로 로컬에서 개발할 때는 플러그인을 Cursor의 로컬 플러그인 디렉터리에 심볼릭 링크하고 리로드합니다(공식 문서가 안내하는 로컬 테스트 경로이며, 일반 설치 방법은 아닙니다):
 
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git   # dist/ 커밋됨, 빌드 불필요
@@ -28,7 +34,7 @@ ln -s "$PWD/transcodes-guard/plugins/cursor" ~/.cursor/plugins/local/transcodes-
 
 ### 팀 / 엔터프라이즈 — 팀 마켓플레이스 (일회성 URL)
 
-관리자가 리포지토리를 한 번 임포트하면(Dashboard → Settings → Plugins → Team Marketplaces → **Import Marketplace**, `https://github.com/transcodings/transcodes-guard` 붙여넣기), Cursor가 `.cursor-plugin/marketplace.json`을 파싱합니다. `transcodes-guard`를 **Required** 또는 **Optional**로 표시하면 개발자는 **Customize → Plugins**에서 설치합니다. (대시보드 임포트는 유료 기능 — 개인/Pro에는 없음.)
+관리자가 리포지토리를 한 번 임포트하면(Dashboard → Settings → Plugins → Team Marketplaces → **Add Marketplace**, `https://github.com/transcodings/transcodes-guard` 붙여넣기), Cursor가 `.cursor-plugin/marketplace.json`을 파싱합니다. `transcodes-guard`를 **Required** 또는 **Optional**로 표시하면 개발자는 **Customize → Plugins**에서 설치합니다. (팀 마켓플레이스는 Teams/Enterprise 전용 기능 — 개인/Pro에는 없음.)
 
 ### 공개 리스팅 — 공식 마켓플레이스
 

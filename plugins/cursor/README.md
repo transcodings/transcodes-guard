@@ -1,6 +1,8 @@
-# transcodes-guard — Cursor IDE plugin
+# transcodes-guard — Cursor IDE plugin (Beta)
 
 **English** | [한국어](./README.ko.md)
+
+> ⚠️ **Beta** — the Cursor plugin is still in beta and may crash or misbehave; the install flow and APIs may change. For production use, prefer the **Claude Code** or **Codex** plugins, the stable supported hosts.
 
 Risky-shell interceptor (`beforeShellExecution` / `beforeMCPExecution`) and audit MCP server for Cursor.
 
@@ -14,11 +16,15 @@ Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity 
 
 ## Installation
 
-Cursor has **no "install plugin from a URL" CLI**; which path you use depends on your plan. All three native paths read `.cursor-plugin/plugin.json` and wire up the hooks + MCP server via `${CURSOR_PLUGIN_ROOT}` — `dist/` is committed, so none need a build.
+Cursor has **no "install plugin from a URL" CLI** — plugin management lives in the editor and the team dashboard. Which path you use depends on your plan. Every native path reads `.cursor-plugin/plugin.json` and wires up the hooks + MCP server via `${CURSOR_PLUGIN_ROOT}` — `dist/` is committed, so none need a build.
 
-### Individual / Pro — local plugin (works today, no plan or review)
+### Individual / Pro — Marketplace
 
-Symlink the plugin into Cursor's local plugin directory and reload:
+In the editor, run `/add-plugin` or open **Customize → Plugins → Marketplace** (also at `cursor.com/marketplace`) and install **Transcodes (bigstrider)** once it is listed.
+
+### Local testing — symlink (development, no review)
+
+For local development against this repo, symlink the plugin into Cursor's local plugin directory and reload (this is the documented local-test path, not a normal install):
 
 ```bash
 git clone https://github.com/transcodings/transcodes-guard.git   # dist/ committed, no build needed
@@ -28,7 +34,7 @@ ln -s "$PWD/transcodes-guard/plugins/cursor" ~/.cursor/plugins/local/transcodes-
 
 ### Teams / Enterprise — team marketplace (one-shot URL)
 
-An admin imports the repo once (Dashboard → Settings → Plugins → Team Marketplaces → **Import Marketplace**, paste `https://github.com/transcodings/transcodes-guard`); Cursor parses `.cursor-plugin/marketplace.json`. Mark `transcodes-guard` **Required** or **Optional**, then developers install from **Customize → Plugins**. (Dashboard import is a paid feature — not on Individual/Pro.)
+An admin imports the repo once (Dashboard → Settings → Plugins → Team Marketplaces → **Add Marketplace**, paste `https://github.com/transcodings/transcodes-guard`); Cursor parses `.cursor-plugin/marketplace.json`. Mark `transcodes-guard` **Required** or **Optional**, then developers install from **Customize → Plugins**. (Team marketplaces are a Teams/Enterprise feature — not on Individual/Pro.)
 
 ### Public listing — official marketplace
 

@@ -6,7 +6,7 @@
 
 `transcodes-guard`는 AI 코딩 에이전트가 실행하려는 위험한 셸 명령(그리고 보호 대상 MCP tool 호출)을 *실행 직전에* 가로채, Transcodes 백엔드에 대해 Transcodes Step-up MFA(WebAuthn) 인증을 강제하는 PreToolUse hook + MCP 서버 게이트입니다. 인증을 통과한 명령만 실행됩니다.
 
-하나의 git 저장소에 하나의 공유 코어(npm workspaces)를 두고, 네 개의 호스트 플러그인(Claude Code, Codex, Cursor, Antigravity)을 각 호스트의 네이티브 방식으로 설치합니다. 플러그인은 npm으로 배포되지 않으며, `transcodes` CLI만 npm으로 배포됩니다. 저장소, 제품, 플러그인 모두 `transcodes-guard`라는 이름을 씁니다.
+하나의 git 저장소에 하나의 공유 코어(npm workspaces)를 두고, 네 개의 호스트 플러그인(Claude Code, Codex, Cursor, Antigravity)을 각 호스트의 네이티브 방식으로 설치합니다. **Claude Code와 Codex는 정식 지원 호스트이고, Cursor와 Antigravity는 아직 베타 버전**입니다(크래시·버그 발생 가능). 플러그인은 npm으로 배포되지 않으며, `transcodes` CLI만 npm으로 배포됩니다. 저장소, 제품, 플러그인 모두 `transcodes-guard`라는 이름을 씁니다.
 
 모든 호스트에서 Node.js >= 20이 필요합니다.
 
@@ -50,9 +50,9 @@ Codex는 legacy `.claude-plugin/marketplace.json`보다 `.agents/plugins/marketp
 
 **3단계 — 토큰 저장**(멤버 MCP JWT). 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`를 실행하면 로컬 대시보드가 열립니다(터미널에 URL 출력, 기본 포트 3847) — 거기에 토큰을 붙여넣으세요(`~/.transcodes/config.json`에 저장되어 모든 세션이 읽음). 비대화형: `transcodes set <token> -l <label>`. 토큰이 없으면 hook은 위험 명령을 여전히 DENY 하지만 step-up 세션은 열지 못합니다.
 
-### Antigravity (Beta Version)
+### Antigravity (Beta)
 
-> Antigravity 플러그인 지원은 **베타** 중입니다 — 설치 방법과 API가 바뀔 수 있습니다.
+> ⚠️ **베타** — Antigravity 플러그인은 아직 베타 버전이라 크래시나 버그가 발생할 수 있고, 설치 방법과 API가 바뀔 수 있습니다. 안정적인 사용에는 **Claude Code** 또는 **Codex** 플러그인을 권장합니다.
 
 사전 요구사항: **Node >= 20**, **Google Antigravity 2.0**(데스크톱 앱 또는 `agy` CLI). CLI가 없으면 먼저 설치하세요:
 
@@ -78,9 +78,9 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 
 > 참고: Antigravity의 PreToolUse matcher는 `run_command|mcp_.*|call_mcp_tool`로, 셸 실행 **및** MCP tool 호출을 게이트합니다 — Antigravity가 범용 `call_mcp_tool` 래퍼로 dispatch하는 lazy-loaded 호출까지 포함합니다(어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑). 파일 편집 도구(`write_to_file` 등)는 게이트되지 않습니다.
 
-### Cursor (Beta Version)
+### Cursor (Beta)
 
-> Cursor 플러그인 지원은 **베타** 중입니다 — 설치 방법과 API가 바뀔 수 있습니다.
+> ⚠️ **베타** — Cursor 플러그인은 아직 베타 버전이라 크래시나 버그가 발생할 수 있고, 설치 방법과 API가 바뀔 수 있습니다. 안정적인 사용에는 **Claude Code** 또는 **Codex** 플러그인을 권장합니다.
 
 사전 요구사항: **Node >= 20**, Hooks가 켜진 Cursor **데스크톱**(Settings → Hooks). 클라우드 에이전트는 2026-05 기준 미연동.
 

@@ -1,8 +1,8 @@
-# transcodes-guard — Google Antigravity 2.0 plugin (Beta Version)
+# transcodes-guard — Google Antigravity 2.0 plugin (Beta)
 
 **English** | [한국어](./README.ko.md)
 
-> Antigravity plugin support is in **beta** — install flow and APIs may change.
+> ⚠️ **Beta** — the Antigravity plugin is still in beta and may crash or misbehave; the install flow and APIs may change. For production use, prefer the **Claude Code** or **Codex** plugins, the stable supported hosts.
 
 Risky-shell interceptor (`PreToolUse` hook) and audit MCP server for Google Antigravity 2.0. Supports the desktop app (Antigravity 2.0) and the `agy` CLI.
 
