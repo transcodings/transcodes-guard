@@ -11,7 +11,7 @@
  * without collision.
  */
 export { request, } from './client.js';
-export { DEFAULT_BACKEND_URL, loadStepupConfig, STEPUP_TTL_MS, } from './config.js';
+export { DEFAULT_BACKEND_URL, loadStepupConfig, MCP_GRANT_TTL_MS, STEPUP_TTL_MS, } from './config.js';
 export { CONSOLE_SESSION_COMMENT, fetchMemberProfile, openConsoleSession, } from './console.js';
 export { DECISION_AUDIT_TAG, DECISION_AUDIT_TIMEOUT_MS, decisionAuditEventOf, sendDecisionAudit, sendGateDecisionAudit, } from './decision-audit.js';
 export { evaluatePreToolUse, GATE_DECISION_KIND, } from './evaluate.js';
@@ -19,6 +19,7 @@ export { fingerprintOf, requestStepup, } from './gate.js';
 export { addToolRule, listGuardRules, removeToolRule, updateToolRule, } from './guard-rules.js';
 export { inspectStepupState, } from './inspector.js';
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
+export { claimMcpInflight, clearMcpInflight, consumeMcpGrant, mcpGrantActive, readMcpGrant, readMcpInflight, writeMcpGrant, } from './mcp-grant.js';
 export { clearPending, findPendingBySid, firstActivePending, firstInFlightFpPending, isExpired, listFpPendings, markVerified, readPending, sweepStepup, writePending, } from './pending.js';
 export { fetchPolicyBundle, GUARD_POLICY_BUNDLE_SCHEMA_VERSION, loadEffectivePatterns, loadEffectiveToolRules, POLICY_BUNDLE_FETCH_TIMEOUT_MS, POLICY_BUNDLE_TTL_MS, PolicyBundleError, policyBundleCachePath, policyBundleSha384, readCachedPolicyBundle, refreshPolicyBundle, refreshPolicyBundleIfConfigured, verifyAndParsePolicyBundle, writeCachedPolicyBundle, } from './policy-bundle.js';
 export { checkRbacPermission } from './rbac-check.js';

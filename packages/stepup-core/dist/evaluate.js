@@ -17,6 +17,7 @@ import path from 'node:path';
 import { DEFAULT_RBAC_RESOURCE, findFirstMatch, findFirstToolRule, mcpConsumesInHook, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, requestStepup } from './gate.js';
+import { claimMcpInflight, clearMcpInflight, mcpGrantActive, readMcpInflight, writeMcpGrant, } from './mcp-grant.js';
 import { clearPending } from './pending.js';
 import { loadEffectivePatterns, loadEffectiveToolRules, } from './policy-bundle.js';
 import { checkRbacPermission } from './rbac-check.js';
@@ -276,6 +277,16 @@ export async function evaluatePreToolUse(input) {
         // FP-keyed path (Bash + bundle MCP rules) needs backend re-check. GLOBAL
         // path (system MCP rules) skips it — handler re-validates sid via header.
         if (!consumeHere || (await recheckVerifiedSid(verified.sid)) === 'trust') {
+            // MCP only: this verified hit is the first authentication of an MCP
+            // step-up — open the shared 5-minute grant so every following MCP call
+            // passes without re-prompting, and release the in-flight lock. The sid
+            // has already cleared its backend re-check (or is GLOBAL, where the
+            // handler re-validates), so the grant only ever caches a vetted sid.
+            // Bash never reaches this; its fp single-shot consume is untouched.
+            if (classified.kind === 'mcp') {
+                writeMcpGrant(verified.sid);
+                clearMcpInflight();
+            }
             return {
                 kind: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
                 block,
@@ -329,6 +340,44 @@ export async function evaluatePreToolUse(input) {
             action,
         };
     }
+    // Past this point level is 2 (step-up required) and token / level-0 / level-1
+    // have already been resolved above. The MCP exemption layer applies only here,
+    // so RBAC level 0 (hard deny) and a missing token can never be bypassed by a
+    // grant — exemption means "skip the MFA prompt", not "skip the permission".
+    if (classified.kind === 'mcp') {
+        // Active grant → an earlier MCP step-up already verified within the window;
+        // pass this MCP call without a new prompt and without consuming anything.
+        if (mcpGrantActive()) {
+            return {
+                kind: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
+                block,
+                consumeHere: false,
+                fp: undefined,
+            };
+        }
+        // No grant yet, but a step-up is already mid-flight → do not create a
+        // second session or open another tab; point the agent at the in-flight
+        // sid so it waits on the one prompt. This is the burst-suppression path.
+        const inflight = readMcpInflight();
+        if (inflight) {
+            return {
+                kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,
+                block,
+                sid: inflight.sid,
+                browserUrl: inflight.browserUrl,
+                browserLaunched: false,
+                pending: {
+                    sid: inflight.sid,
+                    command: block.command,
+                    reason: block.reason,
+                    browserUrl: inflight.browserUrl,
+                    createdAt: Date.now(),
+                    expiresAt: inflight.expiresAt,
+                    status: 'pending',
+                },
+            };
+        }
+    }
     const gateInput = {
         reason: block.reason,
         action,
@@ -345,6 +394,17 @@ export async function evaluatePreToolUse(input) {
             block,
             failure: req,
         };
+    }
+    // MCP only: claim the global in-flight lock so concurrent MCP calls behind
+    // this one defer to this single session instead of each spawning their own.
+    // Best-effort (the claim races requestStepup's own 15s browser-launch lock);
+    // a duplicate session is acceptable, a missed grant is not.
+    if (classified.kind === 'mcp') {
+        claimMcpInflight({
+            sid: req.sid,
+            browserUrl: req.browserUrl,
+            expiresAt: req.expiresAt,
+        });
     }
     const pending = {
         sid: req.sid,

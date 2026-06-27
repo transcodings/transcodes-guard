@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "claude";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -958,6 +958,7 @@ function resolveToken() {
 // ../../packages/stepup-core/dist/config.js
 var DEFAULT_BACKEND_URL = process.env.environment === "dev" ? "http://localhost:3500" : "https://api.transcodesapis.com";
 var STEPUP_TTL_MS = 10 * 60 * 1e3;
+var MCP_GRANT_TTL_MS = 5 * 60 * 1e3;
 function loadStepupConfig() {
   const rawUrl = process.env.TRANSCODES_BACKEND_URL?.trim() || DEFAULT_BACKEND_URL;
   const backendUrl = rawUrl.replace(/\/$/, "");
@@ -1314,8 +1315,8 @@ async function requestStepup(input) {
   };
 }
 
-// ../../packages/stepup-core/dist/pending.js
-import { mkdirSync as mkdirSync5, readFileSync as readFileSync4, rmSync as rmSync3, writeFileSync as writeFileSync4 } from "fs";
+// ../../packages/stepup-core/dist/mcp-grant.js
+import { mkdirSync as mkdirSync4, readFileSync as readFileSync3, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "fs";
 
 // ../../node_modules/zod/v3/external.js
 var external_exports = {};
@@ -5393,8 +5394,103 @@ function isExpiredAt(createdAt, expiresAt, now, ttlMs = STEPUP_TTL_MS) {
   return now - createdAt > ttlMs;
 }
 
+// ../../packages/stepup-core/dist/mcp-grant.js
+var GRANT_FILE_BASE = "mcp-grant";
+var INFLIGHT_FILE_BASE = "mcp-stepup-inflight";
+var McpGrantSchema = external_exports.object({
+  grantedAt: external_exports.number().int().nonnegative(),
+  sid: external_exports.string().min(1)
+});
+var McpInflightSchema = external_exports.object({
+  sid: external_exports.string().min(1),
+  browserUrl: external_exports.string(),
+  startedAt: external_exports.number().int().nonnegative(),
+  /** Backend session `expiresAt` (RFC3339) when known — wins over startedAt+TTL. */
+  expiresAt: external_exports.string().optional()
+});
+function grantPath() {
+  return stepupFilePath(GRANT_FILE_BASE);
+}
+function inflightPath() {
+  return stepupFilePath(INFLIGHT_FILE_BASE);
+}
+function parse(file, schema) {
+  try {
+    const parsed = schema.safeParse(JSON.parse(readFileSync3(file, "utf8")));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+function readMcpGrant(now = Date.now()) {
+  const rec = parse(grantPath(), McpGrantSchema);
+  if (!rec)
+    return null;
+  if (now - rec.grantedAt >= MCP_GRANT_TTL_MS) {
+    consumeMcpGrant();
+    return null;
+  }
+  return rec;
+}
+function mcpGrantActive(now = Date.now()) {
+  return readMcpGrant(now) !== null;
+}
+function writeMcpGrant(sid, now = Date.now()) {
+  if (readMcpGrant(now))
+    return;
+  mkdirSync4(stepupDir(), { recursive: true });
+  const rec = { grantedAt: now, sid };
+  writeFileSync3(grantPath(), JSON.stringify(rec), { mode: 384 });
+}
+function consumeMcpGrant() {
+  try {
+    rmSync2(grantPath(), { force: true });
+  } catch {
+  }
+}
+function readMcpInflight(now = Date.now()) {
+  const rec = parse(inflightPath(), McpInflightSchema);
+  if (!rec)
+    return null;
+  if (isExpiredAt(rec.startedAt, rec.expiresAt, now)) {
+    clearMcpInflight();
+    return null;
+  }
+  return rec;
+}
+function claimMcpInflight(rec, now = Date.now()) {
+  const existing = readMcpInflight(now);
+  if (existing)
+    return { claimed: false, existing };
+  const payload = { ...rec, startedAt: now };
+  try {
+    mkdirSync4(stepupDir(), { recursive: true });
+    writeFileSync3(inflightPath(), JSON.stringify(payload), {
+      mode: 384,
+      flag: "wx"
+    });
+    return { claimed: true };
+  } catch (err) {
+    if (err?.code === "EEXIST") {
+      const winner = readMcpInflight(now);
+      if (winner)
+        return { claimed: false, existing: winner };
+    }
+    return { claimed: true };
+  }
+}
+function clearMcpInflight() {
+  try {
+    rmSync2(inflightPath(), { force: true });
+  } catch {
+  }
+}
+
+// ../../packages/stepup-core/dist/pending.js
+import { mkdirSync as mkdirSync6, readFileSync as readFileSync5, rmSync as rmSync4, writeFileSync as writeFileSync5 } from "fs";
+
 // ../../packages/stepup-core/dist/store.js
-import { mkdirSync as mkdirSync4, readFileSync as readFileSync3, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "fs";
+import { mkdirSync as mkdirSync5, readFileSync as readFileSync4, rmSync as rmSync3, writeFileSync as writeFileSync4 } from "fs";
 var FILE_BASE = "stepup-verified";
 function storePath(fp) {
   return stepupFilePath(FILE_BASE, fp);
@@ -5405,7 +5501,7 @@ function readVerified(fp) {
   const file = storePath(fp);
   let raw;
   try {
-    raw = readFileSync3(file, "utf8");
+    raw = readFileSync4(file, "utf8");
   } catch {
     return null;
   }
@@ -5438,12 +5534,12 @@ function readVerified(fp) {
 }
 function writeVerified(v, fp) {
   const file = storePath(fp);
-  mkdirSync4(stepupDir(), { recursive: true });
-  writeFileSync3(file, JSON.stringify(v), { mode: 384 });
+  mkdirSync5(stepupDir(), { recursive: true });
+  writeFileSync4(file, JSON.stringify(v), { mode: 384 });
 }
 function consumeVerified(fp) {
   try {
-    rmSync2(storePath(fp), { force: true });
+    rmSync3(storePath(fp), { force: true });
   } catch {
   }
 }
@@ -5467,7 +5563,7 @@ function pendingPath(fp) {
 }
 function parsePendingRaw(file) {
   try {
-    const raw = readFileSync4(file, "utf8");
+    const raw = readFileSync5(file, "utf8");
     const parsed = PendingStateSchema.safeParse(JSON.parse(raw));
     return parsed.success ? parsed.data : null;
   } catch {
@@ -5481,12 +5577,12 @@ function readPending(fp) {
 }
 function writePending(state) {
   const file = pendingPath(state.fp);
-  mkdirSync5(stepupDir(), { recursive: true });
-  writeFileSync4(file, JSON.stringify(state), { mode: 384 });
+  mkdirSync6(stepupDir(), { recursive: true });
+  writeFileSync5(file, JSON.stringify(state), { mode: 384 });
 }
 function clearPending(fp) {
   try {
-    rmSync3(pendingPath(fp), { force: true });
+    rmSync4(pendingPath(fp), { force: true });
   } catch {
   }
 }
@@ -5553,7 +5649,7 @@ function sweepStepup(now = Date.now()) {
 
 // ../../packages/stepup-core/dist/policy-bundle.js
 import { createHash as createHash2 } from "crypto";
-import { mkdirSync as mkdirSync6, readFileSync as readFileSync5, renameSync as renameSync2, writeFileSync as writeFileSync5 } from "fs";
+import { mkdirSync as mkdirSync7, readFileSync as readFileSync6, renameSync as renameSync2, writeFileSync as writeFileSync6 } from "fs";
 import path5 from "path";
 var GUARD_POLICY_BUNDLE_SCHEMA_VERSION = 3;
 var POLICY_BUNDLE_TTL_MS = 60 * 60 * 1e3;
@@ -5619,7 +5715,7 @@ function policyBundleCachePath(projectId) {
 function readCachedPolicyBundle(projectId, ttlMs = POLICY_BUNDLE_TTL_MS) {
   let raw;
   try {
-    raw = readFileSync5(policyBundleCachePath(projectId), "utf8");
+    raw = readFileSync6(policyBundleCachePath(projectId), "utf8");
   } catch {
     return null;
   }
@@ -5648,10 +5744,10 @@ function readCachedPolicyBundle(projectId, ttlMs = POLICY_BUNDLE_TTL_MS) {
 }
 function writeCachedPolicyBundle(projectId, bundle) {
   const file = policyBundleCachePath(projectId);
-  mkdirSync6(path5.dirname(file), { recursive: true });
+  mkdirSync7(path5.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   const envelope = { fetchedAt: Date.now(), bundle };
-  writeFileSync5(tmp, JSON.stringify(envelope), { mode: 384 });
+  writeFileSync6(tmp, JSON.stringify(envelope), { mode: 384 });
   renameSync2(tmp, file);
 }
 function unwrapBundleBody(data) {
@@ -5955,6 +6051,10 @@ async function evaluatePreToolUse(input) {
   const verified = readVerified(fp);
   if (verified) {
     if (!consumeHere || await recheckVerifiedSid(verified.sid) === "trust") {
+      if (classified.kind === "mcp") {
+        writeMcpGrant(verified.sid);
+        clearMcpInflight();
+      }
       return {
         kind: GATE_DECISION_KIND2.PROCEED_BY_VERIFICATION,
         block,
@@ -5995,6 +6095,35 @@ async function evaluatePreToolUse(input) {
       action
     };
   }
+  if (classified.kind === "mcp") {
+    if (mcpGrantActive()) {
+      return {
+        kind: GATE_DECISION_KIND2.PROCEED_BY_VERIFICATION,
+        block,
+        consumeHere: false,
+        fp: void 0
+      };
+    }
+    const inflight = readMcpInflight();
+    if (inflight) {
+      return {
+        kind: GATE_DECISION_KIND2.BLOCK_STEPUP_CHALLENGED,
+        block,
+        sid: inflight.sid,
+        browserUrl: inflight.browserUrl,
+        browserLaunched: false,
+        pending: {
+          sid: inflight.sid,
+          command: block.command,
+          reason: block.reason,
+          browserUrl: inflight.browserUrl,
+          createdAt: Date.now(),
+          expiresAt: inflight.expiresAt,
+          status: "pending"
+        }
+      };
+    }
+  }
   const gateInput = {
     reason: block.reason,
     action,
@@ -6009,6 +6138,13 @@ async function evaluatePreToolUse(input) {
       block,
       failure: req2
     };
+  }
+  if (classified.kind === "mcp") {
+    claimMcpInflight({
+      sid: req2.sid,
+      browserUrl: req2.browserUrl,
+      expiresAt: req2.expiresAt
+    });
   }
   const pending = {
     sid: req2.sid,
@@ -6287,15 +6423,17 @@ async function removeToolRule(id) {
 }
 
 // ../../packages/stepup-core/dist/inspector.js
-import { readFileSync as readFileSync6 } from "fs";
+import { readFileSync as readFileSync7 } from "fs";
 var VERIFIED_BASE = "stepup-verified";
 var PENDING_BASE = "stepup-pending";
 var BROWSER_LOCK_BASE = "stepup-browser-lock";
+var MCP_GRANT_BASE = "mcp-grant";
+var MCP_INFLIGHT_BASE = "mcp-stepup-inflight";
 var BROWSER_LOCK_TTL_MS2 = 15e3;
 var COMMAND_PREVIEW_LIMIT = 120;
 function readJsonFile(file) {
   try {
-    const raw = readFileSync6(file, "utf8");
+    const raw = readFileSync7(file, "utf8");
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed;
@@ -6381,6 +6519,43 @@ function inspectBrowserLock(now) {
     ttl_ms: BROWSER_LOCK_TTL_MS2
   };
 }
+function inspectMcpGrant(now) {
+  const data = readJsonFile(stepupFilePath(MCP_GRANT_BASE));
+  if (!data)
+    return { exists: false };
+  const sid = typeof data.sid === "string" ? data.sid : null;
+  const grantedAt = typeof data.grantedAt === "number" ? data.grantedAt : null;
+  if (!sid || grantedAt === null)
+    return { exists: false };
+  return {
+    exists: true,
+    sid,
+    granted_at_ms: grantedAt,
+    age_ms: now - grantedAt,
+    expired: now - grantedAt >= MCP_GRANT_TTL_MS,
+    ttl_ms: MCP_GRANT_TTL_MS
+  };
+}
+function inspectMcpInflight(now) {
+  const data = readJsonFile(stepupFilePath(MCP_INFLIGHT_BASE));
+  if (!data)
+    return { exists: false };
+  const sid = typeof data.sid === "string" ? data.sid : null;
+  const startedAt = typeof data.startedAt === "number" ? data.startedAt : null;
+  if (!sid || startedAt === null)
+    return { exists: false };
+  const browserUrl = typeof data.browserUrl === "string" ? data.browserUrl : "";
+  const expiresAt = typeof data.expiresAt === "string" ? data.expiresAt : void 0;
+  return {
+    exists: true,
+    sid,
+    browser_url: browserUrl,
+    started_at_ms: startedAt,
+    age_ms: now - startedAt,
+    expired: isExpiredAt(startedAt, expiresAt, now),
+    expires_at: expiresAt
+  };
+}
 function inspectStepupState(now = Date.now()) {
   migrateLegacyFile(stepupFileName(VERIFIED_BASE), "cache");
   migrateLegacyFile(stepupFileName(PENDING_BASE), "cache");
@@ -6392,7 +6567,9 @@ function inspectStepupState(now = Date.now()) {
     pending: inspectPending(now),
     verified_fp: listFingerprints(VERIFIED_BASE).map((fp) => inspectVerifiedFile(stepupFilePath(VERIFIED_BASE, fp), now, fp)).filter((v) => v.exists),
     pending_fp: listFingerprints(PENDING_BASE).map((fp) => inspectPendingFile(stepupFilePath(PENDING_BASE, fp), now, fp)).filter((p) => p.exists),
-    browser_lock: inspectBrowserLock(now)
+    browser_lock: inspectBrowserLock(now),
+    mcp_grant: inspectMcpGrant(now),
+    mcp_inflight: inspectMcpInflight(now)
   };
 }
 
@@ -6473,10 +6650,11 @@ async function execProtectedTool(toolName, run) {
         ]
       };
     }
-    if (level === 2 && !verified) {
+    const grant = mcpGrantActive() ? readMcpGrant() : null;
+    if (level === 2 && !verified && !grant) {
       return stepupRequiredResult(toolName, rule);
     }
-    const sid = level === 2 ? verified?.sid : void 0;
+    const sid = level === 2 ? verified?.sid ?? grant?.sid : void 0;
     try {
       return {
         isError: false,
@@ -6484,6 +6662,10 @@ async function execProtectedTool(toolName, run) {
       };
     } finally {
       if (verified) {
+        if (level === 2) {
+          writeMcpGrant(verified.sid);
+          clearMcpInflight();
+        }
         consumeVerified();
         clearPending();
       }
@@ -6516,6 +6698,8 @@ async function execProtectedTool(toolName, run) {
       content: [{ type: "text", text: await run(verified.sid) }]
     };
   } finally {
+    writeMcpGrant(verified.sid);
+    clearMcpInflight();
     consumeVerified();
     clearPending();
   }

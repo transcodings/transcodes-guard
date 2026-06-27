@@ -35,6 +35,27 @@ export type BrowserLockInspection = {
     expired: boolean;
     ttl_ms: number;
 };
+export type McpGrantInspection = {
+    exists: false;
+} | {
+    exists: true;
+    sid: string;
+    granted_at_ms: number;
+    age_ms: number;
+    expired: boolean;
+    ttl_ms: number;
+};
+export type McpInflightInspection = {
+    exists: false;
+} | {
+    exists: true;
+    sid: string;
+    browser_url: string;
+    started_at_ms: number;
+    age_ms: number;
+    expired: boolean;
+    expires_at?: string;
+};
 export type StepupStateInspection = {
     cache_dir: string;
     now_ms: number;
@@ -48,5 +69,11 @@ export type StepupStateInspection = {
     verified_fp: VerifiedInspection[];
     pending_fp: PendingInspection[];
     browser_lock: BrowserLockInspection;
+    /** MCP-only 5-minute exemption. When active, every MCP tool call passes
+     * without a fresh step-up (Bash is never exempted). */
+    mcp_grant: McpGrantInspection;
+    /** MCP-only global in-flight lock — present while one MCP step-up is
+     * mid-flight so concurrent MCP calls defer instead of each opening a tab. */
+    mcp_inflight: McpInflightInspection;
 };
 export declare function inspectStepupState(now?: number): StepupStateInspection;

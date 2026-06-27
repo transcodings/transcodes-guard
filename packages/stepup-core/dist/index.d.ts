@@ -11,15 +11,16 @@
  * without collision.
  */
 export { type Envelope, type RequestInput as HttpRequestInput, request, } from './client.js';
-export { DEFAULT_BACKEND_URL, loadStepupConfig, STEPUP_TTL_MS, type StepupConfig, } from './config.js';
+export { DEFAULT_BACKEND_URL, loadStepupConfig, MCP_GRANT_TTL_MS, STEPUP_TTL_MS, type StepupConfig, } from './config.js';
 export { CONSOLE_SESSION_COMMENT, type ConsoleSessionResult, fetchMemberProfile, type MemberProfileSummary, openConsoleSession, } from './console.js';
 export { DECISION_AUDIT_TAG, DECISION_AUDIT_TIMEOUT_MS, type DecisionAuditEvent, decisionAuditEventOf, sendDecisionAudit, sendGateDecisionAudit, } from './decision-audit.js';
 export { type BlockResult, evaluatePreToolUse, GATE_DECISION_KIND, type GateDecision, type ToolCallInput, } from './evaluate.js';
 export { fingerprintOf, type RequestInput, type RequestResult, requestStepup, } from './gate.js';
 export type { GuardRuleRecord } from './guard-rules.js';
 export { addToolRule, listGuardRules, removeToolRule, updateToolRule, } from './guard-rules.js';
-export { type BrowserLockInspection, inspectStepupState, type PendingInspection, type StepupStateInspection, type VerifiedInspection, } from './inspector.js';
+export { type BrowserLockInspection, inspectStepupState, type McpGrantInspection, type McpInflightInspection, type PendingInspection, type StepupStateInspection, type VerifiedInspection, } from './inspector.js';
 export { type MemberTokenClaims, type ParsedMemberToken, parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
+export { claimMcpInflight, clearMcpInflight, consumeMcpGrant, type McpGrant, type McpInflight, mcpGrantActive, readMcpGrant, readMcpInflight, writeMcpGrant, } from './mcp-grant.js';
 export { clearPending, findPendingBySid, firstActivePending, firstInFlightFpPending, isExpired, listFpPendings, markVerified, type PendingState, readPending, sweepStepup, writePending, } from './pending.js';
 export { type CachedPolicyBundle, type FetchPolicyBundleResult, fetchPolicyBundle, GUARD_POLICY_BUNDLE_SCHEMA_VERSION, loadEffectivePatterns, loadEffectiveToolRules, POLICY_BUNDLE_FETCH_TIMEOUT_MS, POLICY_BUNDLE_TTL_MS, type PolicyBundle, PolicyBundleError, type PolicyBundleRefreshOutcome, type PolicyBundleRule, policyBundleCachePath, policyBundleSha384, readCachedPolicyBundle, refreshPolicyBundle, refreshPolicyBundleIfConfigured, verifyAndParsePolicyBundle, writeCachedPolicyBundle, } from './policy-bundle.js';
 export { checkRbacPermission, type RbacLevel } from './rbac-check.js';

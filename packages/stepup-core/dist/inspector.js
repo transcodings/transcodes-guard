@@ -13,11 +13,13 @@
  */
 import { readFileSync } from 'node:fs';
 import { cacheDir, migrateLegacyFile } from '@transcodes-guard/plugin-paths';
-import { STEPUP_TTL_MS } from './config.js';
+import { MCP_GRANT_TTL_MS, STEPUP_TTL_MS } from './config.js';
 import { isExpiredAt, listFingerprints, stepupFileName, stepupFilePath, } from './stepup-files.js';
 const VERIFIED_BASE = 'stepup-verified';
 const PENDING_BASE = 'stepup-pending';
 const BROWSER_LOCK_BASE = 'stepup-browser-lock';
+const MCP_GRANT_BASE = 'mcp-grant';
+const MCP_INFLIGHT_BASE = 'mcp-stepup-inflight';
 const BROWSER_LOCK_TTL_MS = 15_000;
 const COMMAND_PREVIEW_LIMIT = 120;
 function readJsonFile(file) {
@@ -112,6 +114,43 @@ function inspectBrowserLock(now) {
         ttl_ms: BROWSER_LOCK_TTL_MS,
     };
 }
+function inspectMcpGrant(now) {
+    const data = readJsonFile(stepupFilePath(MCP_GRANT_BASE));
+    if (!data)
+        return { exists: false };
+    const sid = typeof data.sid === 'string' ? data.sid : null;
+    const grantedAt = typeof data.grantedAt === 'number' ? data.grantedAt : null;
+    if (!sid || grantedAt === null)
+        return { exists: false };
+    return {
+        exists: true,
+        sid,
+        granted_at_ms: grantedAt,
+        age_ms: now - grantedAt,
+        expired: now - grantedAt >= MCP_GRANT_TTL_MS,
+        ttl_ms: MCP_GRANT_TTL_MS,
+    };
+}
+function inspectMcpInflight(now) {
+    const data = readJsonFile(stepupFilePath(MCP_INFLIGHT_BASE));
+    if (!data)
+        return { exists: false };
+    const sid = typeof data.sid === 'string' ? data.sid : null;
+    const startedAt = typeof data.startedAt === 'number' ? data.startedAt : null;
+    if (!sid || startedAt === null)
+        return { exists: false };
+    const browserUrl = typeof data.browserUrl === 'string' ? data.browserUrl : '';
+    const expiresAt = typeof data.expiresAt === 'string' ? data.expiresAt : undefined;
+    return {
+        exists: true,
+        sid,
+        browser_url: browserUrl,
+        started_at_ms: startedAt,
+        age_ms: now - startedAt,
+        expired: isExpiredAt(startedAt, expiresAt, now),
+        expires_at: expiresAt,
+    };
+}
 export function inspectStepupState(now = Date.now()) {
     migrateLegacyFile(stepupFileName(VERIFIED_BASE), 'cache');
     migrateLegacyFile(stepupFileName(PENDING_BASE), 'cache');
@@ -128,6 +167,8 @@ export function inspectStepupState(now = Date.now()) {
             .map((fp) => inspectPendingFile(stepupFilePath(PENDING_BASE, fp), now, fp))
             .filter((p) => p.exists),
         browser_lock: inspectBrowserLock(now),
+        mcp_grant: inspectMcpGrant(now),
+        mcp_inflight: inspectMcpInflight(now),
     };
 }
 //# sourceMappingURL=inspector.js.map
