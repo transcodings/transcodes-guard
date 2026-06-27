@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.8](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.7...transcodes-guard-v0.28.8) (2026-06-27)
+
+
+### Documentation
+
+* **readme:** add per-host How to write prompt examples ([575a609](https://github.com/transcodings/transcodes-guard/commit/575a609a57d7b5fca1862576c3d9573dc7236817))
+
 ## [0.28.7](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.6...transcodes-guard-v0.28.7) (2026-06-27)
 
 
