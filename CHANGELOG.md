@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.27.0...transcodes-guard-v0.28.0) (2026-06-27)
+
+
+### Features
+
+* **mcp:** expose full 57-tool catalog in /transcodes menu ([ccb36ee](https://github.com/transcodings/transcodes-guard/commit/ccb36ee10754fc275412410ad1bf79d4b4f3fcea))
+
 ## [0.27.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.26.0...transcodes-guard-v0.27.0) (2026-06-26)
 
 
