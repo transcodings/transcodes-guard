@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.28.7](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.6...transcodes-guard-v0.28.7) (2026-06-27)
+
+
+### Documentation
+
+* **cli:** drop stale "env vs file" status, complete command lists ([628e6d6](https://github.com/transcodings/transcodes-guard/commit/628e6d6dd923f1141c8c63f81310fc815627476a))
+* **codex:** put remote marketplace install first, fix $-mention heading ([aaff264](https://github.com/transcodings/transcodes-guard/commit/aaff2640d6d57fcfe0fffd5b75bfdbe0aee601f6))
+* **cursor:** align root README install with official docs + our code ([f285aaf](https://github.com/transcodings/transcodes-guard/commit/f285aafe3612f8e63e43736b506246f64bd7f067))
+* **cursor:** correct plugin.json claim, native install first ([91aaaa9](https://github.com/transcodings/transcodes-guard/commit/91aaaa91e131b403418099b7a36650b81a66766a))
+* **cursor:** keep only currently usable install paths ([6f43217](https://github.com/transcodings/transcodes-guard/commit/6f4321775f5baca57f46ec93dd364447f39ea31e))
+* **cursor:** restore EN/KO section parity ([9bfdd99](https://github.com/transcodings/transcodes-guard/commit/9bfdd998e62ec13222ec90d9b7e8da878c23b3cb))
+* mark Cursor + Antigravity plugins as beta, fix Cursor plugin install ([b5c4259](https://github.com/transcodings/transcodes-guard/commit/b5c4259dddcd41d42201575fafc956ff0fb09f52))
+* **mcp:** mark standalone package as pending release ([a57a5dd](https://github.com/transcodings/transcodes-guard/commit/a57a5dd4a5416018c0a72914af01bc3687216d27))
+* point users to stable hosts only, trim codex install to official path ([35cd9e7](https://github.com/transcodings/transcodes-guard/commit/35cd9e711bbc9bab883eaa3545cbe9bc312e5f50))
+* README 불일치 수정 (호스트 공식 docs 재검증 반영) ([77e129c](https://github.com/transcodings/transcodes-guard/commit/77e129c4f8df30c9446e9d6c414d16cd646063a8))
+* **research:** add README inconsistency audit notes ([2e244d1](https://github.com/transcodings/transcodes-guard/commit/2e244d1e7a8cd88a46898530e0eda979c4a15bcb))
+* **research:** drop internal audit notes from the PR ([3383b4e](https://github.com/transcodings/transcodes-guard/commit/3383b4e59c21f316793ed8e057f368c50647be5e))
+
 ## [0.28.6](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.5...transcodes-guard-v0.28.6) (2026-06-27)
 
 
