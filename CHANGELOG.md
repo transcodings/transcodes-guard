@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.5](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.4...transcodes-guard-v0.28.5) (2026-06-27)
+
+
+### Documentation
+
+* **readme:** simplify Cursor (Beta) and Antigravity install paths ([ba5fa88](https://github.com/transcodings/transcodes-guard/commit/ba5fa88a267b2e452a1706b070c9d754cbb06686))
+
 ## [0.28.4](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.3...transcodes-guard-v0.28.4) (2026-06-27)
 
 
