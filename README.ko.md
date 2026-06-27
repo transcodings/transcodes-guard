@@ -84,27 +84,18 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 
 사전 요구사항: **Node >= 20**, Hooks가 켜진 Cursor **데스크톱**(Settings → Hooks). 클라우드 에이전트는 2026-05 기준 미연동.
 
-**1단계 — Cursor Agent CLI(`cursor-agent`) 설치:**
+**1단계 — 플러그인 설치.** 저장소에는 `.cursor-plugin/plugin.json`과 `plugins/cursor`를 가리키는 `.cursor-plugin/marketplace.json`이 들어 있고 `dist/`도 커밋돼 있어, clone도 빌드도 필요 없습니다. 어느 경로를 쓸지는 플랜에 따라 다릅니다(Cursor에는 "URL로 플러그인 설치"하는 CLI가 없어, 플러그인 관리는 에디터와 팀 대시보드에서 합니다):
 
-```bash
-curl https://cursor.com/install -fsS | bash
-```
+- **개인 / Pro** — 에디터에서 `/add-plugin`을 실행하거나 **Customize → Plugins → Marketplace**([cursor.com/marketplace](https://cursor.com/marketplace))를 연 뒤 **Transcodes (bigstrider)** 를 설치합니다.
+- **Teams / Enterprise** — 관리자가 **Dashboard → Settings → Plugins → Add Marketplace**에서 저장소를 한 번 import 합니다(`https://github.com/transcodings/transcodes-guard` 붙여넣기). 파싱된 플러그인을 검토하고 Team Access를 지정하면, 개발자는 **Customize → Plugins**에서 설치합니다.
 
-**2단계 — Marketplace에서 설치.** `cursor-agent` CLI(또는 Cursor → Customize → Plugins → **Marketplace**)에서 **Plugins → Marketplace**를 연 뒤 아래 URL을 붙여넣습니다:
+![Cursor Marketplace에서 transcodes-guard 설치](./docs/images/cursor-marketplace-install.png)
 
-```
-https://github.com/transcodings/transcodes-guard
-```
+어느 경로든 `.cursor-plugin/plugin.json`을 읽어 hook과 MCP 서버를 `${CURSOR_PLUGIN_ROOT}`로 자동 연결합니다.
 
-**Transcodes (bigstrider)** 를 선택하고 **Install**:
+**2단계 — 첫 실행.** 일회성 hook 신뢰 검토를 승인합니다(커맨드 팔레트 → **Cursor: Review Hooks**).
 
-![Cursor Marketplace에서 transcodes-guard 설치 — GitHub repo URL 붙여넣기](./docs/images/cursor-marketplace-install.png)
-
-`.cursor-plugin/marketplace.json`이 `plugins/cursor`를 가리킵니다. `dist/`는 커밋돼 있어 clone·빌드가 필요 없고, hook과 MCP 서버는 `${CURSOR_PLUGIN_ROOT}`로 자동 연결됩니다.
-
-**3단계 — 첫 실행.** 일회성 hook 신뢰 검토를 승인합니다(커맨드 팔레트 → **Cursor: Review Hooks**).
-
-**4단계 — 토큰 저장.** 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`.
+**3단계 — 토큰 저장.** 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`.
 
 **업데이트**는 Marketplace에서 재설치(또는 Customize → Plugins에서 업데이트) 후 **Developer: Reload Window**.
 

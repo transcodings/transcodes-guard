@@ -86,27 +86,18 @@ Also save your token — recommended: `npm install -g @bigstrider/transcodes-cli
 
 Prerequisites: **Node >= 20**, Cursor **desktop** with Hooks enabled (Settings → Hooks). Cloud agents are not wired as of 2026-05.
 
-**Step 1 — install the Cursor Agent CLI** (`cursor-agent`):
+**Step 1 — install the plugin.** The repo ships `.cursor-plugin/plugin.json` and `.cursor-plugin/marketplace.json` pointing at `plugins/cursor`, with `dist/` committed — so no clone and no build are needed. Which path you use depends on your plan (Cursor has no "install a plugin from a URL" CLI — plugin management lives in the editor and the team dashboard):
 
-```bash
-curl https://cursor.com/install -fsS | bash
-```
+- **Individual / Pro** — in the editor, run `/add-plugin` or open **Customize → Plugins → Marketplace** (also at [cursor.com/marketplace](https://cursor.com/marketplace)), then install **Transcodes (bigstrider)**.
+- **Teams / Enterprise** — an admin imports the repo once at **Dashboard → Settings → Plugins → Add Marketplace**, pastes `https://github.com/transcodings/transcodes-guard`, reviews the parsed plugins, and assigns Team Access; developers then install it from **Customize → Plugins**.
 
-**Step 2 — install from Marketplace.** Open **Plugins → Marketplace** in the `cursor-agent` CLI (or Cursor → Customize → Plugins → Marketplace) and paste:
+![Install transcodes-guard from the Cursor Marketplace](./docs/images/cursor-marketplace-install.png)
 
-```
-https://github.com/transcodings/transcodes-guard
-```
+Either path reads `.cursor-plugin/plugin.json` and auto-wires the hooks and MCP server via `${CURSOR_PLUGIN_ROOT}`.
 
-Select **Transcodes (bigstrider)** → **Install**:
+**Step 2 — first run.** Approve the one-time hook trust review (command palette → **Cursor: Review Hooks**).
 
-![Install transcodes-guard via Cursor Marketplace — paste the GitHub repo URL](./docs/images/cursor-marketplace-install.png)
-
-The repo ships `.cursor-plugin/marketplace.json` pointing at `plugins/cursor`; `dist/` is committed — no clone, no build. Hooks and the MCP server auto-wire via `${CURSOR_PLUGIN_ROOT}`.
-
-**Step 3 — first run.** Approve the one-time hook trust review (command palette → **Cursor: Review Hooks**).
-
-**Step 4 — save your token.** Recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
+**Step 3 — save your token.** Recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
 
 To **update**, reinstall from Marketplace (or update in Customize → Plugins) then **Developer: Reload Window**.
 
