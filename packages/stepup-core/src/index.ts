@@ -19,6 +19,7 @@ export {
 export {
   DEFAULT_BACKEND_URL,
   loadStepupConfig,
+  MCP_GRANT_TTL_MS,
   STEPUP_TTL_MS,
   type StepupConfig,
 } from './config.js';
@@ -70,6 +71,17 @@ export {
   parseMemberAccessToken,
   REQUIRED_AUDIENCE,
 } from './jwt.js';
+export {
+  claimMcpInflight,
+  clearMcpInflight,
+  consumeMcpGrant,
+  type McpGrant,
+  type McpInflight,
+  mcpGrantActive,
+  readMcpGrant,
+  readMcpInflight,
+  writeMcpGrant,
+} from './mcp-grant.js';
 export {
   clearPending,
   findPendingBySid,

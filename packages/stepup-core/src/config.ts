@@ -23,6 +23,15 @@ export const DEFAULT_BACKEND_URL =
 /** Step-up validity window. Mirrors the backend TTL used by transcodes. */
 export const STEPUP_TTL_MS = 10 * 60 * 1_000;
 
+/**
+ * MCP-only time-based exemption window. Once a single MCP step-up verifies,
+ * every MCP tool call passes without re-prompting for this long, counted from
+ * the first verification (fixed, non-sliding). Bash is unaffected — it stays
+ * single-shot per command. Kept shorter than STEPUP_TTL_MS (the backend
+ * session TTL) so a grant always lapses before the underlying sid does.
+ */
+export const MCP_GRANT_TTL_MS = 5 * 60 * 1_000;
+
 export type StepupConfig = {
   backendUrl: string;
   apiBaseV1: string;
