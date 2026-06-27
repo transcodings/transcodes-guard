@@ -42,7 +42,9 @@ The PreToolUse hot path must stay network-free: it may call the sync cache reads
 
 ## Handler is the backstop, not defense-in-depth
 
-The PreToolUse hook can be bypassed (stdio/curl), so protected backend tool handlers **re-enforce** the gate at run time via `execProtectedTool()` (`stepup-helper.ts`). After a successful level-2 run, the verified record is consumed exactly once (`consumeVerified()` + `clearPending()` in `finally`) — step-up is single-use per protected call, not a session.
+The PreToolUse hook can be bypassed (stdio/curl), so protected backend tool handlers **re-enforce** the gate at run time via `execProtectedTool()` (`stepup-helper.ts`). After a successful level-2 run, the verified record is consumed exactly once (`consumeVerified()` + `clearPending()` in `finally`) — step-up is single-use per protected call.
+
+The one exception is the **MCP-only 5-minute grant** (`mcp-grant.ts`, see [[stepup-consume]]): once any MCP step-up verifies, both the hook and the handler honour a shared `mcp-grant.json` so MCP tool calls pass without re-prompting for `MCP_GRANT_TTL_MS`. This is session-like **for MCP only** and is an intended trade-off — **Bash stays strictly single-use per command**. The grant never bypasses RBAC: level 0 / no-token are resolved before the grant short-circuit in both paths, so it skips the MFA prompt, never the permission.
 
 ## Backend URL & network envelope
 

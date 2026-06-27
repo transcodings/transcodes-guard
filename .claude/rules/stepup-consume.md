@@ -37,3 +37,12 @@ The GLOBAL/system path **skips** this recheck and relies on the handler's `X-Ste
 ## No polling inside the hook
 
 `requestStepup` creates the session, launches a browser (deduped via an atomic 15s fingerprint lock — `BROWSER_LOCK_TTL_MS`, `claimBrowserLaunch` — so concurrent same-command hooks share one tab), then the hook emits a deny JSON and exits 0. The **agent** drives the wait via the `poll_stepup_session_wait` MCP tool and retries the same command. Cadence/timeout live server-side so the agent cannot shorten or skip the loop.
+
+## MCP-only 5-minute grant (the one exception to single-shot)
+
+`mcp-grant.ts` adds an exemption **layer on top of** the single-shot record above — it does not replace it. Single-shot still governs **Bash unconditionally** and **MCP once the grant has lapsed**.
+
+- **`mcp-grant.json`** `{grantedAt, sid}` — once any MCP step-up verifies, every MCP tool call passes without re-prompting until `grantedAt + MCP_GRANT_TTL_MS` (5 min). The window is **fixed from the first verification, never sliding**: `writeMcpGrant` is a no-op while a live grant exists, so passing the gate cannot extend it. Both the hook (`evaluate.ts`) and the handler (`stepup-helper.ts`) read this one GLOBAL file, so a single verification exempts both paths.
+- **`mcp-stepup-inflight.json`** — a single GLOBAL lock (`claimMcpInflight`, `O_CREAT|O_EXCL`) so a burst of concurrent MCP calls defers to one in-flight step-up instead of each opening a tab. A second concurrent MCP call returns `BLOCK_STEPUP_CHALLENGED` reusing the in-flight sid with `browserLaunched:false`.
+- **Bash is never exempted** and never touches these files — its per-command, no-ambient-authority model (fp single-shot above) is intact. The grant deliberately trades MCP's per-command fp isolation for a 5-minute ambient grant; this is an **intended** weakening, scoped to MCP only.
+- **The grant skips the MFA prompt, never the permission.** RBAC level 0 (hard deny) and a missing token are resolved *before* the grant short-circuit in both `evaluate.ts` and `stepup-helper.ts`, so a low-privilege tool's verification can never open a high-privilege one. The grant only ever caches a backend-vetted sid (armed inside the `recheck === 'trust'` branch, or on the GLOBAL/handler-backstop path).

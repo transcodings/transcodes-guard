@@ -13,7 +13,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { cacheDir, migrateLegacyFile } from '@transcodes-guard/plugin-paths';
-import { STEPUP_TTL_MS } from './config.js';
+import { MCP_GRANT_TTL_MS, STEPUP_TTL_MS } from './config.js';
 import {
   isExpiredAt,
   listFingerprints,
@@ -24,6 +24,8 @@ import {
 const VERIFIED_BASE = 'stepup-verified';
 const PENDING_BASE = 'stepup-pending';
 const BROWSER_LOCK_BASE = 'stepup-browser-lock';
+const MCP_GRANT_BASE = 'mcp-grant';
+const MCP_INFLIGHT_BASE = 'mcp-stepup-inflight';
 const BROWSER_LOCK_TTL_MS = 15_000;
 const COMMAND_PREVIEW_LIMIT = 120;
 
@@ -67,6 +69,29 @@ export type BrowserLockInspection =
       ttl_ms: number;
     };
 
+export type McpGrantInspection =
+  | { exists: false }
+  | {
+      exists: true;
+      sid: string;
+      granted_at_ms: number;
+      age_ms: number;
+      expired: boolean;
+      ttl_ms: number;
+    };
+
+export type McpInflightInspection =
+  | { exists: false }
+  | {
+      exists: true;
+      sid: string;
+      browser_url: string;
+      started_at_ms: number;
+      age_ms: number;
+      expired: boolean;
+      expires_at?: string;
+    };
+
 export type StepupStateInspection = {
   cache_dir: string;
   now_ms: number;
@@ -80,6 +105,12 @@ export type StepupStateInspection = {
   verified_fp: VerifiedInspection[];
   pending_fp: PendingInspection[];
   browser_lock: BrowserLockInspection;
+  /** MCP-only 5-minute exemption. When active, every MCP tool call passes
+   * without a fresh step-up (Bash is never exempted). */
+  mcp_grant: McpGrantInspection;
+  /** MCP-only global in-flight lock — present while one MCP step-up is
+   * mid-flight so concurrent MCP calls defer instead of each opening a tab. */
+  mcp_inflight: McpInflightInspection;
 };
 
 function readJsonFile(file: string): Record<string, unknown> | null {
@@ -186,6 +217,42 @@ function inspectBrowserLock(now: number): BrowserLockInspection {
   };
 }
 
+function inspectMcpGrant(now: number): McpGrantInspection {
+  const data = readJsonFile(stepupFilePath(MCP_GRANT_BASE));
+  if (!data) return { exists: false };
+  const sid = typeof data.sid === 'string' ? data.sid : null;
+  const grantedAt = typeof data.grantedAt === 'number' ? data.grantedAt : null;
+  if (!sid || grantedAt === null) return { exists: false };
+  return {
+    exists: true,
+    sid,
+    granted_at_ms: grantedAt,
+    age_ms: now - grantedAt,
+    expired: now - grantedAt >= MCP_GRANT_TTL_MS,
+    ttl_ms: MCP_GRANT_TTL_MS,
+  };
+}
+
+function inspectMcpInflight(now: number): McpInflightInspection {
+  const data = readJsonFile(stepupFilePath(MCP_INFLIGHT_BASE));
+  if (!data) return { exists: false };
+  const sid = typeof data.sid === 'string' ? data.sid : null;
+  const startedAt = typeof data.startedAt === 'number' ? data.startedAt : null;
+  if (!sid || startedAt === null) return { exists: false };
+  const browserUrl = typeof data.browserUrl === 'string' ? data.browserUrl : '';
+  const expiresAt =
+    typeof data.expiresAt === 'string' ? data.expiresAt : undefined;
+  return {
+    exists: true,
+    sid,
+    browser_url: browserUrl,
+    started_at_ms: startedAt,
+    age_ms: now - startedAt,
+    expired: isExpiredAt(startedAt, expiresAt, now),
+    expires_at: expiresAt,
+  };
+}
+
 export function inspectStepupState(
   now: number = Date.now(),
 ): StepupStateInspection {
@@ -212,5 +279,7 @@ export function inspectStepupState(
         (p): p is Extract<PendingInspection, { exists: true }> => p.exists,
       ),
     browser_lock: inspectBrowserLock(now),
+    mcp_grant: inspectMcpGrant(now),
+    mcp_inflight: inspectMcpInflight(now),
   };
 }

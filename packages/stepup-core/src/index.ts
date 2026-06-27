@@ -61,6 +61,8 @@ export {
 export {
   type BrowserLockInspection,
   inspectStepupState,
+  type McpGrantInspection,
+  type McpInflightInspection,
   type PendingInspection,
   type StepupStateInspection,
   type VerifiedInspection,
