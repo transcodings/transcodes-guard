@@ -2,7 +2,18 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|mcp__.*",
+        "matcher": "Bash|mcp__.*|.*\\..*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${PLUGIN_ROOT}/dist/hooks/pre-tool-use.js"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "mcp__codex_apps__.*|codex_apps\\..*|[A-Za-z0-9_]+\\..*",
         "hooks": [
           {
             "type": "command",

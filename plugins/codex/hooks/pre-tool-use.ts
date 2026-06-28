@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Codex CLI PreToolUse hook — thin entrypoint over @transcodes-guard/stepup-core.
+ * Codex CLI PreToolUse / PermissionRequest hook entrypoint.
  *
  * Mirrors plugins/claude-code/hooks/pre-tool-use.ts; the
  * only divergence is the adapter (codexAdapter). Codex's wire format
@@ -26,16 +26,62 @@ import {
   GATE_DECISION_KIND,
   getGateBackend,
 } from '@transcodes-guard/gate-contract';
-import { codexAdapter } from '@transcodes-guard/hook-adapters';
+import {
+  codexAdapter,
+  emitCodexPermissionRequest,
+  type PreToolUseInput,
+  parseCodexPermissionRequestStdin,
+} from '@transcodes-guard/hook-adapters';
+
+function isPermissionRequest(raw: string): boolean {
+  try {
+    const payload = JSON.parse(raw) as { hook_event_name?: unknown };
+    return payload.hook_event_name === 'PermissionRequest';
+  } catch {
+    return false;
+  }
+}
+
+function emitAllow(permissionRequest: boolean, reason: string): string {
+  return permissionRequest
+    ? emitCodexPermissionRequest({ kind: 'allow' })
+    : codexAdapter.emitPreToolUse({ kind: 'allow', reason });
+}
+
+function emitDeny(
+  permissionRequest: boolean,
+  reason: string,
+  systemMessage: string,
+): string {
+  return permissionRequest
+    ? emitCodexPermissionRequest({
+        kind: 'deny',
+        message: systemMessage
+          .replaceAll('Bash command', 'tool call')
+          .replaceAll('Bash was', 'Tool call was')
+          .replaceAll('Bash blocked', 'Tool call blocked')
+          .replaceAll('SAME Bash command', 'SAME tool call')
+          .replaceAll('same Bash command', 'same tool call'),
+      })
+    : codexAdapter.emitPreToolUse({
+        kind: 'deny',
+        reason,
+        systemMessage,
+      });
+}
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, 'utf8');
+  const permissionRequest = isPermissionRequest(raw);
 
-  let input;
+  let input: PreToolUseInput;
   try {
-    input = codexAdapter.parsePreToolUseStdin(raw);
+    input = permissionRequest
+      ? parseCodexPermissionRequestStdin(raw)
+      : codexAdapter.parsePreToolUseStdin(raw);
   } catch {
     process.exit(0);
+    return;
   }
 
   const backend = getGateBackend();
@@ -45,13 +91,11 @@ async function main(): Promise<void> {
     case GATE_DECISION_KIND.PROCEED_UNGATED:
     case GATE_DECISION_KIND.PROCEED_BY_POLICY:
       process.exit(0);
+      return;
 
     case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
       process.stdout.write(
-        codexAdapter.emitPreToolUse({
-          kind: 'allow',
-          reason: formatAllowReason(decision),
-        }),
+        emitAllow(permissionRequest, formatAllowReason(decision)),
       );
       if (decision.consumeHere) {
         backend.consumeVerified(decision.fp);
@@ -60,50 +104,54 @@ async function main(): Promise<void> {
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
+      return;
 
     case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
       process.stdout.write(
-        codexAdapter.emitPreToolUse({
-          kind: 'deny',
-          reason: formatNoTokenReason(decision.block),
-          systemMessage: formatNoTokenSystemMessage(decision.block),
-        }),
+        emitDeny(
+          permissionRequest,
+          formatNoTokenReason(decision.block),
+          formatNoTokenSystemMessage(decision.block),
+        ),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
+      return;
 
     case GATE_DECISION_KIND.BLOCK_BY_POLICY:
       process.stdout.write(
-        codexAdapter.emitPreToolUse({
-          kind: 'deny',
-          reason: formatRbacDeniedReason(decision),
-          systemMessage: formatRbacDeniedSystemMessage(decision),
-        }),
+        emitDeny(
+          permissionRequest,
+          formatRbacDeniedReason(decision),
+          formatRbacDeniedSystemMessage(decision),
+        ),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
+      return;
 
     case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
       process.stdout.write(
-        codexAdapter.emitPreToolUse({
-          kind: 'deny',
-          reason: formatStepupFailureReason(decision),
-          systemMessage: formatStepupFailureSystemMessage(decision),
-        }),
+        emitDeny(
+          permissionRequest,
+          formatStepupFailureReason(decision),
+          formatStepupFailureSystemMessage(decision),
+        ),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
+      return;
 
     case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
       process.stdout.write(
-        codexAdapter.emitPreToolUse({
-          kind: 'deny',
-          reason: formatStepupPendingReason(decision),
-          systemMessage: formatStepupPendingSystemMessage(decision),
-        }),
+        emitDeny(
+          permissionRequest,
+          formatStepupPendingReason(decision),
+          formatStepupPendingSystemMessage(decision),
+        ),
       );
       try {
         backend.writePending(decision.pending);
@@ -115,6 +163,7 @@ async function main(): Promise<void> {
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);
+      return;
   }
 }
 

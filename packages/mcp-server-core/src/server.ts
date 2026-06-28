@@ -25,7 +25,7 @@ const TOOL_RULE_RBAC_GUIDANCE =
   'RBAC step-up coordinate. WORKFLOW: call `get_resources` first, then pass `resource` (must match a valid key) and `action` (create|read|update|delete). System rules use resource `system`.';
 
 const MCP_TOOL_NAME_GUIDANCE =
-  'MCP tool name as emitted by the host PreToolUse hook (full wire name). Call simulate_tool_call with the same string to verify before saving. Before saving, also confirm this MCP tool is actually connected to the host (see the add_tool_rule existence pre-check) — never register a rule for an MCP that is not available.';
+  'MCP tool name as emitted by the host hook (PreToolUse, or Codex PermissionRequest for Apps connector calls). Call simulate_tool_call with the same string to verify before saving. Before saving, also confirm this MCP tool is actually connected to the host (see the add_tool_rule existence pre-check) — never register a rule for an MCP that is not available.';
 
 const MCP_TOOL_LOOKUP_NAME_GUIDANCE =
   'MCP full wire name, or a canonical tool id/alias shown by tool-rules://list. Alias lookup is display-only and reports will_trigger_hook=false; use the full wire name to verify actual hook behavior.';
@@ -165,6 +165,14 @@ function toolRuleSummary(rule: MergedToolRule) {
     action: rule.action,
     resource: rule.resource,
   };
+}
+
+function looksLikeCodexAppsToolName(toolName: string): boolean {
+  return (
+    toolName.startsWith('codex_apps.') ||
+    toolName.startsWith('mcp__codex_apps__') ||
+    /^[a-z0-9_]+\.[a-z0-9_]+$/i.test(toolName)
+  );
 }
 
 function formatCanonicalToolId(
@@ -1170,7 +1178,7 @@ export function createServer(
     {
       title: 'Simulate a tool-rule lookup',
       description:
-        'Given a full MCP wire tool name from a PreToolUse hook (e.g. mcp__github__delete_repository) or a listed canonical tool id/alias, report whether any system or project tool-rule matches. Read-only — does not invoke the hook or call the backend. Use to verify a rule name before calling add_tool_rule.',
+        'Given a full MCP wire tool name from a host hook (e.g. mcp__github__delete_repository, or a Codex Apps PermissionRequest dotted name) or a listed canonical tool id/alias, report whether any system or project tool-rule matches. Read-only — does not invoke the hook or call the backend. Use to verify a rule name before calling add_tool_rule.',
       inputSchema: {
         tool_name: z.string().min(1).describe(MCP_TOOL_LOOKUP_NAME_GUIDANCE),
         tool_input: z.unknown().optional(),
@@ -1180,12 +1188,19 @@ export function createServer(
       const rules = backend.loadMergedToolRules();
       const directMatch = backend.findFirstToolRule(tool_name, rules);
       if (directMatch) {
+        const codexAppsTool = looksLikeCodexAppsToolName(tool_name);
         return textResult(
           JSON.stringify(
             {
               tool_name,
               matched: true,
               will_trigger_hook: true,
+              ...(codexAppsTool
+                ? {
+                    enforcement_note:
+                      'Codex Apps connector calls may arrive via PermissionRequest instead of PreToolUse; the Codex plugin registers both for Apps-like tool names. End-to-end hook deny remains the final enforcement check.',
+                  }
+                : {}),
               matched_by: 'wire_name_or_pattern',
               rule: toolRuleSummary(directMatch.matched),
             },

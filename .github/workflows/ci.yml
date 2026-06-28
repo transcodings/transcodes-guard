@@ -101,8 +101,10 @@ jobs:
           exit $MISSING
 
       # ─────────────────────────────────────────────────────────
-      # Unit tests (node:test via tsx). Currently stepup-core only —
-      # policy-bundle fetch/verify/cache core (Phase 3 v2 Unit G1).
+      # Unit tests (node:test via tsx).
+      - name: danger-patterns unit tests
+        run: npm test -w @transcodes-guard/danger-patterns
+
       - name: stepup-core unit tests
         run: npm test -w @transcodes-guard/stepup-core
 
@@ -236,7 +238,7 @@ jobs:
           rm -f "$HOME/.transcodes/state/stepup-pending.json"
 
       # ─────────────────────────────────────────────────────────
-      # Codex CLI plugin smoke tests (3 scenarios — minimum coverage that
+      # Codex CLI plugin smoke tests (5 scenarios — minimum coverage that
       # proves wire-format parity. Codex's hooks share the same stepup-core
       # evaluate function, so we focus on adapter correctness rather than
       # repeating every scenario from the claude-code suite.)
@@ -269,6 +271,66 @@ jobs:
             echo "::error::Codex Bash fast-path did NOT consume fp-keyed verified record"; exit 1
           fi
           rm -f "$HOME/.transcodes/state/stepup-pending.json"
+
+      - name: codex · Apps dotted tool name gates via bundle rule
+        run: |
+          set -e
+          mkdir -p "$HOME/.transcodes/state"
+          TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
+          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          NOW=$(node -e 'console.log(Date.now())')
+          printf '{"fetchedAt":%s,"bundle":{"schemaVersion":3,"revision":"rev-ci","rules":[{"id":"codex-gcal-create-ci","type":"mcp","label":"Codex gcal create","description":"CI Codex Apps dotted tool smoke","name":"mcp__codex_apps__google_calendar___create_event","matcher":"exact","provider":"codex","action":"create","resource":"system"}]}}' "$NOW" \
+            > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
+          OUT=$(echo '{"tool_name":"google_calendar.create_event","tool_input":{"title":"ci"}}' \
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex hook did not exit 0 for dotted Codex Apps tool"; exit 1; }
+          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Codex Apps dotted tool did not trigger deny"; exit 1; }
+          echo "$OUT" | grep -q 'codex-gcal-create-ci' || { echo "::error::Deny did not carry Codex Apps bundle rule id"; exit 1; }
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state/policy-bundle.proj-ci.json" "$HOME/.transcodes/state/stepup-pending.json"
+
+      - name: codex · PermissionRequest denies Apps connector before approval
+        run: |
+          set -e
+          mkdir -p "$HOME/.transcodes/state"
+          TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
+          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          NOW=$(node -e 'console.log(Date.now())')
+          printf '{"fetchedAt":%s,"bundle":{"schemaVersion":3,"revision":"rev-ci","rules":[{"id":"codex-gcal-create-ci","type":"mcp","label":"Codex gcal create","description":"CI Codex Apps permission request smoke","name":"mcp__codex_apps__google_calendar___create_event","matcher":"exact","provider":"codex","action":"create","resource":"system"}]}}' "$NOW" \
+            > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
+          OUT=$(echo '{"hook_event_name":"PermissionRequest","tool_name":"google_calendar.create_event","tool_input":{"title":"ci"}}' \
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex PermissionRequest hook did not exit 0"; exit 1; }
+          echo "$OUT" | grep -q '"hookEventName":"PermissionRequest"' || { echo "::error::PermissionRequest output wrapper missing"; exit 1; }
+          echo "$OUT" | grep -q '"behavior":"deny"' || { echo "::error::PermissionRequest deny missing"; exit 1; }
+          echo "$OUT" | grep -q 'codex-gcal-create-ci' || { echo "::error::PermissionRequest deny did not carry Codex Apps rule id"; exit 1; }
+          if echo "$OUT" | grep -q '"permissionDecision"'; then
+            echo "::error::PermissionRequest used PreToolUse permissionDecision shape"; exit 1
+          fi
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state/policy-bundle.proj-ci.json" "$HOME/.transcodes/state/stepup-pending.json"
+
+      - name: codex · PermissionRequest verified record allows Apps connector
+        run: |
+          set -e
+          mkdir -p "$HOME/.transcodes/state"
+          TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
+          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          NOW=$(node -e 'console.log(Date.now())')
+          printf '{"fetchedAt":%s,"bundle":{"schemaVersion":3,"revision":"rev-ci","rules":[{"id":"codex-gcal-create-ci","type":"mcp","label":"Codex gcal create","description":"CI Codex Apps permission request allow smoke","name":"mcp__codex_apps__google_calendar___create_event","matcher":"exact","provider":"codex","action":"create","resource":"system"}]}}' "$NOW" \
+            > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
+          FP=$(node -e 'const c=require("crypto");const input={title:"ci"};process.stdout.write(c.createHash("sha256").update("google_calendar.create_event:"+JSON.stringify(input)).digest("hex").slice(0,16))')
+          echo "{\"sid\":\"codex-apps-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
+          OUT=$(echo '{"hook_event_name":"PermissionRequest","tool_name":"google_calendar.create_event","tool_input":{"title":"ci"}}' \
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex PermissionRequest hook did not exit 0 with verified record"; exit 1; }
+          echo "$OUT" | grep -q '"hookEventName":"PermissionRequest"' || { echo "::error::PermissionRequest output wrapper missing on allow"; exit 1; }
+          echo "$OUT" | grep -q '"behavior":"allow"' || { echo "::error::PermissionRequest allow missing"; exit 1; }
+          if [ -f "$HOME/.transcodes/state/stepup-verified.$FP.json" ]; then
+            echo "::error::Codex PermissionRequest did NOT consume fp-keyed Apps verified record"; exit 1
+          fi
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state/policy-bundle.proj-ci.json" "$HOME/.transcodes/state/stepup-pending.json"
 
       - name: codex · Stop hook clean state
         run: |

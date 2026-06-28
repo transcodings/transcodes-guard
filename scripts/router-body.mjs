@@ -39,6 +39,7 @@ const WORKFLOW_MENU = [
   '1) Gate an MCP tool behind step-up MFA',
   '   - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.',
   '   - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking — never guess.',
+  '   - On Codex, Apps may emit dotted names such as `google_calendar.create_event`; simulate the observed name, not only the displayed canonical rule name.',
   '   - `simulate_tool_call` to verify it matches → `get_resources` to pick resource + action (create|read|update|delete) → confirm details with the user → `add_tool_rule`. If a CLI command also triggers it, pass `cliRegex`.',
   '   - PER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the same logical tool under a different wire name — one rule per host. PREFIX `id` with the host slug (`claude-…`, `codex-…`); provider is set automatically from this MCP server (TRANSCODES_GUARD_HOST always wins).',
   '   - ADD, do not OVERWRITE: to protect the same tool on another host, call `add_tool_rule` there with a NEW id. NEVER `update_tool_rule` to repoint another host\'s rule. If `add_tool_rule` returns "already exists", pick a new id — do not fall back to update.',
