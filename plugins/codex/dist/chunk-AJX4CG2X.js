@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "antigravity";
+process.env.TRANSCODES_GUARD_HOST = "codex";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -1030,7 +1030,8 @@ async function createStepupSession(config, args) {
     envelope,
     sid: payload ? readString2(payload, "sid") : void 0,
     browserUrl: payload ? readString2(payload, "url") ?? readString2(payload, "browser_url") ?? readString2(payload, "browserUrl") : void 0,
-    expiresAt: payload ? readString2(payload, "expiresAt") ?? readString2(payload, "expires_at") : void 0
+    expiresAt: payload ? readString2(payload, "expiresAt") ?? readString2(payload, "expires_at") : void 0,
+    mode: payload ? readString2(payload, "mode") : void 0
   };
 }
 async function createConsoleBrowserSession(config, args = {}) {
@@ -1049,7 +1050,8 @@ async function createConsoleBrowserSession(config, args = {}) {
     envelope,
     sid: payload ? readString2(payload, "sid") : void 0,
     browserUrl: payload ? readString2(payload, "url") ?? readString2(payload, "browser_url") ?? readString2(payload, "browserUrl") : void 0,
-    expiresAt: payload ? readString2(payload, "expiresAt") ?? readString2(payload, "expires_at") : void 0
+    expiresAt: payload ? readString2(payload, "expiresAt") ?? readString2(payload, "expires_at") : void 0,
+    mode: payload ? readString2(payload, "mode") : void 0
   };
 }
 async function pollStepupSession(config, sid) {
