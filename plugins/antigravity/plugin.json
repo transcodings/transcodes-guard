@@ -1,6 +1,6 @@
 {
   "name": "transcodes-guard",
-  "version": "0.28.8",
+  "version": "0.28.9",
   "description": "Risky-shell interceptor + audit MCP server for Google Antigravity 2.0.",
   "license": "FSL-1.1-ALv2"
 }
