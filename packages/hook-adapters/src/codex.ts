@@ -18,10 +18,34 @@
 import { claudeCodeAdapter } from './claude-code.js';
 import type {
   HookAdapter,
+  PermissionRequestDecision,
   PreToolUseDecision,
   PreToolUseInput,
   UserPromptSubmitInput,
 } from './types.js';
+
+export function parseCodexPermissionRequestStdin(raw: string): PreToolUseInput {
+  return claudeCodeAdapter.parsePreToolUseStdin(raw);
+}
+
+export function emitCodexPermissionRequest(
+  decision: PermissionRequestDecision,
+): string {
+  if (decision.kind === 'allow') {
+    return JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PermissionRequest',
+        decision: { behavior: 'allow' },
+      },
+    });
+  }
+  return JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'PermissionRequest',
+      decision: { behavior: 'deny', message: decision.message },
+    },
+  });
+}
 
 export const codexAdapter: HookAdapter = {
   host: 'codex',

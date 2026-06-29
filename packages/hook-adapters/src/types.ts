@@ -71,6 +71,11 @@ export type PreToolUseDecision =
       systemMessage?: string;
     };
 
+/** Codex PermissionRequest decision. No updatedInput support for this event. */
+export type PermissionRequestDecision =
+  | { kind: 'allow' }
+  | { kind: 'deny'; message: string };
+
 /**
  * Renders the universal decision/context shapes into a host's wire format.
  *

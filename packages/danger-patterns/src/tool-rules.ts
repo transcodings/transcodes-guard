@@ -133,6 +133,41 @@ export function toolNameMatchesRule(toolName: string, rule: ToolRule): boolean {
   return rule.matcher === 'glob' ? globMatches(name, target) : name === target;
 }
 
+function codexAppsToolNameCandidates(toolName: string): string[] {
+  const canonicalNames = (app: string, tool: string): string[] => {
+    if (!app || !tool) return [];
+    const toolNames = [tool];
+    if (tool.startsWith('_') && tool.length > 1) {
+      toolNames.push(tool.slice(1));
+    }
+    return toolNames.map((name) => `mcp__codex_apps__${app}___${name}`);
+  };
+
+  if (toolName.startsWith('mcp__codex_apps__')) {
+    const rest = toolName.slice('mcp__codex_apps__'.length);
+    const dot = rest.indexOf('.');
+    if (dot === -1) return [];
+    const app = rest.slice(0, dot);
+    const tool = rest.slice(dot + 1);
+    return canonicalNames(app, tool);
+  }
+
+  const parts = toolName.startsWith('codex_apps.')
+    ? toolName.slice('codex_apps.'.length).split('.')
+    : toolName.split('.');
+  if (parts.length !== 2) return [];
+  const [app, tool] = parts;
+  return canonicalNames(app, tool);
+}
+
+function toolNameCandidates(
+  toolName: string,
+  hostProvider: GuardProvider | undefined,
+): string[] {
+  if (hostProvider !== undefined && hostProvider !== 'codex') return [toolName];
+  return [...new Set([toolName, ...codexAppsToolNameCandidates(toolName)])];
+}
+
 /**
  * Map a host / provider string to the canonical rule `provider` slug.
  * Canonical values: claude | codex | cursor | antigravity.
@@ -173,9 +208,10 @@ export function findFirstToolRule(
   rules: MergedToolRule[],
   hostProvider: GuardProvider | undefined = currentHostProvider(),
 ): ToolRuleMatch | null {
+  const names = toolNameCandidates(toolName, hostProvider);
   for (const r of rules) {
     if (
-      toolNameMatchesRule(toolName, r) &&
+      names.some((name) => toolNameMatchesRule(name, r)) &&
       ruleAppliesToHost(r, hostProvider)
     ) {
       return { matched: r };
