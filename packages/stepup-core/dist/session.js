@@ -7,6 +7,7 @@
  */
 import { request } from './client.js';
 const STEPUP_PATH = '/auth/temp-session/step-up/session';
+const CONSOLE_SESSION_PATH = '/auth/temp-session/console/session';
 /**
  * Look for a step-up payload object at `envelope.data.payload[0]`.
  * Mirrors the response shape transcodes-mcp-server already relies on.
@@ -29,6 +30,7 @@ function readString(rec, key) {
     const v = rec[key];
     return typeof v === 'string' && v.trim() ? v : undefined;
 }
+/** MCP / hook step-up — POST .../step-up/session (mode fixed server-side). */
 export async function createStepupSession(config, args) {
     const comment = args.comment?.trim();
     if (!comment) {
@@ -38,13 +40,11 @@ export async function createStepupSession(config, args) {
         method: 'POST',
         path: STEPUP_PATH,
         body: {
-            organization_id: config.organizationId,
             project_id: config.projectId,
             member_id: args.member_id ?? config.memberId,
             action: args.action,
             resource: args.resource,
             comment,
-            mode: args.mode,
         },
     });
     const payload = readStepupPayload(envelope);
@@ -59,6 +59,34 @@ export async function createStepupSession(config, args) {
         expiresAt: payload
             ? (readString(payload, 'expiresAt') ?? readString(payload, 'expires_at'))
             : undefined,
+        mode: payload ? readString(payload, 'mode') : undefined,
+    };
+}
+/** Console auth-host session — same endpoint as Toolkit `redirectToConsole()`. */
+export async function createConsoleBrowserSession(config, args = {}) {
+    const envelope = await request(config, {
+        method: 'POST',
+        path: CONSOLE_SESSION_PATH,
+        body: {
+            project_id: config.projectId,
+            member_id: config.memberId,
+            organization_id: config.organizationId,
+            comment: args.comment,
+        },
+    });
+    const payload = readStepupPayload(envelope);
+    return {
+        envelope,
+        sid: payload ? readString(payload, 'sid') : undefined,
+        browserUrl: payload
+            ? (readString(payload, 'url') ??
+                readString(payload, 'browser_url') ??
+                readString(payload, 'browserUrl'))
+            : undefined,
+        expiresAt: payload
+            ? (readString(payload, 'expiresAt') ?? readString(payload, 'expires_at'))
+            : undefined,
+        mode: payload ? readString(payload, 'mode') : undefined,
     };
 }
 export async function pollStepupSession(config, sid) {

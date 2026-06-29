@@ -12,13 +12,9 @@ export type CreateStepupArgs = {
     action?: string;
     resource?: string;
     member_id?: string;
-    /**
-     * Step-up mode. Set to `"console"` to mint a session that gates browser
-     * access to the Transcodes console (console-protection flow). Omit for the
-     * default command/tool verification flow. Sent verbatim to the backend;
-     * `undefined` is dropped from the JSON body.
-     */
-    mode?: string;
+};
+export type CreateConsoleSessionArgs = {
+    comment?: string;
 };
 export type CreatedStepupSession = {
     envelope: Envelope;
@@ -26,13 +22,18 @@ export type CreatedStepupSession = {
     sid?: string;
     browserUrl?: string;
     expiresAt?: string;
+    /** Session mode the backend assigned (stepup/console/signin). */
+    mode?: string;
 };
 export type PollStepupResult = {
     envelope: Envelope;
     /** "pending" | "verified" | undefined when the envelope shape did not match. */
     status?: string;
 };
+/** MCP / hook step-up — POST .../step-up/session (mode fixed server-side). */
 export declare function createStepupSession(config: StepupConfig, args: CreateStepupArgs): Promise<CreatedStepupSession>;
+/** Console auth-host session — same endpoint as Toolkit `redirectToConsole()`. */
+export declare function createConsoleBrowserSession(config: StepupConfig, args?: CreateConsoleSessionArgs): Promise<CreatedStepupSession>;
 export declare function pollStepupSession(config: StepupConfig, sid: string): Promise<PollStepupResult>;
 export type WaitStepupResult = {
     /** Last poll's envelope — useful for diagnostics. */

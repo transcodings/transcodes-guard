@@ -9,19 +9,17 @@ import { type Envelope, request } from './client.js';
 import type { StepupConfig } from './config.js';
 
 const STEPUP_PATH = '/auth/temp-session/step-up/session';
+const CONSOLE_SESSION_PATH = '/auth/temp-session/console/session';
 
 export type CreateStepupArgs = {
   comment: string;
   action?: string;
   resource?: string;
   member_id?: string;
-  /**
-   * Step-up mode. Set to `"console"` to mint a session that gates browser
-   * access to the Transcodes console (console-protection flow). Omit for the
-   * default command/tool verification flow. Sent verbatim to the backend;
-   * `undefined` is dropped from the JSON body.
-   */
-  mode?: string;
+};
+
+export type CreateConsoleSessionArgs = {
+  comment?: string;
 };
 
 export type CreatedStepupSession = {
@@ -30,6 +28,8 @@ export type CreatedStepupSession = {
   sid?: string;
   browserUrl?: string;
   expiresAt?: string;
+  /** Session mode the backend assigned (stepup/console/signin). */
+  mode?: string;
 };
 
 export type PollStepupResult = {
@@ -66,6 +66,7 @@ function readString(
   return typeof v === 'string' && v.trim() ? v : undefined;
 }
 
+/** MCP / hook step-up — POST .../step-up/session (mode fixed server-side). */
 export async function createStepupSession(
   config: StepupConfig,
   args: CreateStepupArgs,
@@ -81,13 +82,11 @@ export async function createStepupSession(
     method: 'POST',
     path: STEPUP_PATH,
     body: {
-      organization_id: config.organizationId,
       project_id: config.projectId,
       member_id: args.member_id ?? config.memberId,
       action: args.action,
       resource: args.resource,
       comment,
-      mode: args.mode,
     },
   });
 
@@ -103,6 +102,39 @@ export async function createStepupSession(
     expiresAt: payload
       ? (readString(payload, 'expiresAt') ?? readString(payload, 'expires_at'))
       : undefined,
+    mode: payload ? readString(payload, 'mode') : undefined,
+  };
+}
+
+/** Console auth-host session — same endpoint as Toolkit `redirectToConsole()`. */
+export async function createConsoleBrowserSession(
+  config: StepupConfig,
+  args: CreateConsoleSessionArgs = {},
+): Promise<CreatedStepupSession> {
+  const envelope = await request(config, {
+    method: 'POST',
+    path: CONSOLE_SESSION_PATH,
+    body: {
+      project_id: config.projectId,
+      member_id: config.memberId,
+      organization_id: config.organizationId,
+      comment: args.comment,
+    },
+  });
+
+  const payload = readStepupPayload(envelope);
+  return {
+    envelope,
+    sid: payload ? readString(payload, 'sid') : undefined,
+    browserUrl: payload
+      ? (readString(payload, 'url') ??
+        readString(payload, 'browser_url') ??
+        readString(payload, 'browserUrl'))
+      : undefined,
+    expiresAt: payload
+      ? (readString(payload, 'expiresAt') ?? readString(payload, 'expires_at'))
+      : undefined,
+    mode: payload ? readString(payload, 'mode') : undefined,
   };
 }
 

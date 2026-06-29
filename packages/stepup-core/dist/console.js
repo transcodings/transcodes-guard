@@ -1,13 +1,13 @@
 /**
- * Console browser session — auth-host passkey / TOTP self-service (tc_mode=console).
+ * Console browser session — auth-host passkey / TOTP self-service.
  *
  * Same backend flow as SDK `redirectToConsole()` and MCP `get_console_url`:
- * POST /v1/auth/temp-session/step-up/session with mode=console + MAT.
+ * POST /v1/auth/temp-session/console/session.
  */
 import { spawn } from 'node:child_process';
 import { request } from './client.js';
 import { loadStepupConfig } from './config.js';
-import { createStepupSession } from './session.js';
+import { createConsoleBrowserSession } from './session.js';
 import { resolveToken } from './token-store.js';
 export const CONSOLE_SESSION_COMMENT = 'Manage your authentication methods (passkeys, TOTP, security keys)';
 function openBrowser(url) {
@@ -85,11 +85,8 @@ export async function openConsoleSession(options) {
     }
     let created;
     try {
-        created = await createStepupSession(config, {
+        created = await createConsoleBrowserSession(config, {
             comment: options?.comment ?? CONSOLE_SESSION_COMMENT,
-            action: 'verify',
-            resource: 'transcodes:console',
-            mode: 'console',
         });
     }
     catch (err) {

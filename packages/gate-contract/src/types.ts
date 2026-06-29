@@ -130,7 +130,6 @@ export type CreateStepupArgs = {
   action?: string;
   resource?: string;
   member_id?: string;
-  mode?: string;
 };
 
 /** Mirrors session.ts `CreatedStepupSession`. */
@@ -139,6 +138,7 @@ export type CreatedStepupSession = {
   sid?: string;
   browserUrl?: string;
   expiresAt?: string;
+  mode?: string;
 };
 
 /** Mirrors session.ts `PollStepupResult`. */

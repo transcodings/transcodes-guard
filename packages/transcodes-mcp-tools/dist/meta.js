@@ -49,7 +49,7 @@ export function registerMetaTools(server) {
     server.registerTool('get_console_url', {
         title: 'Get console URL',
         description: 'Mint a step-up-protected console URL. Console access is gated behind step-up MFA ' +
-            '(mode=console) so this tool creates a step-up session and returns the browser URL ' +
+            'via POST .../console/session; this tool returns the browser URL ' +
             'the user must visit to authenticate (WebAuthn) before reaching the console. ' +
             'Use when the user needs to perform browser-only actions: ' +
             'passkey register/update/revoke, authenticator register/update/revoke, ' +

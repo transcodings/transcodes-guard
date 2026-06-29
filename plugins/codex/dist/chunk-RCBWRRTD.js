@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "cursor";
+process.env.TRANSCODES_GUARD_HOST = "codex";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -990,6 +990,7 @@ import { spawn } from "child_process";
 
 // ../../packages/stepup-core/dist/session.js
 var STEPUP_PATH = "/auth/temp-session/step-up/session";
+var CONSOLE_SESSION_PATH = "/auth/temp-session/console/session";
 function readStepupPayload(envelope) {
   const data = envelope.data;
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
@@ -1017,13 +1018,30 @@ async function createStepupSession(config, args) {
     method: "POST",
     path: STEPUP_PATH,
     body: {
-      organization_id: config.organizationId,
       project_id: config.projectId,
       member_id: args.member_id ?? config.memberId,
       action: args.action,
       resource: args.resource,
-      comment,
-      mode: args.mode
+      comment
+    }
+  });
+  const payload = readStepupPayload(envelope);
+  return {
+    envelope,
+    sid: payload ? readString2(payload, "sid") : void 0,
+    browserUrl: payload ? readString2(payload, "url") ?? readString2(payload, "browser_url") ?? readString2(payload, "browserUrl") : void 0,
+    expiresAt: payload ? readString2(payload, "expiresAt") ?? readString2(payload, "expires_at") : void 0
+  };
+}
+async function createConsoleBrowserSession(config, args = {}) {
+  const envelope = await request(config, {
+    method: "POST",
+    path: CONSOLE_SESSION_PATH,
+    body: {
+      project_id: config.projectId,
+      member_id: config.memberId,
+      organization_id: config.organizationId,
+      comment: args.comment
     }
   });
   const payload = readStepupPayload(envelope);
@@ -1124,11 +1142,8 @@ async function openConsoleSession(options) {
   }
   let created;
   try {
-    created = await createStepupSession(config, {
-      comment: options?.comment ?? CONSOLE_SESSION_COMMENT,
-      action: "verify",
-      resource: "transcodes:console",
-      mode: "console"
+    created = await createConsoleBrowserSession(config, {
+      comment: options?.comment ?? CONSOLE_SESSION_COMMENT
     });
   } catch (err) {
     return {
@@ -6944,7 +6959,7 @@ function registerMetaTools(server) {
   });
   server.registerTool("get_console_url", {
     title: "Get console URL",
-    description: "Mint a step-up-protected console URL. Console access is gated behind step-up MFA (mode=console) so this tool creates a step-up session and returns the browser URL the user must visit to authenticate (WebAuthn) before reaching the console. Use when the user needs to perform browser-only actions: passkey register/update/revoke, authenticator register/update/revoke, TOTP enroll/update/revoke, OTP flows, JWK backup, or subscription portal (cancel, payment method, invoices). Direct the user to visit the returned browser_url and complete the action there.",
+    description: "Mint a step-up-protected console URL. Console access is gated behind step-up MFA via POST .../console/session; this tool returns the browser URL the user must visit to authenticate (WebAuthn) before reaching the console. Use when the user needs to perform browser-only actions: passkey register/update/revoke, authenticator register/update/revoke, TOTP enroll/update/revoke, OTP flows, JWK backup, or subscription portal (cancel, payment method, invoices). Direct the user to visit the returned browser_url and complete the action there.",
     inputSchema: {}
   }, async () => {
     const result = await openConsoleSession({

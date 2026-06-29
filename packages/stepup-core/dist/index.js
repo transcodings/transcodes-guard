@@ -22,7 +22,7 @@ export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
 export { clearPending, findPendingBySid, firstActivePending, firstInFlightFpPending, isExpired, listFpPendings, markVerified, readPending, sweepStepup, writePending, } from './pending.js';
 export { fetchPolicyBundle, GUARD_POLICY_BUNDLE_SCHEMA_VERSION, loadEffectivePatterns, loadEffectiveToolRules, POLICY_BUNDLE_FETCH_TIMEOUT_MS, POLICY_BUNDLE_TTL_MS, PolicyBundleError, policyBundleCachePath, policyBundleSha384, readCachedPolicyBundle, refreshPolicyBundle, refreshPolicyBundleIfConfigured, verifyAndParsePolicyBundle, writeCachedPolicyBundle, } from './policy-bundle.js';
 export { checkRbacPermission } from './rbac-check.js';
-export { createStepupSession, pollStepupSession, pollStepupSessionWait, } from './session.js';
+export { createConsoleBrowserSession, createStepupSession, pollStepupSession, pollStepupSessionWait, } from './session.js';
 export { cacheDir, consumeVerified, listVerifiedFingerprints, readVerified, writeVerified, } from './store.js';
 export { clearTokenFile, readTokenFromFile, readTokenList, readTokenRecords, removeTokenFromFile, resolveToken, setActiveToken, setTokenLabel, transcodesConfigDir, transcodesConfigFile, writeTokenToFile, } from './token-store.js';
 //# sourceMappingURL=index.js.map

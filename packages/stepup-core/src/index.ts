@@ -106,8 +106,10 @@ export {
 } from './policy-bundle.js';
 export { checkRbacPermission, type RbacLevel } from './rbac-check.js';
 export {
+  type CreateConsoleSessionArgs,
   type CreatedStepupSession,
   type CreateStepupArgs,
+  createConsoleBrowserSession,
   createStepupSession,
   type PollStepupResult,
   pollStepupSession,
