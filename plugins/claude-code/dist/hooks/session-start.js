@@ -8,7 +8,7 @@ import {
 } from "../chunk-KDETBI2I.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.28.8";
+var PLUGIN_VERSION = "0.28.9";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [

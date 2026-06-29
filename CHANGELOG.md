@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.9](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.8...transcodes-guard-v0.28.9) (2026-06-29)
+
+
+### Code Refactoring
+
+* **stepup:** drop mode from session create input; split console API ([aa57dcf](https://github.com/transcodings/transcodes-guard/commit/aa57dcf9c6a66262ea13ee3a0f9bebdd18bb3516))
+
 ## [0.28.8](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.7...transcodes-guard-v0.28.8) (2026-06-27)
 
 
