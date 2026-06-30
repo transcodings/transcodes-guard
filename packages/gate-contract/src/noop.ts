@@ -53,9 +53,6 @@ export const denyByDefaultBackend: GateBackend = {
     return false;
   },
   async sendGateDecisionAudit() {},
-  async refreshPolicyBundle() {
-    return 'skipped' as const;
-  },
 
   // server path — call-shaped methods throw
   createStepupSession() {
@@ -79,27 +76,6 @@ export const denyByDefaultBackend: GateBackend = {
     return notInstalled();
   },
   isRbacCoordinateError(_e: unknown): _e is Error {
-    return false;
-  },
-  loadMergedToolRules() {
-    return [];
-  },
-  loadEffectivePatterns() {
-    return [];
-  },
-  findFirstToolRule() {
-    return null;
-  },
-  addToolRule() {
-    return notInstalled();
-  },
-  updateToolRule() {
-    return notInstalled();
-  },
-  removeToolRule() {
-    return notInstalled();
-  },
-  isToolRuleValidationError(_e: unknown): _e is Error {
     return false;
   },
   // no-op: a public-only server simply registers no backend tools.

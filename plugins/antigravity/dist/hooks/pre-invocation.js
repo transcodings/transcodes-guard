@@ -6,7 +6,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-6X36WUVU.js";
+} from "../chunk-JG43VHEB.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";
@@ -87,9 +87,6 @@ async function main() {
     }
   }
   process.stdout.write(antigravityAdapter.emitPreInvocation(injectSteps));
-  if (input.invocationNum <= 1) {
-    await backend.refreshPolicyBundle();
-  }
   process.exit(0);
 }
 main().catch((err) => {

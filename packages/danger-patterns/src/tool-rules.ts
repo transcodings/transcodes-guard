@@ -123,6 +123,16 @@ function globMatches(pattern: string, toolName: string): boolean {
   return new RegExp(`^${escaped}$`).test(toolName);
 }
 
+/** Wire names emitted by host PreToolUse hooks for MCP tool calls. */
+export function isMcpWireToolName(toolName: string): boolean {
+  return /^mcp__/i.test(toolName);
+}
+
+/** Built-in transcodes-guard MCP wire names — PreToolUse skips /guard/evaluate. */
+export function isTranscodesGuardWireToolName(toolName: string): boolean {
+  return /^mcp__.*transcodes[-_]guard/i.test(toolName);
+}
+
 export function toolNameMatchesRule(toolName: string, rule: ToolRule): boolean {
   if (rule.type === 'bash') return false;
   // Case-insensitive: hosts emit wire names with mixed case

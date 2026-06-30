@@ -4,8 +4,8 @@
  * One interface covers both consumption paths:
  *   - hook path: evaluatePreToolUse + the pending/verified side-effect helpers
  *     the hook entrypoints call after emitting their decision.
- *   - server path: the step-up session tools, RBAC-coordinate validation, the
- *     tool-rule CRUD, and the backend MCP tool registration.
+ *   - server path: the step-up session tools, RBAC-coordinate validation, and
+ *     the backend MCP tool registration.
  *
  * The real implementation lives in `@transcodes-guard/gate-backend` and
  * is registered via `setGateBackend()` at plugin bootstrap. The public side
@@ -22,17 +22,10 @@ import type {
   CreatedStepupSession,
   CreateStepupArgs,
   GateDecision,
-  MergedPattern,
-  MergedToolRule,
   PendingState,
-  PolicyBundleRefreshOutcome,
   PollStepupResult,
   StepupStateInspection,
   ToolCallInput,
-  ToolRule,
-  ToolRuleChanges,
-  ToolRuleInput,
-  ToolRuleMatch,
   VerifiedStepup,
   WaitStepupResult,
 } from './types.js';
@@ -58,15 +51,6 @@ export interface GateBackend {
    * a silent no-op for `pass` decisions or when no token is resolvable.
    */
   sendGateDecisionAudit(decision: GateDecision): Promise<void>;
-  /**
-   * TTL-gated policy bundle refresh (Phase3 v2 G2). Called from the
-   * SessionStart-equivalent hooks AFTER their stdout emit and from MCP server
-   * boot — never from PreToolUse (the hook critical path reads cache only).
-   * Never rejects; a silent no-op when no token is resolvable, and a failed
-   * fetch keeps the previous cache (last-known-good). Returns the outcome so
-   * callers (e.g. the `refresh_rules` MCP tool) can report it honestly.
-   */
-  refreshPolicyBundle(): Promise<PolicyBundleRefreshOutcome>;
 
   // ── server path: step-up session (config loaded internally) ────────────
   createStepupSession(args: CreateStepupArgs): Promise<CreatedStepupSession>;
@@ -83,25 +67,6 @@ export interface GateBackend {
   // ── server path: RBAC coordinate validation (config loaded internally) ──
   assertRbacCoordinate(resource: string, action: string): Promise<void>;
   isRbacCoordinateError(e: unknown): e is Error;
-
-  // ── server path: tool-rule registry ────────────────────────────────────
-  loadMergedToolRules(): MergedToolRule[];
-  /** System baseline + cached bundle bash rules (`type:'bash'`). */
-  loadEffectivePatterns(): MergedPattern[];
-  findFirstToolRule(
-    toolName: string,
-    rules: MergedToolRule[],
-  ): ToolRuleMatch | null;
-  /**
-   * Tool-rule writes (Phase 3 v2): these persist to the Transcodes backend as
-   * project policy (`/v1/guard/rules`) and force-refresh the bundle cache — they
-   * are async network calls, not local-file writes. No token / backend failure
-   * throws a `ToolRuleValidationError` (caught via `isToolRuleValidationError`).
-   */
-  addToolRule(input: ToolRuleInput): Promise<ToolRule>;
-  updateToolRule(id: string, changes: ToolRuleChanges): Promise<ToolRule>;
-  removeToolRule(id: string): Promise<void>;
-  isToolRuleValidationError(e: unknown): e is Error;
 
   // ── server path: backend-coupled MCP tools (member/rbac/passcode/...) ───
   registerBackendTools(server: McpServer): void;

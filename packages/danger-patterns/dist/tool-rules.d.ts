@@ -39,6 +39,10 @@ export declare function loadMergedToolRules(bundleRules?: ToolRule[]): MergedToo
 export interface ToolRuleMatch {
     matched: MergedToolRule;
 }
+/** Wire names emitted by host PreToolUse hooks for MCP tool calls. */
+export declare function isMcpWireToolName(toolName: string): boolean;
+/** Built-in transcodes-guard MCP wire names — PreToolUse skips /guard/evaluate. */
+export declare function isTranscodesGuardWireToolName(toolName: string): boolean;
 export declare function toolNameMatchesRule(toolName: string, rule: ToolRule): boolean;
 /**
  * Map a host / provider string to the canonical rule `provider` slug.

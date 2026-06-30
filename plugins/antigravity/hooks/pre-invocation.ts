@@ -139,12 +139,6 @@ async function main(): Promise<void> {
   }
 
   process.stdout.write(antigravityAdapter.emitPreInvocation(injectSteps));
-  // Policy bundle refresh (G2) AFTER the emit, on the SessionStart-equivalent
-  // invocation only — PreInvocation fires before every model call and the
-  // TTL gate must not be probed each turn.
-  if (input.invocationNum <= 1) {
-    await backend.refreshPolicyBundle();
-  }
   process.exit(0);
 }
 

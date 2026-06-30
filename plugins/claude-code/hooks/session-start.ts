@@ -71,10 +71,6 @@ async function main(): Promise<void> {
   process.stdout.write(
     claudeCodeAdapter.emitSessionStartContext(additionalContext),
   );
-  // Policy bundle refresh (G2) AFTER the context emit — same post-emit
-  // ordering as the decision audit; a slow/unreachable backend can no longer
-  // affect what the session receives.
-  await getGateBackend().refreshPolicyBundle();
   process.exit(0);
 }
 

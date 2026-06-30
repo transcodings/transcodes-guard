@@ -44,9 +44,6 @@ async function main(): Promise<void> {
       cursorAdapter.emitSessionStartContext(parts.join('\n')),
     );
   }
-  // Policy bundle refresh (G2) AFTER the context emit (post-emit ordering,
-  // same as the decision audit) — runs even when there is nothing to emit.
-  await getGateBackend().refreshPolicyBundle();
   process.exit(0);
 }
 

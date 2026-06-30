@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "cursor";
+process.env.TRANSCODES_GUARD_HOST = "antigravity";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -197,9 +197,6 @@ var denyByDefaultBackend = {
   },
   async sendGateDecisionAudit() {
   },
-  async refreshPolicyBundle() {
-    return "skipped";
-  },
   // server path — call-shaped methods throw
   createStepupSession() {
     return notInstalled();
@@ -226,27 +223,6 @@ var denyByDefaultBackend = {
   isRbacCoordinateError(_e) {
     return false;
   },
-  loadMergedToolRules() {
-    return [];
-  },
-  loadEffectivePatterns() {
-    return [];
-  },
-  findFirstToolRule() {
-    return null;
-  },
-  addToolRule() {
-    return notInstalled();
-  },
-  updateToolRule() {
-    return notInstalled();
-  },
-  removeToolRule() {
-    return notInstalled();
-  },
-  isToolRuleValidationError(_e) {
-    return false;
-  },
   // no-op: a public-only server simply registers no backend tools.
   registerBackendTools(_server) {
   }
@@ -261,457 +237,10 @@ function getGateBackend() {
   return current ?? denyByDefaultBackend;
 }
 
-// ../../packages/danger-patterns/dist/data/danger-patterns.json
-var danger_patterns_default = {
-  patterns: [
-    {
-      id: "rm-rf-root",
-      regex: "\\brm\\s+(-[rRf]+\\s+)+(/[^\\s]*|~[^\\s]*|\\$HOME[^\\s]*)",
-      reason: "Recursive removal of an absolute path, ~, or $HOME",
-      stepupAction: "delete",
-      stepupResource: "system"
-    },
-    {
-      id: "chmod-recursive-root",
-      regex: "\\bchmod\\s+-R\\s+\\d+\\s+(/[^\\s]*|~[^\\s]*|\\$HOME[^\\s]*)",
-      reason: "Recursive chmod on an absolute path, ~, or $HOME",
-      stepupAction: "update",
-      stepupResource: "system"
-    },
-    {
-      id: "rm-rf-broad",
-      regex: "\\brm\\s+-[rRf]*[rR][rRf]*\\s+\\*",
-      reason: "Recursive removal with bare glob (rm -rf *)",
-      stepupAction: "delete",
-      stepupResource: "system"
-    },
-    {
-      id: "dd-disk",
-      regex: "\\bdd\\s+.*of=/dev/(sd|nvme|hd|disk)",
-      reason: "Direct write to block device",
-      stepupAction: "update",
-      stepupResource: "system"
-    },
-    {
-      id: "mkfs",
-      regex: "\\bmkfs(\\.|\\s)",
-      reason: "Filesystem creation",
-      stepupAction: "create",
-      stepupResource: "system"
-    },
-    {
-      id: "curl-pipe-shell",
-      regex: "\\b(curl|wget)\\b[^|]*\\|\\s*(sudo\\s+)?(sh|bash|zsh)\\b",
-      reason: "Piping remote content to shell",
-      stepupAction: "update",
-      stepupResource: "system"
-    },
-    {
-      id: "fork-bomb",
-      regex: ":\\(\\)\\s*\\{\\s*:\\|:&",
-      reason: "Classic fork bomb",
-      stepupAction: "update",
-      stepupResource: "system"
-    }
-  ]
-};
-
-// ../../packages/danger-patterns/dist/rbac.js
-var RBAC_ACTIONS = ["create", "read", "update", "delete"];
-var DEFAULT_RBAC_RESOURCE = "system";
-var DEFAULT_RBAC_ACTION = "update";
-function isRbacAction(value) {
-  return typeof value === "string" && RBAC_ACTIONS.includes(value);
-}
-function coerceRbacAction(value) {
-  return isRbacAction(value) ? value : DEFAULT_RBAC_ACTION;
-}
-function coerceRbacResource(value) {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : DEFAULT_RBAC_RESOURCE;
-}
-
-// ../../packages/danger-patterns/dist/danger-patterns.js
-function loadSystemPatterns() {
-  return { patterns: [...danger_patterns_default.patterns] };
-}
-function loadMergedPatterns() {
-  return loadSystemPatterns().patterns.map((p) => ({
-    ...p,
-    stepupResource: coerceRbacResource(p.stepupResource),
-    stepupAction: coerceRbacAction(p.stepupAction),
-    source: "system"
-  }));
-}
-function findFirstMatch(command, patterns) {
-  for (const p of patterns) {
-    try {
-      if (new RegExp(p.regex).test(command))
-        return { matched: p };
-    } catch {
-    }
-  }
-  return null;
-}
-
-// ../../packages/danger-patterns/dist/data/tool-rules.json
-var tool_rules_default = {
-  rules: [
-    {
-      id: "tc-retire-member",
-      type: "mcp",
-      label: "Retire member",
-      description: "Permanent member deletion",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__retire_member",
-      action: "delete",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-suspend-member",
-      type: "mcp",
-      label: "Suspend member",
-      description: "Member login suspension",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__suspend_member",
-      action: "update",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-unsuspend-member",
-      type: "mcp",
-      label: "Unsuspend member",
-      description: "Member suspension removal",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__unsuspend_member",
-      action: "update",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-retire-role",
-      type: "mcp",
-      label: "Retire role",
-      description: "Permanent role deletion",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__retire_role",
-      action: "delete",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-set-role-permissions",
-      type: "mcp",
-      label: "Set role permissions",
-      description: "Role permissions matrix reset",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__set_role_permissions",
-      action: "update",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-update-member-role",
-      type: "mcp",
-      label: "Update member role",
-      description: "Member role reassignment",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__update_member_role",
-      action: "update",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-retire-resource",
-      type: "mcp",
-      label: "Retire resource",
-      description: "Permanent RBAC resource deletion",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__retire_resource",
-      action: "delete",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-passcode-create",
-      type: "mcp",
-      label: "Passcode create",
-      description: "Recovery passcode generation",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__passcode_create",
-      action: "create",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-create-member",
-      type: "mcp",
-      label: "Create member",
-      description: "New member provisioning",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__create_member",
-      action: "create",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-update-member",
-      type: "mcp",
-      label: "Update member",
-      description: "Member profile update",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__update_member",
-      action: "update",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-create-role",
-      type: "mcp",
-      label: "Create role",
-      description: "New RBAC role creation",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__create_role",
-      action: "create",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-update-role",
-      type: "mcp",
-      label: "Update role",
-      description: "RBAC role metadata update",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__update_role",
-      action: "update",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-create-resource",
-      type: "mcp",
-      label: "Create resource",
-      description: "New RBAC resource creation",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__create_resource",
-      action: "create",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-update-resource",
-      type: "mcp",
-      label: "Update resource",
-      description: "RBAC resource metadata update",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__update_resource",
-      action: "update",
-      resource: "system",
-      matcher: "exact"
-    },
-    {
-      id: "tc-get-security-logs",
-      type: "mcp",
-      label: "Get security logs",
-      description: "Project audit log access",
-      name: "mcp__plugin_transcodes-guard_transcodes-guard__get_security_logs",
-      action: "read",
-      resource: "system",
-      matcher: "exact"
-    }
-  ]
-};
-
-// ../../packages/danger-patterns/dist/tool-rules.js
-var GUARD_PROVIDERS = [
-  "claude",
-  "codex",
-  "cursor",
-  "antigravity"
-];
-var ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
-function loadSystemToolRules() {
-  return { rules: [...tool_rules_default.rules] };
-}
-function normalizeRule(r) {
-  if (r.type === "bash") {
-    return {
-      ...r,
-      type: "bash",
-      matcher: "regex",
-      action: coerceRbacAction(r.action),
-      resource: coerceRbacResource(r.resource)
-    };
-  }
-  const { provider: rawProvider, ...rest } = r;
-  const provider = rawProvider !== void 0 ? mapHostToProvider(rawProvider) : void 0;
-  return {
-    ...rest,
-    type: "mcp",
-    matcher: r.matcher ?? "exact",
-    ...provider !== void 0 ? { provider } : {},
-    ...r.action !== void 0 ? { action: coerceRbacAction(r.action) } : {},
-    ...r.resource !== void 0 ? { resource: coerceRbacResource(r.resource) } : {}
-  };
-}
-function loadMergedToolRules(bundleRules = []) {
-  const merged = /* @__PURE__ */ new Map();
-  for (const r of loadSystemToolRules().rules) {
-    merged.set(r.id, { ...normalizeRule(r), source: "system" });
-  }
-  for (const r of bundleRules) {
-    merged.set(r.id, { ...normalizeRule(r), source: "bundle" });
-  }
-  return [...merged.values()];
-}
-function globMatches(pattern, toolName) {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
-  return new RegExp(`^${escaped}$`).test(toolName);
-}
-function toolNameMatchesRule(toolName, rule) {
-  if (rule.type === "bash")
-    return false;
-  const target = toolName.toLowerCase();
-  const name = rule.name.toLowerCase();
-  return rule.matcher === "glob" ? globMatches(name, target) : name === target;
-}
-function mapHostToProvider(host) {
-  if (!host)
-    return void 0;
-  const normalized = host === "claude-code" ? "claude" : host;
-  return isGuardProvider(normalized) ? normalized : void 0;
-}
-function currentHostProvider() {
-  return mapHostToProvider(process.env.TRANSCODES_GUARD_HOST);
-}
-function ruleAppliesToHost(rule, hostProvider = currentHostProvider()) {
-  if (rule.provider === void 0)
-    return true;
-  if (hostProvider === void 0)
-    return true;
-  return rule.provider === hostProvider;
-}
-function findFirstToolRule(toolName, rules, hostProvider = currentHostProvider()) {
-  for (const r of rules) {
-    if (toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r, hostProvider)) {
-      return { matched: r };
-    }
-  }
-  return null;
-}
-function mcpConsumesInHook(rule) {
-  if (rule.consume_in_hook !== void 0)
-    return rule.consume_in_hook;
-  return rule.source === "bundle";
-}
-var ToolRuleValidationError = class extends Error {
-};
-function detectShellCommand(name) {
-  return /[\s|&;<>$*()`\\/]/.test(name);
-}
-function isGuardProvider(v) {
-  return GUARD_PROVIDERS.includes(v);
-}
-function validateNewToolRule(input) {
-  const { id, type = "mcp", label, description, name, matcher = type === "bash" ? "regex" : "exact", provider, action, resource } = input;
-  if (!ID_REGEX.test(id)) {
-    throw new ToolRuleValidationError(`id must match /^[a-z0-9][a-z0-9-]*$/ (got: "${id}")`);
-  }
-  const systemIds = new Set(loadSystemToolRules().rules.map((r) => r.id));
-  if (systemIds.has(id)) {
-    throw new ToolRuleValidationError(`id "${id}" is reserved by a system tool-rule and cannot be overridden`);
-  }
-  const trimmedLabel = label.trim();
-  if (!trimmedLabel) {
-    throw new ToolRuleValidationError("label must not be empty");
-  }
-  const trimmedDescription = description.trim();
-  if (!trimmedDescription) {
-    throw new ToolRuleValidationError("description must not be empty");
-  }
-  const trimmedName = name.trim();
-  if (!trimmedName) {
-    throw new ToolRuleValidationError("name must not be empty");
-  }
-  if (type === "bash") {
-    if (matcher !== "regex") {
-      throw new ToolRuleValidationError('bash rules require matcher "regex"');
-    }
-    try {
-      new RegExp(trimmedName);
-    } catch (e) {
-      throw new ToolRuleValidationError(`name must be a valid regex: ${e.message}`);
-    }
-    const trimmedAction = (action ?? "").trim();
-    if (!isRbacAction(trimmedAction)) {
-      throw new ToolRuleValidationError(`action must be one of create|read|update|delete (got: "${action ?? ""}")`);
-    }
-    const trimmedResource = (resource ?? "").trim();
-    if (!trimmedResource) {
-      throw new ToolRuleValidationError("resource must not be empty");
-    }
-    return {
-      id,
-      type: "bash",
-      label: trimmedLabel,
-      description: trimmedDescription,
-      name: trimmedName,
-      matcher: "regex",
-      action: trimmedAction,
-      resource: trimmedResource
-    };
-  }
-  if (type !== "mcp") {
-    throw new ToolRuleValidationError('type must be "mcp" or "bash"');
-  }
-  if (detectShellCommand(trimmedName)) {
-    throw new ToolRuleValidationError(`"${trimmedName}" looks like a Bash command, not an MCP tool name. Tool rules match a tool_name exactly or via glob; use add_user_pattern (type bash) for Bash.`);
-  }
-  if (matcher !== "exact" && matcher !== "glob") {
-    throw new ToolRuleValidationError("mcp rules require matcher exact or glob");
-  }
-  if (provider !== void 0) {
-    const trimmedProvider = provider.trim();
-    if (!isGuardProvider(trimmedProvider)) {
-      throw new ToolRuleValidationError(`provider must be one of ${GUARD_PROVIDERS.join("|")} (got: "${provider}")`);
-    }
-  }
-  const rule = {
-    id,
-    type: "mcp",
-    label: trimmedLabel,
-    description: trimmedDescription,
-    name: trimmedName,
-    matcher,
-    ...provider !== void 0 ? { provider: provider.trim() } : {}
-  };
-  if (action !== void 0) {
-    const trimmedAction = action.trim();
-    if (!isRbacAction(trimmedAction)) {
-      throw new ToolRuleValidationError(`action must be one of create|read|update|delete (got: "${action}")`);
-    }
-    rule.action = trimmedAction;
-  }
-  if (resource !== void 0) {
-    const trimmedResource = resource.trim();
-    if (!trimmedResource) {
-      throw new ToolRuleValidationError("resource must not be empty");
-    }
-    rule.resource = trimmedResource;
-  }
-  return rule;
-}
-function mergeToolRuleChanges(existing, changes) {
-  const provider = changes.provider ?? existing.provider;
-  const action = changes.action ?? (existing.action !== void 0 ? coerceRbacAction(existing.action) : void 0);
-  const resource = changes.resource ?? (existing.resource !== void 0 ? coerceRbacResource(existing.resource) : void 0);
-  return validateNewToolRule({
-    id: existing.id,
-    type: changes.type ?? existing.type,
-    label: changes.label ?? existing.label,
-    description: changes.description ?? existing.description,
-    name: changes.name ?? existing.name,
-    matcher: changes.matcher ?? existing.matcher,
-    ...provider !== void 0 ? { provider } : {},
-    ...action !== void 0 ? { action } : {},
-    ...resource !== void 0 ? { resource } : {}
-  });
-}
-function systemToolRuleIds() {
-  return new Set(loadSystemToolRules().rules.map((r) => r.id));
-}
-
 // ../../packages/stepup-core/dist/client.js
 var REQUEST_TIMEOUT_MS = 3e4;
 async function request(config, input) {
-  const path7 = input.path.startsWith("/") ? input.path : `/${input.path}`;
+  const path5 = input.path.startsWith("/") ? input.path : `/${input.path}`;
   const params = new URLSearchParams();
   if (input.query) {
     for (const [k, v] of Object.entries(input.query)) {
@@ -721,7 +250,7 @@ async function request(config, input) {
     }
   }
   const qs = params.toString();
-  const url = `${config.apiBaseV1}${path7}${qs ? `?${qs}` : ""}`;
+  const url = `${config.apiBaseV1}${path5}${qs ? `?${qs}` : ""}`;
   const headers = {
     "x-transcodes-token": config.token,
     Accept: "application/json"
@@ -964,7 +493,7 @@ function resolveToken() {
 }
 
 // ../../packages/stepup-core/dist/config.js
-var DEFAULT_BACKEND_URL = process.env.environment === "dev" ? "http://localhost:3500" : "https://api.transcodesapis.com";
+var DEFAULT_BACKEND_URL = "http://localhost:3500";
 var STEPUP_TTL_MS = 10 * 60 * 1e3;
 function loadStepupConfig() {
   const rawUrl = process.env.TRANSCODES_BACKEND_URL?.trim() || DEFAULT_BACKEND_URL;
@@ -1182,9 +711,253 @@ async function openConsoleSession(options) {
   };
 }
 
-// ../../packages/stepup-core/dist/evaluate.js
-import { execFileSync } from "child_process";
-import path6 from "path";
+// ../../packages/danger-patterns/dist/rbac.js
+var RBAC_ACTIONS = ["create", "read", "update", "delete"];
+var DEFAULT_RBAC_RESOURCE = "system";
+var DEFAULT_RBAC_ACTION = "update";
+function isRbacAction(value) {
+  return typeof value === "string" && RBAC_ACTIONS.includes(value);
+}
+function coerceRbacAction(value) {
+  return isRbacAction(value) ? value : DEFAULT_RBAC_ACTION;
+}
+function coerceRbacResource(value) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : DEFAULT_RBAC_RESOURCE;
+}
+
+// ../../packages/danger-patterns/dist/data/tool-rules.json
+var tool_rules_default = {
+  rules: [
+    {
+      id: "tc-retire-member",
+      type: "mcp",
+      label: "Retire member",
+      description: "Permanent member deletion",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__retire_member",
+      action: "delete",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-suspend-member",
+      type: "mcp",
+      label: "Suspend member",
+      description: "Member login suspension",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__suspend_member",
+      action: "update",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-unsuspend-member",
+      type: "mcp",
+      label: "Unsuspend member",
+      description: "Member suspension removal",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__unsuspend_member",
+      action: "update",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-retire-role",
+      type: "mcp",
+      label: "Retire role",
+      description: "Permanent role deletion",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__retire_role",
+      action: "delete",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-set-role-permissions",
+      type: "mcp",
+      label: "Set role permissions",
+      description: "Role permissions matrix reset",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__set_role_permissions",
+      action: "update",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-update-member-role",
+      type: "mcp",
+      label: "Update member role",
+      description: "Member role reassignment",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__update_member_role",
+      action: "update",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-retire-resource",
+      type: "mcp",
+      label: "Retire resource",
+      description: "Permanent RBAC resource deletion",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__retire_resource",
+      action: "delete",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-passcode-create",
+      type: "mcp",
+      label: "Passcode create",
+      description: "Recovery passcode generation",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__passcode_create",
+      action: "create",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-create-member",
+      type: "mcp",
+      label: "Create member",
+      description: "New member provisioning",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__create_member",
+      action: "create",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-update-member",
+      type: "mcp",
+      label: "Update member",
+      description: "Member profile update",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__update_member",
+      action: "update",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-create-role",
+      type: "mcp",
+      label: "Create role",
+      description: "New RBAC role creation",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__create_role",
+      action: "create",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-update-role",
+      type: "mcp",
+      label: "Update role",
+      description: "RBAC role metadata update",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__update_role",
+      action: "update",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-create-resource",
+      type: "mcp",
+      label: "Create resource",
+      description: "New RBAC resource creation",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__create_resource",
+      action: "create",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-update-resource",
+      type: "mcp",
+      label: "Update resource",
+      description: "RBAC resource metadata update",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__update_resource",
+      action: "update",
+      resource: "system",
+      matcher: "exact"
+    },
+    {
+      id: "tc-get-security-logs",
+      type: "mcp",
+      label: "Get security logs",
+      description: "Project audit log access",
+      name: "mcp__plugin_transcodes-guard_transcodes-guard__get_security_logs",
+      action: "read",
+      resource: "system",
+      matcher: "exact"
+    }
+  ]
+};
+
+// ../../packages/danger-patterns/dist/tool-rules.js
+var GUARD_PROVIDERS = [
+  "claude",
+  "codex",
+  "cursor",
+  "antigravity"
+];
+function loadSystemToolRules() {
+  return { rules: [...tool_rules_default.rules] };
+}
+function normalizeRule(r) {
+  if (r.type === "bash") {
+    return {
+      ...r,
+      type: "bash",
+      matcher: "regex",
+      action: coerceRbacAction(r.action),
+      resource: coerceRbacResource(r.resource)
+    };
+  }
+  const { provider: rawProvider, ...rest } = r;
+  const provider = rawProvider !== void 0 ? mapHostToProvider(rawProvider) : void 0;
+  return {
+    ...rest,
+    type: "mcp",
+    matcher: r.matcher ?? "exact",
+    ...provider !== void 0 ? { provider } : {},
+    ...r.action !== void 0 ? { action: coerceRbacAction(r.action) } : {},
+    ...r.resource !== void 0 ? { resource: coerceRbacResource(r.resource) } : {}
+  };
+}
+function loadMergedToolRules(bundleRules = []) {
+  const merged = /* @__PURE__ */ new Map();
+  for (const r of loadSystemToolRules().rules) {
+    merged.set(r.id, { ...normalizeRule(r), source: "system" });
+  }
+  for (const r of bundleRules) {
+    merged.set(r.id, { ...normalizeRule(r), source: "bundle" });
+  }
+  return [...merged.values()];
+}
+function globMatches(pattern, toolName) {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
+  return new RegExp(`^${escaped}$`).test(toolName);
+}
+function isMcpWireToolName(toolName) {
+  return /^mcp__/i.test(toolName);
+}
+function isTranscodesGuardWireToolName(toolName) {
+  return /^mcp__.*transcodes[-_]guard/i.test(toolName);
+}
+function toolNameMatchesRule(toolName, rule) {
+  if (rule.type === "bash")
+    return false;
+  const target = toolName.toLowerCase();
+  const name = rule.name.toLowerCase();
+  return rule.matcher === "glob" ? globMatches(name, target) : name === target;
+}
+function mapHostToProvider(host) {
+  if (!host)
+    return void 0;
+  const normalized = host === "claude-code" ? "claude" : host;
+  return isGuardProvider(normalized) ? normalized : void 0;
+}
+function currentHostProvider() {
+  return mapHostToProvider(process.env.TRANSCODES_GUARD_HOST);
+}
+function ruleAppliesToHost(rule, hostProvider = currentHostProvider()) {
+  if (rule.provider === void 0)
+    return true;
+  if (hostProvider === void 0)
+    return true;
+  return rule.provider === hostProvider;
+}
+function isGuardProvider(v) {
+  return GUARD_PROVIDERS.includes(v);
+}
 
 // ../../packages/stepup-core/dist/gate.js
 import { spawn as spawn2 } from "child_process";
@@ -1779,8 +1552,8 @@ function getErrorMap() {
 
 // ../../node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path7, errorMaps, issueData } = params;
-  const fullPath = [...path7, ...issueData.path || []];
+  const { data, path: path5, errorMaps, issueData } = params;
+  const fullPath = [...path5, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -1896,11 +1669,11 @@ var errorUtil;
 
 // ../../node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path7, key) {
+  constructor(parent, value, path5, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path7;
+    this._path = path5;
     this._key = key;
   }
   get path() {
@@ -5535,209 +5308,6 @@ function sweepStepup(now = Date.now()) {
   }
 }
 
-// ../../packages/stepup-core/dist/policy-bundle.js
-import { createHash as createHash2 } from "crypto";
-import { mkdirSync as mkdirSync6, readFileSync as readFileSync5, renameSync as renameSync2, writeFileSync as writeFileSync5 } from "fs";
-import path5 from "path";
-var GUARD_POLICY_BUNDLE_SCHEMA_VERSION = 3;
-var POLICY_BUNDLE_TTL_MS = 60 * 60 * 1e3;
-var POLICY_BUNDLE_FETCH_TIMEOUT_MS = 3e3;
-var bundleToolRuleSchema = external_exports.object({
-  id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/),
-  type: external_exports.enum(["mcp", "bash"]),
-  label: external_exports.string().min(1),
-  description: external_exports.string().min(1),
-  name: external_exports.string().min(1),
-  matcher: external_exports.enum(["exact", "glob", "regex"]),
-  provider: external_exports.enum(["claude", "codex", "cursor", "antigravity"]).optional(),
-  action: external_exports.enum(RBAC_ACTIONS).optional(),
-  resource: external_exports.string().min(1).optional()
-});
-var policyBundleSchema = external_exports.object({
-  schemaVersion: external_exports.literal(GUARD_POLICY_BUNDLE_SCHEMA_VERSION),
-  revision: external_exports.string().min(1),
-  rules: external_exports.array(bundleToolRuleSchema)
-});
-var manifestSchema = external_exports.object({
-  sha384: external_exports.string().regex(/^[0-9a-f]{96}$/i)
-});
-var PolicyBundleError = class extends Error {
-};
-function canonicalJson(value) {
-  if (value === null || typeof value !== "object") {
-    return JSON.stringify(value) ?? "null";
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map((v) => canonicalJson(v)).join(",")}]`;
-  }
-  const entries = Object.entries(value).filter(([, v]) => v !== void 0).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
-  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
-}
-function policyBundleSha384(body) {
-  return createHash2("sha384").update(canonicalJson(body), "utf8").digest("hex");
-}
-function verifyAndParsePolicyBundle(raw) {
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new PolicyBundleError("bundle body is not an object");
-  }
-  const { manifest, ...body } = raw;
-  const manifestParsed = manifestSchema.safeParse(manifest);
-  if (!manifestParsed.success) {
-    throw new PolicyBundleError("manifest.sha384 missing or malformed");
-  }
-  const expected = manifestParsed.data.sha384.toLowerCase();
-  const actual = policyBundleSha384(body);
-  if (actual !== expected) {
-    throw new PolicyBundleError(`manifest sha384 mismatch (manifest=${expected.slice(0, 12)}\u2026, body=${actual.slice(0, 12)}\u2026)`);
-  }
-  const parsed = policyBundleSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new PolicyBundleError(`bundle schema invalid: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
-  }
-  return parsed.data;
-}
-function policyBundleCachePath(projectId) {
-  const safe = projectId.replace(/[^A-Za-z0-9._-]/g, "_");
-  return path5.join(cacheDir(), `policy-bundle.${safe}.json`);
-}
-function readCachedPolicyBundle(projectId, ttlMs = POLICY_BUNDLE_TTL_MS) {
-  let raw;
-  try {
-    raw = readFileSync5(policyBundleCachePath(projectId), "utf8");
-  } catch {
-    return null;
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return null;
-  }
-  const envelope = parsed;
-  if (typeof envelope.fetchedAt !== "number") {
-    return null;
-  }
-  const bundle = policyBundleSchema.safeParse(envelope.bundle);
-  if (!bundle.success) {
-    return null;
-  }
-  return {
-    bundle: bundle.data,
-    fetchedAt: envelope.fetchedAt,
-    fresh: Date.now() - envelope.fetchedAt < ttlMs
-  };
-}
-function writeCachedPolicyBundle(projectId, bundle) {
-  const file = policyBundleCachePath(projectId);
-  mkdirSync6(path5.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  const envelope = { fetchedAt: Date.now(), bundle };
-  writeFileSync5(tmp, JSON.stringify(envelope), { mode: 384 });
-  renameSync2(tmp, file);
-}
-function unwrapBundleBody(data) {
-  if (data === null || typeof data !== "object" || Array.isArray(data)) {
-    return data;
-  }
-  const env = data;
-  if (Array.isArray(env.payload) && ("success" in env || "statusCode" in env)) {
-    return env.payload[0];
-  }
-  return data;
-}
-async function fetchPolicyBundle(config, currentRevision) {
-  const res = await request(config, {
-    method: "GET",
-    path: "/guard/policy-bundle",
-    query: { revision: currentRevision },
-    timeoutMs: POLICY_BUNDLE_FETCH_TIMEOUT_MS
-  });
-  if (res.status === 304) {
-    return { kind: "not-modified" };
-  }
-  if (!res.ok) {
-    return {
-      kind: "error",
-      message: res.status === 0 ? "backend unreachable" : `backend responded ${res.status}`
-    };
-  }
-  try {
-    return {
-      kind: "fetched",
-      bundle: verifyAndParsePolicyBundle(unwrapBundleBody(res.data))
-    };
-  } catch (err) {
-    return {
-      kind: "error",
-      message: err instanceof Error ? err.message : String(err)
-    };
-  }
-}
-async function refreshPolicyBundle(config, opts = {}) {
-  try {
-    const ttlMs = opts.ttlMs ?? POLICY_BUNDLE_TTL_MS;
-    const cached = readCachedPolicyBundle(config.projectId, ttlMs);
-    if (cached?.fresh && !opts.force) {
-      return "fresh";
-    }
-    const result = await fetchPolicyBundle(config, cached?.bundle.revision);
-    if (result.kind === "fetched") {
-      writeCachedPolicyBundle(config.projectId, result.bundle);
-      return "refreshed";
-    }
-    if (result.kind === "not-modified" && cached) {
-      writeCachedPolicyBundle(config.projectId, cached.bundle);
-      return "not-modified";
-    }
-    if (result.kind === "error") {
-      console.error(`transcodes-guard: policy bundle refresh failed \u2014 keeping cached bundle (${result.message})`);
-    }
-    return "failed";
-  } catch (err) {
-    console.error(`transcodes-guard: policy bundle refresh failed \u2014 keeping cached bundle (${err instanceof Error ? err.message : String(err)})`);
-    return "failed";
-  }
-}
-function loadEffectiveToolRules() {
-  let bundleRules = [];
-  try {
-    const config = loadStepupConfig();
-    bundleRules = (readCachedPolicyBundle(config.projectId)?.bundle.rules ?? []).filter((r) => r.type === "mcp").map((r) => ({ ...r, type: "mcp" }));
-  } catch {
-  }
-  return loadMergedToolRules(bundleRules);
-}
-function loadEffectivePatterns() {
-  const system = loadMergedPatterns();
-  let bundle = [];
-  try {
-    const config = loadStepupConfig();
-    const rules = readCachedPolicyBundle(config.projectId)?.bundle.rules ?? [];
-    bundle = rules.filter((r) => r.type === "bash").map((r) => ({
-      id: r.id,
-      regex: r.name,
-      reason: r.description,
-      stepupResource: coerceRbacResource(r.resource),
-      stepupAction: coerceRbacAction(r.action),
-      source: "bundle"
-    }));
-  } catch {
-  }
-  return [...system, ...bundle];
-}
-async function refreshPolicyBundleIfConfigured(opts = {}) {
-  let config;
-  try {
-    config = loadStepupConfig();
-  } catch {
-    return "skipped";
-  }
-  return refreshPolicyBundle(config, opts);
-}
-
 // ../../packages/stepup-core/dist/rbac-check.js
 async function evaluateAction(config, body) {
   const env = await request(config, {
@@ -5808,98 +5378,6 @@ var GATE_DECISION_KIND2 = {
   BLOCK_STEPUP_CREATE_FAILED: "block-stepup-create-failed",
   BLOCK_STEPUP_CHALLENGED: "block-stepup-challenged"
 };
-function checkPatternMatch(command) {
-  const hit = findFirstMatch(command, loadEffectivePatterns());
-  if (!hit)
-    return null;
-  const { source, id, reason, stepupResource, stepupAction } = hit.matched;
-  return {
-    reason: `matched ${source} pattern \`${id}\` \u2014 ${reason}`,
-    command,
-    ruleId: id,
-    stepupResource,
-    stepupAction
-  };
-}
-function extractRmTargets(command) {
-  const tokens = command.trim().split(/\s+/);
-  const rmIdx = tokens.indexOf("rm");
-  if (rmIdx === -1)
-    return null;
-  let i = rmIdx + 1;
-  let recursive = false;
-  while (i < tokens.length) {
-    const t = tokens[i];
-    if (t === "--") {
-      i++;
-      break;
-    }
-    if (t.startsWith("-") && /^-[a-zA-Z]+$/.test(t)) {
-      if (/[rR]/.test(t))
-        recursive = true;
-      i++;
-      continue;
-    }
-    break;
-  }
-  if (!recursive)
-    return null;
-  const targets = tokens.slice(i).filter((t) => !t.startsWith("-"));
-  return targets.length > 0 ? targets : null;
-}
-function checkTargetGitTracked(target, cwd) {
-  if (/[*?{[]/.test(target))
-    return null;
-  const abs = path6.resolve(cwd, target);
-  let toplevel;
-  try {
-    toplevel = execFileSync("git", ["-C", cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-  } catch {
-    return null;
-  }
-  const rel = path6.relative(toplevel, abs);
-  if (rel.startsWith("..") || path6.isAbsolute(rel))
-    return null;
-  let tracked;
-  try {
-    const out = execFileSync("git", ["-C", toplevel, "ls-files", "--", rel || "."], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-    tracked = out.split("\n").filter(Boolean);
-  } catch {
-    return null;
-  }
-  if (tracked.length === 0)
-    return null;
-  return {
-    target,
-    trackedCount: tracked.length,
-    samples: tracked.slice(0, 3)
-  };
-}
-function checkRmGitTracked(command, cwd) {
-  const targets = extractRmTargets(command);
-  if (!targets)
-    return null;
-  const hits = [];
-  for (const target of targets) {
-    const check = checkTargetGitTracked(target, cwd);
-    if (check)
-      hits.push(check);
-  }
-  if (hits.length === 0)
-    return null;
-  const totalFiles = hits.reduce((a, h) => a + h.trackedCount, 0);
-  return {
-    reason: `rm -rf would delete ${totalFiles} file(s) tracked in git`,
-    details: hits.map((h) => {
-      const more = h.trackedCount > h.samples.length ? `, +${h.trackedCount - h.samples.length} more` : "";
-      return `${h.target} \u2014 ${h.trackedCount} tracked file(s): ${h.samples.join(", ")}${more}`;
-    }),
-    command,
-    ruleId: "rm-git-tracked",
-    stepupResource: DEFAULT_RBAC_RESOURCE,
-    stepupAction: "delete"
-  };
-}
 function stringifyToolInput(input) {
   try {
     const s = JSON.stringify(input);
@@ -5909,6 +5387,11 @@ function stringifyToolInput(input) {
   } catch {
     return "[unserializable]";
   }
+}
+var GUARD_EVALUATE_RULE_ID = "guard-evaluate";
+var BASH_EVALUATE_RULE_ID = "guard-evaluate-bash";
+function mcpConsumesInHookByWireName(toolName) {
+  return !isTranscodesGuardWireToolName(toolName);
 }
 async function recheckVerifiedSid(sid) {
   if (!resolveToken().token)
@@ -5937,15 +5420,33 @@ function classifyToolCall(input) {
       return null;
     return { kind: "bash", command: cmd, cwd: input.cwd };
   }
-  const rules = loadEffectiveToolRules();
-  const match = findFirstToolRule(input.toolName, rules);
-  if (!match)
-    return null;
+  if (isMcpWireToolName(input.toolName)) {
+    if (isTranscodesGuardWireToolName(input.toolName))
+      return null;
+    return {
+      kind: "mcp",
+      toolName: input.toolName,
+      toolInput: input.toolInput
+    };
+  }
+  return null;
+}
+function buildBashBlock(command) {
   return {
-    kind: "mcp",
-    toolName: input.toolName,
-    toolInput: input.toolInput,
-    rule: match.matched
+    reason: "shell command \u2014 POST /guard/evaluate",
+    command,
+    ruleId: BASH_EVALUATE_RULE_ID,
+    stepupResource: DEFAULT_RBAC_RESOURCE,
+    stepupAction: "update"
+  };
+}
+function buildMcpBlock(classified) {
+  return {
+    reason: "MCP tool call \u2014 POST /guard/evaluate",
+    command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
+    ruleId: GUARD_EVALUATE_RULE_ID,
+    stepupResource: DEFAULT_RBAC_RESOURCE,
+    stepupAction: "update"
   };
 }
 async function evaluatePreToolUse(input) {
@@ -5957,16 +5458,8 @@ async function evaluatePreToolUse(input) {
   }
   if (!classified)
     return { kind: GATE_DECISION_KIND2.PROCEED_UNGATED };
-  const block = classified.kind === "bash" ? checkPatternMatch(classified.command) ?? checkRmGitTracked(classified.command, classified.cwd) : {
-    reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` \u2014 ${classified.rule.description}`,
-    command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
-    ruleId: classified.rule.id,
-    stepupResource: classified.rule.resource ?? DEFAULT_RBAC_RESOURCE,
-    stepupAction: classified.rule.action ?? "update"
-  };
-  if (!block)
-    return { kind: GATE_DECISION_KIND2.PROCEED_UNGATED };
-  const localConsumeHere = classified.kind === "bash" || classified.kind === "mcp" && mcpConsumesInHook(classified.rule);
+  const block = classified.kind === "bash" ? buildBashBlock(classified.command) : buildMcpBlock(classified);
+  const localConsumeHere = classified.kind === "bash" || classified.kind === "mcp" && mcpConsumesInHookByWireName(classified.toolName);
   const fingerprintKey = classified.kind === "bash" ? classified.command : `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
   const fp = localConsumeHere ? fingerprintOf(fingerprintKey) : void 0;
   const verified = readVerified(fp);
@@ -5985,7 +5478,7 @@ async function evaluatePreToolUse(input) {
   if (!resolveToken().token) {
     return { kind: GATE_DECISION_KIND2.BLOCK_NO_TOKEN, block };
   }
-  const comment = classified.kind === "bash" ? `Confirm danger command: ${block.reason}` : `Confirm ${classified.rule.id}: ${classified.rule.label}`;
+  const comment = classified.kind === "bash" ? `Confirm shell command: ${block.command}` : `Confirm MCP tool: ${classified.toolName}`;
   let verdict = null;
   try {
     verdict = await evaluateAction(loadStepupConfig(), {
@@ -6122,193 +5615,8 @@ async function sendGateDecisionAudit(decision) {
   await sendDecisionAudit(config, event);
 }
 
-// ../../packages/stepup-core/dist/guard-rules.js
-function requireConfig() {
-  try {
-    return loadStepupConfig();
-  } catch {
-    throw new ToolRuleValidationError("No Transcodes token configured \u2014 tool-rules are managed in the backend and require a project token.");
-  }
-}
-function extractBackendError(data) {
-  if (data && typeof data === "object" && "error" in data) {
-    const e = data.error;
-    if (typeof e === "string" && e.length > 0)
-      return e;
-  }
-  return void 0;
-}
-function backendWriteError(env, id, op) {
-  if (env.status === 409) {
-    return new ToolRuleValidationError(`tool-rule "${id}" already exists`);
-  }
-  if (env.status === 404) {
-    return new ToolRuleValidationError(`no tool-rule with id "${id}"`);
-  }
-  const detail = env.status === 0 ? "backend unreachable" : extractBackendError(env.data) ?? `backend responded ${env.status}`;
-  return new ToolRuleValidationError(`could not ${op} tool-rule: ${detail}`);
-}
-function ruleToCreateBody(input, rule) {
-  return {
-    rule_id: rule.id,
-    type: rule.type,
-    label: rule.label,
-    description: rule.description,
-    status: input.status ?? "active",
-    name: rule.name,
-    matcher: rule.matcher,
-    ...rule.provider !== void 0 ? { provider: rule.provider } : {},
-    ...rule.action !== void 0 ? { action: rule.action } : {},
-    ...rule.resource !== void 0 ? { resource: rule.resource } : {},
-    ...input.metadata !== void 0 ? { metadata: input.metadata } : {}
-  };
-}
-function ruleToUpdateBody(merged, changes) {
-  const body = {
-    type: merged.type,
-    label: merged.label,
-    description: merged.description,
-    status: changes.status ?? "active",
-    name: merged.name,
-    matcher: merged.matcher,
-    ...changes.metadata !== void 0 ? { metadata: changes.metadata } : {}
-  };
-  if (merged.action !== void 0) {
-    body.action = merged.action;
-  }
-  if (merged.resource !== void 0) {
-    body.resource = merged.resource;
-  }
-  if (merged.provider !== void 0) {
-    body.provider = merged.provider;
-  }
-  return body;
-}
-function unwrapPayloadArray(data) {
-  if (Array.isArray(data))
-    return data;
-  if (data !== null && typeof data === "object" && !Array.isArray(data)) {
-    const payload = data.payload;
-    if (Array.isArray(payload))
-      return payload;
-  }
-  return [];
-}
-function parseGuardRuleRecord(raw) {
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-    return null;
-  }
-  const r = raw;
-  const id = typeof r.id === "string" ? r.id : "";
-  const type = r.type === "mcp" || r.type === "bash" ? r.type : null;
-  const label = typeof r.label === "string" ? r.label : "";
-  const description = typeof r.description === "string" ? r.description : "";
-  const name = typeof r.name === "string" ? r.name : "";
-  const matcher = r.matcher === "exact" || r.matcher === "glob" || r.matcher === "regex" ? r.matcher : type === "bash" ? "regex" : "exact";
-  const status = r.status === "active" || r.status === "inactive" ? r.status : null;
-  if (!id || !type || !label || !description || !name || !status)
-    return null;
-  const record = {
-    id,
-    type,
-    label,
-    description,
-    name,
-    matcher,
-    status
-  };
-  if (typeof r.action === "string")
-    record.action = r.action;
-  if (typeof r.resource === "string")
-    record.resource = r.resource;
-  if (r.provider === "claude" || r.provider === "codex" || r.provider === "cursor" || r.provider === "antigravity") {
-    record.provider = r.provider;
-  }
-  if (typeof r.memberId === "string")
-    record.memberId = r.memberId;
-  if (typeof r.createdAt === "string")
-    record.createdAt = r.createdAt;
-  if (typeof r.updatedAt === "string")
-    record.updatedAt = r.updatedAt;
-  if (r.metadata !== void 0 && r.metadata !== null && typeof r.metadata === "object") {
-    record.metadata = r.metadata;
-  }
-  return record;
-}
-async function listGuardRules() {
-  const config = requireConfig();
-  const env = await request(config, {
-    method: "GET",
-    path: "/guard/rules"
-  });
-  if (!env.ok) {
-    throw backendWriteError(env, "", "list");
-  }
-  return unwrapPayloadArray(env.data).map(parseGuardRuleRecord).filter((r) => r !== null);
-}
-async function findProjectRule(config, id) {
-  if (systemToolRuleIds().has(id))
-    return void 0;
-  const cached = readCachedPolicyBundle(config.projectId)?.bundle.rules.find((r) => r.id === id);
-  if (cached) {
-    return {
-      ...cached,
-      type: cached.type,
-      status: "active"
-    };
-  }
-  return (await listGuardRules()).find((r) => r.id === id);
-}
-async function addToolRule(input) {
-  const config = requireConfig();
-  const rule = validateNewToolRule(input);
-  const env = await request(config, {
-    method: "POST",
-    path: "/guard/rules",
-    body: ruleToCreateBody(input, rule)
-  });
-  if (!env.ok)
-    throw backendWriteError(env, rule.id, "add");
-  await refreshPolicyBundle(config, { force: true });
-  return rule;
-}
-async function updateToolRule(id, changes) {
-  const config = requireConfig();
-  if (systemToolRuleIds().has(id)) {
-    throw new ToolRuleValidationError(`id "${id}" is a system tool-rule and cannot be modified`);
-  }
-  const existing = await findProjectRule(config, id);
-  if (!existing) {
-    throw new ToolRuleValidationError(`no tool-rule with id "${id}"`);
-  }
-  const merged = mergeToolRuleChanges(existing, changes);
-  const env = await request(config, {
-    method: "PUT",
-    path: `/guard/rules/${encodeURIComponent(id)}`,
-    body: ruleToUpdateBody(merged, changes)
-  });
-  if (!env.ok)
-    throw backendWriteError(env, id, "update");
-  await refreshPolicyBundle(config, { force: true });
-  return merged;
-}
-async function removeToolRule(id) {
-  const config = requireConfig();
-  if (systemToolRuleIds().has(id)) {
-    throw new ToolRuleValidationError(`id "${id}" is a system tool-rule and cannot be removed`);
-  }
-  const env = await request(config, {
-    method: "DELETE",
-    path: `/guard/rules/${encodeURIComponent(id)}`,
-    omitBody: true
-  });
-  if (!env.ok)
-    throw backendWriteError(env, id, "remove");
-  await refreshPolicyBundle(config, { force: true });
-}
-
 // ../../packages/stepup-core/dist/inspector.js
-import { readFileSync as readFileSync6 } from "fs";
+import { readFileSync as readFileSync5 } from "fs";
 var VERIFIED_BASE = "stepup-verified";
 var PENDING_BASE = "stepup-pending";
 var BROWSER_LOCK_BASE = "stepup-browser-lock";
@@ -6316,7 +5624,7 @@ var BROWSER_LOCK_TTL_MS2 = 15e3;
 var COMMAND_PREVIEW_LIMIT = 120;
 function readJsonFile(file) {
   try {
-    const raw = readFileSync6(file, "utf8");
+    const raw = readFileSync5(file, "utf8");
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed;
@@ -6598,8 +5906,8 @@ async function req(config, input, toolName, pathSuffix) {
       message: `Tool '${toolName}' is not in this plugin's endpoint map.`
     }, null, 2);
   }
-  const path7 = pathSuffix ? `${base}${pathSuffix}` : base;
-  const envelope = await request(config, { ...input, path: path7 });
+  const path5 = pathSuffix ? `${base}${pathSuffix}` : base;
+  const envelope = await request(config, { ...input, path: path5 });
   return JSON.stringify(envelope, null, 2);
 }
 function blockedResult(message) {
@@ -7556,9 +6864,6 @@ var transcodesGateBackend = {
   sweepStepup,
   hasToken: () => Boolean(resolveToken().token),
   sendGateDecisionAudit,
-  refreshPolicyBundle: async () => {
-    return refreshPolicyBundleIfConfigured({ force: true });
-  },
   // server path: step-up session — config loaded internally
   createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),
   pollStepupSession: (sid) => pollStepupSession(loadStepupConfig(), sid),
@@ -7570,15 +6875,6 @@ var transcodesGateBackend = {
   // server path: RBAC coordinate — config loaded internally, error wrapped
   assertRbacCoordinate: (resource, action) => assertRbacCoordinate(loadStepupConfig(), resource, action),
   isRbacCoordinateError: (e) => e instanceof RbacCoordinateError,
-  // server path: tool-rule registry — the effective set includes the cached
-  // org policy bundle layer (G3): baseline → bundle → user.
-  loadMergedToolRules: loadEffectiveToolRules,
-  loadEffectivePatterns,
-  findFirstToolRule,
-  addToolRule,
-  updateToolRule,
-  removeToolRule,
-  isToolRuleValidationError: (e) => e instanceof ToolRuleValidationError,
   // server path: backend-coupled MCP tools
   registerBackendTools: (server) => {
     registerMemberTools(server);
@@ -7601,9 +6897,8 @@ export {
   __commonJS,
   __export,
   __toESM,
-  findFirstMatch,
-  currentHostProvider,
-  ruleAppliesToHost,
+  isMcpWireToolName,
+  isTranscodesGuardWireToolName,
   ZodOptional,
   ZodFirstPartyTypeKind,
   objectType,

@@ -33,6 +33,8 @@ export {
   GUARD_PROVIDERS,
   type GuardMatcher,
   type GuardProvider,
+  isMcpWireToolName,
+  isTranscodesGuardWireToolName,
   loadMergedToolRules,
   loadSystemToolRules,
   type MergedToolRule,

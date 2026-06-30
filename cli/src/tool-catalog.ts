@@ -36,62 +36,19 @@ export function mcpWireName(toolName: string): string {
 export const TRANSCODES_ADMIN_TOOLS: AdminToolEntry[] = [
   // ── Gate & plugin control ──────────────────────────────────────────
   {
-    name: 'simulate_command',
-    title: 'Simulate command against block patterns',
-    description:
-      'Check whether a Bash command would match danger-patterns before it hits the hook.',
-    category: 'Gate & Policies',
-    access: 'gate',
-    stepUpProtected: false,
-  },
-  {
-    name: 'add_user_pattern',
-    title: 'Add user danger pattern',
-    description:
-      'Register a user-owned Bash regex pattern the PreToolUse hook enforces.',
-    category: 'Gate & Policies',
-    access: 'gate',
-    stepUpProtected: false,
-  },
-  {
-    name: 'update_user_pattern',
-    title: 'Update user danger pattern',
-    description: 'Modify regex or reason of an existing user Bash pattern.',
-    category: 'Gate & Policies',
-    access: 'gate',
-    stepUpProtected: false,
-  },
-  {
-    name: 'add_tool_rule',
-    title: 'Add user MCP tool-rule',
-    description:
-      'Register a user-owned MCP tool rule for step-up MFA on tool calls.',
-    category: 'Gate & Policies',
-    access: 'gate',
-    stepUpProtected: false,
-  },
-  {
-    name: 'update_tool_rule',
-    title: 'Update user MCP tool-rule',
-    description: 'Modify an existing user MCP tool rule.',
-    category: 'Gate & Policies',
-    access: 'gate',
-    stepUpProtected: false,
-  },
-  {
-    name: 'refresh_rules',
-    title: 'Refresh rules from the Transcodes backend',
-    description:
-      'Force-refresh the org policy bundle cache NOW and return the currently active tool rules.',
-    category: 'Gate & Policies',
-    access: 'gate',
-    stepUpProtected: false,
-  },
-  {
     name: 'simulate_tool_call',
-    title: 'Simulate MCP tool against tool-rules',
+    title: 'Simulate MCP hook gating',
     description:
-      'Check whether an MCP tool name would match tool-rules before calling it.',
+      'Report whether a full MCP wire tool name would be gated by the PreToolUse hook (POST /guard/evaluate).',
+    category: 'Gate & Policies',
+    access: 'gate',
+    stepUpProtected: false,
+  },
+  {
+    name: 'simulate_command',
+    title: 'Simulate Bash hook gating',
+    description:
+      'Read-only check whether a Bash command would reach POST /guard/evaluate in the PreToolUse hook.',
     category: 'Gate & Policies',
     access: 'gate',
     stepUpProtected: false,

@@ -5,7 +5,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-65Q4PD7N.js";
+} from "../chunk-A4HYKMKM.js";
 
 // hooks/session-start.ts
 function carryoverBlock() {
@@ -31,7 +31,6 @@ async function main() {
       codexAdapter.emitSessionStartContext(parts.join("\n"))
     );
   }
-  await getGateBackend().refreshPolicyBundle();
   process.exit(0);
 }
 main().catch((err) => {

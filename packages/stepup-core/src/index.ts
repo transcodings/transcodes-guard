@@ -50,13 +50,6 @@ export {
   type RequestResult,
   requestStepup,
 } from './gate.js';
-export type { GuardRuleRecord } from './guard-rules.js';
-export {
-  addToolRule,
-  listGuardRules,
-  removeToolRule,
-  updateToolRule,
-} from './guard-rules.js';
 export {
   type BrowserLockInspection,
   inspectStepupState,
@@ -83,27 +76,6 @@ export {
   sweepStepup,
   writePending,
 } from './pending.js';
-export {
-  type CachedPolicyBundle,
-  type FetchPolicyBundleResult,
-  fetchPolicyBundle,
-  GUARD_POLICY_BUNDLE_SCHEMA_VERSION,
-  loadEffectivePatterns,
-  loadEffectiveToolRules,
-  POLICY_BUNDLE_FETCH_TIMEOUT_MS,
-  POLICY_BUNDLE_TTL_MS,
-  type PolicyBundle,
-  PolicyBundleError,
-  type PolicyBundleRefreshOutcome,
-  type PolicyBundleRule,
-  policyBundleCachePath,
-  policyBundleSha384,
-  readCachedPolicyBundle,
-  refreshPolicyBundle,
-  refreshPolicyBundleIfConfigured,
-  verifyAndParsePolicyBundle,
-  writeCachedPolicyBundle,
-} from './policy-bundle.js';
 export { checkRbacPermission, type RbacLevel } from './rbac-check.js';
 export {
   type CreateConsoleSessionArgs,

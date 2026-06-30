@@ -31,9 +31,6 @@ export const denyByDefaultBackend = {
         return false;
     },
     async sendGateDecisionAudit() { },
-    async refreshPolicyBundle() {
-        return 'skipped';
-    },
     // server path — call-shaped methods throw
     createStepupSession() {
         return notInstalled();
@@ -56,27 +53,6 @@ export const denyByDefaultBackend = {
         return notInstalled();
     },
     isRbacCoordinateError(_e) {
-        return false;
-    },
-    loadMergedToolRules() {
-        return [];
-    },
-    loadEffectivePatterns() {
-        return [];
-    },
-    findFirstToolRule() {
-        return null;
-    },
-    addToolRule() {
-        return notInstalled();
-    },
-    updateToolRule() {
-        return notInstalled();
-    },
-    removeToolRule() {
-        return notInstalled();
-    },
-    isToolRuleValidationError(_e) {
         return false;
     },
     // no-op: a public-only server simply registers no backend tools.

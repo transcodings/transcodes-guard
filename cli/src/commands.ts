@@ -42,10 +42,6 @@ export const CLI_COMMAND_SPECS: readonly CliCommandSpec[] = [
       'Open auth settings (passkeys, TOTP) for the active token in your browser',
   },
   {
-    usage: 'transcodes policy refresh',
-    description: 'Force-refresh the org policy bundle cache now',
-  },
-  {
     usage: 'transcodes version',
     description:
       'Print the installed @bigstrider/transcodes-cli npm version (also: --version, -V)',

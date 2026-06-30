@@ -34,14 +34,9 @@ export const MCP_RESOURCES = [
       'Returns the running plugin version. Use to confirm which build is loaded.',
   },
   {
-    uri: 'danger-patterns://list',
-    description:
-      'Regex patterns the PreToolUse hook uses to block dangerous Bash commands.',
-  },
-  {
     uri: 'tool-rules://list',
     description:
-      'Tool-name rules the PreToolUse hook enforces on MCP tool calls.',
+      'Read-only list of system MCP tool-rules (execProtectedTool handler backstop).',
   },
 ];
 
@@ -49,61 +44,18 @@ export const MCP_RESOURCES = [
 export const MCP_TOOLS = [
   // ── Gate & Policies ────────────────────────────────────────────────
   {
-    name: 'simulate_command',
-    description:
-      'Check whether a Bash command would match danger-patterns before it hits the hook.',
-    category: 'Gate & Policies',
-    access: 'gate',
-    stepUpProtected: false,
-    mutating: false,
-  },
-  {
     name: 'simulate_tool_call',
     description:
-      'Check whether an MCP tool name would match tool-rules before calling it.',
+      'Report whether a full MCP wire tool name would be gated by the PreToolUse hook (POST /guard/evaluate).',
     category: 'Gate & Policies',
     access: 'gate',
     stepUpProtected: false,
     mutating: false,
   },
   {
-    name: 'add_user_pattern',
+    name: 'simulate_command',
     description:
-      'Register a user-owned Bash regex pattern the PreToolUse hook enforces.',
-    category: 'Gate & Policies',
-    access: 'gate',
-    stepUpProtected: false,
-    mutating: true,
-  },
-  {
-    name: 'update_user_pattern',
-    description: 'Modify regex or reason of an existing user Bash pattern.',
-    category: 'Gate & Policies',
-    access: 'gate',
-    stepUpProtected: false,
-    mutating: true,
-  },
-  {
-    name: 'add_tool_rule',
-    description:
-      'Register a user-owned MCP tool rule for step-up MFA on tool calls.',
-    category: 'Gate & Policies',
-    access: 'gate',
-    stepUpProtected: false,
-    mutating: true,
-  },
-  {
-    name: 'update_tool_rule',
-    description: 'Modify an existing user MCP tool rule.',
-    category: 'Gate & Policies',
-    access: 'gate',
-    stepUpProtected: false,
-    mutating: true,
-  },
-  {
-    name: 'refresh_rules',
-    description:
-      'Force-refresh the org policy bundle cache and return active tool rules.',
+      'Read-only check whether a Bash command would reach POST /guard/evaluate in the PreToolUse hook.',
     category: 'Gate & Policies',
     access: 'gate',
     stepUpProtected: false,

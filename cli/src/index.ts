@@ -14,7 +14,6 @@
  *   transcodes reset           Delete all saved tokens.
  *   transcodes status          Show the active token source + expiry.
  *   transcodes tokens          List all saved tokens (active marked with *).
- *   transcodes policy refresh  Force-refresh the org policy bundle cache.
  *   transcodes console         Open auth settings for the active token.
  *   transcodes version         Print the installed CLI npm package version.
  *   transcodes help            Usage.
@@ -24,14 +23,10 @@
 
 import {
   clearTokenFile,
-  loadStepupConfig,
   openConsoleSession,
   parseMemberAccessToken,
-  policyBundleCachePath,
-  readCachedPolicyBundle,
   readTokenFromFile,
   readTokenRecords,
-  refreshPolicyBundle,
   resolveToken,
   transcodesConfigFile,
   writeTokenToFile,
@@ -153,11 +148,6 @@ function cmdTokens(): void {
   process.stdout.write('\n* = active token used by the plugins/hooks.\n');
 }
 
-/**
- * `transcodes policy refresh` — force a policy bundle fetch right now
- * (PRD Unit G "캐시" — the hooks refresh on session start only; this is the
- * human's way to pull a just-published rule change without restarting).
- */
 async function cmdConsole(args: string[]): Promise<void> {
   let open = true;
   for (let i = 0; i < args.length; i++) {
@@ -183,33 +173,6 @@ async function cmdConsole(args: string[]): Promise<void> {
   } else {
     process.stdout.write(`Visit: ${result.browserUrl}\n`);
   }
-  process.exit(0);
-}
-
-async function cmdPolicy(args: string[]): Promise<void> {
-  if (args[0] !== 'refresh' || args.length > 1) {
-    fail('usage: transcodes policy refresh');
-  }
-  let config: ReturnType<typeof loadStepupConfig>;
-  try {
-    config = loadStepupConfig();
-  } catch (err) {
-    fail(err instanceof Error ? err.message : String(err));
-  }
-  const outcome = await refreshPolicyBundle(config, { force: true });
-  if (outcome === 'failed') {
-    // refreshPolicyBundle already logged the cause to stderr.
-    fail('policy bundle refresh failed — previous cache (if any) kept.');
-  }
-  const cached = readCachedPolicyBundle(config.projectId);
-  const detail = cached
-    ? ` revision=${cached.bundle.revision} rules=${cached.bundle.rules.length}`
-    : '';
-  process.stdout.write(
-    `Policy bundle ${
-      outcome === 'not-modified' ? 'already current' : 'refreshed'
-    }:${detail}\n  cache: ${policyBundleCachePath(config.projectId)}\n`,
-  );
   process.exit(0);
 }
 
@@ -256,9 +219,6 @@ function main(): void {
       break;
     case 'console':
       void cmdConsole(rest);
-      break;
-    case 'policy':
-      void cmdPolicy(rest);
       break;
     case 'version':
     case '--version':

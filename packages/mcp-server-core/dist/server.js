@@ -1,29 +1,12 @@
 import { spawn as childSpawn } from 'node:child_process';
 import path from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { currentHostProvider, findFirstMatch, ruleAppliesToHost, } from '@transcodes-guard/danger-patterns';
+import { isMcpWireToolName, isTranscodesGuardWireToolName, loadMergedToolRules, } from '@transcodes-guard/danger-patterns';
 import { getGateBackend, } from '@transcodes-guard/gate-contract';
 import { z } from 'zod';
 import { PLUGIN_VERSION } from './build-info.js';
 import { TRANSCODES_ROUTER_BODY } from './router-body.js';
-const RBAC_ACTION_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first to fetch valid resource keys, then pass `stepupResource` (must match one of those keys; validated against the backend) and `stepupAction` (CRUD). System rules use resource `system`. This maps the rule onto the project's RBAC permission matrix and audit log.";
-const TOOL_RULE_RBAC_GUIDANCE = 'RBAC step-up coordinate. WORKFLOW: call `get_resources` first, then pass `resource` (must match a valid key) and `action` (create|read|update|delete). System rules use resource `system`.';
-const MCP_TOOL_NAME_GUIDANCE = 'MCP tool name as emitted by the host PreToolUse hook (full wire name). Call simulate_tool_call with the same string to verify before saving. Before saving, also confirm this MCP tool is actually connected to the host (see the add_tool_rule existence pre-check) — never register a rule for an MCP that is not available.';
-const MCP_TOOL_LOOKUP_NAME_GUIDANCE = 'MCP full wire name, or a canonical tool id/alias shown by tool-rules://list. Alias lookup is display-only and reports will_trigger_hook=false; use the full wire name to verify actual hook behavior.';
-const MCP_EXISTENCE_PRECHECK = 'MCP EXISTENCE PRE-CHECK (mandatory, do this FIRST): a rule must only be registered for an MCP tool that is actually connected to THIS host. Inspect your own available-tools list and confirm the target MCP server/tool is present — e.g. before adding a Google Calendar rule, verify a Google Calendar MCP tool (mcp__..._google_calendar__...) is actually available in this agent (this applies to every host: Claude Code / Codex / Cursor / Antigravity). If the MCP is NOT connected, you MUST REFUSE: do not call add_tool_rule, and tell the user the rule was rejected because the MCP is not connected to this host. Only proceed when the MCP is confirmed present.';
-const ID_COLLISION_HINT = "Each host (claude/codex/cursor/antigravity) needs its OWN rule because the same tool has a different wire name per host. Pick a NEW provider-prefixed id (e.g. `claude-<slug>`, `codex-<slug>`). Provider is set automatically from this MCP server's host (TRANSCODES_GUARD_HOST always wins) — do NOT use update_tool_rule to repoint another host's rule.";
-const TRANSCODES_GUARD_WIRE_PREFIX = 'mcp__plugin_transcodes-guard_transcodes-guard__';
-/** Host identity from `TRANSCODES_GUARD_HOST` (set by each plugin's host.ts). */
-function lockedHostProvider() {
-    const provider = currentHostProvider();
-    if (provider === undefined) {
-        return {
-            ok: false,
-            message: 'Rejected: this MCP server has no host identity (TRANSCODES_GUARD_HOST). Cannot save a host-scoped tool rule.',
-        };
-    }
-    return { ok: true, provider };
-}
+const MCP_TOOL_LOOKUP_NAME_GUIDANCE = 'MCP full wire name from the host PreToolUse hook (e.g. mcp__mongodb__list_collections). External mcp__* names are gated via POST /guard/evaluate; built-in transcodes-guard MCP skips the hook (handler backstop only).';
 // The `/transcodes` umbrella command body lives in the generated
 // router-body.ts (single source: scripts/router-body.mjs), which also renders
 // the four per-host command/skill markdown files — no hand-mirroring.
@@ -33,100 +16,11 @@ function transcodesRouterBody(request) {
         ? trimmed
         : '(no request given — show the menu and ask what they want)');
 }
-function formatPatternsMarkdown(patterns) {
-    const lines = [
-        '# Blocked Bash command patterns',
-        '',
-        `${patterns.length} pattern(s) intercept Bash invocations before execution.`,
-        'System patterns are immutable. Project bash patterns are stored in the Transcodes backend (policy bundle); register via `add_user_pattern` / edit via `update_user_pattern`. Patterns are created inactive and can only be activated or deleted in the Next.js console.',
-        '',
-        '| source | id | reason | regex |',
-        '| ------ | -- | ------ | ----- |',
-    ];
-    for (const { source, id, reason, regex } of patterns) {
-        lines.push(`| ${source} | \`${id}\` | ${reason} | \`${regex}\` |`);
-    }
-    return lines.join('\n');
-}
 /** Drop local pending state when the backend session is terminal (rejected). */
 function dismissPendingSession(backend, sid) {
     const found = backend.findPendingBySid(sid);
     if (found)
         backend.clearPending(found.fp);
-}
-function formatToolRulesMarkdown(rules) {
-    const lines = [
-        '# Step-up-protected MCP tool rules',
-        '',
-        `${rules.length} rule(s) gate MCP tool invocations via the PreToolUse hook.`,
-        'Project rules are stored in the Transcodes backend; register via `add_tool_rule` / edit via `update_tool_rule`. Rules are created inactive and can only be activated or deleted in the Next.js console. System rules are immutable.',
-        '',
-        '| source | rule id | canonical tool id | display name | aliases | wire name / pattern | description | action | resource | matcher |',
-        '| ------ | ------- | ----------------- | ------------ | ------- | ------------------- | ----------- | ------ | -------- | ------- |',
-    ];
-    for (const r of rules) {
-        const metadata = describeToolRuleName(r);
-        lines.push(`| ${r.source} | \`${r.id}\` | ${formatCanonicalToolId(metadata)} | ${metadata.display_name} | ${formatAliases(metadata)} | \`${r.name}\` | ${r.description} | ${r.action ?? '—'} | ${r.resource ?? '—'} | ${r.matcher} |`);
-    }
-    return lines.join('\n');
-}
-function describeToolRuleName(rule) {
-    const isExactMcp = rule.type === 'mcp' && rule.matcher === 'exact';
-    const canonical = isExactMcp
-        ? rule.name.startsWith(TRANSCODES_GUARD_WIRE_PREFIX)
-            ? rule.name.slice(TRANSCODES_GUARD_WIRE_PREFIX.length)
-            : rule.name
-        : undefined;
-    const aliases = new Set();
-    if (canonical && canonical !== rule.name)
-        aliases.add(rule.name);
-    return {
-        canonical_tool_id: canonical,
-        display_name: rule.label || canonical || rule.name,
-        aliases: [...aliases],
-    };
-}
-function findToolRulesByAlias(toolName, rules) {
-    const target = toolName.toLowerCase();
-    return rules.filter((rule) => {
-        if (rule.type !== 'mcp' || rule.matcher !== 'exact')
-            return false;
-        // 실제 게이트(resolveProtectedToolRule)와 동일하게 host-scoping을 적용해,
-        // 다른 호스트 전용 룰을 이 호스트에서 "적용됨"으로 오보하지 않는다.
-        if (!ruleAppliesToHost(rule))
-            return false;
-        const metadata = describeToolRuleName(rule);
-        return [
-            ...(metadata.canonical_tool_id ? [metadata.canonical_tool_id] : []),
-            ...metadata.aliases,
-        ].some((name) => name.toLowerCase() === target);
-    });
-}
-function toolRuleSummary(rule) {
-    const metadata = describeToolRuleName(rule);
-    return {
-        id: rule.id,
-        canonical_tool_id: metadata.canonical_tool_id,
-        display_name: metadata.display_name,
-        aliases: metadata.aliases,
-        source: rule.source,
-        type: rule.type,
-        label: rule.label,
-        description: rule.description,
-        name: rule.name,
-        matcher: rule.matcher,
-        provider: rule.provider,
-        action: rule.action,
-        resource: rule.resource,
-    };
-}
-function formatCanonicalToolId(metadata) {
-    return metadata.canonical_tool_id ? `\`${metadata.canonical_tool_id}\`` : '—';
-}
-function formatAliases(metadata) {
-    return metadata.aliases.length
-        ? metadata.aliases.map((alias) => `\`${alias}\``).join(', ')
-        : '—';
 }
 function textResult(text, isError = false) {
     return {
@@ -134,15 +28,26 @@ function textResult(text, isError = false) {
         content: [{ type: 'text', text }],
     };
 }
+function formatToolRulesMarkdown(rules) {
+    const lines = [
+        '# Step-up-protected MCP tool rules (system)',
+        '',
+        `${rules.length} system rule(s) gate built-in transcodes-guard MCP tools via the execProtectedTool handler backstop.`,
+        'External mcp__* tools are gated via POST /guard/evaluate in the PreToolUse hook — not listed here.',
+        '',
+        '| id | tool name / pattern | description | action | resource |',
+        '| -- | ------------------- | ----------- | ------ | -------- |',
+    ];
+    for (const r of rules) {
+        lines.push(`| \`${r.id}\` | \`${r.name}\` | ${r.description} | ${r.action ?? '—'} | ${r.resource ?? '—'} |`);
+    }
+    return lines.join('\n');
+}
 export function createServer(backend = getGateBackend()) {
     const server = new McpServer({
         name: 'transcodes-guard-mcp',
         version: PLUGIN_VERSION,
     });
-    // Boot-time policy bundle refresh (Phase3 v2 G2) — fire-and-forget so
-    // transport connect is never delayed; failures keep the cached bundle and
-    // an unconfigured machine skips silently.
-    void backend.refreshPolicyBundle();
     server.registerResource('version-info', 'version://info', {
         title: 'Plugin version',
         description: 'Returns the running plugin version. Use this to confirm which build is currently loaded after an update.',
@@ -156,133 +61,6 @@ export function createServer(backend = getGateBackend()) {
             },
         ],
     }));
-    server.registerResource('danger-patterns', 'danger-patterns://list', {
-        title: 'Blocked Bash patterns',
-        description: 'Regex patterns the PreToolUse hook uses to block dangerous Bash commands. Merges immutable system patterns with project bash rules from the signed policy bundle (Transcodes backend).',
-        mimeType: 'text/markdown',
-    }, async (uri) => ({
-        contents: [
-            {
-                uri: uri.href,
-                mimeType: 'text/markdown',
-                text: formatPatternsMarkdown(backend.loadEffectivePatterns()),
-            },
-        ],
-    }));
-    server.registerTool('simulate_command', {
-        title: 'Simulate command against block patterns',
-        description: "Check whether a specific Bash command would be blocked by the PreToolUse hook's regex layer. Call this whenever the user mentions a concrete command and asks if it is dangerous, safe, blocked, intercepted, allowed, or whether the hook/danger-patterns would catch it — including Korean phrasings like '이 명령 차단될까', '이거 hook에 걸려?', 'rm -rf src 실행해도 돼?', '미리 검사해줘'. ALSO use this as the mandatory verification step (step 2) of the `add_user_pattern` natural-language → regex workflow: before saving a regex you inferred from a plain-language intent, simulate a should-match example and a should-NOT-match example to catch false positives. Runs against the union of system and user patterns. Does NOT simulate the second-layer `rm -rf` git-tracked check (cwd-dependent), so the hook may still block commands this tool reports as allowed.",
-        inputSchema: { command: z.string().min(1) },
-    }, async ({ command }) => {
-        const patterns = backend.loadEffectivePatterns();
-        const hit = findFirstMatch(command, patterns);
-        if (!hit) {
-            return textResult(JSON.stringify({
-                matched: false,
-                will_trigger_hook: false,
-                patterns_checked: patterns.length,
-                note: 'Hook may still block via the rm -rf git-tracked semantic check; simulator does not cover that layer.',
-            }, null, 2));
-        }
-        const m = hit.matched;
-        return textResult(JSON.stringify({
-            matched: true,
-            matched_by: m.source,
-            pattern_id: m.id,
-            reason: m.reason,
-            regex: m.regex,
-            will_trigger_hook: true,
-        }, null, 2));
-    });
-    server.registerTool('add_user_pattern', {
-        title: 'Add user danger pattern',
-        description: 'Register a new project bash block pattern (type bash, regex stored in `name`) that the PreToolUse hook enforces. Persisted to the Transcodes backend policy bundle — not a local file. Call when the user asks to add/register/block a Bash command pattern.\n\nDISAMIGUATION — pick by what is being matched: Bash COMMAND STRING → this tool; MCP TOOL CALL → `add_tool_rule`.\n\nWhen adding an MCP tool rule and the same action can be reached via CLI (e.g. `gh`, `git`, `curl`), also register the CLI equivalent here as a separate rule (same id prefix with `-cli` suffix is fine).\n\nWORKFLOW: translate intent → `simulate_command` → confirm with user → `get_resources` for RBAC → save.',
-        inputSchema: {
-            id: z
-                .string()
-                .regex(/^[a-z0-9][a-z0-9-]*$/, 'lowercase alphanumeric + hyphen'),
-            regex: z.string().min(1),
-            reason: z.string().min(1),
-            stepupResource: z.string().min(1).describe(RBAC_ACTION_GUIDANCE),
-            stepupAction: z
-                .enum(['create', 'read', 'update', 'delete'])
-                .describe('RBAC CRUD action this pattern maps onto.'),
-        },
-    }, async (input) => {
-        try {
-            await backend.assertRbacCoordinate(input.stepupResource, input.stepupAction);
-            const saved = await backend.addToolRule({
-                id: input.id,
-                type: 'bash',
-                label: input.reason,
-                description: input.reason,
-                name: input.regex,
-                matcher: 'regex',
-                resource: input.stepupResource,
-                action: input.stepupAction,
-            });
-            return textResult(`Added bash pattern \`${saved.id}\` to project policy.\nregex: ${saved.name}\nreason: ${saved.description}\nresource: ${saved.resource ?? '—'}\naction: ${saved.action ?? '—'}`);
-        }
-        catch (e) {
-            if (backend.isToolRuleValidationError(e) ||
-                backend.isRbacCoordinateError(e)) {
-                return textResult(`Rejected: ${e.message}`, true);
-            }
-            throw e;
-        }
-    });
-    server.registerTool('update_user_pattern', {
-        title: 'Update user danger pattern',
-        description: 'Modify a project bash pattern (Transcodes backend). System patterns cannot be modified.',
-        inputSchema: {
-            id: z.string().min(1),
-            regex: z.string().min(1).optional(),
-            reason: z.string().min(1).optional(),
-            stepupResource: z
-                .string()
-                .min(1)
-                .optional()
-                .describe(RBAC_ACTION_GUIDANCE),
-            stepupAction: z
-                .enum(['create', 'read', 'update', 'delete'])
-                .optional()
-                .describe('RBAC CRUD action this pattern maps onto.'),
-        },
-    }, async ({ id, regex, reason, stepupResource, stepupAction }) => {
-        if (regex === undefined &&
-            reason === undefined &&
-            stepupResource === undefined &&
-            stepupAction === undefined) {
-            return textResult('Rejected: provide at least one of `regex`, `reason`, `stepupResource`, or `stepupAction` to update.', true);
-        }
-        try {
-            if (!backend
-                .loadEffectivePatterns()
-                .some((p) => p.id === id && p.source === 'bundle')) {
-                return textResult(`Rejected: no project bash pattern with id "${id}"`, true);
-            }
-            if (stepupResource !== undefined) {
-                await backend.assertRbacCoordinate(stepupResource, stepupAction ?? 'update');
-            }
-            const saved = await backend.updateToolRule(id, {
-                type: 'bash',
-                ...(regex !== undefined ? { name: regex, matcher: 'regex' } : {}),
-                ...(reason !== undefined
-                    ? { label: reason, description: reason }
-                    : {}),
-                ...(stepupResource !== undefined ? { resource: stepupResource } : {}),
-                ...(stepupAction !== undefined ? { action: stepupAction } : {}),
-            });
-            return textResult(`Updated bash pattern \`${saved.id}\`.\nregex: ${saved.name}\nreason: ${saved.description}\nresource: ${saved.resource ?? '—'}\naction: ${saved.action ?? '—'}`);
-        }
-        catch (e) {
-            if (backend.isToolRuleValidationError(e) ||
-                backend.isRbacCoordinateError(e)) {
-                return textResult(`Rejected: ${e.message}`, true);
-            }
-            throw e;
-        }
-    });
     server.registerTool('create_stepup_session', {
         title: 'Create Step-up MFA Session',
         description: 'Open a Transcodes step-up MFA session. Returns sid and the browser URL ' +
@@ -580,6 +358,28 @@ export function createServer(backend = getGateBackend()) {
     }, async ({ message }) => ({
         content: [{ type: 'text', text: `Echo: ${message}` }],
     }));
+    server.registerTool('simulate_command', {
+        title: 'Simulate Bash hook gating (Guard v3)',
+        description: 'Read-only check whether a Bash command would be intercepted by the PreToolUse hook. Guard v3 routes ALL Bash commands through POST /guard/evaluate — there is no local regex layer. Does NOT invoke the hook, open a browser, or write disk state. Use `simulate_hook_invocation` for full-fidelity hook testing (including verified fast-path consumption).',
+        inputSchema: { command: z.string().min(1) },
+    }, async ({ command }) => {
+        if (!backend.hasToken()) {
+            return textResult(JSON.stringify({
+                matched: true,
+                will_trigger_hook: true,
+                matched_by: 'block-no-token',
+                command,
+                note: 'No TRANSCODES_TOKEN configured — hook denies before POST /guard/evaluate.',
+            }, null, 2));
+        }
+        return textResult(JSON.stringify({
+            matched: true,
+            will_trigger_hook: true,
+            matched_by: 'guard-evaluate',
+            command,
+            note: 'All Bash commands reach POST /guard/evaluate. Outcome: permission 0=hard block, 1=allow, 2=step-up MFA. A valid verified record for this command may allow without re-prompting — use simulate_hook_invocation to test.',
+        }, null, 2));
+    });
     server.registerPrompt('greeting', {
         title: 'Greeting',
         description: 'Generate a greeting addressed to the given name.',
@@ -602,7 +402,7 @@ export function createServer(backend = getGateBackend()) {
     // Antigravity); keep them in sync (see TRANSCODES_ROUTER_BODY consumers).
     server.registerPrompt('transcodes', {
         title: 'transcodes-guard',
-        description: 'Open the transcodes-guard control surface. Say what you want in plain language (add a rule, list rules, check a command, step-up status, integrate/install the SDK) and the agent routes to the right guard tool, asking for any missing detail.',
+        description: 'Open the transcodes-guard control surface. Say what you want in plain language (check whether a Bash/MCP call would trigger step-up, inspect step-up state, Transcodes Admin API operations, integrate/install the SDK) and the agent routes to the right guard tool, asking for any missing detail.',
         argsSchema: { request: z.string().optional() },
     }, ({ request }) => ({
         messages: [
@@ -617,274 +417,49 @@ export function createServer(backend = getGateBackend()) {
     }));
     backend.registerBackendTools(server);
     server.registerResource('tool-rules', 'tool-rules://list', {
-        title: 'Step-up-protected MCP tool rules',
-        description: 'Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with the project policy bundle distributed from the Transcodes backend, read fresh at every request.',
+        title: 'Step-up-protected MCP tool rules (system)',
+        description: 'Read-only list of system MCP tool-rules from hooks/tool-rules.json. These gate built-in transcodes-guard MCP tools via execProtectedTool — external mcp__* tools use POST /guard/evaluate instead.',
         mimeType: 'text/markdown',
     }, async (uri) => ({
         contents: [
             {
                 uri: uri.href,
                 mimeType: 'text/markdown',
-                text: formatToolRulesMarkdown(backend.loadMergedToolRules()),
+                text: formatToolRulesMarkdown(loadMergedToolRules()),
             },
         ],
     }));
-    server.registerTool('refresh_rules', {
-        title: 'Refresh rules from the Transcodes backend',
-        description: 'Force-refresh the org policy bundle cache NOW and return the currently active tool rules. Call when an admin just activated/deactivated or edited a rule in the Next.js console and the change is not yet visible in this session — the MCP server otherwise only refreshes at boot / TTL, so a console change can take up to the TTL to apply. Same force-refresh the CLI `transcodes policy refresh` performs. Read-only beyond the cache fetch.',
-        inputSchema: {},
-    }, async () => {
-        const outcome = await backend.refreshPolicyBundle();
-        const status = {
-            fresh: 'Refreshed — cache now holds the latest bundle.',
-            refreshed: 'Refreshed — cache updated to the latest bundle.',
-            'not-modified': 'Already current — backend confirmed no changes.',
-            failed: 'Refresh FAILED — kept the previous cache (last-known-good). Rules below may be stale.',
-            skipped: 'Skipped — no Transcodes token configured, so there is nothing to refresh.',
-        };
-        const header = `# Policy bundle refresh\n\n${status[outcome] ?? `Outcome: ${outcome}`}`;
-        const rules = formatToolRulesMarkdown(backend.loadMergedToolRules());
-        return textResult(`${header}\n\n${rules}`, outcome === 'failed');
-    });
-    server.registerTool('add_tool_rule', {
-        title: 'Add MCP tool-rule (project policy)',
-        description: `Register a new project tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs — e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called".\n\nDISAMBIGUATION — this gate has two registries; pick by what is being matched:\n  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push) → use \`add_user_pattern\` (regex matching), NOT this tool.\n  - A specific MCP TOOL CALL → use this tool (\`name\` must match the hook's full wire tool name).\nIf the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.\n\nWORKFLOW (follow in order):\n  1. ${MCP_EXISTENCE_PRECHECK}\n  2. RESOLVE the exact wire tool name from the host (e.g. mcp__github__delete_repository, mcp__plugin_<plugin>_<server>__<tool>). Do not guess — confirm with the user or read it from the host's available tools list.\n  3. VERIFY with \`simulate_tool_call\` using that full \`name\` string before saving.\n  4. RESOLVE the RBAC coordinate: call \`get_resources\`, then set \`resource\` and \`action\` (create|read|update|delete). Most rules use resource \`system\`.\n  5. CONFIRM id, name, label, description, resource, action, and matcher with the user, then SAVE via this tool.\n  6. If the same action can be reached via CLI (gh, git, curl, etc.), pass \`cliRegex\` so a Bash companion rule (\`<id>-cli\`) is registered ATOMICALLY in the same call — closing the CLI bypass without a second tool call. The companion reuses this rule's label/description/resource/action. (Standalone Bash patterns unrelated to an MCP tool still go through \`add_user_pattern\`.)\n\`id\` is your stable rule key (lowercase slug, unique per project). \`name\` is what the hook matches — always the full MCP wire name when matcher=exact. Persisted in the Transcodes backend; effective on the next policy refresh.\n\nPER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the SAME logical tool under a DIFFERENT wire name, so protecting a tool everywhere needs ONE rule PER host. PREFIX \`id\` with the host slug (e.g. \`codex-mongodb-list-collections\`, \`antigravity-mongodb-list-collections\`); provider is set automatically from this MCP server's host (TRANSCODES_GUARD_HOST always wins). A rule WITH \`provider\` only fires on that host; a rule WITHOUT \`provider\` fires on every host (used by the built-in baseline). To add coverage for another host, ADD a new provider-prefixed rule from that host — never \`update_tool_rule\` an existing host's rule onto a different host.`,
-        inputSchema: {
-            id: z
-                .string()
-                .regex(/^[a-z0-9][a-z0-9-]*$/, 'lowercase alphanumeric + hyphen'),
-            type: z.literal('mcp').default('mcp'),
-            label: z.string().min(1),
-            description: z.string().min(1),
-            name: z.string().min(1).describe(MCP_TOOL_NAME_GUIDANCE),
-            matcher: z
-                .enum(['exact', 'glob'])
-                .default('exact')
-                .describe('exact = full wire name equality; glob = * and ? wildcards in name'),
-            provider: z
-                .enum(['claude', 'codex', 'cursor', 'antigravity'])
-                .optional()
-                .describe("Host this rule is for (claude/codex/cursor/antigravity). Normally IGNORED — the server uses this MCP server's host (TRANSCODES_GUARD_HOST), which always takes priority. It is only honored as a fallback when the server has no host identity. Prefix `id` with the host slug (e.g. `claude-mongodb-list-collections`)."),
-            resource: z.string().min(1).describe(TOOL_RULE_RBAC_GUIDANCE),
-            action: z
-                .enum(['create', 'read', 'update', 'delete'])
-                .describe('RBAC CRUD action this tool maps onto.'),
-            status: z.enum(['active', 'inactive']).default('active'),
-            cliRegex: z
-                .string()
-                .min(1)
-                .optional()
-                .describe("Optional CLI companion. When the same action is reachable via a shell command (gh, git, curl, …), pass a JavaScript regex here and a second Bash rule (id `<id>-cli`, type bash, matcher regex) is created atomically alongside the MCP rule, reusing this rule's label/description/resource/action. If either write fails the pair is rolled back so nothing partial is saved."),
-        },
-    }, async (input) => {
-        const { cliRegex, provider: inputProvider, ...rest } = input;
-        // env (TRANSCODES_GUARD_HOST) ALWAYS wins: the rule's provider is the
-        // host identity of the MCP server that actually runs the hook. An
-        // agent-supplied `provider` is only a fallback for when this server has
-        // no host identity (e.g. the standalone `mcp` host).
-        const host = lockedHostProvider();
-        const provider = host.ok ? host.provider : inputProvider;
-        if (provider === undefined) {
-            return textResult('Rejected: this MCP server has no host identity (TRANSCODES_GUARD_HOST) and no `provider` was supplied. Pass `provider` (claude/codex/cursor/antigravity) explicitly.', true);
-        }
-        const mcpInput = { ...rest, provider };
-        // Pre-validate the companion regex before any write so a typo never
-        // creates the MCP rule and then forces a rollback.
-        if (cliRegex !== undefined) {
-            try {
-                new RegExp(cliRegex);
-            }
-            catch (e) {
-                return textResult(`Rejected: cliRegex is not a valid JavaScript regex: ${e.message}`, true);
-            }
-        }
-        // Pre-check id collision against the rules we can already see (system +
-        // cached bundle) so the agent gets provider-prefix guidance instead of a
-        // bare 409 — and is never tempted to "fix" it by overwriting via update.
-        const existingIds = new Set(backend.loadMergedToolRules().map((r) => r.id));
-        if (existingIds.has(mcpInput.id)) {
-            return textResult(`Rejected: a tool-rule with id \`${mcpInput.id}\` already exists. ${ID_COLLISION_HINT}`, true);
-        }
-        try {
-            if (mcpInput.resource !== undefined) {
-                await backend.assertRbacCoordinate(mcpInput.resource, mcpInput.action ?? 'update');
-            }
-            const saved = await backend.addToolRule(mcpInput);
-            let companion;
-            if (cliRegex !== undefined) {
-                const companionId = `${saved.id}-cli`;
-                try {
-                    companion = await backend.addToolRule({
-                        id: companionId,
-                        type: 'bash',
-                        label: saved.label,
-                        description: saved.description,
-                        name: cliRegex,
-                        matcher: 'regex',
-                        ...(saved.resource !== undefined
-                            ? { resource: saved.resource }
-                            : {}),
-                        ...(saved.action !== undefined ? { action: saved.action } : {}),
-                    });
-                }
-                catch (companionErr) {
-                    // Compensating rollback: the backend has no batch endpoint, so to
-                    // keep the pair all-or-nothing we delete the MCP rule we just
-                    // created when the companion write fails.
-                    let rolledBack = true;
-                    try {
-                        await backend.removeToolRule(saved.id);
-                    }
-                    catch {
-                        rolledBack = false;
-                    }
-                    if (backend.isToolRuleValidationError(companionErr) ||
-                        backend.isRbacCoordinateError(companionErr)) {
-                        return textResult(`Rejected: CLI companion rule \`${companionId}\` failed — ${companionErr.message}. ${rolledBack
-                            ? `Rolled back the MCP rule \`${saved.id}\`; nothing was saved.`
-                            : `WARNING: could not roll back the MCP rule \`${saved.id}\` — it may still exist (inactive). Delete it from the Next.js console if unintended.`}`, true);
-                    }
-                    throw companionErr;
-                }
-            }
-            const mcpLine = `Added tool-rule \`${saved.id}\` to project policy.\nname: ${saved.name}\nlabel: ${saved.label}\ndescription: ${saved.description}\nresource: ${saved.resource ?? '—'}\naction: ${saved.action ?? '—'}\nmatcher: ${saved.matcher}${saved.provider ? `\nprovider: ${saved.provider}` : ''}`;
-            if (companion) {
-                return textResult(`${mcpLine}\n\nAlso registered CLI companion bash rule \`${companion.id}\` (atomic):\nregex: ${companion.name}\nresource: ${companion.resource ?? '—'}\naction: ${companion.action ?? '—'}`);
-            }
-            return textResult(mcpLine);
-        }
-        catch (e) {
-            if (backend.isToolRuleValidationError(e) ||
-                backend.isRbacCoordinateError(e)) {
-                // Backend 409 backstop (another session created the id since our
-                // local pre-check): append the same provider-prefix guidance so the
-                // agent never falls back to overwriting via update_tool_rule.
-                const hint = /already exists/i.test(e.message)
-                    ? ` ${ID_COLLISION_HINT}`
-                    : '';
-                return textResult(`Rejected: ${e.message}.${hint}`, true);
-            }
-            throw e;
-        }
-    });
-    server.registerTool('update_tool_rule', {
-        title: 'Update MCP tool-rule (project policy)',
-        description: 'Modify fields of an existing project tool-rule by id. Call when the user asks to edit/change an MCP tool-rule — e.g. "change the description of the github-delete rule", "point that tool rule at a different MCP wire name". This is for MCP tool-rules (`name` = full wire tool name); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified. Pass only the fields you want to change. When changing resource, call `get_resources` first. Changes persist to the Transcodes backend and take effect on the next policy refresh.',
-        inputSchema: {
-            id: z.string().min(1),
-            type: z.literal('mcp').optional(),
-            label: z.string().min(1).optional(),
-            description: z.string().min(1).optional(),
-            name: z.string().min(1).optional().describe(MCP_TOOL_NAME_GUIDANCE),
-            matcher: z
-                .enum(['exact', 'glob'])
-                .optional()
-                .describe('exact = full wire name; glob = wildcards in name'),
-            provider: z
-                .enum(['claude', 'codex', 'cursor', 'antigravity'])
-                .optional()
-                .describe("Host this rule applies to (claude/codex/cursor/antigravity). Normally IGNORED — env (TRANSCODES_GUARD_HOST) always wins, so the rule is (re)pointed to this MCP server's host. Honored only as a fallback when the server has no host identity."),
-            resource: z
-                .string()
-                .min(1)
-                .optional()
-                .describe(TOOL_RULE_RBAC_GUIDANCE),
-            action: z
-                .enum(['create', 'read', 'update', 'delete'])
-                .optional()
-                .describe('RBAC CRUD action this tool maps onto.'),
-            status: z.enum(['active', 'inactive']).optional(),
-        },
-    }, async ({ id, type, label, description, name, matcher, provider, action, resource, status, }) => {
-        const host = lockedHostProvider();
-        if (type === undefined &&
-            label === undefined &&
-            description === undefined &&
-            name === undefined &&
-            matcher === undefined &&
-            provider === undefined &&
-            action === undefined &&
-            resource === undefined &&
-            status === undefined) {
-            return textResult('Rejected: provide at least one of `type`, `label`, `description`, `name`, `matcher`, `provider`, `action`, `resource`, or `status` to update.', true);
-        }
-        try {
-            if (resource !== undefined) {
-                await backend.assertRbacCoordinate(resource, action ?? 'update');
-            }
-            const saved = await backend.updateToolRule(id, {
-                type,
-                label,
-                description,
-                name,
-                matcher,
-                action,
-                resource,
-                status,
-                // env (TRANSCODES_GUARD_HOST) ALWAYS wins: when this MCP server has a
-                // host identity, the rule is (re)pointed to it. The agent-supplied
-                // `provider` is only a fallback when there is no host identity.
-                ...(host.ok
-                    ? { provider: host.provider }
-                    : provider !== undefined
-                        ? { provider }
-                        : {}),
-            });
-            return textResult(`Updated tool-rule \`${saved.id}\` in project policy.\nname: ${saved.name}\nlabel: ${saved.label}\ndescription: ${saved.description}\nresource: ${saved.resource ?? '—'}\naction: ${saved.action ?? '—'}\nmatcher: ${saved.matcher}${saved.provider ? `\nprovider: ${saved.provider}` : ''}`);
-        }
-        catch (e) {
-            if (backend.isToolRuleValidationError(e) ||
-                backend.isRbacCoordinateError(e)) {
-                return textResult(`Rejected: ${e.message}`, true);
-            }
-            throw e;
-        }
-    });
     server.registerTool('simulate_tool_call', {
-        title: 'Simulate a tool-rule lookup',
-        description: 'Given a full MCP wire tool name from a PreToolUse hook (e.g. mcp__github__delete_repository) or a listed canonical tool id/alias, report whether any system or project tool-rule matches. Read-only — does not invoke the hook or call the backend. Use to verify a rule name before calling add_tool_rule.',
+        title: 'Simulate MCP hook gating',
+        description: 'Given a full MCP wire tool name from a PreToolUse hook, report whether the hook would gate it. External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP (mcp__*transcodes-guard*) skips the hook — execProtectedTool handler backstop applies. Read-only — does not invoke the hook or call the backend.',
         inputSchema: {
             tool_name: z.string().min(1).describe(MCP_TOOL_LOOKUP_NAME_GUIDANCE),
             tool_input: z.unknown().optional(),
         },
     }, async ({ tool_name }) => {
-        const rules = backend.loadMergedToolRules();
-        const directMatch = backend.findFirstToolRule(tool_name, rules);
-        if (directMatch) {
+        if (isTranscodesGuardWireToolName(tool_name)) {
+            return textResult(JSON.stringify({
+                tool_name,
+                matched: false,
+                will_trigger_hook: false,
+                matched_by: 'transcodes-guard-handler',
+                note: 'Built-in transcodes-guard MCP skips PreToolUse /guard/evaluate; execProtectedTool handler backstop applies.',
+            }, null, 2));
+        }
+        if (isMcpWireToolName(tool_name)) {
             return textResult(JSON.stringify({
                 tool_name,
                 matched: true,
                 will_trigger_hook: true,
-                matched_by: 'wire_name_or_pattern',
-                rule: toolRuleSummary(directMatch.matched),
-            }, null, 2));
-        }
-        const aliasMatches = findToolRulesByAlias(tool_name, rules);
-        if (aliasMatches.length === 0) {
-            return textResult(JSON.stringify({
-                tool_name,
-                matched: false,
-                will_trigger_hook: false,
-                rule_count: rules.length,
-            }, null, 2));
-        }
-        if (aliasMatches.length > 1) {
-            return textResult(JSON.stringify({
-                tool_name,
-                matched: false,
-                will_trigger_hook: false,
-                alias_ambiguous: true,
-                candidates: aliasMatches.map(toolRuleSummary),
-                note: 'Alias matched multiple tool-rules. Use the full wire name / pattern to simulate hook behavior.',
+                matched_by: 'guard-evaluate',
+                note: 'External mcp__* wire names reach POST /guard/evaluate.',
             }, null, 2));
         }
         return textResult(JSON.stringify({
             tool_name,
             matched: false,
             will_trigger_hook: false,
-            alias_resolved: true,
-            resolved_rule: toolRuleSummary(aliasMatches[0]),
-            note: 'Alias resolution is display-only. Use resolved_rule.name as the full wire name / pattern to simulate hook behavior.',
+            note: 'Non-MCP tool names are not gated by transcodes-guard at the PreToolUse hook.',
         }, null, 2));
     });
     return server;

@@ -4,13 +4,12 @@ import {
   __commonJS,
   __export,
   __toESM,
-  currentHostProvider,
   external_exports,
-  findFirstMatch,
   getGateBackend,
-  objectType,
-  ruleAppliesToHost
-} from "./chunk-Q265CQL7.js";
+  isMcpWireToolName,
+  isTranscodesGuardWireToolName,
+  objectType
+} from "./chunk-IJU7O2J4.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -16957,115 +16956,18 @@ var EMPTY_COMPLETION_RESULT = {
 var PLUGIN_VERSION = "0.29.0";
 
 // ../../packages/mcp-server-core/dist/router-body.js
-var TRANSCODES_ROUTER_BODY = 'You are the transcodes-guard control surface \u2014 the single "front door" the user opens to manage step-up MFA protection, Transcodes Admin API operations, AND to integrate the Transcodes SDK into their app. The user said:\n\n> {{REQUEST}}\n\nIdentify which MENU item below matches their request, gather any missing detail by ASKING the user first, then run that workflow.\n\nTOOL ACCESS RULES (all items):\n- Every tool named below lives on the `transcodes-guard` MCP server \u2014 call by exact MCP tool name (e.g. `get_member`), NOT as a slash command.\n- Before calling any tool, confirm `transcodes-guard` MCP is connected on THIS host. If disconnected, REFUSE and tell the user to enable/reload the plugin MCP server.\n- Never invent MCP tool wire names (for host PreToolUse rules) or resource keys; always verify with a simulate_* tool before any mutating guard/rule call.\n- Mutating Admin API calls: confirm intent + required ids with the user first; some are RBAC-gated or step-up-protected by hook tool-rules.\n- If the request is empty or ambiguous, show this full menu and ask what they want.\n\nMENU \u2014 Guard & SDK\n1) Gate an MCP tool behind step-up MFA\n   - EXISTENCE PRE-CHECK first: confirm the tool is actually connected to THIS host (inspect your available-tools list). If not connected, REFUSE and tell the user.\n   - Resolve the exact wire name (e.g. mcp__server__tool) from the host tool list or by asking \u2014 never guess.\n   - `simulate_tool_call` to verify it matches \u2192 `get_resources` to pick resource + action (create|read|update|delete) \u2192 confirm details with the user \u2192 `add_tool_rule`. If a CLI command also triggers it, pass `cliRegex`.\n   - PER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the same logical tool under a different wire name \u2014 one rule per host. PREFIX `id` with the host slug (`claude-\u2026`, `codex-\u2026`); provider is set automatically from this MCP server (TRANSCODES_GUARD_HOST always wins).\n   - ADD, do not OVERWRITE: to protect the same tool on another host, call `add_tool_rule` there with a NEW id. NEVER `update_tool_rule` to repoint another host\'s rule. If `add_tool_rule` returns "already exists", pick a new id \u2014 do not fall back to update.\n2) Block a dangerous Bash command\n   - Derive a regex \u2192 `simulate_command` with one matching and one NON-matching example (catch false positives) \u2192 `get_resources` for resource + action \u2192 confirm \u2192 `add_user_pattern`.\n3) Change an existing rule\n   - `update_tool_rule` or `update_user_pattern`. WEAKENING or disabling protection is human-only via the transcodes CLI \u2014 refuse to do it from the agent; only tightening is allowed.\n4) List current rules (read-only)\n   - Read resources `tool-rules://list` and `danger-patterns://list`; present two tables (system vs project) with counts.\n5) Check whether a command/tool is blocked (read-only)\n   - `simulate_command` for a Bash string, or `simulate_tool_call` for an MCP wire name. Report BLOCKED (with the matching rule id) or ALLOWED.\n6) Step-up MFA state (read-only)\n   - `inspect_stepup_state`; summarize pending/verified. If a session is pending, the user completes WebAuthn in the browser, then call `poll_stepup_session_wait`.\n7) Refresh rules after a Next.js console change\n   - When an admin just activated/deactivated or edited a rule in the console and it is not yet visible here, call `refresh_rules`. It force-refreshes the policy bundle cache now (same as CLI `transcodes policy refresh`) and returns the currently active rules. Report the outcome (refreshed / already current / failed-stale / skipped).\n8) Integrate / install the Transcodes SDK into the app (frontend)\n   - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions \u2014 the single source of truth; pass a `topic` like auth/webauthn/server-jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user\'s frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, CDN webworker). Never guess API signatures \u2014 use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.\n\nMENU \u2014 Transcodes Admin API (transcodes-guard MCP server)\n9) Identity & session context (read-only)\n   - `get_current_project_id`, `get_current_organization_id`, `get_current_member_id`, `get_my_profile`, `get_console_url`.\n   - Use these first when the user asks "who am I", "what project/org", or needs a console link.\n10) Members \u2014 inspect & lifecycle\n   - Read: `get_member`, `list_members_paginated`, `list_member_devices`, `get_member_suspension`.\n   - Mutating (confirm first): `create_member`, `update_member`, `suspend_member`, `unsuspend_member`, `retire_member`.\n11) RBAC \u2014 roles, resources, permissions\n   - Read: `get_roles`, `get_resources`, `check_rbac_permission`.\n   - Mutating (confirm first): `create_role`, `update_role`, `retire_role`, `set_role_permissions`, `update_member_role`, `create_resource`, `update_resource`, `retire_resource`.\n   - When attaching step-up to a rule, call `get_resources` here to pick valid resource + action keys.\n12) Platform users\n   - Read: `user_get_current`, `user_find`.\n   - Mutating (confirm first): `user_create` (console-only stub \u2014 direct to Transcodes console).\n13) Project & asset diagnostics\n   - `get_project`, `check_related_origin`, `check_project_assets`, `project_pwa_auth_console`.\n14) Membership & billing\n   - Read: `membership_plans`, `membership_plans_limits`, `membership_customer_status_by_project`, `membership_customer_status_by_organization`.\n   - Mutating (confirm first): `membership_create_checkout_session`.\n15) Audit, auth devices, passcode, keys\n   - Audit read: `get_security_logs`.\n   - Auth devices read: `list_authenticators`, `list_passkeys`, `list_totps`.\n   - Mutating (confirm first): `passcode_create`, `jwk_backup`.\n\nTOOL CATALOG \u2014 all 57 MCP tools + 3 resources on transcodes-guard. Match the user request to a workflow MENU item above OR to an exact tool/resource below, then call it by its exact name.\n\nResources (read by URI, not tools):\n- `version://info` \u2014 Returns the running plugin version. Use to confirm which build is loaded.\n- `danger-patterns://list` \u2014 Regex patterns the PreToolUse hook uses to block dangerous Bash commands.\n- `tool-rules://list` \u2014 Tool-name rules the PreToolUse hook enforces on MCP tool calls.\n\nGate & Policies (13):\n1) `simulate_command` \u2014 Check whether a Bash command would match danger-patterns before it hits the hook. [read-only]\n2) `simulate_tool_call` \u2014 Check whether an MCP tool name would match tool-rules before calling it. [read-only]\n3) `add_user_pattern` \u2014 Register a user-owned Bash regex pattern the PreToolUse hook enforces. [mutating]\n4) `update_user_pattern` \u2014 Modify regex or reason of an existing user Bash pattern. [mutating]\n5) `add_tool_rule` \u2014 Register a user-owned MCP tool rule for step-up MFA on tool calls. [mutating]\n6) `update_tool_rule` \u2014 Modify an existing user MCP tool rule. [mutating]\n7) `refresh_rules` \u2014 Force-refresh the org policy bundle cache and return active tool rules. [read-only]\n8) `create_stepup_session` \u2014 Open a WebAuthn step-up session; returns sid and browser URL. [mutating]\n9) `poll_stepup_session` \u2014 Single-shot poll of step-up session status (pending or verified). [read-only]\n10) `poll_stepup_session_wait` \u2014 Block until step-up reaches verified or timeout \u2014 use after a hook deny. [read-only]\n11) `inspect_stepup_state` \u2014 Read-only snapshot of verified, pending, and browser-lock state files. [read-only]\n12) `simulate_hook_invocation` \u2014 Spawn the real hook binary and diff step-up state before/after. [read-only]\n13) `echo` \u2014 Health-check tool that echoes a message back to the caller. [read-only]\n\nMeta & Identity (6):\n14) `get_current_project_id` \u2014 Returns project ID parsed from TRANSCODES_TOKEN. [read-only]\n15) `get_current_organization_id` \u2014 Returns organizationId from TRANSCODES_TOKEN JWT. [read-only]\n16) `get_current_member_id` \u2014 Returns memberId from TRANSCODES_TOKEN JWT. [read-only]\n17) `get_my_profile` \u2014 Profile of the member identified by TRANSCODES_TOKEN. [read-only]\n18) `get_console_url` \u2014 Mint a step-up-protected console URL for browser-only actions (passkeys, TOTP, billing portal). [read-only]\n19) `get_integration_guide` \u2014 Fetch the official Transcodes integration guide (llms.txt). [read-only]\n\nProject (4):\n20) `get_project` \u2014 Fetch the active project (fixed by TRANSCODES_TOKEN pid claim). [read-only]\n21) `check_project_assets` \u2014 Separate auth SDK webworker status from optional manifest/sw.js install assets. [read-only]\n22) `check_related_origin` \u2014 Check whether a redirect_uri/origin is registered in project authentication.related_origins. [read-only]\n23) `project_pwa_auth_console` \u2014 Auth and console configuration must be done in the Transcodes console. [console-only]\n\nMembers (9):\n24) `get_member` \u2014 Get one member profile by member_id or email. [read-only]\n25) `list_members_paginated` \u2014 Paginated member list with sort options. [read-only]\n26) `list_member_devices` \u2014 Passkeys, authenticators, and TOTP devices for a member. [read-only]\n27) `get_member_suspension` \u2014 Check whether a member is currently suspended. [read-only]\n28) `create_member` \u2014 Create a member for onboarding or manual provisioning. [mutating]\n29) `update_member` \u2014 Update member profile fields (name, email, metadata). Use update_member_role to change a role. [mutating]\n30) `retire_member` \u2014 Permanently delete a member \u2014 irreversible kill switch. [mutating \xB7 step-up protected]\n31) `suspend_member` \u2014 Temporarily suspend a member; blocks login and invalidates sessions. [mutating \xB7 step-up protected]\n32) `unsuspend_member` \u2014 Lift a member suspension and restore login ability. [mutating \xB7 step-up protected]\n\nRBAC (11):\n33) `get_roles` \u2014 List all roles and permission matrix for the project. [read-only]\n34) `get_resources` \u2014 List RBAC resource keys for the project. [read-only]\n35) `check_rbac_permission` \u2014 Simulate whether a member may access a resource+action. [read-only]\n36) `create_role` \u2014 Create a new role before setting permissions. [mutating]\n37) `update_role` \u2014 Update role metadata (description). [mutating]\n38) `create_resource` \u2014 Add a new RBAC resource key (every role initialized to read=allow, write=allow+step-up). [mutating]\n39) `update_resource` \u2014 Update resource label/description. [mutating]\n40) `retire_role` \u2014 Permanently retire a role from the project. [mutating \xB7 step-up protected]\n41) `set_role_permissions` \u2014 Set per-resource permission matrix for a role (0=deny, 1=allow, 2=step-up). [mutating \xB7 step-up protected]\n42) `update_member_role` \u2014 Change a member\'s assigned role (validates the role exists). [mutating \xB7 step-up protected]\n43) `retire_resource` \u2014 Permanently retire an RBAC resource key. [mutating \xB7 step-up protected]\n\nPasscode (1):\n44) `passcode_create` \u2014 Create a recovery passcode for a member (support/onboarding). [mutating \xB7 step-up protected]\n\nAuth Devices (3):\n45) `list_authenticators` \u2014 List WebAuthn authenticators for a member. [read-only]\n46) `list_passkeys` \u2014 List passkeys for a member. [read-only]\n47) `list_totps` \u2014 List TOTP devices for a member. [read-only]\n\nAudit (1):\n48) `get_security_logs` \u2014 Paginated project audit logs with tag and date filters. [read-only]\n\nMembership (5):\n49) `membership_plans` \u2014 List available Transcodes membership plans and Stripe metadata. [read-only]\n50) `membership_plans_limits` \u2014 Resource limits enforced per plan tier. [read-only]\n51) `membership_customer_status_by_project` \u2014 Subscription status for the organization owning the token project. [read-only]\n52) `membership_customer_status_by_organization` \u2014 Subscription status for the token organization. [read-only]\n53) `membership_create_checkout_session` \u2014 Create a Stripe Checkout session for plan upgrade or purchase. [mutating]\n\nPlatform users (3):\n54) `user_get_current` \u2014 Returns the currently authenticated platform user (Firebase/console account). [read-only]\n55) `user_find` \u2014 Find platform users by comma-separated ids or emails. [read-only]\n56) `user_create` \u2014 User creation must be done in the Transcodes console. [console-only]\n\nJWK (1):\n57) `jwk_backup` \u2014 JWK backup must be done in the Transcodes console. [console-only]';
+var TRANSCODES_ROUTER_BODY = 'You are the transcodes-guard control surface \u2014 the single "front door" the user opens to manage step-up MFA protection, Transcodes Admin API operations, AND to integrate the Transcodes SDK into their app. The user said:\n\n> {{REQUEST}}\n\nIdentify which MENU item below matches their request, gather any missing detail by ASKING the user first, then run that workflow.\n\nTOOL ACCESS RULES (all items):\n- Every tool named below lives on the `transcodes-guard` MCP server \u2014 call by exact MCP tool name (e.g. `get_member`), NOT as a slash command.\n- Before calling any tool, confirm `transcodes-guard` MCP is connected on THIS host. If disconnected, REFUSE and tell the user to enable/reload the plugin MCP server.\n- Never invent MCP tool wire names or resource keys; use `simulate_tool_call` for MCP gating checks before explaining hook behaviour to the user.\n- Mutating Admin API calls: confirm intent + required ids with the user first; some are RBAC-gated or step-up-protected by system tool-rules.\n- If the request is empty or ambiguous, show this full menu and ask what they want.\n\nMENU \u2014 Guard & SDK\n1) Check whether an MCP tool call would trigger step-up (read-only)\n   - External mcp__* wire names are gated via POST /guard/evaluate in the PreToolUse hook. Built-in transcodes-guard MCP skips the hook (handler backstop only).\n   - Call `simulate_tool_call` with the full wire name from the host tool list.\n2) Step-up MFA state (read-only)\n   - `inspect_stepup_state`; summarize pending/verified. If a session is pending, the user completes WebAuthn in the browser, then call `poll_stepup_session_wait`.\n3) Integrate / install the Transcodes SDK into the app (frontend)\n   - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions \u2014 the single source of truth; pass a `topic` like auth/webauthn/server-jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user\'s frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, CDN webworker). Never guess API signatures \u2014 use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.\n\nMENU \u2014 Transcodes Admin API (transcodes-guard MCP server)\n4) Identity & session context (read-only)\n   - `get_current_project_id`, `get_current_organization_id`, `get_current_member_id`, `get_my_profile`, `get_console_url`.\n   - Use these first when the user asks "who am I", "what project/org", or needs a console link.\n5) Members \u2014 inspect & lifecycle\n   - Read: `get_member`, `list_members_paginated`, `list_member_devices`, `get_member_suspension`.\n   - Mutating (confirm first): `create_member`, `update_member`, `suspend_member`, `unsuspend_member`, `retire_member`.\n6) RBAC \u2014 roles, resources, permissions\n   - Read: `get_roles`, `get_resources`, `check_rbac_permission`.\n   - Mutating (confirm first): `create_role`, `update_role`, `retire_role`, `set_role_permissions`, `update_member_role`, `create_resource`, `update_resource`, `retire_resource`.\n7) Platform users\n   - Read: `user_get_current`, `user_find`.\n   - Mutating (confirm first): `user_create` (console-only stub \u2014 direct to Transcodes console).\n8) Project & asset diagnostics\n   - `get_project`, `check_related_origin`, `check_project_assets`, `project_pwa_auth_console`.\n9) Membership & billing\n   - Read: `membership_plans`, `membership_plans_limits`, `membership_customer_status_by_project`, `membership_customer_status_by_organization`.\n   - Mutating (confirm first): `membership_create_checkout_session`.\n10) Audit, auth devices, passcode, keys\n   - Audit read: `get_security_logs`.\n   - Auth devices read: `list_authenticators`, `list_passkeys`, `list_totps`.\n   - Mutating (confirm first): `passcode_create`, `jwk_backup`.\n\nTOOL CATALOG \u2014 all 51 MCP tools + 1 resources on transcodes-guard. Match the user request to a workflow MENU item above OR to an exact tool/resource below, then call it by its exact name.\n\nResources (read by URI, not tools):\n- `version://info` \u2014 Returns the running plugin version. Use to confirm which build is loaded.\n\nGate & Policies (7):\n1) `simulate_tool_call` \u2014 Report whether a full MCP wire tool name would be gated by the PreToolUse hook (POST /guard/evaluate). [read-only]\n2) `create_stepup_session` \u2014 Open a WebAuthn step-up session; returns sid and browser URL. [mutating]\n3) `poll_stepup_session` \u2014 Single-shot poll of step-up session status (pending or verified). [read-only]\n4) `poll_stepup_session_wait` \u2014 Block until step-up reaches verified or timeout \u2014 use after a hook deny. [read-only]\n5) `inspect_stepup_state` \u2014 Read-only snapshot of verified, pending, and browser-lock state files. [read-only]\n6) `simulate_hook_invocation` \u2014 Spawn the real hook binary and diff step-up state before/after. [read-only]\n7) `echo` \u2014 Health-check tool that echoes a message back to the caller. [read-only]\n\nMeta & Identity (6):\n8) `get_current_project_id` \u2014 Returns project ID parsed from TRANSCODES_TOKEN. [read-only]\n9) `get_current_organization_id` \u2014 Returns organizationId from TRANSCODES_TOKEN JWT. [read-only]\n10) `get_current_member_id` \u2014 Returns memberId from TRANSCODES_TOKEN JWT. [read-only]\n11) `get_my_profile` \u2014 Profile of the member identified by TRANSCODES_TOKEN. [read-only]\n12) `get_console_url` \u2014 Mint a step-up-protected console URL for browser-only actions (passkeys, TOTP, billing portal). [read-only]\n13) `get_integration_guide` \u2014 Fetch the official Transcodes integration guide (llms.txt). [read-only]\n\nProject (4):\n14) `get_project` \u2014 Fetch the active project (fixed by TRANSCODES_TOKEN pid claim). [read-only]\n15) `check_project_assets` \u2014 Separate auth SDK webworker status from optional manifest/sw.js install assets. [read-only]\n16) `check_related_origin` \u2014 Check whether a redirect_uri/origin is registered in project authentication.related_origins. [read-only]\n17) `project_pwa_auth_console` \u2014 Auth and console configuration must be done in the Transcodes console. [console-only]\n\nMembers (9):\n18) `get_member` \u2014 Get one member profile by member_id or email. [read-only]\n19) `list_members_paginated` \u2014 Paginated member list with sort options. [read-only]\n20) `list_member_devices` \u2014 Passkeys, authenticators, and TOTP devices for a member. [read-only]\n21) `get_member_suspension` \u2014 Check whether a member is currently suspended. [read-only]\n22) `create_member` \u2014 Create a member for onboarding or manual provisioning. [mutating]\n23) `update_member` \u2014 Update member profile fields (name, email, metadata). Use update_member_role to change a role. [mutating]\n24) `retire_member` \u2014 Permanently delete a member \u2014 irreversible kill switch. [mutating \xB7 step-up protected]\n25) `suspend_member` \u2014 Temporarily suspend a member; blocks login and invalidates sessions. [mutating \xB7 step-up protected]\n26) `unsuspend_member` \u2014 Lift a member suspension and restore login ability. [mutating \xB7 step-up protected]\n\nRBAC (11):\n27) `get_roles` \u2014 List all roles and permission matrix for the project. [read-only]\n28) `get_resources` \u2014 List RBAC resource keys for the project. [read-only]\n29) `check_rbac_permission` \u2014 Simulate whether a member may access a resource+action. [read-only]\n30) `create_role` \u2014 Create a new role before setting permissions. [mutating]\n31) `update_role` \u2014 Update role metadata (description). [mutating]\n32) `create_resource` \u2014 Add a new RBAC resource key (every role initialized to read=allow, write=allow+step-up). [mutating]\n33) `update_resource` \u2014 Update resource label/description. [mutating]\n34) `retire_role` \u2014 Permanently retire a role from the project. [mutating \xB7 step-up protected]\n35) `set_role_permissions` \u2014 Set per-resource permission matrix for a role (0=deny, 1=allow, 2=step-up). [mutating \xB7 step-up protected]\n36) `update_member_role` \u2014 Change a member\'s assigned role (validates the role exists). [mutating \xB7 step-up protected]\n37) `retire_resource` \u2014 Permanently retire an RBAC resource key. [mutating \xB7 step-up protected]\n\nPasscode (1):\n38) `passcode_create` \u2014 Create a recovery passcode for a member (support/onboarding). [mutating \xB7 step-up protected]\n\nAuth Devices (3):\n39) `list_authenticators` \u2014 List WebAuthn authenticators for a member. [read-only]\n40) `list_passkeys` \u2014 List passkeys for a member. [read-only]\n41) `list_totps` \u2014 List TOTP devices for a member. [read-only]\n\nAudit (1):\n42) `get_security_logs` \u2014 Paginated project audit logs with tag and date filters. [read-only]\n\nMembership (5):\n43) `membership_plans` \u2014 List available Transcodes membership plans and Stripe metadata. [read-only]\n44) `membership_plans_limits` \u2014 Resource limits enforced per plan tier. [read-only]\n45) `membership_customer_status_by_project` \u2014 Subscription status for the organization owning the token project. [read-only]\n46) `membership_customer_status_by_organization` \u2014 Subscription status for the token organization. [read-only]\n47) `membership_create_checkout_session` \u2014 Create a Stripe Checkout session for plan upgrade or purchase. [mutating]\n\nPlatform users (3):\n48) `user_get_current` \u2014 Returns the currently authenticated platform user (Firebase/console account). [read-only]\n49) `user_find` \u2014 Find platform users by comma-separated ids or emails. [read-only]\n50) `user_create` \u2014 User creation must be done in the Transcodes console. [console-only]\n\nJWK (1):\n51) `jwk_backup` \u2014 JWK backup must be done in the Transcodes console. [console-only]';
 
 // ../../packages/mcp-server-core/dist/server.js
-var RBAC_ACTION_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first to fetch valid resource keys, then pass `stepupResource` (must match one of those keys; validated against the backend) and `stepupAction` (CRUD). System rules use resource `system`. This maps the rule onto the project's RBAC permission matrix and audit log.";
-var TOOL_RULE_RBAC_GUIDANCE = "RBAC step-up coordinate. WORKFLOW: call `get_resources` first, then pass `resource` (must match a valid key) and `action` (create|read|update|delete). System rules use resource `system`.";
-var MCP_TOOL_NAME_GUIDANCE = "MCP tool name as emitted by the host PreToolUse hook (full wire name). Call simulate_tool_call with the same string to verify before saving. Before saving, also confirm this MCP tool is actually connected to the host (see the add_tool_rule existence pre-check) \u2014 never register a rule for an MCP that is not available.";
-var MCP_TOOL_LOOKUP_NAME_GUIDANCE = "MCP full wire name, or a canonical tool id/alias shown by tool-rules://list. Alias lookup is display-only and reports will_trigger_hook=false; use the full wire name to verify actual hook behavior.";
-var MCP_EXISTENCE_PRECHECK = "MCP EXISTENCE PRE-CHECK (mandatory, do this FIRST): a rule must only be registered for an MCP tool that is actually connected to THIS host. Inspect your own available-tools list and confirm the target MCP server/tool is present \u2014 e.g. before adding a Google Calendar rule, verify a Google Calendar MCP tool (mcp__..._google_calendar__...) is actually available in this agent (this applies to every host: Claude Code / Codex / Cursor / Antigravity). If the MCP is NOT connected, you MUST REFUSE: do not call add_tool_rule, and tell the user the rule was rejected because the MCP is not connected to this host. Only proceed when the MCP is confirmed present.";
-var ID_COLLISION_HINT = "Each host (claude/codex/cursor/antigravity) needs its OWN rule because the same tool has a different wire name per host. Pick a NEW provider-prefixed id (e.g. `claude-<slug>`, `codex-<slug>`). Provider is set automatically from this MCP server's host (TRANSCODES_GUARD_HOST always wins) \u2014 do NOT use update_tool_rule to repoint another host's rule.";
-var TRANSCODES_GUARD_WIRE_PREFIX = "mcp__plugin_transcodes-guard_transcodes-guard__";
-function lockedHostProvider() {
-  const provider = currentHostProvider();
-  if (provider === void 0) {
-    return {
-      ok: false,
-      message: "Rejected: this MCP server has no host identity (TRANSCODES_GUARD_HOST). Cannot save a host-scoped tool rule."
-    };
-  }
-  return { ok: true, provider };
-}
+var MCP_TOOL_LOOKUP_NAME_GUIDANCE = "MCP full wire name from the host PreToolUse hook (e.g. mcp__mongodb__list_collections). External mcp__* names are gated via POST /guard/evaluate; built-in transcodes-guard MCP skips the hook (handler backstop only).";
 function transcodesRouterBody(request) {
   const trimmed = request?.trim();
   return TRANSCODES_ROUTER_BODY.replace("{{REQUEST}}", trimmed && trimmed.length > 0 ? trimmed : "(no request given \u2014 show the menu and ask what they want)");
-}
-function formatPatternsMarkdown(patterns) {
-  const lines = [
-    "# Blocked Bash command patterns",
-    "",
-    `${patterns.length} pattern(s) intercept Bash invocations before execution.`,
-    "System patterns are immutable. Project bash patterns are stored in the Transcodes backend (policy bundle); register via `add_user_pattern` / edit via `update_user_pattern`. Patterns are created inactive and can only be activated or deleted in the Next.js console.",
-    "",
-    "| source | id | reason | regex |",
-    "| ------ | -- | ------ | ----- |"
-  ];
-  for (const { source, id, reason, regex } of patterns) {
-    lines.push(`| ${source} | \`${id}\` | ${reason} | \`${regex}\` |`);
-  }
-  return lines.join("\n");
 }
 function dismissPendingSession(backend, sid) {
   const found = backend.findPendingBySid(sid);
   if (found)
     backend.clearPending(found.fp);
-}
-function formatToolRulesMarkdown(rules) {
-  const lines = [
-    "# Step-up-protected MCP tool rules",
-    "",
-    `${rules.length} rule(s) gate MCP tool invocations via the PreToolUse hook.`,
-    "Project rules are stored in the Transcodes backend; register via `add_tool_rule` / edit via `update_tool_rule`. Rules are created inactive and can only be activated or deleted in the Next.js console. System rules are immutable.",
-    "",
-    "| source | rule id | canonical tool id | display name | aliases | wire name / pattern | description | action | resource | matcher |",
-    "| ------ | ------- | ----------------- | ------------ | ------- | ------------------- | ----------- | ------ | -------- | ------- |"
-  ];
-  for (const r of rules) {
-    const metadata = describeToolRuleName(r);
-    lines.push(`| ${r.source} | \`${r.id}\` | ${formatCanonicalToolId(metadata)} | ${metadata.display_name} | ${formatAliases(metadata)} | \`${r.name}\` | ${r.description} | ${r.action ?? "\u2014"} | ${r.resource ?? "\u2014"} | ${r.matcher} |`);
-  }
-  return lines.join("\n");
-}
-function describeToolRuleName(rule) {
-  const isExactMcp = rule.type === "mcp" && rule.matcher === "exact";
-  const canonical = isExactMcp ? rule.name.startsWith(TRANSCODES_GUARD_WIRE_PREFIX) ? rule.name.slice(TRANSCODES_GUARD_WIRE_PREFIX.length) : rule.name : void 0;
-  const aliases = /* @__PURE__ */ new Set();
-  if (canonical && canonical !== rule.name)
-    aliases.add(rule.name);
-  return {
-    canonical_tool_id: canonical,
-    display_name: rule.label || canonical || rule.name,
-    aliases: [...aliases]
-  };
-}
-function findToolRulesByAlias(toolName, rules) {
-  const target = toolName.toLowerCase();
-  return rules.filter((rule) => {
-    if (rule.type !== "mcp" || rule.matcher !== "exact")
-      return false;
-    if (!ruleAppliesToHost(rule))
-      return false;
-    const metadata = describeToolRuleName(rule);
-    return [
-      ...metadata.canonical_tool_id ? [metadata.canonical_tool_id] : [],
-      ...metadata.aliases
-    ].some((name) => name.toLowerCase() === target);
-  });
-}
-function toolRuleSummary(rule) {
-  const metadata = describeToolRuleName(rule);
-  return {
-    id: rule.id,
-    canonical_tool_id: metadata.canonical_tool_id,
-    display_name: metadata.display_name,
-    aliases: metadata.aliases,
-    source: rule.source,
-    type: rule.type,
-    label: rule.label,
-    description: rule.description,
-    name: rule.name,
-    matcher: rule.matcher,
-    provider: rule.provider,
-    action: rule.action,
-    resource: rule.resource
-  };
-}
-function formatCanonicalToolId(metadata) {
-  return metadata.canonical_tool_id ? `\`${metadata.canonical_tool_id}\`` : "\u2014";
-}
-function formatAliases(metadata) {
-  return metadata.aliases.length ? metadata.aliases.map((alias) => `\`${alias}\``).join(", ") : "\u2014";
 }
 function textResult(text, isError = false) {
   return {
@@ -17078,7 +16980,6 @@ function createServer(backend = getGateBackend()) {
     name: "transcodes-guard-mcp",
     version: PLUGIN_VERSION
   });
-  void backend.refreshPolicyBundle();
   server.registerResource("version-info", "version://info", {
     title: "Plugin version",
     description: "Returns the running plugin version. Use this to confirm which build is currently loaded after an update.",
@@ -17092,119 +16993,6 @@ function createServer(backend = getGateBackend()) {
       }
     ]
   }));
-  server.registerResource("danger-patterns", "danger-patterns://list", {
-    title: "Blocked Bash patterns",
-    description: "Regex patterns the PreToolUse hook uses to block dangerous Bash commands. Merges immutable system patterns with project bash rules from the signed policy bundle (Transcodes backend).",
-    mimeType: "text/markdown"
-  }, async (uri) => ({
-    contents: [
-      {
-        uri: uri.href,
-        mimeType: "text/markdown",
-        text: formatPatternsMarkdown(backend.loadEffectivePatterns())
-      }
-    ]
-  }));
-  server.registerTool("simulate_command", {
-    title: "Simulate command against block patterns",
-    description: "Check whether a specific Bash command would be blocked by the PreToolUse hook's regex layer. Call this whenever the user mentions a concrete command and asks if it is dangerous, safe, blocked, intercepted, allowed, or whether the hook/danger-patterns would catch it \u2014 including Korean phrasings like '\uC774 \uBA85\uB839 \uCC28\uB2E8\uB420\uAE4C', '\uC774\uAC70 hook\uC5D0 \uAC78\uB824?', 'rm -rf src \uC2E4\uD589\uD574\uB3C4 \uB3FC?', '\uBBF8\uB9AC \uAC80\uC0AC\uD574\uC918'. ALSO use this as the mandatory verification step (step 2) of the `add_user_pattern` natural-language \u2192 regex workflow: before saving a regex you inferred from a plain-language intent, simulate a should-match example and a should-NOT-match example to catch false positives. Runs against the union of system and user patterns. Does NOT simulate the second-layer `rm -rf` git-tracked check (cwd-dependent), so the hook may still block commands this tool reports as allowed.",
-    inputSchema: { command: external_exports.string().min(1) }
-  }, async ({ command }) => {
-    const patterns = backend.loadEffectivePatterns();
-    const hit = findFirstMatch(command, patterns);
-    if (!hit) {
-      return textResult(JSON.stringify({
-        matched: false,
-        will_trigger_hook: false,
-        patterns_checked: patterns.length,
-        note: "Hook may still block via the rm -rf git-tracked semantic check; simulator does not cover that layer."
-      }, null, 2));
-    }
-    const m = hit.matched;
-    return textResult(JSON.stringify({
-      matched: true,
-      matched_by: m.source,
-      pattern_id: m.id,
-      reason: m.reason,
-      regex: m.regex,
-      will_trigger_hook: true
-    }, null, 2));
-  });
-  server.registerTool("add_user_pattern", {
-    title: "Add user danger pattern",
-    description: "Register a new project bash block pattern (type bash, regex stored in `name`) that the PreToolUse hook enforces. Persisted to the Transcodes backend policy bundle \u2014 not a local file. Call when the user asks to add/register/block a Bash command pattern.\n\nDISAMIGUATION \u2014 pick by what is being matched: Bash COMMAND STRING \u2192 this tool; MCP TOOL CALL \u2192 `add_tool_rule`.\n\nWhen adding an MCP tool rule and the same action can be reached via CLI (e.g. `gh`, `git`, `curl`), also register the CLI equivalent here as a separate rule (same id prefix with `-cli` suffix is fine).\n\nWORKFLOW: translate intent \u2192 `simulate_command` \u2192 confirm with user \u2192 `get_resources` for RBAC \u2192 save.",
-    inputSchema: {
-      id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
-      regex: external_exports.string().min(1),
-      reason: external_exports.string().min(1),
-      stepupResource: external_exports.string().min(1).describe(RBAC_ACTION_GUIDANCE),
-      stepupAction: external_exports.enum(["create", "read", "update", "delete"]).describe("RBAC CRUD action this pattern maps onto.")
-    }
-  }, async (input) => {
-    try {
-      await backend.assertRbacCoordinate(input.stepupResource, input.stepupAction);
-      const saved = await backend.addToolRule({
-        id: input.id,
-        type: "bash",
-        label: input.reason,
-        description: input.reason,
-        name: input.regex,
-        matcher: "regex",
-        resource: input.stepupResource,
-        action: input.stepupAction
-      });
-      return textResult(`Added bash pattern \`${saved.id}\` to project policy.
-regex: ${saved.name}
-reason: ${saved.description}
-resource: ${saved.resource ?? "\u2014"}
-action: ${saved.action ?? "\u2014"}`);
-    } catch (e) {
-      if (backend.isToolRuleValidationError(e) || backend.isRbacCoordinateError(e)) {
-        return textResult(`Rejected: ${e.message}`, true);
-      }
-      throw e;
-    }
-  });
-  server.registerTool("update_user_pattern", {
-    title: "Update user danger pattern",
-    description: "Modify a project bash pattern (Transcodes backend). System patterns cannot be modified.",
-    inputSchema: {
-      id: external_exports.string().min(1),
-      regex: external_exports.string().min(1).optional(),
-      reason: external_exports.string().min(1).optional(),
-      stepupResource: external_exports.string().min(1).optional().describe(RBAC_ACTION_GUIDANCE),
-      stepupAction: external_exports.enum(["create", "read", "update", "delete"]).optional().describe("RBAC CRUD action this pattern maps onto.")
-    }
-  }, async ({ id, regex, reason, stepupResource, stepupAction }) => {
-    if (regex === void 0 && reason === void 0 && stepupResource === void 0 && stepupAction === void 0) {
-      return textResult("Rejected: provide at least one of `regex`, `reason`, `stepupResource`, or `stepupAction` to update.", true);
-    }
-    try {
-      if (!backend.loadEffectivePatterns().some((p) => p.id === id && p.source === "bundle")) {
-        return textResult(`Rejected: no project bash pattern with id "${id}"`, true);
-      }
-      if (stepupResource !== void 0) {
-        await backend.assertRbacCoordinate(stepupResource, stepupAction ?? "update");
-      }
-      const saved = await backend.updateToolRule(id, {
-        type: "bash",
-        ...regex !== void 0 ? { name: regex, matcher: "regex" } : {},
-        ...reason !== void 0 ? { label: reason, description: reason } : {},
-        ...stepupResource !== void 0 ? { resource: stepupResource } : {},
-        ...stepupAction !== void 0 ? { action: stepupAction } : {}
-      });
-      return textResult(`Updated bash pattern \`${saved.id}\`.
-regex: ${saved.name}
-reason: ${saved.description}
-resource: ${saved.resource ?? "\u2014"}
-action: ${saved.action ?? "\u2014"}`);
-    } catch (e) {
-      if (backend.isToolRuleValidationError(e) || backend.isRbacCoordinateError(e)) {
-        return textResult(`Rejected: ${e.message}`, true);
-      }
-      throw e;
-    }
-  });
   server.registerTool("create_stepup_session", {
     title: "Create Step-up MFA Session",
     description: "Open a Transcodes step-up MFA session. Returns sid and the browser URL the user must visit to complete WebAuthn. The same flow is used by the PreToolUse hook when a danger command is detected.",
@@ -17420,246 +17208,37 @@ action: ${saved.action ?? "\u2014"}`);
     ]
   }));
   backend.registerBackendTools(server);
-  server.registerResource("tool-rules", "tool-rules://list", {
-    title: "Step-up-protected MCP tool rules",
-    description: "Tool-name rules that the PreToolUse hook uses to enforce step-up MFA on MCP tool calls. Merges immutable system rules (hooks/tool-rules.json) with the project policy bundle distributed from the Transcodes backend, read fresh at every request.",
-    mimeType: "text/markdown"
-  }, async (uri) => ({
-    contents: [
-      {
-        uri: uri.href,
-        mimeType: "text/markdown",
-        text: formatToolRulesMarkdown(backend.loadMergedToolRules())
-      }
-    ]
-  }));
-  server.registerTool("refresh_rules", {
-    title: "Refresh rules from the Transcodes backend",
-    description: "Force-refresh the org policy bundle cache NOW and return the currently active tool rules. Call when an admin just activated/deactivated or edited a rule in the Next.js console and the change is not yet visible in this session \u2014 the MCP server otherwise only refreshes at boot / TTL, so a console change can take up to the TTL to apply. Same force-refresh the CLI `transcodes policy refresh` performs. Read-only beyond the cache fetch.",
-    inputSchema: {}
-  }, async () => {
-    const outcome = await backend.refreshPolicyBundle();
-    const status = {
-      fresh: "Refreshed \u2014 cache now holds the latest bundle.",
-      refreshed: "Refreshed \u2014 cache updated to the latest bundle.",
-      "not-modified": "Already current \u2014 backend confirmed no changes.",
-      failed: "Refresh FAILED \u2014 kept the previous cache (last-known-good). Rules below may be stale.",
-      skipped: "Skipped \u2014 no Transcodes token configured, so there is nothing to refresh."
-    };
-    const header = `# Policy bundle refresh
-
-${status[outcome] ?? `Outcome: ${outcome}`}`;
-    const rules = formatToolRulesMarkdown(backend.loadMergedToolRules());
-    return textResult(`${header}
-
-${rules}`, outcome === "failed");
-  });
-  server.registerTool("add_tool_rule", {
-    title: "Add MCP tool-rule (project policy)",
-    description: `Register a new project tool-rule that the PreToolUse hook enforces (deny + step-up + retry) when a matching MCP tool is called. Call when the user asks to add/register/block a rule for an MCP tool, or to require step-up auth before a specific tool runs \u2014 e.g. "add a tool rule for the github delete repo tool", "require auth when the notion delete page tool is called".
-
-DISAMBIGUATION \u2014 this gate has two registries; pick by what is being matched:
-  - A free-form Bash COMMAND STRING (sudo, rm -rf, git push) \u2192 use \`add_user_pattern\` (regex matching), NOT this tool.
-  - A specific MCP TOOL CALL \u2192 use this tool (\`name\` must match the hook's full wire tool name).
-If the user just says "add a rule" without specifying, ask whether they mean a Bash command pattern or an MCP tool before calling either tool.
-
-WORKFLOW (follow in order):
-  1. ${MCP_EXISTENCE_PRECHECK}
-  2. RESOLVE the exact wire tool name from the host (e.g. mcp__github__delete_repository, mcp__plugin_<plugin>_<server>__<tool>). Do not guess \u2014 confirm with the user or read it from the host's available tools list.
-  3. VERIFY with \`simulate_tool_call\` using that full \`name\` string before saving.
-  4. RESOLVE the RBAC coordinate: call \`get_resources\`, then set \`resource\` and \`action\` (create|read|update|delete). Most rules use resource \`system\`.
-  5. CONFIRM id, name, label, description, resource, action, and matcher with the user, then SAVE via this tool.
-  6. If the same action can be reached via CLI (gh, git, curl, etc.), pass \`cliRegex\` so a Bash companion rule (\`<id>-cli\`) is registered ATOMICALLY in the same call \u2014 closing the CLI bypass without a second tool call. The companion reuses this rule's label/description/resource/action. (Standalone Bash patterns unrelated to an MCP tool still go through \`add_user_pattern\`.)
-\`id\` is your stable rule key (lowercase slug, unique per project). \`name\` is what the hook matches \u2014 always the full MCP wire name when matcher=exact. Persisted in the Transcodes backend; effective on the next policy refresh.
-
-PER-HOST RULES: each host (claude/codex/cursor/antigravity) exposes the SAME logical tool under a DIFFERENT wire name, so protecting a tool everywhere needs ONE rule PER host. PREFIX \`id\` with the host slug (e.g. \`codex-mongodb-list-collections\`, \`antigravity-mongodb-list-collections\`); provider is set automatically from this MCP server's host (TRANSCODES_GUARD_HOST always wins). A rule WITH \`provider\` only fires on that host; a rule WITHOUT \`provider\` fires on every host (used by the built-in baseline). To add coverage for another host, ADD a new provider-prefixed rule from that host \u2014 never \`update_tool_rule\` an existing host's rule onto a different host.`,
-    inputSchema: {
-      id: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase alphanumeric + hyphen"),
-      type: external_exports.literal("mcp").default("mcp"),
-      label: external_exports.string().min(1),
-      description: external_exports.string().min(1),
-      name: external_exports.string().min(1).describe(MCP_TOOL_NAME_GUIDANCE),
-      matcher: external_exports.enum(["exact", "glob"]).default("exact").describe("exact = full wire name equality; glob = * and ? wildcards in name"),
-      provider: external_exports.enum(["claude", "codex", "cursor", "antigravity"]).optional().describe("Host this rule is for (claude/codex/cursor/antigravity). Normally IGNORED \u2014 the server uses this MCP server's host (TRANSCODES_GUARD_HOST), which always takes priority. It is only honored as a fallback when the server has no host identity. Prefix `id` with the host slug (e.g. `claude-mongodb-list-collections`)."),
-      resource: external_exports.string().min(1).describe(TOOL_RULE_RBAC_GUIDANCE),
-      action: external_exports.enum(["create", "read", "update", "delete"]).describe("RBAC CRUD action this tool maps onto."),
-      status: external_exports.enum(["active", "inactive"]).default("active"),
-      cliRegex: external_exports.string().min(1).optional().describe("Optional CLI companion. When the same action is reachable via a shell command (gh, git, curl, \u2026), pass a JavaScript regex here and a second Bash rule (id `<id>-cli`, type bash, matcher regex) is created atomically alongside the MCP rule, reusing this rule's label/description/resource/action. If either write fails the pair is rolled back so nothing partial is saved.")
-    }
-  }, async (input) => {
-    const { cliRegex, provider: inputProvider, ...rest } = input;
-    const host = lockedHostProvider();
-    const provider = host.ok ? host.provider : inputProvider;
-    if (provider === void 0) {
-      return textResult("Rejected: this MCP server has no host identity (TRANSCODES_GUARD_HOST) and no `provider` was supplied. Pass `provider` (claude/codex/cursor/antigravity) explicitly.", true);
-    }
-    const mcpInput = { ...rest, provider };
-    if (cliRegex !== void 0) {
-      try {
-        new RegExp(cliRegex);
-      } catch (e) {
-        return textResult(`Rejected: cliRegex is not a valid JavaScript regex: ${e.message}`, true);
-      }
-    }
-    const existingIds = new Set(backend.loadMergedToolRules().map((r) => r.id));
-    if (existingIds.has(mcpInput.id)) {
-      return textResult(`Rejected: a tool-rule with id \`${mcpInput.id}\` already exists. ${ID_COLLISION_HINT}`, true);
-    }
-    try {
-      if (mcpInput.resource !== void 0) {
-        await backend.assertRbacCoordinate(mcpInput.resource, mcpInput.action ?? "update");
-      }
-      const saved = await backend.addToolRule(mcpInput);
-      let companion;
-      if (cliRegex !== void 0) {
-        const companionId = `${saved.id}-cli`;
-        try {
-          companion = await backend.addToolRule({
-            id: companionId,
-            type: "bash",
-            label: saved.label,
-            description: saved.description,
-            name: cliRegex,
-            matcher: "regex",
-            ...saved.resource !== void 0 ? { resource: saved.resource } : {},
-            ...saved.action !== void 0 ? { action: saved.action } : {}
-          });
-        } catch (companionErr) {
-          let rolledBack = true;
-          try {
-            await backend.removeToolRule(saved.id);
-          } catch {
-            rolledBack = false;
-          }
-          if (backend.isToolRuleValidationError(companionErr) || backend.isRbacCoordinateError(companionErr)) {
-            return textResult(`Rejected: CLI companion rule \`${companionId}\` failed \u2014 ${companionErr.message}. ${rolledBack ? `Rolled back the MCP rule \`${saved.id}\`; nothing was saved.` : `WARNING: could not roll back the MCP rule \`${saved.id}\` \u2014 it may still exist (inactive). Delete it from the Next.js console if unintended.`}`, true);
-          }
-          throw companionErr;
-        }
-      }
-      const mcpLine = `Added tool-rule \`${saved.id}\` to project policy.
-name: ${saved.name}
-label: ${saved.label}
-description: ${saved.description}
-resource: ${saved.resource ?? "\u2014"}
-action: ${saved.action ?? "\u2014"}
-matcher: ${saved.matcher}${saved.provider ? `
-provider: ${saved.provider}` : ""}`;
-      if (companion) {
-        return textResult(`${mcpLine}
-
-Also registered CLI companion bash rule \`${companion.id}\` (atomic):
-regex: ${companion.name}
-resource: ${companion.resource ?? "\u2014"}
-action: ${companion.action ?? "\u2014"}`);
-      }
-      return textResult(mcpLine);
-    } catch (e) {
-      if (backend.isToolRuleValidationError(e) || backend.isRbacCoordinateError(e)) {
-        const hint = /already exists/i.test(e.message) ? ` ${ID_COLLISION_HINT}` : "";
-        return textResult(`Rejected: ${e.message}.${hint}`, true);
-      }
-      throw e;
-    }
-  });
-  server.registerTool("update_tool_rule", {
-    title: "Update MCP tool-rule (project policy)",
-    description: 'Modify fields of an existing project tool-rule by id. Call when the user asks to edit/change an MCP tool-rule \u2014 e.g. "change the description of the github-delete rule", "point that tool rule at a different MCP wire name". This is for MCP tool-rules (`name` = full wire tool name); to edit a Bash command pattern (regex) use `update_user_pattern` instead. System rules cannot be modified. Pass only the fields you want to change. When changing resource, call `get_resources` first. Changes persist to the Transcodes backend and take effect on the next policy refresh.',
-    inputSchema: {
-      id: external_exports.string().min(1),
-      type: external_exports.literal("mcp").optional(),
-      label: external_exports.string().min(1).optional(),
-      description: external_exports.string().min(1).optional(),
-      name: external_exports.string().min(1).optional().describe(MCP_TOOL_NAME_GUIDANCE),
-      matcher: external_exports.enum(["exact", "glob"]).optional().describe("exact = full wire name; glob = wildcards in name"),
-      provider: external_exports.enum(["claude", "codex", "cursor", "antigravity"]).optional().describe("Host this rule applies to (claude/codex/cursor/antigravity). Normally IGNORED \u2014 env (TRANSCODES_GUARD_HOST) always wins, so the rule is (re)pointed to this MCP server's host. Honored only as a fallback when the server has no host identity."),
-      resource: external_exports.string().min(1).optional().describe(TOOL_RULE_RBAC_GUIDANCE),
-      action: external_exports.enum(["create", "read", "update", "delete"]).optional().describe("RBAC CRUD action this tool maps onto."),
-      status: external_exports.enum(["active", "inactive"]).optional()
-    }
-  }, async ({ id, type, label, description, name, matcher, provider, action, resource, status }) => {
-    const host = lockedHostProvider();
-    if (type === void 0 && label === void 0 && description === void 0 && name === void 0 && matcher === void 0 && provider === void 0 && action === void 0 && resource === void 0 && status === void 0) {
-      return textResult("Rejected: provide at least one of `type`, `label`, `description`, `name`, `matcher`, `provider`, `action`, `resource`, or `status` to update.", true);
-    }
-    try {
-      if (resource !== void 0) {
-        await backend.assertRbacCoordinate(resource, action ?? "update");
-      }
-      const saved = await backend.updateToolRule(id, {
-        type,
-        label,
-        description,
-        name,
-        matcher,
-        action,
-        resource,
-        status,
-        // env (TRANSCODES_GUARD_HOST) ALWAYS wins: when this MCP server has a
-        // host identity, the rule is (re)pointed to it. The agent-supplied
-        // `provider` is only a fallback when there is no host identity.
-        ...host.ok ? { provider: host.provider } : provider !== void 0 ? { provider } : {}
-      });
-      return textResult(`Updated tool-rule \`${saved.id}\` in project policy.
-name: ${saved.name}
-label: ${saved.label}
-description: ${saved.description}
-resource: ${saved.resource ?? "\u2014"}
-action: ${saved.action ?? "\u2014"}
-matcher: ${saved.matcher}${saved.provider ? `
-provider: ${saved.provider}` : ""}`);
-    } catch (e) {
-      if (backend.isToolRuleValidationError(e) || backend.isRbacCoordinateError(e)) {
-        return textResult(`Rejected: ${e.message}`, true);
-      }
-      throw e;
-    }
-  });
   server.registerTool("simulate_tool_call", {
-    title: "Simulate a tool-rule lookup",
-    description: "Given a full MCP wire tool name from a PreToolUse hook (e.g. mcp__github__delete_repository) or a listed canonical tool id/alias, report whether any system or project tool-rule matches. Read-only \u2014 does not invoke the hook or call the backend. Use to verify a rule name before calling add_tool_rule.",
+    title: "Simulate MCP hook gating",
+    description: "Given a full MCP wire tool name from a PreToolUse hook, report whether the hook would gate it. External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP (mcp__*transcodes-guard*) skips the hook \u2014 execProtectedTool handler backstop applies. Read-only \u2014 does not invoke the hook or call the backend.",
     inputSchema: {
       tool_name: external_exports.string().min(1).describe(MCP_TOOL_LOOKUP_NAME_GUIDANCE),
       tool_input: external_exports.unknown().optional()
     }
   }, async ({ tool_name }) => {
-    const rules = backend.loadMergedToolRules();
-    const directMatch = backend.findFirstToolRule(tool_name, rules);
-    if (directMatch) {
+    if (isTranscodesGuardWireToolName(tool_name)) {
+      return textResult(JSON.stringify({
+        tool_name,
+        matched: false,
+        will_trigger_hook: false,
+        matched_by: "transcodes-guard-handler",
+        note: "Built-in transcodes-guard MCP skips PreToolUse /guard/evaluate; execProtectedTool handler backstop applies."
+      }, null, 2));
+    }
+    if (isMcpWireToolName(tool_name)) {
       return textResult(JSON.stringify({
         tool_name,
         matched: true,
         will_trigger_hook: true,
-        matched_by: "wire_name_or_pattern",
-        rule: toolRuleSummary(directMatch.matched)
-      }, null, 2));
-    }
-    const aliasMatches = findToolRulesByAlias(tool_name, rules);
-    if (aliasMatches.length === 0) {
-      return textResult(JSON.stringify({
-        tool_name,
-        matched: false,
-        will_trigger_hook: false,
-        rule_count: rules.length
-      }, null, 2));
-    }
-    if (aliasMatches.length > 1) {
-      return textResult(JSON.stringify({
-        tool_name,
-        matched: false,
-        will_trigger_hook: false,
-        alias_ambiguous: true,
-        candidates: aliasMatches.map(toolRuleSummary),
-        note: "Alias matched multiple tool-rules. Use the full wire name / pattern to simulate hook behavior."
+        matched_by: "guard-evaluate",
+        note: "External mcp__* wire names reach POST /guard/evaluate."
       }, null, 2));
     }
     return textResult(JSON.stringify({
       tool_name,
       matched: false,
       will_trigger_hook: false,
-      alias_resolved: true,
-      resolved_rule: toolRuleSummary(aliasMatches[0]),
-      note: "Alias resolution is display-only. Use resolved_rule.name as the full wire name / pattern to simulate hook behavior."
+      note: "Non-MCP tool names are not gated by transcodes-guard at the PreToolUse hook."
     }, null, 2));
   });
   return server;

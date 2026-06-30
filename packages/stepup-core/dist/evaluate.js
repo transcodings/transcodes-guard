@@ -7,18 +7,16 @@
  * shape drives Claude Code, Codex, and (later) Cursor/Antigravity.
  *
  * Fail policy:
- *  - Before a danger pattern match (stdin parse, classify, pattern load) →
- *    return `{ kind: "pass" }` (fail-open). Callers exit 0 with no JSON.
- *  - After a danger pattern match (verified read, step-up create) →
- *    surface as a `deny-*` decision so callers can fail-safe.
+ *  - Before classify (stdin parse) → return `{ kind: "proceed-ungated" }`
+ *    (fail-open). Callers exit 0 with no JSON.
+ *  - After classify (bash or mcp__*) → POST /guard/evaluate. Fail-closed:
+ *    backend unreachable → permission 2 (step-up). Verified read / step-up
+ *    create failures surface as `deny-*` decisions.
  */
-import { execFileSync } from 'node:child_process';
-import path from 'node:path';
-import { DEFAULT_RBAC_RESOURCE, findFirstMatch, findFirstToolRule, mcpConsumesInHook, } from '@transcodes-guard/danger-patterns';
+import { DEFAULT_RBAC_RESOURCE, isMcpWireToolName, isTranscodesGuardWireToolName, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, launchStepupBrowser, } from './gate.js';
 import { clearPending } from './pending.js';
-import { loadEffectivePatterns, loadEffectiveToolRules, } from './policy-bundle.js';
 import { evaluateAction } from './rbac-check.js';
 import { pollStepupSession } from './session.js';
 import { consumeVerified, readVerified } from './store.js';
@@ -39,102 +37,6 @@ export const GATE_DECISION_KIND = {
     BLOCK_STEPUP_CREATE_FAILED: 'block-stepup-create-failed',
     BLOCK_STEPUP_CHALLENGED: 'block-stepup-challenged',
 };
-function checkPatternMatch(command) {
-    const hit = findFirstMatch(command, loadEffectivePatterns());
-    if (!hit)
-        return null;
-    const { source, id, reason, stepupResource, stepupAction } = hit.matched;
-    return {
-        reason: `matched ${source} pattern \`${id}\` — ${reason}`,
-        command,
-        ruleId: id,
-        stepupResource,
-        stepupAction,
-    };
-}
-function extractRmTargets(command) {
-    const tokens = command.trim().split(/\s+/);
-    const rmIdx = tokens.indexOf('rm');
-    if (rmIdx === -1)
-        return null;
-    let i = rmIdx + 1;
-    let recursive = false;
-    while (i < tokens.length) {
-        const t = tokens[i];
-        if (t === '--') {
-            i++;
-            break;
-        }
-        if (t.startsWith('-') && /^-[a-zA-Z]+$/.test(t)) {
-            if (/[rR]/.test(t))
-                recursive = true;
-            i++;
-            continue;
-        }
-        break;
-    }
-    if (!recursive)
-        return null;
-    const targets = tokens.slice(i).filter((t) => !t.startsWith('-'));
-    return targets.length > 0 ? targets : null;
-}
-function checkTargetGitTracked(target, cwd) {
-    if (/[*?{[]/.test(target))
-        return null;
-    const abs = path.resolve(cwd, target);
-    let toplevel;
-    try {
-        toplevel = execFileSync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-    }
-    catch {
-        return null;
-    }
-    const rel = path.relative(toplevel, abs);
-    if (rel.startsWith('..') || path.isAbsolute(rel))
-        return null;
-    let tracked;
-    try {
-        const out = execFileSync('git', ['-C', toplevel, 'ls-files', '--', rel || '.'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-        tracked = out.split('\n').filter(Boolean);
-    }
-    catch {
-        return null;
-    }
-    if (tracked.length === 0)
-        return null;
-    return {
-        target,
-        trackedCount: tracked.length,
-        samples: tracked.slice(0, 3),
-    };
-}
-function checkRmGitTracked(command, cwd) {
-    const targets = extractRmTargets(command);
-    if (!targets)
-        return null;
-    const hits = [];
-    for (const target of targets) {
-        const check = checkTargetGitTracked(target, cwd);
-        if (check)
-            hits.push(check);
-    }
-    if (hits.length === 0)
-        return null;
-    const totalFiles = hits.reduce((a, h) => a + h.trackedCount, 0);
-    return {
-        reason: `rm -rf would delete ${totalFiles} file(s) tracked in git`,
-        details: hits.map((h) => {
-            const more = h.trackedCount > h.samples.length
-                ? `, +${h.trackedCount - h.samples.length} more`
-                : '';
-            return `${h.target} — ${h.trackedCount} tracked file(s): ${h.samples.join(', ')}${more}`;
-        }),
-        command,
-        ruleId: 'rm-git-tracked',
-        stepupResource: DEFAULT_RBAC_RESOURCE,
-        stepupAction: 'delete',
-    };
-}
 /** Serialize MCP tool_input for the `block.command` summary. Capped at 200 chars. */
 function stringifyToolInput(input) {
     try {
@@ -146,6 +48,12 @@ function stringifyToolInput(input) {
     catch {
         return '[unserializable]';
     }
+}
+const GUARD_EVALUATE_RULE_ID = 'guard-evaluate';
+const BASH_EVALUATE_RULE_ID = 'guard-evaluate-bash';
+/** Mirrors backend GuardEvaluateService consume_in_hook heuristic. */
+function mcpConsumesInHookByWireName(toolName) {
+    return !isTranscodesGuardWireToolName(toolName);
 }
 /**
  * C-plan (backend-as-truth): re-confirm a locally-cached verified record with
@@ -213,17 +121,36 @@ function classifyToolCall(input) {
             return null;
         return { kind: 'bash', command: cmd, cwd: input.cwd };
     }
-    // G3: baseline → cached org bundle → user rules. Cache-only read — the
-    // PreToolUse critical path stays network-free.
-    const rules = loadEffectiveToolRules();
-    const match = findFirstToolRule(input.toolName, rules);
-    if (!match)
-        return null;
+    // Guard v3: bash + external mcp__* → POST /guard/evaluate. Built-in
+    // transcodes-guard MCP skips the hook (execProtectedTool handler backstop).
+    if (isMcpWireToolName(input.toolName)) {
+        if (isTranscodesGuardWireToolName(input.toolName))
+            return null;
+        return {
+            kind: 'mcp',
+            toolName: input.toolName,
+            toolInput: input.toolInput,
+        };
+    }
+    return null;
+}
+/** Default block for every shell command — always routed through POST /guard/evaluate. */
+function buildBashBlock(command) {
     return {
-        kind: 'mcp',
-        toolName: input.toolName,
-        toolInput: input.toolInput,
-        rule: match.matched,
+        reason: 'shell command — POST /guard/evaluate',
+        command,
+        ruleId: BASH_EVALUATE_RULE_ID,
+        stepupResource: DEFAULT_RBAC_RESOURCE,
+        stepupAction: 'update',
+    };
+}
+function buildMcpBlock(classified) {
+    return {
+        reason: 'MCP tool call — POST /guard/evaluate',
+        command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
+        ruleId: GUARD_EVALUATE_RULE_ID,
+        stepupResource: DEFAULT_RBAC_RESOURCE,
+        stepupAction: 'update',
     };
 }
 /**
@@ -251,23 +178,15 @@ export async function evaluatePreToolUse(input) {
     if (!classified)
         return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
     const block = classified.kind === 'bash'
-        ? (checkPatternMatch(classified.command) ??
-            checkRmGitTracked(classified.command, classified.cwd))
-        : {
-            reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` — ${classified.rule.description}`,
-            command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
-            ruleId: classified.rule.id,
-            stepupResource: classified.rule.resource ?? DEFAULT_RBAC_RESOURCE,
-            stepupAction: classified.rule.action ?? 'update',
-        };
-    if (!block)
-        return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
+        ? buildBashBlock(classified.command)
+        : buildMcpBlock(classified);
     // Consume semantics (see stepup-gate.md):
-    //   Bash + bundle MCP rules → FP-keyed verified file, hook consumes on allow.
-    //   System MCP rules → GLOBAL verified; handler passes sid to the backend.
+    //   Bash + external MCP → FP-keyed verified file, hook consumes on allow.
+    //   Built-in transcodes-guard MCP → GLOBAL verified; handler passes sid.
     // Pre-evaluate local default — used for the verified fast-path before /evaluate.
     const localConsumeHere = classified.kind === 'bash' ||
-        (classified.kind === 'mcp' && mcpConsumesInHook(classified.rule));
+        (classified.kind === 'mcp' &&
+            mcpConsumesInHookByWireName(classified.toolName));
     const fingerprintKey = classified.kind === 'bash'
         ? classified.command
         : `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
@@ -293,13 +212,12 @@ export async function evaluatePreToolUse(input) {
     if (!resolveToken().token) {
         return { kind: GATE_DECISION_KIND.BLOCK_NO_TOKEN, block };
     }
-    // Guard v2: one POST /guard/evaluate does classify + matrix + (level 2) the
-    // step-up session. The local rule only decided *whether* to gate; resource/
-    // action/permission/sid all come from the backend. Fail-closed: a null
-    // verdict (network/parse/config failure) → level 2 step-up.
+    // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) step-up.
+    // Every bash command and every external mcp__* wire name reaches here.
+    // Built-in transcodes-guard MCP is classified out (handler backstop).
     const comment = classified.kind === 'bash'
-        ? `Confirm danger command: ${block.reason}`
-        : `Confirm ${classified.rule.id}: ${classified.rule.label}`;
+        ? `Confirm shell command: ${block.command}`
+        : `Confirm MCP tool: ${classified.toolName}`;
     let verdict = null;
     try {
         verdict = await evaluateAction(loadStepupConfig(), {

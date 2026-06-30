@@ -1,3 +1,18 @@
+/**
+ * Host-agnostic PreToolUse gate decision.
+ *
+ * Extracted from the original `plugins/ai-action-tracker/hooks/pre-tool-use.ts`
+ * so every host's hook entrypoint can be a thin shell: parse stdin → call
+ * `evaluatePreToolUse` → emit via that host's adapter. The same decision
+ * shape drives Claude Code, Codex, and (later) Cursor/Antigravity.
+ *
+ * Fail policy:
+ *  - Before classify (stdin parse) → return `{ kind: "proceed-ungated" }`
+ *    (fail-open). Callers exit 0 with no JSON.
+ *  - After classify (bash or mcp__*) → POST /guard/evaluate. Fail-closed:
+ *    backend unreachable → permission 2 (step-up). Verified read / step-up
+ *    create failures surface as `deny-*` decisions.
+ */
 import { type RbacAction } from '@transcodes-guard/danger-patterns';
 import { type RequestResult } from './gate.js';
 import { type PendingState } from './pending.js';
@@ -9,16 +24,13 @@ export interface ToolCallInput {
 export interface BlockResult {
     /** One-line danger summary surfaced in reason/systemMessage. */
     reason: string;
-    /** Optional per-target detail (e.g. git-tracked file samples). */
+    /** Optional extra detail surfaced in reason/systemMessage. */
     details?: string[];
     /** Command / tool-call summary used in stderr logs and the pending file. */
     command: string;
-    /** Id of the matched pattern/tool-rule (or a synthetic id for built-in
-     * semantic checks). Feeds the decision audit (H2) — never the raw command. */
+    /** Synthetic audit id (e.g. guard-evaluate-bash). Feeds decision audit (H2). */
     ruleId: string;
-    /** RBAC step-up coordinate of the matched rule. Always resolved by the
-     * producer (pattern/tool-rule are coerced on load; the git-tracked check
-     * hard-codes system/delete) so the gate can consult the matrix directly. */
+    /** RBAC placeholder until `/guard/evaluate` returns the classified coordinate. */
     stepupResource: string;
     stepupAction: RbacAction;
 }

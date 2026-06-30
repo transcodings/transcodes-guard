@@ -13,10 +13,12 @@ These are security guarantees disguised as ordinary control flow. The _position_
 
 In `evaluatePreToolUse` (`stepup-core/src/evaluate.ts`):
 
-- **Before** a danger match (stdin parse, classify, pattern load) → **fail-open**: return `{kind:'pass'}`. A crash here must never block a safe command.
-- **After** a danger match → **fail-safe**: return a `deny-*` decision. A crash here must never silently allow a risky command.
+- **Before** classify (stdin parse only) → **fail-open**: return `{kind:'proceed-ungated'}`. A crash here must never block a safe command.
+- **After** classify (every bash command or external **MCP** `mcp__*` wire name) → **fail-safe** via `POST /guard/evaluate`. Backend unreachable → permission 2 (step-up). A crash after classify must never silently allow a risky command.
 
-The local matched rule is only a **classifier** that maps a command onto an RBAC coordinate; it is not an independent block floor.
+MCP gate scope is no longer the local tool-rule registry: external `mcp__*` PreToolUse wire names reach `POST /guard/evaluate`. **Built-in transcodes-guard MCP** (`mcp__*transcodes-guard*`) skips the hook — `execProtectedTool` in the handler is the backstop (tool-rule + `checkRbacPermission`). User/project tool-rules remain for handler backstop, policy documentation, and optional legacy bundle rules — not for deciding whether the hook runs on external MCP tools.
+
+The backend `/guard/evaluate` classifier + RBAC matrix is the authority for resource/action/permission on gated MCP calls.
 
 ## Fail-closed RBAC
 
@@ -30,11 +32,11 @@ The backend permission matrix is the authority: `0` = hard deny, `1` = allow wit
 2. _Then_ `writePending(decision.pending)` — so a throw in the disk write can't suppress the deny.
 3. On allow, the caller decides `consumeVerified`/`clearPending` from `decision.consumeHere`.
 
-The two **fire-and-forget** backend calls (`sendGateDecisionAudit`, `refreshPolicyBundle`) also run **only after** stdout. Neither ever rejects. The decision audit uses a sub-second timeout (`DECISION_AUDIT_TIMEOUT_MS = 1000`), no-ops for `pass`/no-token, and **omits the raw command string** (sends only fp/coordinates/ruleId — data minimization).
+The **fire-and-forget** backend call (`sendGateDecisionAudit`) also runs **only after** stdout. It never rejects. The decision audit uses a sub-second timeout (`DECISION_AUDIT_TIMEOUT_MS = 1000`), no-ops for `pass`/no-token, and **omits the raw command string** (sends only fp/coordinates/ruleId — data minimization).
 
-## Critical path is cache-only
+## Critical path is evaluate-only
 
-The PreToolUse hot path must stay network-free: it may call the sync cache reads `loadEffectivePatterns`/`loadEffectiveToolRules`, but must **never** call `fetchPolicyBundle`/`refreshPolicyBundle`. Bundle refresh happens only at SessionStart-equivalent hooks and MCP-server boot. A stale cached bundle is deliberately used as last-known-good rather than refreshed inline — nothing in the types prevents a refresh call here, so this is a hand-enforced invariant.
+The PreToolUse hot path calls `POST /guard/evaluate` for every Bash command and external `mcp__*` wire name. There is no local pattern registry or policy-bundle cache on the hook path. Built-in transcodes-guard MCP skips the hook; `execProtectedTool` uses system `tool-rules.json` + `checkRbacPermission` as the handler backstop.
 
 ## Policy-bundle integrity (shared with the backend)
 

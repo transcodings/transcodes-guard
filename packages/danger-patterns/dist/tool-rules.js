@@ -68,6 +68,14 @@ function globMatches(pattern, toolName) {
         .replace(/\?/g, '.');
     return new RegExp(`^${escaped}$`).test(toolName);
 }
+/** Wire names emitted by host PreToolUse hooks for MCP tool calls. */
+export function isMcpWireToolName(toolName) {
+    return /^mcp__/i.test(toolName);
+}
+/** Built-in transcodes-guard MCP wire names — PreToolUse skips /guard/evaluate. */
+export function isTranscodesGuardWireToolName(toolName) {
+    return /^mcp__.*transcodes[-_]guard/i.test(toolName);
+}
 export function toolNameMatchesRule(toolName, rule) {
     if (rule.type === 'bash')
         return false;

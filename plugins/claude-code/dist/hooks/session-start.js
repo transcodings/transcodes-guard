@@ -5,7 +5,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-Q265CQL7.js";
+} from "../chunk-IJU7O2J4.js";
 
 // src/version.ts
 var PLUGIN_VERSION = "0.29.0";
@@ -58,7 +58,6 @@ async function main() {
   process.stdout.write(
     claudeCodeAdapter.emitSessionStartContext(additionalContext)
   );
-  await getGateBackend().refreshPolicyBundle();
   process.exit(0);
 }
 main().catch((err) => {
