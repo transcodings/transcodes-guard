@@ -15,10 +15,10 @@ import { resolveToken } from './token-store.js';
  * plugin bundles never load an env file, so they always resolve to cloud.
  * An explicit `TRANSCODES_BACKEND_URL` overrides either way (see loadStepupConfig).
  */
-export const DEFAULT_BACKEND_URL = 'http://localhost:3500';
-// process.env.environment === 'dev'
-//   ? 'http://localhost:3500'
-//   : 'https://api.transcodesapis.com';
+export const DEFAULT_BACKEND_URL =
+  process.env.environment === 'dev'
+    ? 'http://localhost:3500'
+    : 'https://api.transcodesapis.com';
 
 /** Step-up validity window. Mirrors the backend TTL used by transcodes. */
 export const STEPUP_TTL_MS = 10 * 60 * 1_000;

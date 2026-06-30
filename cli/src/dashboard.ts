@@ -1,8 +1,8 @@
 /**
- * Local web dashboard for token configuration — Serena-style localhost UI.
+ * Local web dashboard — token config, onboarding guideline, read-only RBAC view.
  *
- * Binds to 127.0.0.1 only. Saves via the same writeTokenToFile / clearTokenFile
- * as `transcodes set` / `reset`.
+ * Binds to 127.0.0.1 only. Saves tokens via the same writeTokenToFile as
+ * `transcodes set` / `reset`. RBAC create/update/delete is console-only.
  */
 
 import { spawn } from 'node:child_process';
@@ -12,12 +12,6 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
-import {
-  DEFAULT_RBAC_ACTION,
-  DEFAULT_RBAC_RESOURCE,
-  loadMergedToolRules,
-  type RbacAction,
-} from '@transcodes-guard/danger-patterns';
 import {
   clearTokenFile,
   fetchMemberProfile,
@@ -34,9 +28,8 @@ import {
   transcodesConfigFile,
   writeTokenToFile,
 } from '@transcodes-guard/stepup-core';
-import { renderCliCommandsHtml } from './commands.js';
 import { LOGO_DATA_URI } from './logo.js';
-import { buildAdminToolsPayload } from './tool-catalog.js';
+import { fetchRbacSnapshot, loadRbacConfig } from './rbac-api.js';
 import { CLI_VERSION } from './version.js';
 
 const DEFAULT_PORT = 3847;
@@ -168,37 +161,6 @@ function tokenById(id: string): string | undefined {
   return readTokenList().find((t) => fingerprint(t) === id);
 }
 
-/** Display-only CRUD hint for catalog tools not in tool-rules.json. */
-function inferCatalogRbacAction(toolName: string): RbacAction {
-  if (toolName.startsWith('get_') || toolName.startsWith('list_'))
-    return 'read';
-  if (toolName.startsWith('create_') || toolName.endsWith('_create'))
-    return 'create';
-  if (toolName.startsWith('retire_') || toolName.startsWith('remove_'))
-    return 'delete';
-  return DEFAULT_RBAC_ACTION;
-}
-
-/** Admin MCP catalog enriched with RBAC coordinates from tool-rules (when gated). */
-function buildAdminToolsPayloadEnriched() {
-  const payload = buildAdminToolsPayload();
-  const ruleByName = new Map(loadMergedToolRules().map((r) => [r.name, r]));
-  const tools = payload.tools.map((t) => {
-    const rule = ruleByName.get(t.mcpToolName);
-    return {
-      ...t,
-      rbacGated: !!rule,
-      rbacResource: rule?.resource ?? DEFAULT_RBAC_RESOURCE,
-      rbacAction: rule?.action ?? inferCatalogRbacAction(t.name),
-    };
-  });
-  tools.sort((a, b) => {
-    if (a.rbacGated !== b.rbacGated) return a.rbacGated ? -1 : 1;
-    return a.title.localeCompare(b.title);
-  });
-  return { ...payload, tools };
-}
-
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -214,7 +176,7 @@ function dashboardHtml(): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Transcodes — Token</title>
+  <title>Transcodes — CLI Panel</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     :root {
@@ -604,19 +566,115 @@ function dashboardHtml(): string {
     }
     .btn-danger:hover:not(:disabled) { background: #a52f26; }
     .btn-danger:disabled { opacity: 0.55; cursor: default; }
-    .policy-refresh-bar {
+    .rbac-token-warning {
+      margin: 0 0 18px;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      line-height: 1.5;
+      color: #c0392f;
+    }
+    .sub-tabs {
+      margin-top: 0;
+      margin-bottom: 22px;
+    }
+    .rbac-pane { display: none; }
+    .rbac-pane.active { display: block; }
+    .rbac-add-row {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
       flex-wrap: wrap;
+      gap: 10px;
       margin-bottom: 18px;
-      padding: 14px 16px;
+    }
+    .rbac-add-row .label-input { flex: 1; min-width: 140px; margin: 0; }
+    .rbac-add-row .btn-primary { flex-shrink: 0; }
+    .rbac-table-wrap {
+      overflow-x: auto;
       border: 1px solid var(--line);
       border-radius: 14px;
       background: #fbfbfc;
     }
-    .policy-refresh-bar .cli-map-row { margin: 0; flex: 1; min-width: 0; }
+    .rbac-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--text-sm);
+    }
+    .rbac-table th,
+    .rbac-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+    }
+    .rbac-table th {
+      font-size: var(--text-2xs);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: #fff;
+    }
+    .rbac-table tr:last-child td { border-bottom: none; }
+    .rbac-table code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: var(--text-xs);
+      background: #fff;
+      border: 1px solid var(--line);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+    .matrix-table th:not(:first-child),
+    .matrix-table td:not(:first-child) { text-align: center; width: 72px; }
+    .perm-cell {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      font-size: 20px;
+      line-height: 1;
+      border: none;
+      background: transparent;
+      font-weight: 400;
+    }
+    .perm-cell-0 { color: #9ca3af; }
+    .perm-cell-1 { color: #2e7d32; }
+    .perm-cell-2 { color: #ed6c02; }
+    .role-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .role-chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .role-chip.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .matrix-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+    .btn-link-danger {
+      border: none;
+      background: transparent;
+      color: #c0392f;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+    .btn-link-danger:hover { text-decoration: underline; }
     .list-label {
       margin: 26px 0 10px;
       font-size: var(--text-sm);
@@ -691,18 +749,6 @@ function dashboardHtml(): string {
       margin: 6px 0 8px;
       line-height: 1.45;
     }
-    .tool-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
-    .tool-badge {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      padding: 2px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: #5a5a64;
-    }
-    .tool-badge.rbac-gated { color: #8a3ffc; border-color: #d4b8ff; background: #f6f0ff; }
     .rbac-legend {
       margin: 0 0 16px;
       padding: 14px 16px;
@@ -711,16 +757,10 @@ function dashboardHtml(): string {
       background: linear-gradient(180deg, #faf8ff 0%, #fff 100%);
     }
     .rbac-legend-title {
-      margin: 0 0 6px;
+      margin: 0 0 10px;
       font-size: var(--text-sm);
       font-weight: 700;
       color: var(--ink);
-    }
-    .rbac-legend-desc {
-      margin: 0 0 10px;
-      font-size: var(--text-xs);
-      color: #5a5a64;
-      line-height: 1.5;
     }
     .rbac-legend-levels {
       margin: 0;
@@ -737,21 +777,19 @@ function dashboardHtml(): string {
       color: #5a5a64;
       line-height: 1.4;
     }
-    .perm-chip {
+    .perm-cell-readonly { cursor: default; pointer-events: none; }
+    .perm-legend-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      font-size: 18px;
+      line-height: 1;
       flex-shrink: 0;
-      min-width: 92px;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 999px;
-      text-align: center;
-      border: 1px solid var(--line);
-      background: #fff;
     }
-    .perm-chip-0 { color: #9a3412; border-color: #fdba74; background: #fff7ed; }
-    .perm-chip-1 { color: #166534; border-color: #86efac; background: #f0fdf4; }
-    .perm-chip-2 { color: #7c3aed; border-color: #d8b4fe; background: #faf5ff; }
-    .field-k-rbac { color: #8a3ffc; font-weight: 600; }
+    .perm-legend-0 { color: #9ca3af; }
+    .perm-legend-1 { color: #2e7d32; }
+    .perm-legend-2 { color: #ed6c02; }
     .field-status {
       display: flex;
       align-items: center;
@@ -1087,6 +1125,27 @@ function dashboardHtml(): string {
     }
     .guide-help-line a:hover { text-decoration: underline; }
     .guide-help-line code.cli-cmd { white-space: nowrap; }
+    .guide-help-heading {
+      margin: 14px 0 0;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: #4a4a52;
+      line-height: 1.6;
+    }
+    .guide-help-heading:first-child { margin-top: 0; }
+    .guide-help-list {
+      margin: 6px 0 0;
+      padding-left: 18px;
+      font-size: var(--text-sm);
+      color: #4a4a52;
+      line-height: 1.55;
+    }
+    .guide-help-list li + li { margin-top: 4px; }
+    .guide-help-list strong {
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: var(--text-xs);
+    }
     .guide-help-examples {
       margin: 10px 0 0;
       display: flex;
@@ -1176,7 +1235,7 @@ function dashboardHtml(): string {
               Connected
             </span>
           </div>
-          <p class="header-tagline">Manage credentials and MCP tools from one panel — no CLI typing required</p>
+          <p class="header-tagline">Manage credentials and view RBAC from one panel — no CLI typing required</p>
         </div>
       </div>
       <p id="header-token-empty" class="header-token-empty" hidden>Please register a token first</p>
@@ -1194,18 +1253,17 @@ function dashboardHtml(): string {
     <div class="tabs">
       <button type="button" class="tab active" data-tab="guideline">Guideline</button>
       <button type="button" class="tab" data-tab="tokens">Tokens</button>
-      <button type="button" class="tab" data-tab="tools">MCP Tools</button>
-      <button type="button" class="tab" data-tab="cli">CLI Commands</button>
+      <button type="button" class="tab" data-tab="rbac">RBAC</button>
     </div>
 
     <div class="panel active" id="panel-guideline">
       <p class="section-title">Getting Started</p>
       <p class="section-sub">New to Transcodes? Watch the walkthrough, then follow the steps below</p>
       <div class="guide-help">
-        <p class="guide-help-line"><strong>For LLM agents</strong> — prefix prompts with <code class="cli-cmd">/transcodes</code> to reduce hallucinations</p>
+        <p class="guide-help-line"><strong>For LLM agents</strong> — prefix prompts with <code class="cli-cmd">/transcodes</code> or <code class="cli-cmd">$transcodes</code> to reduce hallucinations</p>
         <div class="guide-help-examples">
-          <code class="cli-cmd">/transcodes would git push trigger step-up?</code>
-          <code class="cli-cmd">/transcodes integrate passkey sign-in in our Next.js app</code>
+          <code class="cli-cmd">/transcodes add signin / stepup / console in our admin dashboard</code>
+          <code class="cli-cmd">/transcodes summarize member audit logs for the past 2 weeks</code>
         </div>
       </div>
       <div class="guide-video">
@@ -1250,6 +1308,13 @@ function dashboardHtml(): string {
                 <p class="guide-step-desc">Open the member detail page and issue a Member Access Token (MAT) for the agent</p>
               </div>
             </li>
+            <li class="guide-step">
+              <span class="guide-step-num">5</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Configure RBAC</p>
+                <p class="guide-step-desc">In Role Management, add resources (key, name, description), create roles, and set the permission matrix — 0 deny · 1 allow · 2 step-up MFA</p>
+              </div>
+            </li>
           </ol>
         </section>
 
@@ -1257,10 +1322,37 @@ function dashboardHtml(): string {
           <p class="guide-group-label">This CLI panel</p>
           <ol class="guide-steps">
             <li class="guide-step">
-              <span class="guide-step-num">5</span>
+              <span class="guide-step-num">6</span>
               <div class="guide-step-body">
                 <p class="guide-step-title">Save the token</p>
                 <p class="guide-step-desc">Paste the token in the Tokens tab with a label (e.g. <code>transcodes-myapp-dev</code>) — the plugin reads it from <code>{{HOME_DIR}}/.transcodes/config.json</code></p>
+              </div>
+            </li>
+            <li class="guide-step">
+              <span class="guide-step-num">7</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">View RBAC (read-only)</p>
+                <p class="guide-step-desc">Open the RBAC tab to inspect resources and role permission matrices. Create, update, and delete stay in the Transcodes app — click the logo or Transcodes at the top</p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="guide-group guide-group--agent">
+          <p class="guide-group-label">LLM Agent or Admin Back Office</p>
+          <ol class="guide-steps">
+            <li class="guide-step">
+              <span class="guide-step-num">8</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Add the transcodes-guard plugin</p>
+                <p class="guide-step-desc">Install the transcodes-guard plugin on Claude, Codex, Cursor (beta), and Antigravity (beta)</p>
+              </div>
+            </li>
+            <li class="guide-step">
+              <span class="guide-step-num">9</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Prompt-driven permissions</p>
+                <p class="guide-step-desc">Once installed, Transcodes AI interprets the prompts you send using the role, resource, and action settings you configured and enforces permissions accordingly</p>
               </div>
             </li>
           </ol>
@@ -1303,28 +1395,62 @@ function dashboardHtml(): string {
       <p class="hint">Saved to <code>{{HOME_DIR}}/.transcodes/config.json</code><br />Press Ctrl+C in the terminal to stop</p>
     </div>
 
-    <div class="panel" id="panel-cli">
-      <p class="section-title">CLI Commands</p>
-      <p class="section-sub">Run these from your terminal — the dashboard wraps the same actions</p>
-      <div class="cmd-list">
-        ${renderCliCommandsHtml()}
-      </div>
-    </div>
-
-    <div class="panel" id="panel-tools">
-      <p class="section-title">Transcodes MCP Tools</p>
-      <p class="section-sub">Backend API tools exposed via MCP — agents call these through the transcodes-guard plugin. Read-only reference for system tool-rules.</p>
-      <div class="rbac-legend">
-        <p class="rbac-legend-title">Role permission check</p>
-        <p class="rbac-legend-desc">Tools with the <strong>Role permission check</strong> badge are gated: your role in Transcodes console (<strong>Roles</strong> tab) decides block / allow / step-up MFA at call time. Other tools run with your MCP token only — no RBAC coordinate is shown because none applies.</p>
-        <ul class="rbac-legend-levels">
-          <li><span class="perm-chip perm-chip-0">0 · Block</span> Denied — the tool does not run</li>
-          <li><span class="perm-chip perm-chip-1">1 · Allow</span> Runs immediately — no step-up MFA</li>
-          <li><span class="perm-chip perm-chip-2">2 · Step-up</span> Step-up MFA required before the tool runs</li>
+    <div class="panel" id="panel-rbac">
+      <p id="rbac-token-warning" class="rbac-token-warning" hidden>Save a token on the Tokens tab first</p>
+      <div class="guide-help">
+        <p class="guide-help-heading">How it works</p>
+        <p class="guide-help-line">Transcodes AI interprets the prompt and maps it to a resource / action pair. Based on the member's role, it applies deny / allow / step-up from the permission matrix. Resources are matched by name and description — if nothing matches, it falls back to <code>system</code>. When integrating with your own back office, you can pass <code>resource</code> and <code>action</code> as params to control permissions directly.</p>
+        <p class="guide-help-heading">Action Classification</p>
+        <ul class="guide-help-list">
+          <li><strong>read</strong> — inspect data without changing it (list, get, query, cat, grep, status, describe)</li>
+          <li><strong>update</strong> — modify existing data (edit, patch, set, rename, move, config change)</li>
+          <li><strong>delete</strong> — remove or destroy data (rm, drop, truncate, purge)</li>
+          <li><strong>create</strong> — any other state-changing action (new records, sends, posts, uploads, installs)</li>
         </ul>
       </div>
-      <p class="admin-tools-count" id="admin-tools-count"></p>
-      <div class="token-list" id="admin-tools-list"></div>
+      <div class="rbac-legend">
+        <p class="rbac-legend-title">Permission matrix</p>
+        <ul class="rbac-legend-levels">
+          <li><span class="perm-legend-icon perm-legend-0" aria-hidden="true">○</span> No permission — action does not run</li>
+          <li><span class="perm-legend-icon perm-legend-1" aria-hidden="true">●</span> Permission granted — runs immediately, no step-up MFA</li>
+          <li><span class="perm-legend-icon perm-legend-2" aria-hidden="true">◉</span> Permission with step-up verification — step-up MFA required before the action runs</li>
+        </ul>
+      </div>
+      <div class="tabs sub-tabs" role="tablist" aria-label="RBAC section">
+        <button type="button" class="tab active" data-rbac="resources" role="tab">Resources</button>
+        <button type="button" class="tab" data-rbac="roles" role="tab">Roles</button>
+      </div>
+      <div class="rbac-pane active" id="rbac-pane-resources">
+        <p class="section-sub">Configure resources, roles, and permissions directly in the Transcodes app. Click the logo or Transcodes at the top.</p>
+        <div class="rbac-table-wrap">
+          <table class="rbac-table" id="resources-table">
+            <thead><tr><th>Resource</th><th>Description</th></tr></thead>
+            <tbody id="resources-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="rbac-pane" id="rbac-pane-roles">
+        <p class="section-sub">Select a role to view its permission matrix</p>
+        <div class="role-picker" id="role-picker"></div>
+        <div id="matrix-wrap" hidden>
+          <p class="list-label" id="matrix-role-label"></p>
+          <div class="rbac-table-wrap">
+            <table class="rbac-table matrix-table" id="matrix-table">
+              <thead>
+                <tr>
+                  <th>Resource</th>
+                  <th>Create</th>
+                  <th>Read</th>
+                  <th>Update</th>
+                  <th>Delete</th>
+                </tr>
+              </thead>
+              <tbody id="matrix-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div id="rbac-toast" class="toast"></div>
     </div>
   </div>
 
@@ -1366,7 +1492,17 @@ function dashboardHtml(): string {
           t.classList.toggle("active", t === tab));
         document.querySelectorAll(".panel").forEach((p) =>
           p.classList.toggle("active", p.id === "panel-" + name));
-        if (name === "tools") loadAdminTools();
+        if (name === "rbac") loadRbac();
+      });
+    });
+
+    document.querySelectorAll("#panel-rbac .tab[data-rbac]").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const name = tab.getAttribute("data-rbac");
+        document.querySelectorAll("#panel-rbac .tab[data-rbac]").forEach((t) =>
+          t.classList.toggle("active", t === tab));
+        document.querySelectorAll("#panel-rbac .rbac-pane").forEach((p) =>
+          p.classList.toggle("active", p.id === "rbac-pane-" + name));
       });
     });
 
@@ -1609,44 +1745,127 @@ function dashboardHtml(): string {
       }
     });
 
-    const adminToolsListEl = document.getElementById("admin-tools-list");
-    const adminToolsCountEl = document.getElementById("admin-tools-count");
+    const rbacTokenWarningEl = document.getElementById("rbac-token-warning");
+    const rbacToastEl = document.getElementById("rbac-toast");
+    const resourcesTbody = document.getElementById("resources-tbody");
+    const rolePickerEl = document.getElementById("role-picker");
+    const matrixWrapEl = document.getElementById("matrix-wrap");
+    const matrixRoleLabelEl = document.getElementById("matrix-role-label");
+    const matrixTbodyEl = document.getElementById("matrix-tbody");
 
-    function adminToolRow(t) {
-      const badgeHtml = t.rbacGated
-        ? '<div class="tool-badges"><span class="tool-badge rbac-gated" title="Outcome follows your role matrix: 0 block, 1 allow, 2 step-up MFA">Role permission check</span></div>'
-        : '';
-      const rbacFields = t.rbacGated
-        ? '<div class="field"><span class="k field-k-rbac">Resource / Action</span> : ' +
-          '<code>' + esc(t.rbacResource || 'system') + '</code> / <code>' +
-          esc(t.rbacAction || 'update') + '</code></div>'
-        : '';
+    let rbacSnapshot = { resources: [], roles: [] };
+    let selectedRoleId = null;
+
+    function showRbacToast(msg, kind) {
+      rbacToastEl.textContent = msg;
+      rbacToastEl.className = "toast show " + (kind || "success");
+      setTimeout(() => rbacToastEl.classList.remove("show"), 5000);
+    }
+
+    function permCellClass(level) {
+      return "perm-cell perm-cell-" + level;
+    }
+
+    function permSymbol(level) {
+      if (level === 1) return "●";
+      if (level === 2) return "◉";
+      return "○";
+    }
+
+    function renderResources() {
+      const rows = rbacSnapshot.resources || [];
+      if (rows.length === 0) {
+        resourcesTbody.innerHTML =
+          '<tr><td colspan="2" style="color:var(--muted);text-align:center;">No resources yet — add them in the Transcodes Console</td></tr>';
+        return;
+      }
+      resourcesTbody.innerHTML = rows.map((r) =>
+        "<tr>" +
+        "<td><code>" + esc(r.key) + "</code></td>" +
+        "<td>" + esc(r.description || "—") + "</td>" +
+        "</tr>"
+      ).join("");
+    }
+
+    function renderRolePicker() {
+      const roles = rbacSnapshot.roles || [];
+      if (roles.length === 0) {
+        rolePickerEl.innerHTML = '<span style="color:var(--muted);font-size:var(--text-sm);">No roles yet</span>';
+        matrixWrapEl.hidden = true;
+        selectedRoleId = null;
+        return;
+      }
+      rolePickerEl.innerHTML = roles.map((r) =>
+        '<button type="button" class="role-chip' +
+        (r.id === selectedRoleId ? " active" : "") +
+        '" data-role-id="' + esc(r.id) + '">' + esc(r.name) + "</button>"
+      ).join("");
+      if (!selectedRoleId && roles[0]) {
+        selectRole(roles[0].id);
+      }
+    }
+
+    function selectRole(roleId) {
+      selectedRoleId = roleId;
+      const role = (rbacSnapshot.roles || []).find((r) => r.id === roleId);
+      if (!role) {
+        matrixWrapEl.hidden = true;
+        return;
+      }
+      matrixRoleLabelEl.textContent = "PERMISSION MATRIX — " + role.name;
+      renderMatrix(role.permissions || {});
+      renderRolePicker();
+      matrixWrapEl.hidden = false;
+    }
+
+    function matrixCell(resourceKey, action, permissions) {
+      const row = permissions[resourceKey] || {};
+      const level = row[action] ?? 0;
       return (
-        '<div class="token-row">' +
-          '<div class="token-top">' +
-            '<div class="token-info">' +
-              '<div class="label">' + esc(t.title) + '</div>' +
-              badgeHtml +
-              '<p class="tool-desc">' + esc(t.description) + '</p>' +
-              rbacFields +
-              '<div class="field"><span class="k">name</span> <code>' + esc(t.mcpToolName) + '</code></div>' +
-            '</div>' +
-          '</div>' +
-        '</div>'
+        '<td><span class="' + permCellClass(level) + ' perm-cell-readonly" aria-label="Permission level ' + level + '">' +
+        permSymbol(level) +
+        "</span></td>"
       );
     }
 
-    function renderAdminTools(payload) {
-      adminToolsCountEl.textContent = payload.total + " tools registered";
-      adminToolsListEl.innerHTML = (payload.tools || [])
-        .map((t) => adminToolRow(t))
-        .join("");
+    function renderMatrix(permissions) {
+      const resources = rbacSnapshot.resources || [];
+      if (resources.length === 0) {
+        matrixTbodyEl.innerHTML =
+          '<tr><td colspan="5" style="color:var(--muted);text-align:center;">No resources configured yet</td></tr>';
+        return;
+      }
+      matrixTbodyEl.innerHTML = resources.map((r) =>
+        "<tr>" +
+        "<td><code>" + esc(r.key) + "</code></td>" +
+        matrixCell(r.key, "create", permissions) +
+        matrixCell(r.key, "read", permissions) +
+        matrixCell(r.key, "update", permissions) +
+        matrixCell(r.key, "delete", permissions) +
+        "</tr>"
+      ).join("");
     }
 
-    async function loadAdminTools() {
-      const res = await fetch("/api/admin-tools");
-      renderAdminTools(await res.json());
+    async function loadRbac() {
+      rbacTokenWarningEl.hidden = hasSavedTokens(lastStatus);
+      if (!hasSavedTokens(lastStatus)) return;
+      try {
+        const res = await fetch("/api/rbac");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to load RBAC");
+        rbacSnapshot = data;
+        renderResources();
+        renderRolePicker();
+        if (selectedRoleId) selectRole(selectedRoleId);
+      } catch (e) {
+        showRbacToast(e.message || "Failed to load RBAC", "error");
+      }
     }
+
+    rolePickerEl.addEventListener("click", (e) => {
+      const id = e.target.getAttribute("data-role-id");
+      if (id) selectRole(id);
+    });
 
     refresh();
   </script>
@@ -1805,8 +2024,16 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
           return;
         }
 
-        if (method === 'GET' && url === '/api/admin-tools') {
-          sendJson(res, 200, buildAdminToolsPayloadEnriched());
+        if (method === 'GET' && url === '/api/rbac') {
+          try {
+            const config = loadRbacConfig();
+            const snapshot = await fetchRbacSnapshot(config);
+            sendJson(res, 200, snapshot);
+          } catch (err) {
+            sendJson(res, 400, {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
           return;
         }
 
