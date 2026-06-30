@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "codex";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -6897,6 +6897,7 @@ export {
   __commonJS,
   __export,
   __toESM,
+  loadMergedToolRules,
   isMcpWireToolName,
   isTranscodesGuardWireToolName,
   ZodOptional,
