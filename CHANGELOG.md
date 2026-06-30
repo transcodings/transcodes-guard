@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.29.0...transcodes-guard-v0.29.1) (2026-06-30)
+
+
+### Code Refactoring
+
+* **guard:** Guard v3 — evaluate-only hook, drop policy bundle ([853c80d](https://github.com/transcodings/transcodes-guard/commit/853c80d5897cdf4bede084833c5f53600eaa1360))
+
 ## [0.29.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.9...transcodes-guard-v0.29.0) (2026-06-30)
 
 
