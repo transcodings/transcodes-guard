@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { DEFAULT_RBAC_RESOURCE, findFirstMatch, findFirstToolRule, mcpConsumesInHook, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
-import { fingerprintOf, launchStepupBrowser } from './gate.js';
+import { fingerprintOf, launchStepupBrowser, } from './gate.js';
 import { clearPending } from './pending.js';
 import { loadEffectivePatterns, loadEffectiveToolRules, } from './policy-bundle.js';
 import { evaluateAction } from './rbac-check.js';
@@ -251,8 +251,8 @@ export async function evaluatePreToolUse(input) {
     if (!classified)
         return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
     const block = classified.kind === 'bash'
-        ? checkPatternMatch(classified.command) ??
-            checkRmGitTracked(classified.command, classified.cwd)
+        ? (checkPatternMatch(classified.command) ??
+            checkRmGitTracked(classified.command, classified.cwd))
         : {
             reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` — ${classified.rule.description}`,
             command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
@@ -276,7 +276,8 @@ export async function evaluatePreToolUse(input) {
     if (verified) {
         // FP-keyed path (Bash + bundle MCP rules) needs backend re-check. GLOBAL
         // path (system MCP rules) skips it — handler re-validates sid via header.
-        if (!localConsumeHere || (await recheckVerifiedSid(verified.sid)) === 'trust') {
+        if (!localConsumeHere ||
+            (await recheckVerifiedSid(verified.sid)) === 'trust') {
             return {
                 kind: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
                 block,

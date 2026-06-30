@@ -8,7 +8,7 @@ import {
 } from "../chunk-Q265CQL7.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.28.8";
+var PLUGIN_VERSION = "0.28.9";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
