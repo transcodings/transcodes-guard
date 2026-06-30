@@ -45,6 +45,8 @@ export type GateDecision = {
     block: BlockResult;
     resource: string;
     action: string;
+    /** Backend `/guard/evaluate` classification + matrix explanation. */
+    reasoning?: string;
 } | {
     kind: typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION;
     block: BlockResult;
@@ -67,12 +69,14 @@ export type GateDecision = {
     block: BlockResult;
     resource: string;
     action: string;
+    reasoning?: string;
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
     block: BlockResult;
     failure: Extract<RequestResult, {
         ok: false;
     }>;
+    reasoning?: string;
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
     block: BlockResult;
@@ -80,12 +84,13 @@ export type GateDecision = {
     browserUrl: string;
     browserLaunched: boolean;
     pending: PendingState;
+    reasoning?: string;
 };
 /**
  * Run the full PreToolUse gate against a parsed tool call.
  *
  * Side effects performed here:
- *  - `requestStepup` creates a backend session and may launch a browser.
+ *  - `POST /v1/guard/evaluate` (via `evaluateAction`).
  *  - `readVerified` reads from disk.
  *
  * Side effects intentionally NOT performed here (caller's responsibility):

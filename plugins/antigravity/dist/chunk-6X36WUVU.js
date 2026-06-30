@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "codex";
+process.env.TRANSCODES_GUARD_HOST = "antigravity";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -43,6 +43,14 @@ var GATE_DECISION_KIND = {
 };
 
 // ../../packages/gate-contract/dist/messages.js
+function appendBackendReasoning(text, reasoning) {
+  const trimmed = reasoning?.trim();
+  if (!trimmed)
+    return text;
+  return `${text}
+
+Backend: ${trimmed}`;
+}
 function formatNoTokenSessionNotice() {
   return [
     "transcodes-guard: no Transcodes token is configured.",
@@ -87,17 +95,17 @@ member detail page (https://app.transcodes.io). Non-interactive: \`transcodes se
 -l <label>\`. Then retry. Do not have the user paste the token into this chat.`;
 }
 function formatRbacDeniedReason(decision) {
-  return `Blocked by transcodes-guard: ${decision.block.reason}. Your RBAC role denies this action (resource="${decision.resource}", action="${decision.action}") \u2014 step-up MFA cannot grant it. Report this to the user; do not retry. An admin must grant the permission in the Transcodes console (RBAC \u2192 Roles).`;
+  return appendBackendReasoning(`Blocked by transcodes-guard: ${decision.block.reason}. Your RBAC role denies this action (resource="${decision.resource}", action="${decision.action}") \u2014 step-up MFA cannot grant it. Report this to the user; do not retry. An admin must grant the permission in the Transcodes console (RBAC \u2192 Roles).`, decision.reasoning);
 }
 function formatRbacDeniedSystemMessage(decision) {
-  return [
+  return appendBackendReasoning([
     formatBlockedSummary(decision.block),
     "",
     `RBAC permission DENIED \u2014 resource="${decision.resource}", action="${decision.action}".`,
     "Your role has no access to this action, so step-up MFA cannot unlock it.",
     "An admin must grant the permission in the Transcodes console (RBAC \u2192 Roles),",
     "then retry. Do not retry until the permission is granted."
-  ].join("\n");
+  ].join("\n"), decision.reasoning);
 }
 function formatStepupFailureDetail(decision) {
   const { failure } = decision;
@@ -107,16 +115,16 @@ function formatStepupFailureReason(decision) {
   return `Bash blocked by transcodes-guard: ${decision.block.reason}. ${formatStepupFailureDetail(decision)} Report the failure to the user; do not retry until step-up is available.`;
 }
 function formatStepupFailureSystemMessage(decision) {
-  return `${formatBlockedSummary(decision.block)}
+  return appendBackendReasoning(`${formatBlockedSummary(decision.block)}
 
-${formatStepupFailureDetail(decision)}`;
+${formatStepupFailureDetail(decision)}`, decision.reasoning);
 }
 function formatStepupPendingReason(decision) {
   return `Step-up MFA pending. sid=${decision.sid}. Open ${decision.browserUrl}, complete WebAuthn, then call MCP tool \`poll_stepup_session_wait\` with sid="${decision.sid}" and retry the same Bash command.`;
 }
 function formatStepupPendingSystemMessage(decision) {
   const launchLine = decision.browserLaunched ? "A browser tab has been opened automatically:" : "A concurrent hook process already opened a tab \u2014 reuse it:";
-  return [
+  return appendBackendReasoning([
     "\u{1F510} BLOCKED \u2014 Step-up MFA required. This Bash command was NOT executed.",
     "",
     `Reason : ${decision.block.reason}`,
@@ -131,7 +139,7 @@ function formatStepupPendingSystemMessage(decision) {
     "  1. Tell the user (one short line) to complete WebAuthn in the opened tab (paste the URL above if it did not open).",
     `  2. Immediately call the MCP tool \`poll_stepup_session_wait\` with sid="${decision.sid}". It blocks until verified or 60s timeout \u2014 one call replaces the polling loop.`,
     '  3. On `outcome: "verified"` retry the SAME Bash command \u2014 the hook detects the verified state and allows it. On `outcome: "timeout"` ask the user to retry WebAuthn, then call the wait tool again. On `outcome: "rejected"` tell the user they declined step-up; do NOT retry the command unless they explicitly ask.'
-  ].join("\n");
+  ].join("\n"), decision.reasoning);
 }
 function formatStderrTag(decision) {
   switch (decision.kind) {
@@ -1030,7 +1038,8 @@ async function createStepupSession(config, args) {
     envelope,
     sid: payload ? readString2(payload, "sid") : void 0,
     browserUrl: payload ? readString2(payload, "url") ?? readString2(payload, "browser_url") ?? readString2(payload, "browserUrl") : void 0,
-    expiresAt: payload ? readString2(payload, "expiresAt") ?? readString2(payload, "expires_at") : void 0
+    expiresAt: payload ? readString2(payload, "expiresAt") ?? readString2(payload, "expires_at") : void 0,
+    mode: payload ? readString2(payload, "mode") : void 0
   };
 }
 async function createConsoleBrowserSession(config, args = {}) {
@@ -1049,7 +1058,8 @@ async function createConsoleBrowserSession(config, args = {}) {
     envelope,
     sid: payload ? readString2(payload, "sid") : void 0,
     browserUrl: payload ? readString2(payload, "url") ?? readString2(payload, "browser_url") ?? readString2(payload, "browserUrl") : void 0,
-    expiresAt: payload ? readString2(payload, "expiresAt") ?? readString2(payload, "expires_at") : void 0
+    expiresAt: payload ? readString2(payload, "expiresAt") ?? readString2(payload, "expires_at") : void 0,
+    mode: payload ? readString2(payload, "mode") : void 0
   };
 }
 async function pollStepupSession(config, sid) {
@@ -1267,6 +1277,12 @@ function claimBrowserLaunch(fingerprintKey) {
   }
   return true;
 }
+function launchStepupBrowser(fingerprintKey, url) {
+  const launched = claimBrowserLaunch(fingerprintKey);
+  if (launched)
+    openBrowser2(url);
+  return launched;
+}
 function openBrowser2(url) {
   const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
   const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
@@ -1280,53 +1296,6 @@ function openBrowser2(url) {
     child.unref();
   } catch {
   }
-}
-async function requestStepup(input) {
-  if (!resolveToken().token) {
-    return { ok: false, reason: "no-token" };
-  }
-  let config;
-  try {
-    config = loadStepupConfig();
-  } catch (err) {
-    return {
-      ok: false,
-      reason: "error",
-      detail: err instanceof Error ? err.message : String(err)
-    };
-  }
-  let created;
-  try {
-    created = await createStepupSession(config, {
-      comment: input.comment ?? `Confirm ${input.reason}`,
-      action: input.action,
-      resource: input.resource
-    });
-  } catch (err) {
-    return {
-      ok: false,
-      reason: "create-failed",
-      detail: err instanceof Error ? err.message : String(err)
-    };
-  }
-  if (!created.envelope.ok || !created.sid || !created.browserUrl) {
-    return {
-      ok: false,
-      reason: "create-failed",
-      detail: `backend rejected create_stepup_session (status ${created.envelope.status})`
-    };
-  }
-  const launched = claimBrowserLaunch(input.fingerprintKey);
-  if (launched) {
-    openBrowser2(created.browserUrl);
-  }
-  return {
-    ok: true,
-    sid: created.sid,
-    browserUrl: created.browserUrl,
-    expiresAt: created.expiresAt,
-    launched
-  };
 }
 
 // ../../packages/stepup-core/dist/pending.js
@@ -5770,6 +5739,39 @@ async function refreshPolicyBundleIfConfigured(opts = {}) {
 }
 
 // ../../packages/stepup-core/dist/rbac-check.js
+async function evaluateAction(config, body) {
+  const env = await request(config, {
+    method: "POST",
+    path: "/guard/evaluate",
+    body: {
+      tool_name: body.toolName,
+      tool_input: body.toolInput,
+      cwd: body.cwd,
+      comment: body.comment
+    }
+  });
+  if (!env.ok)
+    return null;
+  const data = env.data;
+  const p = Array.isArray(data?.payload) ? data.payload[0] : env.data;
+  if (!p || typeof p !== "object")
+    return null;
+  const { permission, resource, action } = p;
+  if (permission !== 0 && permission !== 1 && permission !== 2)
+    return null;
+  if (typeof resource !== "string" || typeof action !== "string")
+    return null;
+  return {
+    permission,
+    resource,
+    action,
+    reasoning: typeof p.reasoning === "string" ? p.reasoning : "",
+    consume_in_hook: typeof p.consume_in_hook === "boolean" ? p.consume_in_hook : null,
+    sid: typeof p.sid === "string" ? p.sid : null,
+    url: typeof p.url === "string" ? p.url : null,
+    expires_at: typeof p.expires_at === "string" ? p.expires_at : null
+  };
+}
 function extractPermission(data, resource, action) {
   if (!data || typeof data !== "object")
     return null;
@@ -5964,16 +5966,16 @@ async function evaluatePreToolUse(input) {
   };
   if (!block)
     return { kind: GATE_DECISION_KIND2.PROCEED_UNGATED };
-  const consumeHere = classified.kind === "bash" || classified.kind === "mcp" && mcpConsumesInHook(classified.rule);
+  const localConsumeHere = classified.kind === "bash" || classified.kind === "mcp" && mcpConsumesInHook(classified.rule);
   const fingerprintKey = classified.kind === "bash" ? classified.command : `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
-  const fp = consumeHere ? fingerprintOf(fingerprintKey) : void 0;
+  const fp = localConsumeHere ? fingerprintOf(fingerprintKey) : void 0;
   const verified = readVerified(fp);
   if (verified) {
-    if (!consumeHere || await recheckVerifiedSid(verified.sid) === "trust") {
+    if (!localConsumeHere || await recheckVerifiedSid(verified.sid) === "trust") {
       return {
         kind: GATE_DECISION_KIND2.PROCEED_BY_VERIFICATION,
         block,
-        consumeHere,
+        consumeHere: localConsumeHere,
         fp
       };
     }
@@ -5983,66 +5985,70 @@ async function evaluatePreToolUse(input) {
   if (!resolveToken().token) {
     return { kind: GATE_DECISION_KIND2.BLOCK_NO_TOKEN, block };
   }
-  const { stepupResource: resource, stepupAction: action } = block;
-  const hasRbacCoord = classified.kind === "bash" || classified.rule.action !== void 0 && classified.rule.resource !== void 0;
-  let level = 2;
-  if (hasRbacCoord) {
-    try {
-      const config = loadStepupConfig();
-      level = await checkRbacPermission(config, resource, action) ?? 2;
-    } catch {
-      level = 2;
-    }
+  const comment = classified.kind === "bash" ? `Confirm danger command: ${block.reason}` : `Confirm ${classified.rule.id}: ${classified.rule.label}`;
+  let verdict = null;
+  try {
+    verdict = await evaluateAction(loadStepupConfig(), {
+      toolName: input.toolName,
+      toolInput: input.toolInput,
+      cwd: input.cwd,
+      comment
+    });
+  } catch {
+    verdict = null;
   }
-  if (level === 0) {
+  const permission = verdict?.permission ?? 2;
+  const resource = verdict?.resource ?? block.stepupResource;
+  const action = verdict?.action ?? block.stepupAction;
+  const backendReasoning = verdict?.reasoning?.trim() || void 0;
+  const consumeInHook = verdict?.consume_in_hook ?? localConsumeHere;
+  const pendingFp = consumeInHook ? fingerprintOf(fingerprintKey) : void 0;
+  if (permission === 0) {
     return {
       kind: GATE_DECISION_KIND2.BLOCK_BY_POLICY,
       block,
       resource,
-      action
+      action,
+      reasoning: backendReasoning
     };
   }
-  if (level === 1) {
+  if (permission === 1) {
     return {
       kind: GATE_DECISION_KIND2.PROCEED_BY_POLICY,
       block,
       resource,
-      action
+      action,
+      reasoning: backendReasoning
     };
   }
-  const gateInput = {
-    reason: block.reason,
-    action,
-    resource,
-    fingerprintKey,
-    comment: classified.kind === "bash" ? `Confirm danger command: ${block.reason}` : `Confirm ${classified.rule.id}: ${classified.rule.label}`
-  };
-  const req2 = await requestStepup(gateInput);
-  if (!req2.ok) {
+  if (!verdict?.sid || !verdict.url) {
     return {
       kind: GATE_DECISION_KIND2.BLOCK_STEPUP_CREATE_FAILED,
       block,
-      failure: req2
+      failure: { ok: false, reason: "create-failed" },
+      reasoning: backendReasoning
     };
   }
+  const browserLaunched = launchStepupBrowser(fingerprintKey, verdict.url);
   const pending = {
-    sid: req2.sid,
+    sid: verdict.sid,
     command: block.command,
     reason: block.reason,
-    browserUrl: req2.browserUrl,
+    browserUrl: verdict.url,
     createdAt: Date.now(),
-    expiresAt: req2.expiresAt,
+    expiresAt: verdict.expires_at ?? void 0,
     status: "pending",
-    // FP-KEYED record for the hook-consume path; GLOBAL (no fp) otherwise.
-    ...fp ? { fp } : {}
+    // FP-KEYED record when backend says hook consumes; GLOBAL (no fp) otherwise.
+    ...pendingFp ? { fp: pendingFp } : {}
   };
   return {
     kind: GATE_DECISION_KIND2.BLOCK_STEPUP_CHALLENGED,
     block,
-    sid: req2.sid,
-    browserUrl: req2.browserUrl,
-    browserLaunched: req2.launched,
-    pending
+    sid: verdict.sid,
+    browserUrl: verdict.url,
+    browserLaunched,
+    pending,
+    reasoning: backendReasoning
   };
 }
 

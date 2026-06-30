@@ -80,6 +80,16 @@ function claimBrowserLaunch(fingerprintKey: string): boolean {
   return true;
 }
 
+/** Open the step-up browser when this process wins the dedup lock. */
+export function launchStepupBrowser(
+  fingerprintKey: string,
+  url: string,
+): boolean {
+  const launched = claimBrowserLaunch(fingerprintKey);
+  if (launched) openBrowser(url);
+  return launched;
+}
+
 function openBrowser(url: string): void {
   const opener =
     process.platform === 'darwin'
@@ -175,10 +185,10 @@ export async function requestStepup(
     };
   }
 
-  const launched = claimBrowserLaunch(input.fingerprintKey);
-  if (launched) {
-    openBrowser(created.browserUrl);
-  }
+  const launched = launchStepupBrowser(
+    input.fingerprintKey,
+    created.browserUrl,
+  );
 
   return {
     ok: true,

@@ -1,13 +1,13 @@
 ---
 description: The asymmetric fail policy, fail-closed RBAC, and the no-side-effects-before-stdout contract that make up the gate's security posture.
 paths:
-  - "packages/stepup-core/**"
-  - "packages/transcodes-mcp-tools/src/stepup-helper.ts"
+  - 'packages/stepup-core/**'
+  - 'packages/transcodes-mcp-tools/src/stepup-helper.ts'
 ---
 
 # Gate security model
 
-These are security guarantees disguised as ordinary control flow. The *position* of each `try/catch` and each network call is load-bearing — moving one inverts the gate's default posture. Never flip a catch branch here to fail-open.
+These are security guarantees disguised as ordinary control flow. The _position_ of each `try/catch` and each network call is load-bearing — moving one inverts the gate's default posture. Never flip a catch branch here to fail-open.
 
 ## Asymmetric fail policy (the whole model)
 
@@ -20,14 +20,14 @@ The local matched rule is only a **classifier** that maps a command onto an RBAC
 
 ## Fail-closed RBAC
 
-The backend permission matrix is the authority: `0` = hard deny, `1` = allow without step-up (→ return `pass`), `2` = allow **with** step-up. Computing the level is fail-**closed**: any network/parse/config throw sets `level = 2`, never `1`. (A level-1 answer lets the command through entirely — counterintuitive for a "guard", hence stated.) Mirror handler at `stepup-helper.ts` (`?? 2`); `assertRbacCoordinate` *rejects* rule creation when resources can't be fetched.
+The backend permission matrix is the authority: `0` = hard deny, `1` = allow without step-up (→ return `pass`), `2` = allow **with** step-up. Computing the level is fail-**closed**: any network/parse/config throw sets `level = 2`, never `1`. (A level-1 answer lets the command through entirely — counterintuitive for a "guard", hence stated.) Mirror handler at `stepup-helper.ts` (`?? 2`); `assertRbacCoordinate` _rejects_ rule creation when resources can't be fetched.
 
 ## No side effects before the deny is on stdout
 
 `evaluatePreToolUse` intentionally performs **no** persistence — the caller does it, in this order:
 
 1. Emit the deny JSON to stdout **first**.
-2. *Then* `writePending(decision.pending)` — so a throw in the disk write can't suppress the deny.
+2. _Then_ `writePending(decision.pending)` — so a throw in the disk write can't suppress the deny.
 3. On allow, the caller decides `consumeVerified`/`clearPending` from `decision.consumeHere`.
 
 The two **fire-and-forget** backend calls (`sendGateDecisionAudit`, `refreshPolicyBundle`) also run **only after** stdout. Neither ever rejects. The decision audit uses a sub-second timeout (`DECISION_AUDIT_TIMEOUT_MS = 1000`), no-ops for `pass`/no-token, and **omits the raw command string** (sends only fp/coordinates/ruleId — data minimization).

@@ -7,6 +7,8 @@
  * for the per-session set of in-flight danger commands.
  */
 export declare function fingerprintOf(key: string): string;
+/** Open the step-up browser when this process wins the dedup lock. */
+export declare function launchStepupBrowser(fingerprintKey: string, url: string): boolean;
 export type RequestInput = {
     /** One-line human-readable summary surfaced in the deny JSON. */
     reason: string;

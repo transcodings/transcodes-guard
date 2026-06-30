@@ -12,7 +12,7 @@ import type { Server } from 'node:http';
 import { createServer } from 'node:http';
 import { after, before, describe, it } from 'node:test';
 import type { StepupConfig } from '../src/config.js';
-import { checkRbacPermission } from '../src/rbac-check.js';
+import { checkRbacPermission, evaluateAction } from '../src/rbac-check.js';
 
 describe('checkRbacPermission', () => {
   let server: Server;
@@ -104,5 +104,106 @@ describe('checkRbacPermission', () => {
       await checkRbacPermission(config(), 'member', 'delete'),
       null,
     );
+  });
+});
+
+describe('evaluateAction', () => {
+  let server: Server;
+  let baseUrl: string;
+  let respond: () => { status: number; body: unknown };
+
+  before(async () => {
+    server = createServer((req, res) => {
+      assert.equal(req.url, '/v1/guard/evaluate');
+      const { status, body } = respond();
+      res.statusCode = status;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify(body));
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    assert.ok(address && typeof address === 'object');
+    baseUrl = `http://127.0.0.1:${address.port}`;
+  });
+
+  after(() => server.close());
+
+  function config(): StepupConfig {
+    return {
+      backendUrl: baseUrl,
+      apiBaseV1: `${baseUrl}/v1`,
+      token: 'test-token',
+      organizationId: 'org-test',
+      projectId: 'proj-test',
+      memberId: 'member-test',
+    };
+  }
+
+  function payloadResponse(payload: unknown) {
+    return {
+      status: 200,
+      body: {
+        logId: 'x',
+        success: true,
+        statusCode: 201,
+        payload,
+        error: null,
+      },
+    };
+  }
+
+  it('parses consume_in_hook and reasoning from the evaluate payload', async () => {
+    respond = () =>
+      payloadResponse([
+        {
+          decision: 'stepup',
+          resource: 'system',
+          action: 'create',
+          permission: 2,
+          reasoning: 'mkdir creates a new directory.',
+          consume_in_hook: true,
+          sid: 'tc_stepup_test',
+          url: 'https://auth.example/?sid=tc_stepup_test',
+          expires_at: '2026-06-30T01:00:00.000Z',
+        },
+      ]);
+
+    const verdict = await evaluateAction(config(), {
+      toolName: 'Bash',
+      toolInput: { command: 'mkdir temp4' },
+      cwd: '/tmp',
+      comment: 'Confirm',
+    });
+
+    assert.deepEqual(verdict, {
+      permission: 2,
+      resource: 'system',
+      action: 'create',
+      reasoning: 'mkdir creates a new directory.',
+      consume_in_hook: true,
+      sid: 'tc_stepup_test',
+      url: 'https://auth.example/?sid=tc_stepup_test',
+      expires_at: '2026-06-30T01:00:00.000Z',
+    });
+  });
+
+  it('returns null consume_in_hook when the backend omits it', async () => {
+    respond = () =>
+      payloadResponse([
+        {
+          permission: 1,
+          resource: 'system',
+          action: 'read',
+          reasoning: '',
+        },
+      ]);
+
+    const verdict = await evaluateAction(config(), {
+      toolInput: { command: 'ls' },
+    });
+
+    assert.ok(verdict);
+    assert.equal(verdict.consume_in_hook, null);
+    assert.equal(verdict.permission, 1);
   });
 });

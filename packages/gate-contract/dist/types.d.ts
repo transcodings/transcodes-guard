@@ -77,6 +77,8 @@ export type GateDecision = {
     block: BlockResult;
     resource: string;
     action: string;
+    /** Backend `/guard/evaluate` classification + matrix explanation. */
+    reasoning?: string;
 } | {
     kind: typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION;
     block: BlockResult;
@@ -90,10 +92,12 @@ export type GateDecision = {
     block: BlockResult;
     resource: string;
     action: string;
+    reasoning?: string;
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
     block: BlockResult;
     failure: StepupFailure;
+    reasoning?: string;
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
     block: BlockResult;
@@ -101,6 +105,7 @@ export type GateDecision = {
     browserUrl: string;
     browserLaunched: boolean;
     pending: PendingState;
+    reasoning?: string;
 };
 /** Backend HTTP envelope. Mirrors client.ts `Envelope`. */
 export type Envelope = {

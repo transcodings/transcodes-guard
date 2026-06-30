@@ -11,6 +11,12 @@
  * render decisions without importing private code.
  */
 import { GATE_DECISION_KIND, } from './types.js';
+function appendBackendReasoning(text, reasoning) {
+    const trimmed = reasoning?.trim();
+    if (!trimmed)
+        return text;
+    return `${text}\n\nBackend: ${trimmed}`;
+}
 /**
  * Session-start notice text shown when no Transcodes token is configured.
  *
@@ -69,20 +75,20 @@ export function formatNoTokenSystemMessage(block) {
         '-l <label>`. Then retry. Do not have the user paste the token into this chat.');
 }
 export function formatRbacDeniedReason(decision) {
-    return (`Blocked by transcodes-guard: ${decision.block.reason}. ` +
+    return appendBackendReasoning(`Blocked by transcodes-guard: ${decision.block.reason}. ` +
         `Your RBAC role denies this action (resource="${decision.resource}", action="${decision.action}") — ` +
         'step-up MFA cannot grant it. Report this to the user; do not retry. ' +
-        'An admin must grant the permission in the Transcodes console (RBAC → Roles).');
+        'An admin must grant the permission in the Transcodes console (RBAC → Roles).', decision.reasoning);
 }
 export function formatRbacDeniedSystemMessage(decision) {
-    return [
+    return appendBackendReasoning([
         formatBlockedSummary(decision.block),
         '',
         `RBAC permission DENIED — resource="${decision.resource}", action="${decision.action}".`,
         'Your role has no access to this action, so step-up MFA cannot unlock it.',
         'An admin must grant the permission in the Transcodes console (RBAC → Roles),',
         'then retry. Do not retry until the permission is granted.',
-    ].join('\n');
+    ].join('\n'), decision.reasoning);
 }
 export function formatStepupFailureDetail(decision) {
     const { failure } = decision;
@@ -97,7 +103,7 @@ export function formatStepupFailureReason(decision) {
         'Report the failure to the user; do not retry until step-up is available.');
 }
 export function formatStepupFailureSystemMessage(decision) {
-    return `${formatBlockedSummary(decision.block)}\n\n${formatStepupFailureDetail(decision)}`;
+    return appendBackendReasoning(`${formatBlockedSummary(decision.block)}\n\n${formatStepupFailureDetail(decision)}`, decision.reasoning);
 }
 export function formatStepupPendingReason(decision) {
     return (`Step-up MFA pending. sid=${decision.sid}. Open ${decision.browserUrl}, ` +
@@ -108,7 +114,7 @@ export function formatStepupPendingSystemMessage(decision) {
     const launchLine = decision.browserLaunched
         ? 'A browser tab has been opened automatically:'
         : 'A concurrent hook process already opened a tab — reuse it:';
-    return [
+    return appendBackendReasoning([
         '🔐 BLOCKED — Step-up MFA required. This Bash command was NOT executed.',
         '',
         `Reason : ${decision.block.reason}`,
@@ -128,7 +134,7 @@ export function formatStepupPendingSystemMessage(decision) {
             'verified state and allows it. On `outcome: "timeout"` ask the user to retry ' +
             'WebAuthn, then call the wait tool again. On `outcome: "rejected"` tell the user ' +
             'they declined step-up; do NOT retry the command unless they explicitly ask.',
-    ].join('\n');
+    ].join('\n'), decision.reasoning);
 }
 /**
  * Stderr 1-line summary tag for the hook process. Distinct from the

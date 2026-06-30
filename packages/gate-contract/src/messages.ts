@@ -16,6 +16,12 @@ import {
   type GateDecision,
 } from './types.js';
 
+function appendBackendReasoning(text: string, reasoning?: string): string {
+  const trimmed = reasoning?.trim();
+  if (!trimmed) return text;
+  return `${text}\n\nBackend: ${trimmed}`;
+}
+
 /**
  * Session-start notice text shown when no Transcodes token is configured.
  *
@@ -95,11 +101,12 @@ export function formatRbacDeniedReason(
     { kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY }
   >,
 ): string {
-  return (
+  return appendBackendReasoning(
     `Blocked by transcodes-guard: ${decision.block.reason}. ` +
-    `Your RBAC role denies this action (resource="${decision.resource}", action="${decision.action}") — ` +
-    'step-up MFA cannot grant it. Report this to the user; do not retry. ' +
-    'An admin must grant the permission in the Transcodes console (RBAC → Roles).'
+      `Your RBAC role denies this action (resource="${decision.resource}", action="${decision.action}") — ` +
+      'step-up MFA cannot grant it. Report this to the user; do not retry. ' +
+      'An admin must grant the permission in the Transcodes console (RBAC → Roles).',
+    decision.reasoning,
   );
 }
 
@@ -109,14 +116,17 @@ export function formatRbacDeniedSystemMessage(
     { kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY }
   >,
 ): string {
-  return [
-    formatBlockedSummary(decision.block),
-    '',
-    `RBAC permission DENIED — resource="${decision.resource}", action="${decision.action}".`,
-    'Your role has no access to this action, so step-up MFA cannot unlock it.',
-    'An admin must grant the permission in the Transcodes console (RBAC → Roles),',
-    'then retry. Do not retry until the permission is granted.',
-  ].join('\n');
+  return appendBackendReasoning(
+    [
+      formatBlockedSummary(decision.block),
+      '',
+      `RBAC permission DENIED — resource="${decision.resource}", action="${decision.action}".`,
+      'Your role has no access to this action, so step-up MFA cannot unlock it.',
+      'An admin must grant the permission in the Transcodes console (RBAC → Roles),',
+      'then retry. Do not retry until the permission is granted.',
+    ].join('\n'),
+    decision.reasoning,
+  );
 }
 
 export function formatStepupFailureDetail(
@@ -157,9 +167,12 @@ export function formatStepupFailureSystemMessage(
     { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED }
   >,
 ): string {
-  return `${formatBlockedSummary(
-    decision.block,
-  )}\n\n${formatStepupFailureDetail(decision)}`;
+  return appendBackendReasoning(
+    `${formatBlockedSummary(
+      decision.block,
+    )}\n\n${formatStepupFailureDetail(decision)}`,
+    decision.reasoning,
+  );
 }
 
 export function formatStepupPendingReason(
@@ -184,27 +197,30 @@ export function formatStepupPendingSystemMessage(
   const launchLine = decision.browserLaunched
     ? 'A browser tab has been opened automatically:'
     : 'A concurrent hook process already opened a tab — reuse it:';
-  return [
-    '🔐 BLOCKED — Step-up MFA required. This Bash command was NOT executed.',
-    '',
-    `Reason : ${decision.block.reason}`,
-    `Command: ${decision.block.command}`,
-    '',
-    launchLine,
-    `  ${decision.browserUrl}`,
-    '',
-    `Session id: ${decision.sid}`,
-    '',
-    'Agent — drive the step-up loop (do this WITHOUT asking the user for confirmation):',
-    '  1. Tell the user (one short line) to complete WebAuthn in the opened tab ' +
-      '(paste the URL above if it did not open).',
-    `  2. Immediately call the MCP tool \`poll_stepup_session_wait\` with sid="${decision.sid}". ` +
-      'It blocks until verified or 60s timeout — one call replaces the polling loop.',
-    '  3. On `outcome: "verified"` retry the SAME Bash command — the hook detects the ' +
-      'verified state and allows it. On `outcome: "timeout"` ask the user to retry ' +
-      'WebAuthn, then call the wait tool again. On `outcome: "rejected"` tell the user ' +
-      'they declined step-up; do NOT retry the command unless they explicitly ask.',
-  ].join('\n');
+  return appendBackendReasoning(
+    [
+      '🔐 BLOCKED — Step-up MFA required. This Bash command was NOT executed.',
+      '',
+      `Reason : ${decision.block.reason}`,
+      `Command: ${decision.block.command}`,
+      '',
+      launchLine,
+      `  ${decision.browserUrl}`,
+      '',
+      `Session id: ${decision.sid}`,
+      '',
+      'Agent — drive the step-up loop (do this WITHOUT asking the user for confirmation):',
+      '  1. Tell the user (one short line) to complete WebAuthn in the opened tab ' +
+        '(paste the URL above if it did not open).',
+      `  2. Immediately call the MCP tool \`poll_stepup_session_wait\` with sid="${decision.sid}". ` +
+        'It blocks until verified or 60s timeout — one call replaces the polling loop.',
+      '  3. On `outcome: "verified"` retry the SAME Bash command — the hook detects the ' +
+        'verified state and allows it. On `outcome: "timeout"` ask the user to retry ' +
+        'WebAuthn, then call the wait tool again. On `outcome: "rejected"` tell the user ' +
+        'they declined step-up; do NOT retry the command unless they explicitly ask.',
+    ].join('\n'),
+    decision.reasoning,
+  );
 }
 
 /**

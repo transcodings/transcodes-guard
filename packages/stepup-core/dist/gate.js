@@ -74,6 +74,13 @@ function claimBrowserLaunch(fingerprintKey) {
     }
     return true;
 }
+/** Open the step-up browser when this process wins the dedup lock. */
+export function launchStepupBrowser(fingerprintKey, url) {
+    const launched = claimBrowserLaunch(fingerprintKey);
+    if (launched)
+        openBrowser(url);
+    return launched;
+}
 function openBrowser(url) {
     const opener = process.platform === 'darwin'
         ? 'open'
@@ -135,10 +142,7 @@ export async function requestStepup(input) {
             detail: `backend rejected create_stepup_session (status ${created.envelope.status})`,
         };
     }
-    const launched = claimBrowserLaunch(input.fingerprintKey);
-    if (launched) {
-        openBrowser(created.browserUrl);
-    }
+    const launched = launchStepupBrowser(input.fingerprintKey, created.browserUrl);
     return {
         ok: true,
         sid: created.sid,

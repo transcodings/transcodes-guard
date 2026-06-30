@@ -20,6 +20,65 @@ import type { StepupConfig } from './config.js';
 
 export type RbacLevel = 0 | 1 | 2;
 
+export type GuardVerdict = {
+  permission: RbacLevel;
+  resource: string;
+  action: string;
+  reasoning: string;
+  /** Where the verified sid is re-enforced. null when the backend omitted it. */
+  consume_in_hook: boolean | null;
+  sid: string | null;
+  url: string | null;
+  expires_at: string | null;
+};
+
+/**
+ * POST /v1/guard/evaluate — one round-trip: backend classifies the raw
+ * tool_input, applies the matrix, and (for level 2) creates the step-up
+ * session. The local rule only decided *whether* to gate; resource/action/
+ * permission come from here. Returns null on any failure → caller fails closed.
+ */
+export async function evaluateAction(
+  config: StepupConfig,
+  body: {
+    toolName?: string;
+    toolInput: unknown;
+    cwd?: string;
+    comment?: string;
+  },
+): Promise<GuardVerdict | null> {
+  const env = await request(config, {
+    method: 'POST',
+    path: '/guard/evaluate',
+    body: {
+      tool_name: body.toolName,
+      tool_input: body.toolInput,
+      cwd: body.cwd,
+      comment: body.comment,
+    },
+  });
+  if (!env.ok) return null;
+  const data = env.data as { payload?: unknown[] } | null;
+  const p = (
+    Array.isArray(data?.payload) ? data.payload[0] : env.data
+  ) as Record<string, unknown> | null;
+  if (!p || typeof p !== 'object') return null;
+  const { permission, resource, action } = p;
+  if (permission !== 0 && permission !== 1 && permission !== 2) return null;
+  if (typeof resource !== 'string' || typeof action !== 'string') return null;
+  return {
+    permission,
+    resource,
+    action,
+    reasoning: typeof p.reasoning === 'string' ? p.reasoning : '',
+    consume_in_hook:
+      typeof p.consume_in_hook === 'boolean' ? p.consume_in_hook : null,
+    sid: typeof p.sid === 'string' ? p.sid : null,
+    url: typeof p.url === 'string' ? p.url : null,
+    expires_at: typeof p.expires_at === 'string' ? p.expires_at : null,
+  };
+}
+
 function extractPermission(
   data: unknown,
   resource: string,

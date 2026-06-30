@@ -16,10 +16,10 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { DEFAULT_RBAC_RESOURCE, findFirstMatch, findFirstToolRule, mcpConsumesInHook, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
-import { fingerprintOf, requestStepup } from './gate.js';
+import { fingerprintOf, launchStepupBrowser } from './gate.js';
 import { clearPending } from './pending.js';
 import { loadEffectivePatterns, loadEffectiveToolRules, } from './policy-bundle.js';
-import { checkRbacPermission } from './rbac-check.js';
+import { evaluateAction } from './rbac-check.js';
 import { pollStepupSession } from './session.js';
 import { consumeVerified, readVerified } from './store.js';
 import { resolveToken } from './token-store.js';
@@ -230,7 +230,7 @@ function classifyToolCall(input) {
  * Run the full PreToolUse gate against a parsed tool call.
  *
  * Side effects performed here:
- *  - `requestStepup` creates a backend session and may launch a browser.
+ *  - `POST /v1/guard/evaluate` (via `evaluateAction`).
  *  - `readVerified` reads from disk.
  *
  * Side effects intentionally NOT performed here (caller's responsibility):
@@ -251,8 +251,8 @@ export async function evaluatePreToolUse(input) {
     if (!classified)
         return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
     const block = classified.kind === 'bash'
-        ? (checkPatternMatch(classified.command) ??
-            checkRmGitTracked(classified.command, classified.cwd))
+        ? checkPatternMatch(classified.command) ??
+            checkRmGitTracked(classified.command, classified.cwd)
         : {
             reason: `matched ${classified.rule.source} tool-rule \`${classified.rule.id}\` — ${classified.rule.description}`,
             command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
@@ -265,21 +265,22 @@ export async function evaluatePreToolUse(input) {
     // Consume semantics (see stepup-gate.md):
     //   Bash + bundle MCP rules → FP-keyed verified file, hook consumes on allow.
     //   System MCP rules → GLOBAL verified; handler passes sid to the backend.
-    const consumeHere = classified.kind === 'bash' ||
+    // Pre-evaluate local default — used for the verified fast-path before /evaluate.
+    const localConsumeHere = classified.kind === 'bash' ||
         (classified.kind === 'mcp' && mcpConsumesInHook(classified.rule));
     const fingerprintKey = classified.kind === 'bash'
         ? classified.command
         : `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
-    const fp = consumeHere ? fingerprintOf(fingerprintKey) : undefined;
+    const fp = localConsumeHere ? fingerprintOf(fingerprintKey) : undefined;
     const verified = readVerified(fp);
     if (verified) {
         // FP-keyed path (Bash + bundle MCP rules) needs backend re-check. GLOBAL
         // path (system MCP rules) skips it — handler re-validates sid via header.
-        if (!consumeHere || (await recheckVerifiedSid(verified.sid)) === 'trust') {
+        if (!localConsumeHere || (await recheckVerifiedSid(verified.sid)) === 'trust') {
             return {
                 kind: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
                 block,
-                consumeHere,
+                consumeHere: localConsumeHere,
                 fp,
             };
         }
@@ -291,79 +292,78 @@ export async function evaluatePreToolUse(input) {
     if (!resolveToken().token) {
         return { kind: GATE_DECISION_KIND.BLOCK_NO_TOKEN, block };
     }
-    // The matched rule only maps this command/tool onto an RBAC coordinate; the
-    // backend permission matrix is the authority for the decision. The coordinate
-    // is already resolved on `block` (both producers fill it), so ask the matrix
-    // directly: 0=deny, 1=allow (no step-up), 2=allow+step-up.
-    const { stepupResource: resource, stepupAction: action } = block;
-    const hasRbacCoord = classified.kind === 'bash' ||
-        (classified.rule.action !== undefined &&
-            classified.rule.resource !== undefined);
-    // Fail-closed: any failure to determine the level (network/parse/config) is
-    // treated as step-up required (2) — never silently allowed.
-    let level = 2;
-    if (hasRbacCoord) {
-        try {
-            const config = loadStepupConfig();
-            level = (await checkRbacPermission(config, resource, action)) ?? 2;
-        }
-        catch {
-            level = 2;
-        }
+    // Guard v2: one POST /guard/evaluate does classify + matrix + (level 2) the
+    // step-up session. The local rule only decided *whether* to gate; resource/
+    // action/permission/sid all come from the backend. Fail-closed: a null
+    // verdict (network/parse/config failure) → level 2 step-up.
+    const comment = classified.kind === 'bash'
+        ? `Confirm danger command: ${block.reason}`
+        : `Confirm ${classified.rule.id}: ${classified.rule.label}`;
+    let verdict = null;
+    try {
+        verdict = await evaluateAction(loadStepupConfig(), {
+            toolName: input.toolName,
+            toolInput: input.toolInput,
+            cwd: input.cwd,
+            comment,
+        });
     }
-    if (level === 0) {
+    catch {
+        verdict = null;
+    }
+    const permission = verdict?.permission ?? 2;
+    const resource = verdict?.resource ?? block.stepupResource;
+    const action = verdict?.action ?? block.stepupAction;
+    const backendReasoning = verdict?.reasoning?.trim() || undefined;
+    const consumeInHook = verdict?.consume_in_hook ?? localConsumeHere;
+    const pendingFp = consumeInHook ? fingerprintOf(fingerprintKey) : undefined;
+    if (permission === 0) {
         return {
             kind: GATE_DECISION_KIND.BLOCK_BY_POLICY,
             block,
             resource,
             action,
+            reasoning: backendReasoning,
         };
     }
-    if (level === 1) {
-        // RBAC grants this without step-up → let the command through. The local
-        // rule is a classifier, not an independent floor.
+    if (permission === 1) {
         return {
             kind: GATE_DECISION_KIND.PROCEED_BY_POLICY,
             block,
             resource,
             action,
+            reasoning: backendReasoning,
         };
     }
-    const gateInput = {
-        reason: block.reason,
-        action,
-        resource,
-        fingerprintKey,
-        comment: classified.kind === 'bash'
-            ? `Confirm danger command: ${block.reason}`
-            : `Confirm ${classified.rule.id}: ${classified.rule.label}`,
-    };
-    const req = await requestStepup(gateInput);
-    if (!req.ok) {
+    // Level 2 — backend created the session; open MFA URL (deduped per fingerprint).
+    if (!verdict?.sid || !verdict.url) {
         return {
             kind: GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED,
             block,
-            failure: req,
+            failure: { ok: false, reason: 'create-failed' },
+            reasoning: backendReasoning,
         };
     }
+    const browserLaunched = launchStepupBrowser(fingerprintKey, verdict.url);
     const pending = {
-        sid: req.sid,
+        sid: verdict.sid,
         command: block.command,
         reason: block.reason,
-        browserUrl: req.browserUrl,
+        browserUrl: verdict.url,
         createdAt: Date.now(),
-        expiresAt: req.expiresAt,
+        expiresAt: verdict.expires_at ?? undefined,
         status: 'pending',
-        // FP-KEYED record for the hook-consume path; GLOBAL (no fp) otherwise.
-        ...(fp ? { fp } : {}),
+        // FP-KEYED record when backend says hook consumes; GLOBAL (no fp) otherwise.
+        ...(pendingFp ? { fp: pendingFp } : {}),
     };
     return {
         kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,
         block,
-        sid: req.sid,
-        browserUrl: req.browserUrl,
-        browserLaunched: req.launched,
+        sid: verdict.sid,
+        browserUrl: verdict.url,
+        browserLaunched,
         pending,
+        reasoning: backendReasoning,
     };
 }
 //# sourceMappingURL=evaluate.js.map
