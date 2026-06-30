@@ -54,6 +54,6 @@
     "node": ">=20"
   },
   "license": "FSL-1.1-ALv2",
-  "version": "0.28.9",
+  "version": "0.29.0",
   "description": "Risky-shell interceptor + step-up MFA audit MCP server — OpenAI Codex CLI plugin"
 }

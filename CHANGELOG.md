@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.9...transcodes-guard-v0.29.0) (2026-06-30)
+
+
+### Features
+
+* **guard:** wire POST /guard/evaluate with consume_in_hook and reasoning ([9d68830](https://github.com/transcodings/transcodes-guard/commit/9d68830f81862505399190328f955bfd99c5a592))
+
 ## [0.28.9](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.8...transcodes-guard-v0.28.9) (2026-06-29)
 
 
