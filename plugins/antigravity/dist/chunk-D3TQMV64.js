@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "claude";
+process.env.TRANSCODES_GUARD_HOST = "antigravity";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -493,7 +493,7 @@ function resolveToken() {
 }
 
 // ../../packages/stepup-core/dist/config.js
-var DEFAULT_BACKEND_URL = "http://localhost:3500";
+var DEFAULT_BACKEND_URL = process.env.environment === "dev" ? "http://localhost:3500" : "https://api.transcodesapis.com";
 var STEPUP_TTL_MS = 10 * 60 * 1e3;
 function loadStepupConfig() {
   const rawUrl = process.env.TRANSCODES_BACKEND_URL?.trim() || DEFAULT_BACKEND_URL;
@@ -5323,7 +5323,7 @@ async function evaluateAction(config, body) {
   if (!env.ok)
     return null;
   const data = env.data;
-  const p = Array.isArray(data?.payload) ? data.payload[0] : env.data;
+  const p = Array.isArray(data?.payload) ? data.payload[0] : null;
   if (!p || typeof p !== "object")
     return null;
   const { permission, resource, action } = p;
@@ -5331,12 +5331,14 @@ async function evaluateAction(config, body) {
     return null;
   if (typeof resource !== "string" || typeof action !== "string")
     return null;
+  if (typeof p.consume_in_hook !== "boolean")
+    return null;
   return {
     permission,
     resource,
     action,
     reasoning: typeof p.reasoning === "string" ? p.reasoning : "",
-    consume_in_hook: typeof p.consume_in_hook === "boolean" ? p.consume_in_hook : null,
+    consume_in_hook: p.consume_in_hook,
     sid: typeof p.sid === "string" ? p.sid : null,
     url: typeof p.url === "string" ? p.url : null,
     expires_at: typeof p.expires_at === "string" ? p.expires_at : null
@@ -5378,21 +5380,7 @@ var GATE_DECISION_KIND2 = {
   BLOCK_STEPUP_CREATE_FAILED: "block-stepup-create-failed",
   BLOCK_STEPUP_CHALLENGED: "block-stepup-challenged"
 };
-function stringifyToolInput(input) {
-  try {
-    const s = JSON.stringify(input);
-    if (s === void 0)
-      return "[unserializable]";
-    return s.length > 200 ? `${s.slice(0, 197)}...` : s;
-  } catch {
-    return "[unserializable]";
-  }
-}
 var GUARD_EVALUATE_RULE_ID = "guard-evaluate";
-var BASH_EVALUATE_RULE_ID = "guard-evaluate-bash";
-function mcpConsumesInHookByWireName(toolName) {
-  return !isTranscodesGuardWireToolName(toolName);
-}
 async function recheckVerifiedSid(sid) {
   if (!resolveToken().token)
     return "trust";
@@ -5431,24 +5419,6 @@ function classifyToolCall(input) {
   }
   return null;
 }
-function buildBashBlock(command) {
-  return {
-    reason: "shell command \u2014 POST /guard/evaluate",
-    command,
-    ruleId: BASH_EVALUATE_RULE_ID,
-    stepupResource: DEFAULT_RBAC_RESOURCE,
-    stepupAction: "update"
-  };
-}
-function buildMcpBlock(classified) {
-  return {
-    reason: "MCP tool call \u2014 POST /guard/evaluate",
-    command: `${classified.toolName} ${stringifyToolInput(classified.toolInput)}`,
-    ruleId: GUARD_EVALUATE_RULE_ID,
-    stepupResource: DEFAULT_RBAC_RESOURCE,
-    stepupAction: "update"
-  };
-}
 async function evaluatePreToolUse(input) {
   let classified;
   try {
@@ -5458,17 +5428,37 @@ async function evaluatePreToolUse(input) {
   }
   if (!classified)
     return { kind: GATE_DECISION_KIND2.PROCEED_UNGATED };
-  const block = classified.kind === "bash" ? buildBashBlock(classified.command) : buildMcpBlock(classified);
-  const localConsumeHere = classified.kind === "bash" || classified.kind === "mcp" && mcpConsumesInHookByWireName(classified.toolName);
-  const fingerprintKey = classified.kind === "bash" ? classified.command : `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
-  const fp = localConsumeHere ? fingerprintOf(fingerprintKey) : void 0;
+  let blockCommand;
+  let fpKey;
+  if (classified.kind === "bash") {
+    blockCommand = classified.command;
+    fpKey = classified.command;
+  } else {
+    let toolInputSummary;
+    try {
+      const s = JSON.stringify(classified.toolInput);
+      toolInputSummary = s === void 0 ? "[unserializable]" : s.length > 200 ? `${s.slice(0, 197)}...` : s;
+    } catch {
+      toolInputSummary = "[unserializable]";
+    }
+    blockCommand = `${classified.toolName} ${toolInputSummary}`;
+    fpKey = `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
+  }
+  const block = {
+    reason: "POST /guard/evaluate",
+    command: blockCommand,
+    ruleId: GUARD_EVALUATE_RULE_ID,
+    stepupResource: DEFAULT_RBAC_RESOURCE,
+    stepupAction: "update"
+  };
+  const fp = fingerprintOf(fpKey);
   const verified = readVerified(fp);
   if (verified) {
-    if (!localConsumeHere || await recheckVerifiedSid(verified.sid) === "trust") {
+    if (await recheckVerifiedSid(verified.sid) === "trust") {
       return {
         kind: GATE_DECISION_KIND2.PROCEED_BY_VERIFICATION,
         block,
-        consumeHere: localConsumeHere,
+        consumeHere: true,
         fp
       };
     }
@@ -5478,14 +5468,13 @@ async function evaluatePreToolUse(input) {
   if (!resolveToken().token) {
     return { kind: GATE_DECISION_KIND2.BLOCK_NO_TOKEN, block };
   }
-  const comment = classified.kind === "bash" ? `Confirm shell command: ${block.command}` : `Confirm MCP tool: ${classified.toolName}`;
   let verdict = null;
   try {
     verdict = await evaluateAction(loadStepupConfig(), {
       toolName: input.toolName,
       toolInput: input.toolInput,
       cwd: input.cwd,
-      comment
+      comment: classified.kind === "bash" ? `Confirm shell command: ${block.command}` : `Confirm MCP tool: ${classified.toolName}`
     });
   } catch {
     verdict = null;
@@ -5494,8 +5483,6 @@ async function evaluatePreToolUse(input) {
   const resource = verdict?.resource ?? block.stepupResource;
   const action = verdict?.action ?? block.stepupAction;
   const backendReasoning = verdict?.reasoning?.trim() || void 0;
-  const consumeInHook = verdict?.consume_in_hook ?? localConsumeHere;
-  const pendingFp = consumeInHook ? fingerprintOf(fingerprintKey) : void 0;
   if (permission === 0) {
     return {
       kind: GATE_DECISION_KIND2.BLOCK_BY_POLICY,
@@ -5522,7 +5509,7 @@ async function evaluatePreToolUse(input) {
       reasoning: backendReasoning
     };
   }
-  const browserLaunched = launchStepupBrowser(fingerprintKey, verdict.url);
+  const browserLaunched = launchStepupBrowser(fpKey, verdict.url);
   const pending = {
     sid: verdict.sid,
     command: block.command,
@@ -5531,8 +5518,7 @@ async function evaluatePreToolUse(input) {
     createdAt: Date.now(),
     expiresAt: verdict.expires_at ?? void 0,
     status: "pending",
-    // FP-KEYED record when backend says hook consumes; GLOBAL (no fp) otherwise.
-    ...pendingFp ? { fp: pendingFp } : {}
+    fp
   };
   return {
     kind: GATE_DECISION_KIND2.BLOCK_STEPUP_CHALLENGED,
@@ -6897,6 +6883,7 @@ export {
   __commonJS,
   __export,
   __toESM,
+  loadMergedToolRules,
   isMcpWireToolName,
   isTranscodesGuardWireToolName,
   ZodOptional,

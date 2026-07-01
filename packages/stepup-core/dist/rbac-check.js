@@ -37,7 +37,7 @@ export async function evaluateAction(config, body) {
     if (!env.ok)
         return null;
     const data = env.data;
-    const p = (Array.isArray(data?.payload) ? data.payload[0] : env.data);
+    const p = (Array.isArray(data?.payload) ? data.payload[0] : null);
     if (!p || typeof p !== 'object')
         return null;
     const { permission, resource, action } = p;
@@ -45,12 +45,14 @@ export async function evaluateAction(config, body) {
         return null;
     if (typeof resource !== 'string' || typeof action !== 'string')
         return null;
+    if (typeof p.consume_in_hook !== 'boolean')
+        return null;
     return {
         permission,
         resource,
         action,
         reasoning: typeof p.reasoning === 'string' ? p.reasoning : '',
-        consume_in_hook: typeof p.consume_in_hook === 'boolean' ? p.consume_in_hook : null,
+        consume_in_hook: p.consume_in_hook,
         sid: typeof p.sid === 'string' ? p.sid : null,
         url: typeof p.url === 'string' ? p.url : null,
         expires_at: typeof p.expires_at === 'string' ? p.expires_at : null,

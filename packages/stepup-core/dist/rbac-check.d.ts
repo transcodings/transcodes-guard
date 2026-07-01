@@ -5,8 +5,8 @@ export type GuardVerdict = {
     resource: string;
     action: string;
     reasoning: string;
-    /** Where the verified sid is re-enforced. null when the backend omitted it. */
-    consume_in_hook: boolean | null;
+    /** Where the verified sid gets re-enforced (mirrors EvaluateActionResponseDto). */
+    consume_in_hook: boolean;
     sid: string | null;
     url: string | null;
     expires_at: string | null;

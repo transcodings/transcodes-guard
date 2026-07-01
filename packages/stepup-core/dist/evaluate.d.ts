@@ -4,14 +4,17 @@
  * Extracted from the original `plugins/ai-action-tracker/hooks/pre-tool-use.ts`
  * so every host's hook entrypoint can be a thin shell: parse stdin → call
  * `evaluatePreToolUse` → emit via that host's adapter. The same decision
- * shape drives Claude Code, Codex, and (later) Cursor/Antigravity.
+ * shape drives Claude Code, Codex, Cursor, and Antigravity.
+ *
+ * Guard v3: Bash + external mcp__* → POST /guard/evaluate. Built-in
+ * transcodes-guard MCP skips the hook (execProtectedTool handler backstop).
  *
  * Fail policy:
  *  - Before classify (stdin parse) → return `{ kind: "proceed-ungated" }`
  *    (fail-open). Callers exit 0 with no JSON.
- *  - After classify (bash or mcp__*) → POST /guard/evaluate. Fail-closed:
- *    backend unreachable → permission 2 (step-up). Verified read / step-up
- *    create failures surface as `deny-*` decisions.
+ *  - After classify (bash or external mcp__*) → POST /guard/evaluate.
+ *    Fail-closed: backend unreachable → permission 2 (step-up). Verified
+ *    read / step-up create failures surface as `deny-*` decisions.
  */
 import { type RbacAction } from '@transcodes-guard/danger-patterns';
 import { type RequestResult } from './gate.js';
@@ -22,13 +25,13 @@ export interface ToolCallInput {
     cwd: string;
 }
 export interface BlockResult {
-    /** One-line danger summary surfaced in reason/systemMessage. */
+    /** One-line summary surfaced in reason/systemMessage. */
     reason: string;
     /** Optional extra detail surfaced in reason/systemMessage. */
     details?: string[];
     /** Command / tool-call summary used in stderr logs and the pending file. */
     command: string;
-    /** Synthetic audit id (e.g. guard-evaluate-bash). Feeds decision audit (H2). */
+    /** Synthetic audit id. Feeds decision audit (H2). */
     ruleId: string;
     /** RBAC placeholder until `/guard/evaluate` returns the classified coordinate. */
     stepupResource: string;
@@ -62,14 +65,11 @@ export type GateDecision = {
 } | {
     kind: typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION;
     block: BlockResult;
-    /** True → the hook itself consumes the verified record (Bash + user
-     * tool-rules). False → consume is deferred to the tool handler
-     * (`withStepupVerifiedSid`) for MCP system rules. */
+    /** True → the hook consumes the FP-keyed verified record on allow.
+     * Guard v3 hook path (bash + external MCP) always sets true. Built-in
+     * transcodes-guard MCP never reaches this function. */
     consumeHere: boolean;
-    /** Command fingerprint of the verified record to consume. Present
-     * (and meaningful) only when `consumeHere` is true — that path uses
-     * the FP-KEYED store. Omitted for the deferred MCP system path
-     * (GLOBAL store). */
+    /** Command fingerprint of the verified record to consume (FP-keyed store). */
     fp?: string;
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_NO_TOKEN;
