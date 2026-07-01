@@ -1,5 +1,5 @@
 ---
-description: The main/prod branch promotion model, the synchronized version train (and the CLI's exclusion from it), and per-host deploy/manifest divergences.
+description: The dev/prod branch promotion model, the synchronized version train (and the CLI's exclusion from it), and per-host deploy/manifest divergences.
 paths:
   - ".github/workflows/**"
   - "release-please-config.json"
@@ -11,9 +11,9 @@ paths:
 
 ## Branch promotion (counterintuitive: `prod` is the default branch)
 
-- The repo's git **default branch is `prod`**, but **all development targets `main`**: feat → PR (base `main`) → merge to `main` → fast-forward-promote to `prod`.
-- `promote.yml` only **fast-forwards** `prod` to `main` and **refuses** (exit 1, no force-push) if `prod` has diverged — guarded by `git merge-base --is-ancestor origin/prod $MAIN_SHA`. `prod` must never receive independent commits.
-- `release.yml` **must** set `target-branch: main` even though the default branch is `prod`. Omitting it makes release-please commit version bumps directly to `prod`, permanently breaking the fast-forward promotion model.
+- The repo's git **default branch is `prod`**, but **all development targets `dev`**: feat → PR (base `dev`) → merge to `dev` → fast-forward-promote to `prod`. (The development branch was renamed from `main` to `dev`; `prod` stays the public default.)
+- `promote.yml` only **fast-forwards** `prod` to `dev` and **refuses** (exit 1, no force-push) if `prod` has diverged — guarded by `git merge-base --is-ancestor origin/prod $DEV_SHA`. `prod` must never receive independent commits.
+- `release.yml` **must** set `target-branch: dev` even though the default branch is `prod`. Omitting it makes release-please commit version bumps directly to `prod`, permanently breaking the fast-forward promotion model.
 
 ## Version train (CLI excluded)
 

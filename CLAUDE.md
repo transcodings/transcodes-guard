@@ -6,7 +6,7 @@ Commands live in `package.json` scripts (`build:plugin`, `dev:*`, `check`, `type
 
 ## Must
 
-- **`dist/` is a committed artifact, but you don't have to rebuild it on feature branches.** Bundles run from a git clone with no `node_modules`, and freshness is guaranteed at release (`release.yml` rebuilds + commits on the Release PR). Mid-cycle stale `dist/` on `main` is harmless — hosts install from a release tag. Rebuild (`npm run build:plugin`) only when you want to verify locally. → [.claude/rules/build-and-entries.md](.claude/rules/build-and-entries.md)
+- **`dist/` is a committed artifact, but you don't have to rebuild it on feature branches.** Bundles run from a git clone with no `node_modules`, and freshness is guaranteed at release (`release.yml` rebuilds + commits on the Release PR). Mid-cycle stale `dist/` on `dev` is harmless — hosts install from a release tag. Rebuild (`npm run build:plugin`) only when you want to verify locally. → [.claude/rules/build-and-entries.md](.claude/rules/build-and-entries.md)
 - **Add MCP capabilities only in `createServer()`** (`packages/mcp-server-core/src/server.ts`); plugin `src/*.ts` are thin transport wrappers. → [.claude/rules/mcp-and-hosts.md](.claude/rules/mcp-and-hosts.md)
 - **Keep all gate/evaluate/message-formatting logic in `packages/stepup-core/`.** Host divergence lives only in `packages/hook-adapters/`. → [.claude/rules/gate-security-model.md](.claude/rules/gate-security-model.md), [.claude/rules/mcp-and-hosts.md](.claude/rules/mcp-and-hosts.md)
 - **Reach backend-coupled code only through `getGateBackend()`** (`@transcodes-guard/gate-contract`), never by importing `gate-backend`. → [.claude/rules/boundary-and-seams.md](.claude/rules/boundary-and-seams.md)
@@ -44,7 +44,7 @@ The `gate-contract` ↔ `gate-backend` split is the firewall's whole reason to e
 - **[mcp-and-hosts](.claude/rules/mcp-and-hosts.md)** — capability registration, non-dry-run MCP tools, per-host wire-format divergence
 - **[policy-and-state](.claude/rules/policy-and-state.md)** — rule registry semantics, consolidated `~/.transcodes/state/` ownership
 - **[build-and-entries](.claude/rules/build-and-entries.md)** — committed-dist discipline, non-reproducible bundles, tsup inlining, per-host entry layout
-- **[release-branch-model](.claude/rules/release-branch-model.md)** — `main`/`prod` promotion, version train (CLI excluded), per-host deploy divergence
+- **[release-branch-model](.claude/rules/release-branch-model.md)** — `dev`/`prod` promotion, version train (CLI excluded), per-host deploy divergence
 
 ## See also
 
