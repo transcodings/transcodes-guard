@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.30.0...transcodes-guard-v0.30.1) (2026-07-01)
+
+
+### Bug Fixes
+
+* **ci:** align claude-code smoke tests with Guard v3 hook contract ([#142](https://github.com/transcodings/transcodes-guard/issues/142)) ([06857c3](https://github.com/transcodings/transcodes-guard/commit/06857c39eca5ab6dbda2c4fc3a4b12314bbe1a19))
+
 ## [0.29.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.28.9...transcodes-guard-v0.29.0) (2026-06-30)
 
 

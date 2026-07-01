@@ -1,7 +1,7 @@
 {
   "name": "transcodes-guard",
   "displayName": "Transcodes",
-  "version": "0.30.0",
+  "version": "0.30.1",
   "description": "Risky-shell interceptor (beforeShellExecution / beforeMCPExecution) and step-up MFA audit MCP server for Cursor.",
   "author": {
     "name": "bigstrider"
