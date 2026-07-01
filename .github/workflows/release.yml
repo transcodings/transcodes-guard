@@ -1,6 +1,6 @@
 name: Release
 
-# release-please가 main의 conventional commit을 읽어 Release PR을 만들고, 그 PR이
+# release-please가 dev의 conventional commit을 읽어 Release PR을 만들고, 그 PR이
 # 머지되면 ① 버전 bump 커밋 ② CHANGELOG.md ③ git tag(transcodes-guard-vX.Y.Z) 를
 # 자동 생성한다. Release PR은 아래 auto-merge 스텝이 **자동 approve 없이 즉시 머지**
 # 하므로 사람이 손댈 일이 없다. plugin 배포는 GitHub repository 자체를 공개 채널로
@@ -17,7 +17,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
 
 permissions:
   contents: write
@@ -32,11 +32,11 @@ jobs:
         uses: googleapis/release-please-action@v5
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          # main은 메인터넌스 브랜치(default branch는 공개 릴리스용 prod). default가
-          # prod여도 release-please는 반드시 main을 타깃으로 Release PR을 만들어야
-          # 한다 — 미지정 시 default(prod)에 버전 커밋을 직접 넣어 main→prod
+          # dev는 메인터넌스 브랜치(default branch는 공개 릴리스용 prod). default가
+          # prod여도 release-please는 반드시 dev를 타깃으로 Release PR을 만들어야
+          # 한다 — 미지정 시 default(prod)에 버전 커밋을 직접 넣어 dev→prod
           # fast-forward 승격 모델이 영구히 깨진다.
-          target-branch: main
+          target-branch: dev
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 

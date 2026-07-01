@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, prod]
+    branches: [dev, prod]
   pull_request:
 
 permissions:
@@ -54,7 +54,7 @@ jobs:
       # module paths (e.g. `../../../node_modules/ajv/...`) into chunks, so npm
       # hoisting/layout differences between a contributor's machine and CI change
       # the content-hashed chunk filenames even when sources are identical. The
-      # result was a permanently-red `main` regardless of dist freshness.
+      # result was a permanently-red `dev` regardless of dist freshness.
       # Freshness is now guarded behind: (1) `npm run build:plugin` must succeed,
       # (2) the gitignore guard below (dist files physically exist), and (3) the
       # host smoke tests (20) which exercise the freshly-built hook entries.
