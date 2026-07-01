@@ -128,7 +128,8 @@ export function isMcpWireToolName(toolName: string): boolean {
   return /^mcp__/i.test(toolName);
 }
 
-/** Built-in transcodes-guard MCP wire names — PreToolUse skips /guard/evaluate. */
+/** Built-in transcodes-guard MCP wire names — PreToolUse skips /guard/evaluate.
+ * Backend duplicates this regex in guard.evaluate.service.ts; drift → contract tests. */
 export function isTranscodesGuardWireToolName(toolName: string): boolean {
   return /^mcp__.*transcodes[-_]guard/i.test(toolName);
 }

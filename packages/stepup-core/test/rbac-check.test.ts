@@ -187,7 +187,7 @@ describe('evaluateAction', () => {
     });
   });
 
-  it('returns null consume_in_hook when the backend omits it', async () => {
+  it('returns null when consume_in_hook is omitted (fail-closed)', async () => {
     respond = () =>
       payloadResponse([
         {
@@ -202,8 +202,24 @@ describe('evaluateAction', () => {
       toolInput: { command: 'ls' },
     });
 
-    assert.ok(verdict);
-    assert.equal(verdict.consume_in_hook, null);
-    assert.equal(verdict.permission, 1);
+    assert.equal(verdict, null);
+  });
+
+  it('returns null when payload is missing (no envelope fallback)', async () => {
+    respond = () => ({
+      status: 200,
+      body: {
+        logId: 'x',
+        success: true,
+        statusCode: 201,
+        error: null,
+      },
+    });
+
+    const verdict = await evaluateAction(config(), {
+      toolInput: { command: 'ls' },
+    });
+
+    assert.equal(verdict, null);
   });
 });

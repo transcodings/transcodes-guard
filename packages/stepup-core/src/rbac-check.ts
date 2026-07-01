@@ -25,8 +25,8 @@ export type GuardVerdict = {
   resource: string;
   action: string;
   reasoning: string;
-  /** Where the verified sid is re-enforced. null when the backend omitted it. */
-  consume_in_hook: boolean | null;
+  /** Where the verified sid gets re-enforced (mirrors EvaluateActionResponseDto). */
+  consume_in_hook: boolean;
   sid: string | null;
   url: string | null;
   expires_at: string | null;
@@ -60,20 +60,21 @@ export async function evaluateAction(
   });
   if (!env.ok) return null;
   const data = env.data as { payload?: unknown[] } | null;
-  const p = (
-    Array.isArray(data?.payload) ? data.payload[0] : env.data
-  ) as Record<string, unknown> | null;
+  const p = (Array.isArray(data?.payload) ? data.payload[0] : null) as Record<
+    string,
+    unknown
+  > | null;
   if (!p || typeof p !== 'object') return null;
   const { permission, resource, action } = p;
   if (permission !== 0 && permission !== 1 && permission !== 2) return null;
   if (typeof resource !== 'string' || typeof action !== 'string') return null;
+  if (typeof p.consume_in_hook !== 'boolean') return null;
   return {
     permission,
     resource,
     action,
     reasoning: typeof p.reasoning === 'string' ? p.reasoning : '',
-    consume_in_hook:
-      typeof p.consume_in_hook === 'boolean' ? p.consume_in_hook : null,
+    consume_in_hook: p.consume_in_hook,
     sid: typeof p.sid === 'string' ? p.sid : null,
     url: typeof p.url === 'string' ? p.url : null,
     expires_at: typeof p.expires_at === 'string' ? p.expires_at : null,

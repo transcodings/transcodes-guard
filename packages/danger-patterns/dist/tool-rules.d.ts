@@ -41,7 +41,8 @@ export interface ToolRuleMatch {
 }
 /** Wire names emitted by host PreToolUse hooks for MCP tool calls. */
 export declare function isMcpWireToolName(toolName: string): boolean;
-/** Built-in transcodes-guard MCP wire names — PreToolUse skips /guard/evaluate. */
+/** Built-in transcodes-guard MCP wire names — PreToolUse skips /guard/evaluate.
+ * Backend duplicates this regex in guard.evaluate.service.ts; drift → contract tests. */
 export declare function isTranscodesGuardWireToolName(toolName: string): boolean;
 export declare function toolNameMatchesRule(toolName: string, rule: ToolRule): boolean;
 /**
