@@ -23,7 +23,7 @@ Hosts run committed `dist/` straight from a **git clone with no `node_modules`**
 ## No byte-identity gate
 
 - Do **not** add a `git diff --exit-code` byte-identity gate on `dist`. esbuild embeds hoist-dependent relative module paths into content-hashed chunk names, so bundle output is intentionally **non-reproducible** across environments.
-- Freshness is guarded only by: (a) `build:plugin` succeeding, (b) the **gitignore-existence guard**, (c) the **23 smoke tests** (claude-code 9 + codex 3 + antigravity 5 + cursor 6).
+- Freshness is guarded only by: (a) `build:plugin` succeeding, (b) the **gitignore-existence guard**, (c) the **20 smoke tests** (claude-code 6 + codex 3 + antigravity 5 + cursor 6).
 - The existence guard exists because a `git diff` freshness check passes silently (no diff) when a negation glob stops matching and `dist` becomes ignored — so CI asserts the compiled hook entry files (`plugins/*/dist/hooks/pre-tool-use.js`) physically exist on disk.
 
 ## tsup config invariants

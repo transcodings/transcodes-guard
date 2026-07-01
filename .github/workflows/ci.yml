@@ -57,7 +57,7 @@ jobs:
       # result was a permanently-red `main` regardless of dist freshness.
       # Freshness is now guarded behind: (1) `npm run build:plugin` must succeed,
       # (2) the gitignore guard below (dist files physically exist), and (3) the
-      # host smoke tests (23) which exercise the freshly-built hook entries.
+      # host smoke tests (20) which exercise the freshly-built hook entries.
 
       # gitignore negation guard: dist is ignored by default and only tracked
       # via `!plugins/*/dist/` + `!packages/*/dist/` negation globs. If a glob ever stops
@@ -102,12 +102,12 @@ jobs:
 
       # ─────────────────────────────────────────────────────────
       # Unit tests (node:test via tsx). Currently stepup-core only —
-      # policy-bundle fetch/verify/cache core (Phase 3 v2 Unit G1).
+      # decision-audit + rbac-check (Guard v3 evaluate contract).
       - name: stepup-core unit tests
         run: npm test -w @transcodes-guard/stepup-core
 
       # ─────────────────────────────────────────────────────────
-      # Claude Code plugin smoke tests (9 scenarios).
+      # Claude Code plugin smoke tests (6 scenarios).
       # All inputs are static JSON literals; no GitHub event injection
       # surface exists in this job.
       # ─────────────────────────────────────────────────────────
@@ -129,15 +129,26 @@ jobs:
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow safe command"; exit 1; }
 
-      - name: claude-code · protected MCP tool denied (retire_member) + arg context
+      - name: claude-code · built-in transcodes-guard MCP skips the hook (retire_member)
         run: |
           set -e
+          # Guard v3: built-in transcodes-guard MCP wire names are classified out
+          # of the hook (evaluate.ts → isTranscodesGuardWireToolName). The handler
+          # (execProtectedTool) is the backstop, so the hook must pass with no
+          # permissionDecision — even for a protected tool like retire_member — and
+          # must NOT touch any verified record (that is the handler's to consume).
+          mkdir -p "$HOME/.transcodes/state"
+          NOW=$(node -e 'console.log(Date.now())')
+          echo "{\"sid\":\"ci-test-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
           OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
             | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for protected MCP tool"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Deny JSON missing for protected MCP tool"; exit 1; }
-          echo "$OUT" | grep -q 'm_ci_test' || { echo "::error::block.command did not include MCP tool_input arg context"; exit 1; }
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for built-in MCP tool"; exit 1; }
+          if echo "$OUT" | grep -q '"permissionDecision"'; then
+            echo "::error::Built-in transcodes-guard MCP must skip the hook, but a permissionDecision was emitted"; exit 1
+          fi
+          test -f "$HOME/.transcodes/state/stepup-verified.json" || { echo "::error::Hook consumed the verified record; built-in MCP must defer consume to the handler"; exit 1; }
+          rm -f "$HOME/.transcodes/state/stepup-verified.json" "$HOME/.transcodes/state/stepup-pending.json"
 
       - name: claude-code · unprotected MCP tool passes (get_member)
         run: |
@@ -149,21 +160,6 @@ jobs:
           if echo "$OUT" | grep -q '"permissionDecision"'; then
             echo "::error::Unexpected permissionDecision output for unprotected MCP tool"; exit 1
           fi
-
-      - name: claude-code · verified record → explicit allow for MCP (system rule defers consume)
-        run: |
-          set -e
-          mkdir -p "$HOME/.transcodes/state"
-          NOW=$(node -e 'console.log(Date.now())')
-          echo "{\"sid\":\"ci-test-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
-          OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__retire_member","tool_input":{"body":{"member_id":"x"}}}' \
-            | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
-          echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 with verified record"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"allow"' || { echo "::error::Explicit allow JSON missing despite verified record"; exit 1; }
-          test -f "$HOME/.transcodes/state/stepup-verified.json" || { echo "::error::MCP system rule fast-path consumed verified record (should defer to handler)"; exit 1; }
-          rm -f "$HOME/.transcodes/state/stepup-verified.json"
-          rm -f "$HOME/.transcodes/state/stepup-pending.json"
 
       - name: claude-code · Stop hook reaps orphan verified+pending(verified) silently
         run: |
@@ -188,52 +184,22 @@ jobs:
             echo "::error::Stop hook did not reap orphan pending.json"; exit 1
           fi
 
-      - name: claude-code · fail-closed row 1 — fresh bundle cache gates the tool (G3)
+      - name: claude-code · external MCP + backend unreachable → fail-closed deny
         run: |
           set -e
+          # Guard v3 fail-safe: an external mcp__* wire name is classified into the
+          # hook and evaluated via POST /guard/evaluate. When the backend is
+          # unreachable the gate must fail CLOSED (permission 2 → step-up), never
+          # allow. A member token must exist or the hook short-circuits on no-token.
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
           printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
-          NOW=$(node -e 'console.log(Date.now())')
-          printf '{"fetchedAt":%s,"bundle":{"schemaVersion":3,"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","type":"mcp","label":"CI bundle","description":"CI bundle smoke","name":"mcp__ci_bundle_tool","matcher":"exact","action":"delete","resource":"system"}]}}' "$NOW" \
-            > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
-          OUT=$(echo '{"tool_name":"mcp__ci_bundle_tool","tool_input":{"a":1}}' \
+          OUT=$(echo '{"tool_name":"mcp__external_server__delete_thing","tool_input":{"id":"x"}}' \
             | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for bundle-gated tool"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Fresh bundle cache did not gate the tool"; exit 1; }
-          echo "$OUT" | grep -q 'ci-bundle-rule' || { echo "::error::Deny did not carry the bundle rule id"; exit 1; }
-          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state/policy-bundle.proj-ci.json" "$HOME/.transcodes/state/stepup-pending.json"
-
-      - name: claude-code · fail-closed row 2 — stale bundle cache is last-known-good (G3)
-        run: |
-          set -e
-          mkdir -p "$HOME/.transcodes/state"
-          TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
-          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
-          OLD=$(node -e 'console.log(Date.now()-7200000)')
-          printf '{"fetchedAt":%s,"bundle":{"schemaVersion":3,"revision":"rev-ci","rules":[{"id":"ci-bundle-rule","type":"mcp","label":"CI bundle","description":"CI bundle smoke","name":"mcp__ci_bundle_tool","matcher":"exact","action":"delete","resource":"system"}]}}' "$OLD" \
-            > "$HOME/.transcodes/state/policy-bundle.proj-ci.json"
-          OUT=$(echo '{"tool_name":"mcp__ci_bundle_tool","tool_input":{"a":1}}' \
-            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
-          echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for stale-bundle case"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Stale bundle cache was not used as last-known-good"; exit 1; }
-          echo "$OUT" | grep -q 'ci-bundle-rule' || { echo "::error::Deny did not carry the bundle rule id"; exit 1; }
-          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state/policy-bundle.proj-ci.json" "$HOME/.transcodes/state/stepup-pending.json"
-
-      - name: claude-code · fail-closed row 3 — no cache + backend unreachable → baseline deny (G3)
-        run: |
-          set -e
-          # Baseline system rules (retire_member = id:tc-retire-member) must gate
-          # even when no policy-bundle cache exists and the backend is unreachable.
-          OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
-            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
-          echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for baseline-only case"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Baseline system rules did not gate the tool without bundle cache"; exit 1; }
-          echo "$OUT" | grep -q 'tc-retire-member' || { echo "::error::Deny did not carry the baseline rule id"; exit 1; }
-          rm -f "$HOME/.transcodes/state/stepup-pending.json"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for unreachable-backend case"; exit 1; }
+          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::External MCP did not fail closed when backend was unreachable"; exit 1; }
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state/stepup-pending.json"
 
       # ─────────────────────────────────────────────────────────
       # Codex CLI plugin smoke tests (3 scenarios — minimum coverage that
