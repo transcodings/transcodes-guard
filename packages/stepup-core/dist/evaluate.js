@@ -16,7 +16,7 @@
  *    Fail-closed: backend unreachable → permission 2 (step-up). Verified
  *    read / step-up create failures surface as `deny-*` decisions.
  */
-import { DEFAULT_RBAC_RESOURCE, isMcpWireToolName, isTranscodesGuardWireToolName, } from '@transcodes-guard/danger-patterns';
+import { DEFAULT_RBAC_RESOURCE, isTranscodesGuardWireToolName, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, launchStepupBrowser, } from './gate.js';
 import { clearPending } from './pending.js';
@@ -104,18 +104,22 @@ function classifyToolCall(input) {
             return null;
         return { kind: 'bash', command: cmd, cwd: input.cwd };
     }
-    // Guard v3: bash + external mcp__* → POST /guard/evaluate. Built-in
-    // transcodes-guard MCP skips the hook (execProtectedTool handler backstop).
-    if (isMcpWireToolName(input.toolName)) {
-        if (isTranscodesGuardWireToolName(input.toolName))
-            return null;
-        return {
-            kind: 'mcp',
-            toolName: input.toolName,
-            toolInput: input.toolInput,
-        };
-    }
-    return null;
+    // Gate EVERYTHING else through POST /guard/evaluate — external MCP tools AND
+    // host built-in tools (Read / Grep / Edit / Write / ...). The backend
+    // classifier maps the raw tool_input onto (resource, action); the RBAC matrix
+    // then decides 0/1/2, so a read still passes when its cell is 1.
+    //
+    // The ONE exception is the built-in transcodes-guard MCP itself: gating it
+    // would trap the step-up recovery tools (poll_stepup_session_wait, ...) in
+    // their own gate → step-up could never complete. Those are re-checked by the
+    // execProtectedTool handler backstop instead.
+    if (isTranscodesGuardWireToolName(input.toolName))
+        return null;
+    return {
+        kind: 'tool',
+        toolName: input.toolName,
+        toolInput: input.toolInput,
+    };
 }
 /**
  * Run the full PreToolUse gate against a parsed tool call.
@@ -202,7 +206,7 @@ export async function evaluatePreToolUse(input) {
             cwd: input.cwd,
             comment: classified.kind === 'bash'
                 ? `Confirm shell command: ${block.command}`
-                : `Confirm MCP tool: ${classified.toolName}`,
+                : `Confirm tool call: ${classified.toolName}`,
         });
     }
     catch {
