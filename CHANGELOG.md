@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.30.1...transcodes-guard-v0.31.0) (2026-07-02)
+
+
+### Features
+
+* **stepup:** gate all host tools through /guard/evaluate ([5234198](https://github.com/transcodings/transcodes-guard/commit/523419884a00cc5e7186b5333fdc0129a314ac32))
+
 ## [0.30.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.30.0...transcodes-guard-v0.30.1) (2026-07-01)
 
 
