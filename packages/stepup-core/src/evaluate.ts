@@ -169,73 +169,32 @@ async function recheckVerifiedSid(sid: string): Promise<'trust' | 'reauth'> {
   }
 }
 
-// 기존 분류 로직
-// function classifyToolCall(input: ToolCallInput): Classified | null {
-//   // Host-specific shell tool names map to the same internal `bash` kind.
-//   // Claude Code / Codex use "Bash"; Antigravity 2.0 uses "run_command";
-//   // Cursor uses "Shell" (per cursor.com/docs/agent/hooks matchers). The
-//   // antigravity adapter rewrites `args.CommandLine` → `args.command`
-//   // before the classifier sees it, so the body below is host-neutral.
-//   if (
-//     input.toolName === 'Bash' ||
-//     input.toolName === 'run_command' ||
-//     input.toolName === 'Shell'
-//   ) {
-//     const cmd = (input.toolInput as { command?: unknown } | undefined)?.command;
-//     if (typeof cmd !== 'string') return null;
-//     return { kind: 'bash', command: cmd, cwd: input.cwd };
-//   }
-//   // Guard v3: bash + external mcp__* → POST /guard/evaluate. Built-in
-//   // transcodes-guard MCP skips the hook (execProtectedTool handler backstop).
-//   if (isMcpWireToolName(input.toolName)) {
-//     if (isTranscodesGuardWireToolName(input.toolName)) return null;
-//     return {
-//       kind: 'mcp',
-//       toolName: input.toolName,
-//       toolInput: input.toolInput,
-//     };
-//   }
-//   return null;
-// }
-
-// 모든 툴 호출을 낚아채서 백엔드로 던집니다
 function classifyToolCall(input: ToolCallInput): Classified | null {
-  // 1. 터미널(Bash/Shell) 특화 처리 (command 문자열 추출용)
+  // Host-specific shell tool names map to the same internal `bash` kind.
+  // Claude Code / Codex use "Bash"; Antigravity 2.0 uses "run_command";
+  // Cursor uses "Shell" (per cursor.com/docs/agent/hooks matchers). The
+  // antigravity adapter rewrites `args.CommandLine` → `args.command`
+  // before the classifier sees it, so the body below is host-neutral.
   if (
     input.toolName === 'Bash' ||
     input.toolName === 'run_command' ||
     input.toolName === 'Shell'
   ) {
     const cmd = (input.toolInput as { command?: unknown } | undefined)?.command;
-    if (typeof cmd === 'string') {
-      return { kind: 'bash', command: cmd, cwd: input.cwd };
-    }
+    if (typeof cmd !== 'string') return null;
+    return { kind: 'bash', command: cmd, cwd: input.cwd };
   }
-
-  // 2. [필수 예외 처리] Transcodes Guard 자체 인증 툴 무한루프 방지
-  // (이걸 안 막으면 Step-up을 확인하는 툴 자체도 차단되어서 데드락에 빠집니다)
-  if (isTranscodesGuardWireToolName(input.toolName)) {
-    return null;
+  // Guard v3: bash + external mcp__* → POST /guard/evaluate. Built-in
+  // transcodes-guard MCP skips the hook (execProtectedTool handler backstop).
+  if (isMcpWireToolName(input.toolName)) {
+    if (isTranscodesGuardWireToolName(input.toolName)) return null;
+    return {
+      kind: 'mcp',
+      toolName: input.toolName,
+      toolInput: input.toolInput,
+    };
   }
-
-  // (추가 예외) 에이전트가 내부 API로 transcodes-guard를 호출할 때
-  if (
-    input.toolName === 'call_mcp_tool' ||
-    input.toolName === 'default_api:call_mcp_tool'
-  ) {
-    const args = input.toolInput as { ServerName?: string };
-    if (args?.ServerName === 'transcodes-guard') {
-      return null;
-    }
-  }
-
-  // ✨ 3. [Catch-All] 그 외의 모든 툴은 무조건 낚아채서 백엔드로 던집니다!
-  // (내장 툴 write_to_file, view_file 및 모든 MCP 툴 포함)
-  return {
-    kind: 'mcp', // 범용 툴 처리용으로 기존 mcp 포맷을 그대로 활용합니다
-    toolName: input.toolName,
-    toolInput: input.toolInput,
-  };
+  return null;
 }
 
 /**
@@ -327,8 +286,6 @@ export async function evaluatePreToolUse(
         classified.kind === 'bash'
           ? `Confirm shell command: ${block.command}`
           : `Confirm MCP tool: ${classified.toolName}`,
-      // Backend groups same resource/action approvals within this bucket
-      // (delete excluded). All grouping policy is server-side; we just tag it.
       promptSessionId: getPromptSessionId(),
     });
   } catch {

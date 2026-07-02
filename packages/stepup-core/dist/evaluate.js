@@ -204,8 +204,6 @@ export async function evaluatePreToolUse(input) {
             comment: classified.kind === 'bash'
                 ? `Confirm shell command: ${block.command}`
                 : `Confirm MCP tool: ${classified.toolName}`,
-            // Backend groups same resource/action approvals within this bucket
-            // (delete excluded). All grouping policy is server-side; we just tag it.
             promptSessionId: getPromptSessionId(),
         });
     }
