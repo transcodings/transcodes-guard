@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "claude";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -5404,8 +5404,13 @@ var GATE_DECISION_KIND2 = {
 };
 var GUARD_EVALUATE_RULE_ID = "guard-evaluate";
 async function recheckVerifiedSid(sid) {
-  if (!resolveToken().token)
-    return "trust";
+  if (!resolveToken().token) {
+    if (process.env.TRANSCODES_GUARD_TEST_TRUST === "1") {
+      process.stderr.write("transcodes-guard: WARNING \u2014 TRANSCODES_GUARD_TEST_TRUST=1 trusts the local verified record WITHOUT a backend recheck. Test/CI use only; never set this in a real install.\n");
+      return "trust";
+    }
+    return "reauth";
+  }
   let config;
   try {
     config = loadStepupConfig();
