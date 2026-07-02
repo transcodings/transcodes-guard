@@ -45,6 +45,11 @@ const PendingStateSchema = z.object({
   /** Present for the hook-consume (FP-KEYED) path; absent for the GLOBAL
    * MCP system-rule path. Selects which file this record lives in. */
   fp: z.string().optional(),
+  /** Backend `/guard/evaluate` `consume_in_hook` verdict, captured at
+   * challenge time so the fast path can forward it as
+   * `decision.consumeHere` (F5). Absent on legacy records → hook-consume
+   * (true). */
+  consumeInHook: z.boolean().optional(),
 });
 
 export type PendingState = z.infer<typeof PendingStateSchema>;

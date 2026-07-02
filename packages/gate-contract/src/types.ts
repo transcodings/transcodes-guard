@@ -54,6 +54,8 @@ export interface PendingState {
   expiresAt?: string;
   status: 'pending' | 'verified';
   fp?: string;
+  /** Backend consume_in_hook verdict captured at challenge time (F5). */
+  consumeInHook?: boolean;
 }
 
 /** Verified step-up record on disk. Mirrors store.ts `VerifiedStepup`. */

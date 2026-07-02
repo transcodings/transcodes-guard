@@ -8,13 +8,14 @@ paths:
 
 The verified record is single-use. Three independent things decide its fate: **who** consumes it, **which file** holds it, and **whether** a locally-present record is even trusted.
 
-## Who consumes — keyed by rule, not by tool kind
+## Who consumes — keyed by the backend verdict, not by tool kind
 
-`mcpConsumesInHook(rule)` (not the tool type) drives `decision.consumeHere`. Its default is keyed strictly on `rule.source` (`tool-rules.ts`): an explicit `consume_in_hook` on the rule wins; otherwise it returns `true` only when `rule.source === 'bundle'` (the `add_tool_rule` / policy-bundle source — there is no separate `'user'`/`'project'` source value). So:
+The `consume_in_hook` boolean in the `POST /guard/evaluate` verdict (not the tool type, not the local rule registry) drives `decision.consumeHere` (F5). It travels challenge → pending record (`consumeInHook`) → fast-path claim; a pending record without the field (legacy) defaults to hook-consume (`true`). The backend keys it on the wire name: built-in transcodes-guard MCP → `false`, everything else → `true`. So:
 
-- **Bash** → always hook-consumed.
-- **MCP `source: 'bundle'` rule** (default `consume_in_hook = true`) → hook-consumed via the **FP-keyed** file.
-- **MCP system rule** (default `consume_in_hook = false`) → consumed later by the tool handler. `execProtectedTool()` (`transcodes-mcp-tools/src/stepup-helper.ts`) reads the GLOBAL verified record, runs the per-tool callback with the sid, and consumes it in `finally`. The sid reaches the backend as the `X-Step-Up-Session-Id` header, attached via `RequestInput.stepUpSid` in `client.ts`.
+- **Bash + external `mcp__*`** (the only hook-gated calls) → `consume_in_hook = true` → hook-consumed via the **FP-keyed** file.
+- **Built-in transcodes-guard MCP** → skips the hook entirely; consumed by the tool handler. `execProtectedTool()` (`transcodes-mcp-tools/src/stepup-helper.ts`) reads the GLOBAL verified record, runs the per-tool callback with the sid, and consumes it in `finally`. The sid reaches the backend as the `X-Step-Up-Session-Id` header, attached via `RequestInput.stepUpSid` in `client.ts`.
+
+(`mcpConsumesInHook(rule)` in danger-patterns keeps the old rule-source default for the local registry, but the hook path no longer consults it.)
 
 Get `consumeHere`/`fp` wrong and you silently break single-shot or double-consume.
 
