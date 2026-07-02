@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.31.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.31.1...transcodes-guard-v0.31.2) (2026-07-02)
+
+
+### Bug Fixes
+
+* **gate:** 무토큰 fast-path를 fail-closed로 전환 (F2) ([9663586](https://github.com/transcodings/transcodes-guard/commit/9663586f06cf407f6147d140fddff200acd0b9d4))
+* **gate:** 무토큰 fast-path를 fail-closed로 전환 (F2) ([eb9c661](https://github.com/transcodings/transcodes-guard/commit/eb9c66145957b2662e49e20a1ce7b349608071fd))
+
+
+### Documentation
+
+* **gate:** reauth 분기 주석에 무토큰 도달 경로 반영 (F2) ([fa1e8c3](https://github.com/transcodings/transcodes-guard/commit/fa1e8c3c402a7e63fe80936cf3fc9e5d93ec93c8))
+* **rules:** F2 fail-closed recheck을 stepup-consume에 반영 ([a6f19b7](https://github.com/transcodings/transcodes-guard/commit/a6f19b7dd47225900c02797463e70bca398f11ee))
+
 ## [0.31.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.31.0...transcodes-guard-v0.31.1) (2026-07-02)
 
 
