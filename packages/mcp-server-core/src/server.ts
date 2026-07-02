@@ -154,6 +154,22 @@ export function createServer(
         resource,
         member_id,
       });
+      // Register the GLOBAL pending record for this standalone (non-hook)
+      // session. persistVerifiedRecord refuses to persist a verified sid that
+      // no local pending maps (the F3 anti-contamination guard), so without
+      // this write the create_stepup_session → poll → execProtectedTool flow
+      // would never see its verified record. fp stays absent → GLOBAL flavour.
+      if (result.envelope.ok && result.sid && result.browserUrl) {
+        backend.writePending({
+          sid: result.sid,
+          command: resource && action ? `${resource}/${action}` : comment,
+          reason: comment,
+          browserUrl: result.browserUrl,
+          createdAt: Date.now(),
+          expiresAt: result.expiresAt,
+          status: 'pending',
+        });
+      }
       return {
         content: [
           {
