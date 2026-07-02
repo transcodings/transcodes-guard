@@ -85,8 +85,9 @@ export type GateDecision =
       kind: typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION;
       block: BlockResult;
       /** True → the hook consumes the FP-keyed verified record on allow.
-       * Guard v3 hook path (bash + external MCP) always sets true. Built-in
-       * transcodes-guard MCP never reaches this function. */
+       * Carries the backend's `consume_in_hook` verdict via the pending
+       * record (F5); defaults to true when the record predates the field.
+       * Built-in transcodes-guard MCP never reaches this function. */
       consumeHere: boolean;
       /** Command fingerprint of the verified record to consume (FP-keyed store). */
       fp?: string;
@@ -283,10 +284,13 @@ export async function evaluatePreToolUse(
     if ((await recheckVerifiedSid(verified.sid)) === 'trust') {
       // The record was already removed by the claim; the caller no longer needs
       // to consume it, but still clears the paired pending record.
+      // consumeHere forwards the backend's consume_in_hook verdict captured in
+      // the paired pending at challenge time (F5). Absent — legacy record or
+      // pending already gone — defaults to hook-consume (true).
       return {
         kind: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
         block,
-        consumeHere: true,
+        consumeHere: readPending(fp)?.consumeInHook ?? true,
         fp,
       };
     }
@@ -390,6 +394,7 @@ export async function evaluatePreToolUse(
     expiresAt: verdict.expires_at ?? undefined,
     status: 'pending',
     fp,
+    consumeInHook: verdict.consume_in_hook,
   };
   return {
     kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,
