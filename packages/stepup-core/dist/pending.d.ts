@@ -10,6 +10,11 @@ declare const PendingStateSchema: z.ZodObject<{
     /** Present for the hook-consume (FP-KEYED) path; absent for the GLOBAL
      * MCP system-rule path. Selects which file this record lives in. */
     fp: z.ZodOptional<z.ZodString>;
+    /** Backend `/guard/evaluate` `consume_in_hook` verdict, captured at
+     * challenge time so the fast path can forward it as
+     * `decision.consumeHere` (F5). Absent on legacy records → hook-consume
+     * (true). */
+    consumeInHook: z.ZodOptional<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
     status: "verified" | "pending";
     sid: string;
@@ -19,6 +24,7 @@ declare const PendingStateSchema: z.ZodObject<{
     createdAt: number;
     expiresAt?: string | undefined;
     fp?: string | undefined;
+    consumeInHook?: boolean | undefined;
 }, {
     status: "verified" | "pending";
     sid: string;
@@ -28,6 +34,7 @@ declare const PendingStateSchema: z.ZodObject<{
     createdAt: number;
     expiresAt?: string | undefined;
     fp?: string | undefined;
+    consumeInHook?: boolean | undefined;
 }>;
 export type PendingState = z.infer<typeof PendingStateSchema>;
 export declare function readPending(fp?: string): PendingState | null;

@@ -5241,7 +5241,12 @@ var PendingStateSchema = external_exports.object({
   status: external_exports.enum(["pending", "verified"]),
   /** Present for the hook-consume (FP-KEYED) path; absent for the GLOBAL
    * MCP system-rule path. Selects which file this record lives in. */
-  fp: external_exports.string().optional()
+  fp: external_exports.string().optional(),
+  /** Backend `/guard/evaluate` `consume_in_hook` verdict, captured at
+   * challenge time so the fast path can forward it as
+   * `decision.consumeHere` (F5). Absent on legacy records → hook-consume
+   * (true). */
+  consumeInHook: external_exports.boolean().optional()
 });
 function pendingPath(fp) {
   return stepupFilePath(FILE_BASE2, fp);
@@ -5482,7 +5487,7 @@ async function evaluatePreToolUse(input) {
       return {
         kind: GATE_DECISION_KIND2.PROCEED_BY_VERIFICATION,
         block,
-        consumeHere: true,
+        consumeHere: readPending(fp)?.consumeInHook ?? true,
         fp
       };
     }
@@ -5553,7 +5558,8 @@ async function evaluatePreToolUse(input) {
     createdAt: Date.now(),
     expiresAt: verdict.expires_at ?? void 0,
     status: "pending",
-    fp
+    fp,
+    consumeInHook: verdict.consume_in_hook
   };
   return {
     kind: GATE_DECISION_KIND2.BLOCK_STEPUP_CHALLENGED,
