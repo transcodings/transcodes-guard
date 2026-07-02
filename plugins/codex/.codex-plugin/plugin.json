@@ -18,6 +18,6 @@
   "hooks": "./hooks/hooks.json",
   "mcpServers": "./.mcp.json",
   "skills": "./skills/",
-  "version": "0.31.2",
+  "version": "0.31.3",
   "description": "Risky-shell interceptor (PreToolUse hook) and step-up MFA audit MCP server for OpenAI Codex CLI"
 }

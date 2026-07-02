@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.31.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.31.2...transcodes-guard-v0.31.3) (2026-07-02)
+
+
+### Bug Fixes
+
+* **gate:** 백엔드 consume_in_hook verdict를 consumeHere에 배선 (F5) ([5cfa593](https://github.com/transcodings/transcodes-guard/commit/5cfa5934709c1258811151c6382ab4789f82c409))
+* **gate:** 백엔드 consume_in_hook verdict를 consumeHere에 배선 (F5) ([6fd8816](https://github.com/transcodings/transcodes-guard/commit/6fd88163356b5b66335109bbf11da2a1279d31c6))
+
+
+### Documentation
+
+* **rules:** consumeHere 결정 주체를 백엔드 verdict로 갱신 (F5) ([2794df0](https://github.com/transcodings/transcodes-guard/commit/2794df0c83ec5432d37ace03c270c2599fb1db8d))
+
 ## [0.31.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.31.1...transcodes-guard-v0.31.2) (2026-07-02)
 
 

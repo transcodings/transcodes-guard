@@ -66,8 +66,9 @@ export type GateDecision = {
     kind: typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION;
     block: BlockResult;
     /** True → the hook consumes the FP-keyed verified record on allow.
-     * Guard v3 hook path (bash + external MCP) always sets true. Built-in
-     * transcodes-guard MCP never reaches this function. */
+     * Carries the backend's `consume_in_hook` verdict via the pending
+     * record (F5); defaults to true when the record predates the field.
+     * Built-in transcodes-guard MCP never reaches this function. */
     consumeHere: boolean;
     /** Command fingerprint of the verified record to consume (FP-keyed store). */
     fp?: string;

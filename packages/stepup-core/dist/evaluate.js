@@ -202,10 +202,13 @@ export async function evaluatePreToolUse(input) {
         if ((await recheckVerifiedSid(verified.sid)) === 'trust') {
             // The record was already removed by the claim; the caller no longer needs
             // to consume it, but still clears the paired pending record.
+            // consumeHere forwards the backend's consume_in_hook verdict captured in
+            // the paired pending at challenge time (F5). Absent — legacy record or
+            // pending already gone — defaults to hook-consume (true).
             return {
                 kind: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
                 block,
-                consumeHere: true,
+                consumeHere: readPending(fp)?.consumeInHook ?? true,
                 fp,
             };
         }
@@ -294,6 +297,7 @@ export async function evaluatePreToolUse(input) {
         expiresAt: verdict.expires_at ?? undefined,
         status: 'pending',
         fp,
+        consumeInHook: verdict.consume_in_hook,
     };
     return {
         kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,
