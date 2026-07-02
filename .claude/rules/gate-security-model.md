@@ -30,7 +30,7 @@ The backend permission matrix is the authority: `0` = hard deny, `1` = allow wit
 
 1. Emit the deny JSON to stdout **first**.
 2. _Then_ `writePending(decision.pending)` — so a throw in the disk write can't suppress the deny.
-3. On allow, the caller decides `consumeVerified`/`clearPending` from `decision.consumeHere`.
+3. On allow, the caller still calls `consumeVerified`/`clearPending` per `decision.consumeHere`, but the FP-keyed record was already removed at read time by `claimVerified` (the atomic single-winner claim — see [[stepup-consume]]), so `consumeVerified` is a no-op there and only `clearPending` does work. The claim, not this step, is what makes the fast path single-shot under concurrency.
 
 The **fire-and-forget** backend call (`sendGateDecisionAudit`) also runs **only after** stdout. It never rejects. The decision audit uses a sub-second timeout (`DECISION_AUDIT_TIMEOUT_MS = 1000`), no-ops for `pass`/no-token, and **omits the raw command string** (sends only fp/coordinates/ruleId — data minimization).
 
