@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "antigravity";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -5408,16 +5408,13 @@ function classifyToolCall(input) {
       return null;
     return { kind: "bash", command: cmd, cwd: input.cwd };
   }
-  if (isMcpWireToolName(input.toolName)) {
-    if (isTranscodesGuardWireToolName(input.toolName))
-      return null;
-    return {
-      kind: "mcp",
-      toolName: input.toolName,
-      toolInput: input.toolInput
-    };
-  }
-  return null;
+  if (isTranscodesGuardWireToolName(input.toolName))
+    return null;
+  return {
+    kind: "tool",
+    toolName: input.toolName,
+    toolInput: input.toolInput
+  };
 }
 async function evaluatePreToolUse(input) {
   let classified;
@@ -5474,7 +5471,7 @@ async function evaluatePreToolUse(input) {
       toolName: input.toolName,
       toolInput: input.toolInput,
       cwd: input.cwd,
-      comment: classified.kind === "bash" ? `Confirm shell command: ${block.command}` : `Confirm MCP tool: ${classified.toolName}`
+      comment: classified.kind === "bash" ? `Confirm shell command: ${block.command}` : `Confirm tool call: ${classified.toolName}`
     });
   } catch {
     verdict = null;
