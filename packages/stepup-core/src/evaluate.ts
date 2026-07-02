@@ -290,8 +290,9 @@ export async function evaluatePreToolUse(
         fp,
       };
     }
-    // Backend says this record is no longer (or never was) verified — the claim
-    // already discarded it; just clear the paired pending and fall through.
+    // The record is not trusted — either the backend says it is no longer (or
+    // never was) verified, or there is no token to ask it (F2 fail-closed). The
+    // claim already discarded it; just clear the paired pending and fall through.
     clearPending(fp);
   }
 
