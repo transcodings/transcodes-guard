@@ -76,6 +76,13 @@ export {
   sweepStepup,
   writePending,
 } from './pending.js';
+export {
+  clearPromptSession,
+  getPromptSessionId,
+  PROMPT_SESSION_TTL_MS,
+  type PromptSession,
+  rotatePromptSession,
+} from './prompt-session.js';
 export { checkRbacPermission, type RbacLevel } from './rbac-check.js';
 export {
   type CreateConsoleSessionArgs,

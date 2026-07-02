@@ -18,6 +18,7 @@ export { evaluatePreToolUse, GATE_DECISION_KIND, } from './evaluate.js';
 export { fingerprintOf, requestStepup, } from './gate.js';
 export { inspectStepupState, } from './inspector.js';
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
+export { clearPromptSession, getPromptSessionId, PROMPT_SESSION_TTL_MS, rotatePromptSession, } from './prompt-session.js';
 export { clearPending, findPendingBySid, firstActivePending, firstInFlightFpPending, isExpired, listFpPendings, markVerified, readPending, sweepStepup, writePending, } from './pending.js';
 export { checkRbacPermission } from './rbac-check.js';
 export { createConsoleBrowserSession, createStepupSession, pollStepupSession, pollStepupSessionWait, } from './session.js';

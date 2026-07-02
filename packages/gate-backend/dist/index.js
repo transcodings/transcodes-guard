@@ -11,7 +11,7 @@
  * load the StepupConfig here so the config type never escapes to the public
  * side. Error classes are wrapped in `is*Error` predicates for the same reason.
  */
-import { clearPending, consumeVerified, createStepupSession, evaluatePreToolUse, findPendingBySid, firstActivePending, firstInFlightFpPending, inspectStepupState, isExpired, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, readPending, readVerified, resolveToken, sendGateDecisionAudit, sweepStepup, writePending, writeVerified, } from '@transcodes-guard/stepup-core';
+import { clearPending, clearPromptSession, consumeVerified, createStepupSession, evaluatePreToolUse, findPendingBySid, firstActivePending, firstInFlightFpPending, inspectStepupState, isExpired, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, readPending, readVerified, resolveToken, rotatePromptSession, sendGateDecisionAudit, sweepStepup, writePending, writeVerified, } from '@transcodes-guard/stepup-core';
 import { assertRbacCoordinate, RbacCoordinateError, registerAuditTools, registerAuthDeviceTools, registerJwkTools, registerMembershipTools, registerMemberTools, registerMetaTools, registerOrganizationTools, registerPasscodeTools, registerProjectTools, registerRbacTools, } from '@transcodes-guard/transcodes-mcp-tools';
 export const transcodesGateBackend = {
     // hook path — direct bindings
@@ -26,6 +26,8 @@ export const transcodesGateBackend = {
     isExpired,
     sweepStepup,
     hasToken: () => Boolean(resolveToken().token),
+    rotatePromptSession,
+    clearPromptSession,
     sendGateDecisionAudit,
     // server path: step-up session — config loaded internally
     createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),

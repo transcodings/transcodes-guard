@@ -15,6 +15,7 @@
 import type { GateBackend } from '@transcodes-guard/gate-contract';
 import {
   clearPending,
+  clearPromptSession,
   consumeVerified,
   createStepupSession,
   evaluatePreToolUse,
@@ -30,6 +31,7 @@ import {
   readPending,
   readVerified,
   resolveToken,
+  rotatePromptSession,
   sendGateDecisionAudit,
   sweepStepup,
   writePending,
@@ -63,6 +65,8 @@ export const transcodesGateBackend: GateBackend = {
   isExpired,
   sweepStepup,
   hasToken: () => Boolean(resolveToken().token),
+  rotatePromptSession,
+  clearPromptSession,
   sendGateDecisionAudit,
 
   // server path: step-up session — config loaded internally

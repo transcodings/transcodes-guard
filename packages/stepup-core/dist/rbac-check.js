@@ -32,6 +32,7 @@ export async function evaluateAction(config, body) {
             tool_input: body.toolInput,
             cwd: body.cwd,
             comment: body.comment,
+            prompt_session_id: body.promptSessionId,
         },
     });
     if (!env.ok)

@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "claude";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -195,6 +195,10 @@ var denyByDefaultBackend = {
   hasToken() {
     return false;
   },
+  rotatePromptSession() {
+  },
+  clearPromptSession() {
+  },
   async sendGateDecisionAudit() {
   },
   // server path — call-shaped methods throw
@@ -240,7 +244,7 @@ function getGateBackend() {
 // ../../packages/stepup-core/dist/client.js
 var REQUEST_TIMEOUT_MS = 3e4;
 async function request(config, input) {
-  const path5 = input.path.startsWith("/") ? input.path : `/${input.path}`;
+  const path6 = input.path.startsWith("/") ? input.path : `/${input.path}`;
   const params = new URLSearchParams();
   if (input.query) {
     for (const [k, v] of Object.entries(input.query)) {
@@ -250,7 +254,7 @@ async function request(config, input) {
     }
   }
   const qs = params.toString();
-  const url = `${config.apiBaseV1}${path5}${qs ? `?${qs}` : ""}`;
+  const url = `${config.apiBaseV1}${path6}${qs ? `?${qs}` : ""}`;
   const headers = {
     "x-transcodes-token": config.token,
     Accept: "application/json"
@@ -493,7 +497,7 @@ function resolveToken() {
 }
 
 // ../../packages/stepup-core/dist/config.js
-var DEFAULT_BACKEND_URL = process.env.environment === "dev" ? "http://localhost:3500" : "https://api.transcodesapis.com";
+var DEFAULT_BACKEND_URL = "https://api.transcodesapis.com";
 var STEPUP_TTL_MS = 10 * 60 * 1e3;
 function loadStepupConfig() {
   const rawUrl = process.env.TRANSCODES_BACKEND_URL?.trim() || DEFAULT_BACKEND_URL;
@@ -1552,8 +1556,8 @@ function getErrorMap() {
 
 // ../../node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path5, errorMaps, issueData } = params;
-  const fullPath = [...path5, ...issueData.path || []];
+  const { data, path: path6, errorMaps, issueData } = params;
+  const fullPath = [...path6, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -1669,11 +1673,11 @@ var errorUtil;
 
 // ../../node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path5, key) {
+  constructor(parent, value, path6, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path5;
+    this._path = path6;
     this._key = key;
   }
   get path() {
@@ -5308,6 +5312,67 @@ function sweepStepup(now = Date.now()) {
   }
 }
 
+// ../../packages/stepup-core/dist/prompt-session.js
+import { randomBytes } from "crypto";
+import { mkdirSync as mkdirSync6, readFileSync as readFileSync5, rmSync as rmSync4, writeFileSync as writeFileSync5 } from "fs";
+import path5 from "path";
+var PROMPT_SESSION_FILE = "prompt-session.json";
+var PROMPT_SESSION_TTL_MS = 5 * 60 * 1e3;
+function promptSessionPath() {
+  return path5.join(cacheDir(), PROMPT_SESSION_FILE);
+}
+function mintId() {
+  return `ps_${randomBytes(9).toString("base64url")}`;
+}
+function readRecord() {
+  migrateLegacyFile(PROMPT_SESSION_FILE, "cache");
+  let raw;
+  try {
+    raw = readFileSync5(promptSessionPath(), "utf8");
+  } catch {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const obj = parsed;
+      const id = typeof obj.id === "string" && obj.id ? obj.id : null;
+      const createdAt = typeof obj.createdAt === "number" ? obj.createdAt : null;
+      if (id && createdAt !== null)
+        return { id, createdAt };
+    }
+  } catch {
+  }
+  return null;
+}
+function writeRecord(record) {
+  try {
+    mkdirSync6(path5.dirname(promptSessionPath()), { recursive: true });
+    writeFileSync5(promptSessionPath(), JSON.stringify(record), { mode: 384 });
+  } catch {
+  }
+}
+function getPromptSessionId(now = Date.now()) {
+  const record = readRecord();
+  if (record && now - record.createdAt <= PROMPT_SESSION_TTL_MS) {
+    return record.id;
+  }
+  const next = { id: mintId(), createdAt: now };
+  writeRecord(next);
+  return next.id;
+}
+function rotatePromptSession(now = Date.now()) {
+  const next = { id: mintId(), createdAt: now };
+  writeRecord(next);
+  return next.id;
+}
+function clearPromptSession() {
+  try {
+    rmSync4(promptSessionPath(), { force: true });
+  } catch {
+  }
+}
+
 // ../../packages/stepup-core/dist/rbac-check.js
 async function evaluateAction(config, body) {
   const env = await request(config, {
@@ -5317,7 +5382,8 @@ async function evaluateAction(config, body) {
       tool_name: body.toolName,
       tool_input: body.toolInput,
       cwd: body.cwd,
-      comment: body.comment
+      comment: body.comment,
+      prompt_session_id: body.promptSessionId
     }
   });
   if (!env.ok)
@@ -5474,7 +5540,10 @@ async function evaluatePreToolUse(input) {
       toolName: input.toolName,
       toolInput: input.toolInput,
       cwd: input.cwd,
-      comment: classified.kind === "bash" ? `Confirm shell command: ${block.command}` : `Confirm MCP tool: ${classified.toolName}`
+      comment: classified.kind === "bash" ? `Confirm shell command: ${block.command}` : `Confirm MCP tool: ${classified.toolName}`,
+      // Backend groups same resource/action approvals within this bucket
+      // (delete excluded). All grouping policy is server-side; we just tag it.
+      promptSessionId: getPromptSessionId()
     });
   } catch {
     verdict = null;
@@ -5602,7 +5671,7 @@ async function sendGateDecisionAudit(decision) {
 }
 
 // ../../packages/stepup-core/dist/inspector.js
-import { readFileSync as readFileSync5 } from "fs";
+import { readFileSync as readFileSync6 } from "fs";
 var VERIFIED_BASE = "stepup-verified";
 var PENDING_BASE = "stepup-pending";
 var BROWSER_LOCK_BASE = "stepup-browser-lock";
@@ -5610,7 +5679,7 @@ var BROWSER_LOCK_TTL_MS2 = 15e3;
 var COMMAND_PREVIEW_LIMIT = 120;
 function readJsonFile(file) {
   try {
-    const raw = readFileSync5(file, "utf8");
+    const raw = readFileSync6(file, "utf8");
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed;
@@ -5892,8 +5961,8 @@ async function req(config, input, toolName, pathSuffix) {
       message: `Tool '${toolName}' is not in this plugin's endpoint map.`
     }, null, 2);
   }
-  const path5 = pathSuffix ? `${base}${pathSuffix}` : base;
-  const envelope = await request(config, { ...input, path: path5 });
+  const path6 = pathSuffix ? `${base}${pathSuffix}` : base;
+  const envelope = await request(config, { ...input, path: path6 });
   return JSON.stringify(envelope, null, 2);
 }
 function blockedResult(message) {
@@ -6849,6 +6918,8 @@ var transcodesGateBackend = {
   isExpired,
   sweepStepup,
   hasToken: () => Boolean(resolveToken().token),
+  rotatePromptSession,
+  clearPromptSession,
   sendGateDecisionAudit,
   // server path: step-up session — config loaded internally
   createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),

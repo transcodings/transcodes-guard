@@ -46,6 +46,8 @@ export async function evaluateAction(
     toolInput: unknown;
     cwd?: string;
     comment?: string;
+    /** Prompt-session bucket for backend resource/action grouping. */
+    promptSessionId?: string;
   },
 ): Promise<GuardVerdict | null> {
   const env = await request(config, {
@@ -56,6 +58,7 @@ export async function evaluateAction(
       tool_input: body.toolInput,
       cwd: body.cwd,
       comment: body.comment,
+      prompt_session_id: body.promptSessionId,
     },
   });
   if (!env.ok) return null;

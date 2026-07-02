@@ -11,7 +11,7 @@ import {
   isTranscodesGuardWireToolName,
   loadMergedToolRules,
   objectType
-} from "../chunk-D3TQMV64.js";
+} from "../chunk-4LPHNYFO.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17210,6 +17210,17 @@ function createServer(backend = getGateBackend()) {
         }
       ]
     };
+  });
+  server.registerTool("end_stepup_grouping", {
+    title: "End the current step-up grouping window",
+    description: "Explicit lock: drop the local prompt-session bucket so the NEXT gated command starts a fresh step-up grouping window. Use when the user wants to force re-approval of the same resource/action they already approved earlier in this prompt (e.g. after switching to a more sensitive task). Grouping otherwise resets automatically on each new user prompt and after a 5-minute window. Never weakens security \u2014 it can only ADD prompts, never skip them. delete always re-prompts regardless.",
+    inputSchema: {}
+  }, async () => {
+    backend.clearPromptSession();
+    return textResult(JSON.stringify({
+      ok: true,
+      message: "Step-up grouping window cleared. The next gated command starts a fresh window."
+    }, null, 2));
   });
   server.registerTool("simulate_hook_invocation", {
     title: "Invoke PreToolUse hook in a controlled subprocess",

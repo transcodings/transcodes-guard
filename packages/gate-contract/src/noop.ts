@@ -52,6 +52,8 @@ export const denyByDefaultBackend: GateBackend = {
   hasToken() {
     return false;
   },
+  rotatePromptSession() {},
+  clearPromptSession() {},
   async sendGateDecisionAudit() {},
 
   // server path — call-shaped methods throw

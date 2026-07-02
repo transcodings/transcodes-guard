@@ -30,6 +30,8 @@ export const denyByDefaultBackend = {
     hasToken() {
         return false;
     },
+    rotatePromptSession() { },
+    clearPromptSession() { },
     async sendGateDecisionAudit() { },
     // server path — call-shaped methods throw
     createStepupSession() {

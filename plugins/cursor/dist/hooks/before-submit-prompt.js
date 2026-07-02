@@ -5,7 +5,7 @@ import {
 } from "../chunk-QEUV275V.js";
 import {
   getGateBackend
-} from "../chunk-6VE6KOFO.js";
+} from "../chunk-AGOM3WTF.js";
 
 // hooks/before-submit-prompt.ts
 import { readFileSync } from "fs";
@@ -22,8 +22,11 @@ function main() {
     emitContinue();
   }
   if (!parsed.prompt) emitContinue();
-  if (!COMPLETION_PATTERN.test(parsed.prompt)) emitContinue();
   const backend = getGateBackend();
+  if (!COMPLETION_PATTERN.test(parsed.prompt)) {
+    backend.rotatePromptSession();
+    emitContinue();
+  }
   const pending = backend.firstActivePending();
   if (!pending) emitContinue();
   if (backend.readVerified(pending.fp)) {

@@ -20,6 +20,7 @@ import { DEFAULT_RBAC_RESOURCE, isMcpWireToolName, isTranscodesGuardWireToolName
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, launchStepupBrowser, } from './gate.js';
 import { clearPending } from './pending.js';
+import { getPromptSessionId } from './prompt-session.js';
 import { evaluateAction } from './rbac-check.js';
 import { pollStepupSession } from './session.js';
 import { consumeVerified, readVerified } from './store.js';
@@ -203,6 +204,9 @@ export async function evaluatePreToolUse(input) {
             comment: classified.kind === 'bash'
                 ? `Confirm shell command: ${block.command}`
                 : `Confirm MCP tool: ${classified.toolName}`,
+            // Backend groups same resource/action approvals within this bucket
+            // (delete excluded). All grouping policy is server-side; we just tag it.
+            promptSessionId: getPromptSessionId(),
         });
     }
     catch {

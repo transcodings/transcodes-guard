@@ -34,6 +34,14 @@ export interface GateBackend {
     /** Whether a Transcodes token is resolvable (session-start no-token notice). */
     hasToken(): boolean;
     /**
+     * Start a fresh prompt-session bucket (new user prompt = new grouping
+     * window). Called by the UserPromptSubmit hook. All grouping policy lives in
+     * the backend; this only rotates the local bucket id.
+     */
+    rotatePromptSession(): void;
+    /** Explicit lock: drop the bucket so the next command re-approves. */
+    clearPromptSession(): void;
+    /**
      * Fire-and-forget decision audit (Phase3 v2 H2). Call AFTER the decision
      * JSON is on stdout — never rejects, bounded by a sub-second timeout, and
      * a silent no-op for `pass` decisions or when no token is resolvable.

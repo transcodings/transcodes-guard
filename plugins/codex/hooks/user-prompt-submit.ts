@@ -49,7 +49,14 @@ function main(): void {
 
   if (!parsed.prompt) process.exit(0);
 
-  const pending = getGateBackend().firstActivePending();
+  const backend = getGateBackend();
+
+  // A genuine new-task prompt starts a fresh resource/action grouping window.
+  // Completion prompts ("done", "auth passed") continue the current task, so
+  // they must NOT rotate — the step-up round-trip keeps its bucket.
+  if (!COMPLETION_PATTERN.test(parsed.prompt)) backend.rotatePromptSession();
+
+  const pending = backend.firstActivePending();
   if (!pending) process.exit(0);
 
   const additionalContext = buildContext(parsed.prompt, pending);

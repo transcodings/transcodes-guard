@@ -38,9 +38,16 @@ function main(): void {
   }
 
   if (!parsed.prompt) emitContinue();
-  if (!COMPLETION_PATTERN.test(parsed.prompt)) emitContinue();
 
   const backend = getGateBackend();
+
+  // A genuine new-task prompt starts a fresh resource/action grouping window;
+  // completion prompts ("done") continue the current task and keep the bucket.
+  if (!COMPLETION_PATTERN.test(parsed.prompt)) {
+    backend.rotatePromptSession();
+    emitContinue();
+  }
+
   const pending = backend.firstActivePending();
   if (!pending) emitContinue();
 

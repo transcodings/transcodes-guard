@@ -23,5 +23,7 @@ export declare function evaluateAction(config: StepupConfig, body: {
     toolInput: unknown;
     cwd?: string;
     comment?: string;
+    /** Prompt-session bucket for backend resource/action grouping. */
+    promptSessionId?: string;
 }): Promise<GuardVerdict | null>;
 export declare function checkRbacPermission(config: StepupConfig, resource: string, action: string): Promise<RbacLevel | null>;

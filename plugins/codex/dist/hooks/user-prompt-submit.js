@@ -5,7 +5,7 @@ import {
 } from "../chunk-RAMWXODQ.js";
 import {
   getGateBackend
-} from "../chunk-HRQWTPQA.js";
+} from "../chunk-VO72FGVF.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";
@@ -33,7 +33,9 @@ function main() {
     process.exit(0);
   }
   if (!parsed.prompt) process.exit(0);
-  const pending = getGateBackend().firstActivePending();
+  const backend = getGateBackend();
+  if (!COMPLETION_PATTERN.test(parsed.prompt)) backend.rotatePromptSession();
+  const pending = backend.firstActivePending();
   if (!pending) process.exit(0);
   const additionalContext = buildContext(parsed.prompt, pending);
   if (!additionalContext) process.exit(0);

@@ -18,6 +18,7 @@ export { type BlockResult, evaluatePreToolUse, GATE_DECISION_KIND, type GateDeci
 export { fingerprintOf, type RequestInput, type RequestResult, requestStepup, } from './gate.js';
 export { type BrowserLockInspection, inspectStepupState, type PendingInspection, type StepupStateInspection, type VerifiedInspection, } from './inspector.js';
 export { type MemberTokenClaims, type ParsedMemberToken, parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
+export { clearPromptSession, getPromptSessionId, PROMPT_SESSION_TTL_MS, type PromptSession, rotatePromptSession, } from './prompt-session.js';
 export { clearPending, findPendingBySid, firstActivePending, firstInFlightFpPending, isExpired, listFpPendings, markVerified, type PendingState, readPending, sweepStepup, writePending, } from './pending.js';
 export { checkRbacPermission, type RbacLevel } from './rbac-check.js';
 export { type CreateConsoleSessionArgs, type CreatedStepupSession, type CreateStepupArgs, createConsoleBrowserSession, createStepupSession, type PollStepupResult, pollStepupSession, pollStepupSessionWait, type WaitStepupResult, } from './session.js';
