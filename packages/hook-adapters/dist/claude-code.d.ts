@@ -1,15 +1,9 @@
 /**
- * Claude Code hook adapter.
+ * Claude Code hook adapter (Codex delegates here; Cursor delegates parse only).
  *
- * Wire format mirrors what the existing plugins/claude-code
- * hooks already emit (PreToolUse `hookSpecificOutput.permissionDecision`,
- * Stop top-level `decision: "block"`). See `.claude/rules/hooks.md` for the
- * per-event payload contract Claude Code's validator enforces.
- *
- * Host identification (TRANSCODES_GUARD_HOST env var) is claimed by each
- * plugin's `host.ts` side-effect file, NOT here — the hook-adapters barrel
- * re-exports all four adapters, so setting env in the adapter would cause
- * whichever loads last to overwrite the previous claim.
+ * PreToolUse stdin is mostly snake_case `tool_name` / `tool_input`. Cursor may
+ * send a top-level `command` instead — we normalize locally; `rawPayload` is
+ * forwarded verbatim to POST /guard/evaluate.
  */
 import type { HookAdapter } from './types.js';
 export declare const claudeCodeAdapter: HookAdapter;

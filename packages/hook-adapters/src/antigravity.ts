@@ -246,19 +246,27 @@ export const antigravityAdapter: HookAdapter = {
   host: 'antigravity',
 
   parsePreToolUseStdin(raw: string): PreToolUseInput {
-    const payload = JSON.parse(raw) as RawAntigravityPreToolUsePayload;
+    let payload: RawAntigravityPreToolUsePayload;
+    try {
+      payload = JSON.parse(raw) as RawAntigravityPreToolUsePayload;
+    } catch {
+      return {
+        toolName: 'Unknown',
+        toolInput: { _raw: raw },
+        rawPayload: { _raw: raw },
+        cwd: process.cwd(),
+      };
+    }
     const toolCall = payload.toolCall;
     const { toolName, toolArgs } = unwrapMcpDispatch(
       readString(toolCall?.name),
       toolCall?.args,
     );
-    if (!toolName) {
-      throw new Error('PreToolUse payload missing toolCall.name');
-    }
     const workspacePaths = readStringArray(payload.workspacePaths);
     return {
-      toolName,
-      toolInput: normalizeToolInput(toolName, toolArgs),
+      toolName: toolName ?? 'Unknown',
+      toolInput: toolName ? normalizeToolInput(toolName, toolArgs) : payload,
+      rawPayload: payload,
       cwd: workspacePaths?.[0] ?? process.cwd(),
       sessionId: readString(payload.conversationId),
       hookEventName: 'PreToolUse',

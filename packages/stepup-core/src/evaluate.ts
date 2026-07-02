@@ -6,15 +6,14 @@
  * `evaluatePreToolUse` → emit via that host's adapter. The same decision
  * shape drives Claude Code, Codex, Cursor, and Antigravity.
  *
- * Guard v3: Bash + external mcp__* → POST /guard/evaluate. Built-in
- * transcodes-guard MCP skips the hook (execProtectedTool handler backstop).
+ * Guard v3: every host tool call (except built-in transcodes-guard MCP) →
+ * POST /guard/evaluate with the raw hook stdin JSON as `payload`.
  *
  * Fail policy:
  *  - Before classify (stdin parse) → return `{ kind: "proceed-ungated" }`
  *    (fail-open). Callers exit 0 with no JSON.
- *  - After classify (bash or external mcp__*) → POST /guard/evaluate.
- *    Fail-closed: backend unreachable → permission 2 (step-up). Verified
- *    read / step-up create failures surface as `deny-*` decisions.
+ *  - After classify → POST /guard/evaluate. Fail-closed: backend unreachable
+ *    → permission 2 (step-up).
  */
 import {
   DEFAULT_RBAC_RESOURCE,
@@ -37,7 +36,10 @@ import { resolveToken } from './token-store.js';
 export interface ToolCallInput {
   toolName: string;
   toolInput: unknown;
+  /** Original hook stdin JSON — sent verbatim as POST /guard/evaluate payload. */
+  rawPayload?: unknown;
   cwd: string;
+  hookEventName?: string;
 }
 
 export interface BlockResult {
@@ -120,9 +122,50 @@ export type GateDecision =
 
 const GUARD_EVALUATE_RULE_ID = 'guard-evaluate';
 
-type Classified =
-  | { kind: 'bash'; command: string; cwd: string }
-  | { kind: 'tool'; toolName: string; toolInput: unknown };
+type Classified = { kind: 'tool'; summary: string; fingerprintKey: string };
+
+function resolvePayload(input: ToolCallInput): unknown {
+  return (
+    input.rawPayload ?? {
+      tool_name: input.toolName,
+      tool_input: input.toolInput,
+      cwd: input.cwd,
+    }
+  );
+}
+
+function shellCommand(toolInput: unknown): string | undefined {
+  const cmd = (toolInput as { command?: unknown } | null)?.command;
+  return typeof cmd === 'string' ? cmd : undefined;
+}
+
+function wireToolName(input: ToolCallInput): string | undefined {
+  return input.toolName !== 'Unknown' ? input.toolName : undefined;
+}
+
+function summarizePayload(payload: unknown): string {
+  try {
+    const s = JSON.stringify(payload);
+    if (s === undefined) return '[unserializable]';
+    return s.length > 200 ? `${s.slice(0, 197)}...` : s;
+  } catch {
+    return '[unserializable]';
+  }
+}
+
+function classifyToolCall(input: ToolCallInput): Classified | null {
+  const name = wireToolName(input);
+  if (name && isTranscodesGuardWireToolName(name)) return null;
+
+  const payload = resolvePayload(input);
+  const cmd = shellCommand(input.toolInput);
+  const label = name ?? 'tool';
+  const blob = summarizePayload(payload);
+  const fingerprintKey = cmd ?? blob;
+  const summary = cmd ?? `${label} ${blob}`;
+
+  return { kind: 'tool', summary, fingerprintKey };
+}
 
 /**
  * C-plan (backend-as-truth): re-confirm a locally-cached verified record with
@@ -186,38 +229,6 @@ async function recheckVerifiedSid(sid: string): Promise<'trust' | 'reauth'> {
   }
 }
 
-function classifyToolCall(input: ToolCallInput): Classified | null {
-  // Host-specific shell tool names map to the same internal `bash` kind.
-  // Claude Code / Codex use "Bash"; Antigravity 2.0 uses "run_command";
-  // Cursor uses "Shell" (per cursor.com/docs/agent/hooks matchers). The
-  // antigravity adapter rewrites `args.CommandLine` → `args.command`
-  // before the classifier sees it, so the body below is host-neutral.
-  if (
-    input.toolName === 'Bash' ||
-    input.toolName === 'run_command' ||
-    input.toolName === 'Shell'
-  ) {
-    const cmd = (input.toolInput as { command?: unknown } | undefined)?.command;
-    if (typeof cmd !== 'string') return null;
-    return { kind: 'bash', command: cmd, cwd: input.cwd };
-  }
-  // Gate EVERYTHING else through POST /guard/evaluate — external MCP tools AND
-  // host built-in tools (Read / Grep / Edit / Write / ...). The backend
-  // classifier maps the raw tool_input onto (resource, action); the RBAC matrix
-  // then decides 0/1/2, so a read still passes when its cell is 1.
-  //
-  // The ONE exception is the built-in transcodes-guard MCP itself: gating it
-  // would trap the step-up recovery tools (poll_stepup_session_wait, ...) in
-  // their own gate → step-up could never complete. Those are re-checked by the
-  // execProtectedTool handler backstop instead.
-  if (isTranscodesGuardWireToolName(input.toolName)) return null;
-  return {
-    kind: 'tool',
-    toolName: input.toolName,
-    toolInput: input.toolInput,
-  };
-}
-
 /**
  * Run the full PreToolUse gate against a parsed tool call.
  *
@@ -244,28 +255,8 @@ export async function evaluatePreToolUse(
   }
   if (!classified) return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
 
-  // block.command + fpKey: bash → command text; MCP → wire name + capped tool_input JSON.
-  let blockCommand: string;
-  let fpKey: string;
-  if (classified.kind === 'bash') {
-    blockCommand = classified.command;
-    fpKey = classified.command;
-  } else {
-    let toolInputSummary: string;
-    try {
-      const s = JSON.stringify(classified.toolInput);
-      toolInputSummary =
-        s === undefined
-          ? '[unserializable]'
-          : s.length > 200
-            ? `${s.slice(0, 197)}...`
-            : s;
-    } catch {
-      toolInputSummary = '[unserializable]';
-    }
-    blockCommand = `${classified.toolName} ${toolInputSummary}`;
-    fpKey = `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
-  }
+  const blockCommand = classified.summary;
+  const fpKey = classified.fingerprintKey;
   const block: BlockResult = {
     reason: 'POST /guard/evaluate',
     command: blockCommand,
@@ -338,13 +329,10 @@ export async function evaluatePreToolUse(
   let verdict = null;
   try {
     verdict = await evaluateAction(loadStepupConfig(), {
-      toolName: input.toolName,
-      toolInput: input.toolInput,
+      payload: resolvePayload(input),
+      toolName: wireToolName(input),
       cwd: input.cwd,
-      comment:
-        classified.kind === 'bash'
-          ? `Confirm shell command: ${block.command}`
-          : `Confirm tool call: ${classified.toolName}`,
+      comment: `Confirm tool call: ${block.command}`,
     });
   } catch {
     verdict = null;

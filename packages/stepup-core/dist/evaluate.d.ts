@@ -6,15 +6,14 @@
  * `evaluatePreToolUse` → emit via that host's adapter. The same decision
  * shape drives Claude Code, Codex, Cursor, and Antigravity.
  *
- * Guard v3: Bash + external mcp__* → POST /guard/evaluate. Built-in
- * transcodes-guard MCP skips the hook (execProtectedTool handler backstop).
+ * Guard v3: every host tool call (except built-in transcodes-guard MCP) →
+ * POST /guard/evaluate with the raw hook stdin JSON as `payload`.
  *
  * Fail policy:
  *  - Before classify (stdin parse) → return `{ kind: "proceed-ungated" }`
  *    (fail-open). Callers exit 0 with no JSON.
- *  - After classify (bash or external mcp__*) → POST /guard/evaluate.
- *    Fail-closed: backend unreachable → permission 2 (step-up). Verified
- *    read / step-up create failures surface as `deny-*` decisions.
+ *  - After classify → POST /guard/evaluate. Fail-closed: backend unreachable
+ *    → permission 2 (step-up).
  */
 import { type RbacAction } from '@transcodes-guard/danger-patterns';
 import { type RequestResult } from './gate.js';
@@ -22,7 +21,10 @@ import { type PendingState } from './pending.js';
 export interface ToolCallInput {
     toolName: string;
     toolInput: unknown;
+    /** Original hook stdin JSON — sent verbatim as POST /guard/evaluate payload. */
+    rawPayload?: unknown;
     cwd: string;
+    hookEventName?: string;
 }
 export interface BlockResult {
     /** One-line summary surfaced in reason/systemMessage. */

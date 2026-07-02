@@ -2,10 +2,10 @@
 import {
   COMPLETION_PATTERN,
   cursorAdapter
-} from "../chunk-QEUV275V.js";
+} from "../chunk-JRMQSC6F.js";
 import {
   getGateBackend
-} from "../chunk-Z2VN2AH2.js";
+} from "../chunk-2S7VCV4U.js";
 
 // hooks/before-submit-prompt.ts
 import { readFileSync } from "fs";

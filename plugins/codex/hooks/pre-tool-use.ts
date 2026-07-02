@@ -30,13 +30,7 @@ import { codexAdapter } from '@transcodes-guard/hook-adapters';
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, 'utf8');
-
-  let input;
-  try {
-    input = codexAdapter.parsePreToolUseStdin(raw);
-  } catch {
-    process.exit(0);
-  }
+  const input = codexAdapter.parsePreToolUseStdin(raw);
 
   const backend = getGateBackend();
   const decision = await backend.evaluatePreToolUse(input);

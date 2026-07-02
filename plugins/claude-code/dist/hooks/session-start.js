@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import {
   claudeCodeAdapter
-} from "../chunk-3CZICWJM.js";
+} from "../chunk-Y6A3DNLB.js";
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-HPHK3ZOT.js";
+} from "../chunk-OLNSPDTT.js";
 
 // src/version.ts
 var PLUGIN_VERSION = "0.31.3";

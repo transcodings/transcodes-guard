@@ -17,19 +17,18 @@
  */
 import { request } from './client.js';
 /**
- * POST /v1/guard/evaluate — one round-trip: backend classifies the raw
- * tool_input, applies the matrix, and (for level 2) creates the step-up
- * session. Every classified bash command and every external mcp__* wire name
- * reaches this path. Built-in transcodes-guard MCP skips the hook. Returns null
- * on any failure → caller fails closed.
+ * POST /v1/guard/evaluate — one round-trip: backend classifies the raw hook
+ * payload, applies the matrix, and (for level 2) creates the step-up session.
+ * Every tool call (except built-in transcodes-guard MCP) reaches this path.
+ * Returns null on any failure → caller fails closed.
  */
 export async function evaluateAction(config, body) {
     const env = await request(config, {
         method: 'POST',
         path: '/guard/evaluate',
         body: {
+            payload: body.payload,
             tool_name: body.toolName,
-            tool_input: body.toolInput,
             cwd: body.cwd,
             comment: body.comment,
         },
@@ -64,11 +63,6 @@ function extractPermission(data, resource, action) {
     const payload = data.payload;
     if (!Array.isArray(payload))
         return null;
-    // Coordinate must match exactly. No payload[0] fallback: borrowing another
-    // coordinate's permission would decide with the wrong row of the matrix.
-    // The backend always echoes resource/action back (CheckRbacPermissionResponseDto),
-    // so a mismatch means a malformed/foreign response → null → caller's
-    // fail-closed `?? 2` (step-up forced). Phase3 v2 Unit H1.
     const match = payload.find((p) => !!p &&
         typeof p === 'object' &&
         p.resource === resource &&

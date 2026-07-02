@@ -9,11 +9,7 @@
  * `{ decision, reason }` instead of `hookSpecificOutput.permissionDecision`.
  * See packages/hook-adapters/src/antigravity.ts for the schema rationale.
  *
- * Tool matcher: `run_command` (shell) + MCP tool calls — both direct
- * `mcp_*` names and the lazy-loaded `call_mcp_tool` dispatcher, which the
- * adapter unwraps to its real `args.ToolName` so tool-rules can match.
- * Antigravity's file-edit tools (`write_to_file`, `replace_file_content`, …)
- * remain intentionally ungated — see the plugin README for the rationale.
+ * Tool matcher: `.*` — every agent tool (shell, MCP, file edits) reaches the gate.
  */
 import '../host.js';
 import '../backend.js';
@@ -36,13 +32,7 @@ import { antigravityAdapter } from '@transcodes-guard/hook-adapters';
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, 'utf8');
-
-  let input;
-  try {
-    input = antigravityAdapter.parsePreToolUseStdin(raw);
-  } catch {
-    process.exit(0);
-  }
+  const input = antigravityAdapter.parsePreToolUseStdin(raw);
 
   const backend = getGateBackend();
   const decision = await backend.evaluatePreToolUse(input);

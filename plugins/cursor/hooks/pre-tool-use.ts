@@ -35,13 +35,7 @@ import { cursorAdapter } from '@transcodes-guard/hook-adapters';
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, 'utf8');
-
-  let input;
-  try {
-    input = cursorAdapter.parsePreToolUseStdin(raw);
-  } catch {
-    process.exit(0);
-  }
+  const input = cursorAdapter.parsePreToolUseStdin(raw);
 
   const backend = getGateBackend();
   const decision = await backend.evaluatePreToolUse(input);

@@ -2,10 +2,10 @@
 import {
   COMPLETION_PATTERN,
   claudeCodeAdapter
-} from "../chunk-3CZICWJM.js";
+} from "../chunk-Y6A3DNLB.js";
 import {
   getGateBackend
-} from "../chunk-HPHK3ZOT.js";
+} from "../chunk-OLNSPDTT.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";

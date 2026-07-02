@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   antigravityAdapter
-} from "../chunk-OWLYJFX2.js";
+} from "../chunk-SIS7TDTH.js";
 import {
   GATE_DECISION_KIND,
   formatAllowReason,
@@ -15,18 +15,13 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   getGateBackend
-} from "../chunk-CCZPHDNV.js";
+} from "../chunk-4SGR4KVS.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
 async function main() {
   const raw = readFileSync(0, "utf8");
-  let input;
-  try {
-    input = antigravityAdapter.parsePreToolUseStdin(raw);
-  } catch {
-    process.exit(0);
-  }
+  const input = antigravityAdapter.parsePreToolUseStdin(raw);
   const backend = getGateBackend();
   const decision = await backend.evaluatePreToolUse(input);
   switch (decision.kind) {

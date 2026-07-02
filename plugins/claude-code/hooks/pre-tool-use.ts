@@ -37,14 +37,7 @@ import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, 'utf8');
-
-  let input;
-  try {
-    input = claudeCodeAdapter.parsePreToolUseStdin(raw);
-  } catch {
-    // fail-open: stdin parse failure must not brick the workflow.
-    process.exit(0);
-  }
+  const input = claudeCodeAdapter.parsePreToolUseStdin(raw);
 
   const backend = getGateBackend();
   const decision = await backend.evaluatePreToolUse(input);

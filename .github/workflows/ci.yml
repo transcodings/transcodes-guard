@@ -349,6 +349,15 @@ jobs:
             echo "::error::Cursor hook wrongly emitted hookSpecificOutput wrapper (Claude Code wire format leaked)"; exit 1
           fi
 
+      - name: cursor · beforeShellExecution native stdin (command top-level, no tool_name)
+        run: |
+          set -e
+          OUT=$(echo '{"command":"find /tmp","cwd":"'"$PWD"'","hook_event_name":"beforeShellExecution"}' \
+            | node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor native stdin hook did not exit 0"; exit 1; }
+          echo "$OUT" | grep -q '"permission":"deny"' || { echo "::error::Cursor native stdin should reach gate (deny), not bypass"; exit 1; }
+
       - name: cursor · beforeShellExecution safe command passes (ls)
         run: |
           set -e

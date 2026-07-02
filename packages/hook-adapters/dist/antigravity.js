@@ -196,16 +196,27 @@ export function detectUserDoneFromTranscript(transcriptPath, pattern = COMPLETIO
 export const antigravityAdapter = {
     host: 'antigravity',
     parsePreToolUseStdin(raw) {
-        const payload = JSON.parse(raw);
+        let payload;
+        try {
+            payload = JSON.parse(raw);
+        }
+        catch {
+            return {
+                toolName: 'Unknown',
+                toolInput: { _raw: raw },
+                rawPayload: { _raw: raw },
+                cwd: process.cwd(),
+            };
+        }
         const toolCall = payload.toolCall;
         const { toolName, toolArgs } = unwrapMcpDispatch(readString(toolCall?.name), toolCall?.args);
-        if (!toolName) {
-            throw new Error('PreToolUse payload missing toolCall.name');
-        }
         const workspacePaths = readStringArray(payload.workspacePaths);
         return {
-            toolName,
-            toolInput: normalizeToolInput(toolName, toolArgs),
+            toolName: toolName ?? 'Unknown',
+            toolInput: toolName
+                ? normalizeToolInput(toolName, toolArgs)
+                : payload,
+            rawPayload: payload,
             cwd: workspacePaths?.[0] ?? process.cwd(),
             sessionId: readString(payload.conversationId),
             hookEventName: 'PreToolUse',

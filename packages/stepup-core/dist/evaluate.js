@@ -6,15 +6,14 @@
  * `evaluatePreToolUse` → emit via that host's adapter. The same decision
  * shape drives Claude Code, Codex, Cursor, and Antigravity.
  *
- * Guard v3: Bash + external mcp__* → POST /guard/evaluate. Built-in
- * transcodes-guard MCP skips the hook (execProtectedTool handler backstop).
+ * Guard v3: every host tool call (except built-in transcodes-guard MCP) →
+ * POST /guard/evaluate with the raw hook stdin JSON as `payload`.
  *
  * Fail policy:
  *  - Before classify (stdin parse) → return `{ kind: "proceed-ungated" }`
  *    (fail-open). Callers exit 0 with no JSON.
- *  - After classify (bash or external mcp__*) → POST /guard/evaluate.
- *    Fail-closed: backend unreachable → permission 2 (step-up). Verified
- *    read / step-up create failures surface as `deny-*` decisions.
+ *  - After classify → POST /guard/evaluate. Fail-closed: backend unreachable
+ *    → permission 2 (step-up).
  */
 import { DEFAULT_RBAC_RESOURCE, isTranscodesGuardWireToolName, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
@@ -42,6 +41,83 @@ export const GATE_DECISION_KIND = {
     BLOCK_STEPUP_CHALLENGED: 'block-stepup-challenged',
 };
 const GUARD_EVALUATE_RULE_ID = 'guard-evaluate';
+function readString(v) {
+    return typeof v === 'string' ? v : undefined;
+}
+function resolvePayload(input) {
+    if (input.rawPayload !== undefined)
+        return input.rawPayload;
+    return {
+        tool_name: input.toolName,
+        tool_input: input.toolInput,
+        cwd: input.cwd,
+    };
+}
+function extractShellCommand(input) {
+    const fromInput = input.toolInput
+        ?.command;
+    if (typeof fromInput === 'string')
+        return fromInput;
+    const payload = input.rawPayload;
+    if (payload === null || typeof payload !== 'object')
+        return undefined;
+    const p = payload;
+    if (typeof p.command === 'string')
+        return p.command;
+    const toolInput = p.tool_input;
+    if (toolInput !== null && typeof toolInput === 'object') {
+        const cmd = toolInput.command;
+        if (typeof cmd === 'string')
+            return cmd;
+    }
+    const toolCall = p.toolCall;
+    if (toolCall !== null && typeof toolCall === 'object') {
+        const args = toolCall.args;
+        if (args !== null && typeof args === 'object') {
+            const a = args;
+            if (typeof a.command === 'string')
+                return a.command;
+            if (typeof a.CommandLine === 'string')
+                return a.CommandLine;
+        }
+    }
+    return undefined;
+}
+function extractWireToolNames(input) {
+    const names = [];
+    if (input.toolName && input.toolName !== 'Unknown')
+        names.push(input.toolName);
+    const payload = input.rawPayload;
+    if (payload !== null && typeof payload === 'object') {
+        const p = payload;
+        const direct = readString(p.tool_name) ??
+            readString(p.toolName) ??
+            readString(p.name);
+        if (direct)
+            names.push(direct);
+        const toolCall = p.toolCall;
+        if (toolCall !== null && typeof toolCall === 'object') {
+            const nested = readString(toolCall.name);
+            if (nested)
+                names.push(nested);
+        }
+    }
+    return names;
+}
+function shouldSkipGate(input) {
+    return extractWireToolNames(input).some(isTranscodesGuardWireToolName);
+}
+function summarizePayload(payload) {
+    try {
+        const s = JSON.stringify(payload);
+        if (s === undefined)
+            return '[unserializable]';
+        return s.length > 200 ? `${s.slice(0, 197)}...` : s;
+    }
+    catch {
+        return '[unserializable]';
+    }
+}
 /**
  * C-plan (backend-as-truth): re-confirm a locally-cached verified record with
  * the backend before the fast-path trusts it.
@@ -106,35 +182,17 @@ async function recheckVerifiedSid(sid) {
     }
 }
 function classifyToolCall(input) {
-    // Host-specific shell tool names map to the same internal `bash` kind.
-    // Claude Code / Codex use "Bash"; Antigravity 2.0 uses "run_command";
-    // Cursor uses "Shell" (per cursor.com/docs/agent/hooks matchers). The
-    // antigravity adapter rewrites `args.CommandLine` → `args.command`
-    // before the classifier sees it, so the body below is host-neutral.
-    if (input.toolName === 'Bash' ||
-        input.toolName === 'run_command' ||
-        input.toolName === 'Shell') {
-        const cmd = input.toolInput?.command;
-        if (typeof cmd !== 'string')
-            return null;
-        return { kind: 'bash', command: cmd, cwd: input.cwd };
-    }
-    // Gate EVERYTHING else through POST /guard/evaluate — external MCP tools AND
-    // host built-in tools (Read / Grep / Edit / Write / ...). The backend
-    // classifier maps the raw tool_input onto (resource, action); the RBAC matrix
-    // then decides 0/1/2, so a read still passes when its cell is 1.
-    //
-    // The ONE exception is the built-in transcodes-guard MCP itself: gating it
-    // would trap the step-up recovery tools (poll_stepup_session_wait, ...) in
-    // their own gate → step-up could never complete. Those are re-checked by the
-    // execProtectedTool handler backstop instead.
-    if (isTranscodesGuardWireToolName(input.toolName))
+    if (shouldSkipGate(input))
         return null;
-    return {
-        kind: 'tool',
-        toolName: input.toolName,
-        toolInput: input.toolInput,
-    };
+    const payload = resolvePayload(input);
+    const shellCommand = extractShellCommand(input);
+    const wireNames = extractWireToolNames(input);
+    const label = wireNames[0] ?? readString(input.hookEventName) ?? 'tool';
+    const fingerprintKey = shellCommand ?? summarizePayload(payload);
+    const summary = shellCommand
+        ? shellCommand
+        : `${label} ${summarizePayload(payload)}`;
+    return { kind: 'tool', summary, fingerprintKey };
 }
 /**
  * Run the full PreToolUse gate against a parsed tool call.
@@ -161,30 +219,8 @@ export async function evaluatePreToolUse(input) {
     }
     if (!classified)
         return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
-    // block.command + fpKey: bash → command text; MCP → wire name + capped tool_input JSON.
-    let blockCommand;
-    let fpKey;
-    if (classified.kind === 'bash') {
-        blockCommand = classified.command;
-        fpKey = classified.command;
-    }
-    else {
-        let toolInputSummary;
-        try {
-            const s = JSON.stringify(classified.toolInput);
-            toolInputSummary =
-                s === undefined
-                    ? '[unserializable]'
-                    : s.length > 200
-                        ? `${s.slice(0, 197)}...`
-                        : s;
-        }
-        catch {
-            toolInputSummary = '[unserializable]';
-        }
-        blockCommand = `${classified.toolName} ${toolInputSummary}`;
-        fpKey = `${classified.toolName}:${JSON.stringify(classified.toolInput)}`;
-    }
+    const blockCommand = classified.summary;
+    const fpKey = classified.fingerprintKey;
     const block = {
         reason: 'POST /guard/evaluate',
         command: blockCommand,
@@ -244,12 +280,10 @@ export async function evaluatePreToolUse(input) {
     let verdict = null;
     try {
         verdict = await evaluateAction(loadStepupConfig(), {
-            toolName: input.toolName,
-            toolInput: input.toolInput,
+            payload: resolvePayload(input),
+            toolName: extractWireToolNames(input)[0],
             cwd: input.cwd,
-            comment: classified.kind === 'bash'
-                ? `Confirm shell command: ${block.command}`
-                : `Confirm tool call: ${classified.toolName}`,
+            comment: `Confirm tool call: ${block.command}`,
         });
     }
     catch {

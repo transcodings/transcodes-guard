@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   codexAdapter
-} from "../chunk-RAMWXODQ.js";
+} from "../chunk-T4DWWV6F.js";
 import {
   GATE_DECISION_KIND,
   formatAllowReason,
@@ -15,18 +15,13 @@ import {
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
   getGateBackend
-} from "../chunk-X53CZC7B.js";
+} from "../chunk-JDNZGVUA.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
 async function main() {
   const raw = readFileSync(0, "utf8");
-  let input;
-  try {
-    input = codexAdapter.parsePreToolUseStdin(raw);
-  } catch {
-    process.exit(0);
-  }
+  const input = codexAdapter.parsePreToolUseStdin(raw);
   const backend = getGateBackend();
   const decision = await backend.evaluatePreToolUse(input);
   switch (decision.kind) {

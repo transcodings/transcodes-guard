@@ -12,15 +12,15 @@ export type GuardVerdict = {
     expires_at: string | null;
 };
 /**
- * POST /v1/guard/evaluate — one round-trip: backend classifies the raw
- * tool_input, applies the matrix, and (for level 2) creates the step-up
- * session. Every classified bash command and every external mcp__* wire name
- * reaches this path. Built-in transcodes-guard MCP skips the hook. Returns null
- * on any failure → caller fails closed.
+ * POST /v1/guard/evaluate — one round-trip: backend classifies the raw hook
+ * payload, applies the matrix, and (for level 2) creates the step-up session.
+ * Every tool call (except built-in transcodes-guard MCP) reaches this path.
+ * Returns null on any failure → caller fails closed.
  */
 export declare function evaluateAction(config: StepupConfig, body: {
+    payload: unknown;
+    /** Wire tool name resolved from the host hook shape (plugin-side). */
     toolName?: string;
-    toolInput: unknown;
     cwd?: string;
     comment?: string;
 }): Promise<GuardVerdict | null>;

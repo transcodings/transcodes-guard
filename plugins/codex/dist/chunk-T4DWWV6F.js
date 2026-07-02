@@ -6,22 +6,34 @@ var COMPLETION_PATTERN = /완료|성공|끝났|마쳤|됐어|통과|done|finishe
 function readString(v) {
   return typeof v === "string" ? v : void 0;
 }
-var claudeCodeAdapter = {
-  host: "claude",
-  parsePreToolUseStdin(raw) {
+function parsePreToolUsePayload(raw) {
+  try {
     const payload = JSON.parse(raw);
-    const toolName = readString(payload.tool_name);
-    if (!toolName)
-      throw new Error("PreToolUse payload missing tool_name");
+    const command = readString(payload.command);
+    const filePath = readString(payload.file_path);
+    const toolName = readString(payload.tool_name) ?? (command ? "Shell" : filePath ? "Read" : void 0) ?? "Unknown";
+    const toolInput = payload.tool_input ?? payload.arguments ?? (command ? { command } : filePath ? { path: filePath } : payload);
     return {
       toolName,
-      toolInput: payload.tool_input,
+      toolInput,
+      rawPayload: payload,
       cwd: readString(payload.cwd) ?? process.cwd(),
       sessionId: readString(payload.session_id),
       toolUseId: readString(payload.tool_use_id),
       hookEventName: readString(payload.hook_event_name)
     };
-  },
+  } catch {
+    return {
+      toolName: "Unknown",
+      toolInput: { _raw: raw },
+      rawPayload: { _raw: raw },
+      cwd: process.cwd()
+    };
+  }
+}
+var claudeCodeAdapter = {
+  host: "claude",
+  parsePreToolUseStdin: parsePreToolUsePayload,
   parseUserPromptSubmitStdin(raw) {
     const payload = JSON.parse(raw);
     return {
@@ -30,23 +42,15 @@ var claudeCodeAdapter = {
     };
   },
   emitPreToolUse(decision) {
-    if (decision.kind === "allow") {
-      return JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: "PreToolUse",
-          permissionDecision: "allow",
-          permissionDecisionReason: decision.reason,
-          ...decision.updatedInput !== void 0 ? { updatedInput: decision.updatedInput } : {}
-        }
-      });
-    }
+    const hookSpecificOutput = {
+      hookEventName: "PreToolUse",
+      permissionDecision: decision.kind === "allow" ? "allow" : "deny",
+      permissionDecisionReason: decision.reason,
+      ...decision.kind === "allow" && decision.updatedInput !== void 0 ? { updatedInput: decision.updatedInput } : {}
+    };
     return JSON.stringify({
-      hookSpecificOutput: {
-        hookEventName: "PreToolUse",
-        permissionDecision: "deny",
-        permissionDecisionReason: decision.reason
-      },
-      ...decision.systemMessage !== void 0 ? { systemMessage: decision.systemMessage } : {}
+      hookSpecificOutput,
+      ...decision.kind === "deny" && decision.systemMessage !== void 0 ? { systemMessage: decision.systemMessage } : {}
     });
   },
   emitSessionStartContext(additionalContext) {
@@ -66,10 +70,7 @@ var claudeCodeAdapter = {
     });
   },
   emitStop(reason) {
-    return JSON.stringify({
-      decision: "block",
-      reason
-    });
+    return JSON.stringify({ decision: "block", reason });
   }
 };
 

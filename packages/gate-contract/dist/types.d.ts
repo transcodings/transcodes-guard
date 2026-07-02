@@ -18,7 +18,9 @@ export type { MergedPattern, RbacAction };
 export interface ToolCallInput {
     toolName: string;
     toolInput: unknown;
+    rawPayload?: unknown;
     cwd: string;
+    hookEventName?: string;
 }
 /** Resolved danger match + its RBAC step-up coordinate. Mirrors evaluate.ts. */
 export interface BlockResult {

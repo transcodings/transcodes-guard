@@ -169,8 +169,10 @@ describe('evaluateAction', () => {
       ]);
 
     const verdict = await evaluateAction(config(), {
-      toolName: 'Bash',
-      toolInput: { command: 'mkdir temp4' },
+      payload: {
+        tool_name: 'Bash',
+        tool_input: { command: 'mkdir temp4' },
+      },
       cwd: '/tmp',
       comment: 'Confirm',
     });
@@ -199,7 +201,7 @@ describe('evaluateAction', () => {
       ]);
 
     const verdict = await evaluateAction(config(), {
-      toolInput: { command: 'ls' },
+      payload: { command: 'ls' },
     });
 
     assert.equal(verdict, null);
@@ -217,7 +219,7 @@ describe('evaluateAction', () => {
     });
 
     const verdict = await evaluateAction(config(), {
-      toolInput: { command: 'ls' },
+      payload: { command: 'ls' },
     });
 
     assert.equal(verdict, null);

@@ -2,11 +2,11 @@
 import {
   antigravityAdapter,
   detectUserDoneFromTranscript
-} from "../chunk-OWLYJFX2.js";
+} from "../chunk-SIS7TDTH.js";
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-CCZPHDNV.js";
+} from "../chunk-4SGR4KVS.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";

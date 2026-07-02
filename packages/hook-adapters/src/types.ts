@@ -12,6 +12,8 @@
 export interface PreToolUseInput {
   toolName: string;
   toolInput: unknown;
+  /** Original hook stdin JSON — forwarded as POST /guard/evaluate payload. */
+  rawPayload?: unknown;
   cwd: string;
   /** Optional, host-dependent. Present in Claude Code and Codex. */
   sessionId?: string;
@@ -84,7 +86,7 @@ export interface HookAdapter {
   /** Display name for logs / diagnostics. */
   readonly host: string;
 
-  /** Parse PreToolUse stdin JSON. Throws on parse error or missing tool_name. */
+  /** Parse PreToolUse stdin JSON. Never throws — malformed input becomes Unknown. */
   parsePreToolUseStdin(raw: string): PreToolUseInput;
 
   /** Parse UserPromptSubmit stdin JSON. Throws on parse error. */

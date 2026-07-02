@@ -21,9 +21,8 @@
  *  - Stop stdout: `{ followup_message? }` — Claude Code's `{ decision: "block",
  *    reason }` semantic, different key name.
  *
- * We use `beforeShellExecution` + `beforeMCPExecution` (event-specific
- * variants) instead of the generic `preToolUse`. They share the same
- * snake_case stdin shape so a single `pre-tool-use.ts` entry handles both.
+ * Gate hooks are wired as `beforeShellExecution` + `beforeMCPExecution` in
+ * `.cursor/hooks.json` — one binary serves both events.
  */
 import { claudeCodeAdapter } from './claude-code.js';
 export const cursorAdapter = {
