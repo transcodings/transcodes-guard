@@ -18,13 +18,13 @@
  *     also lets the poll tool map a sid back to its fingerprint so it writes
  *     the matching verified file (`findPendingBySid`).
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { migrateLegacyFile } from '@transcodes-guard/plugin-paths';
 import { z } from 'zod';
 import {
+  atomicWriteFile,
   isExpiredAt,
   listFingerprints,
-  stepupDir,
   stepupFileName,
   stepupFilePath,
 } from './stepup-files.js';
@@ -74,9 +74,7 @@ export function readPending(fp?: string): PendingState | null {
  * record means callers never have to thread fp separately.
  */
 export function writePending(state: PendingState): void {
-  const file = pendingPath(state.fp);
-  mkdirSync(stepupDir(), { recursive: true });
-  writeFileSync(file, JSON.stringify(state), { mode: 0o600 });
+  atomicWriteFile(pendingPath(state.fp), JSON.stringify(state));
 }
 
 export function clearPending(fp?: string): void {
