@@ -5,10 +5,10 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-VW7ICJ6Q.js";
+} from "../chunk-7SOQPY6X.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.31.1";
+var PLUGIN_VERSION = "0.31.2";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [

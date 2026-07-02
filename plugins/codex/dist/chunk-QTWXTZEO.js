@@ -5404,8 +5404,13 @@ var GATE_DECISION_KIND2 = {
 };
 var GUARD_EVALUATE_RULE_ID = "guard-evaluate";
 async function recheckVerifiedSid(sid) {
-  if (!resolveToken().token)
-    return "trust";
+  if (!resolveToken().token) {
+    if (process.env.TRANSCODES_GUARD_TEST_TRUST === "1") {
+      process.stderr.write("transcodes-guard: WARNING \u2014 TRANSCODES_GUARD_TEST_TRUST=1 trusts the local verified record WITHOUT a backend recheck. Test/CI use only; never set this in a real install.\n");
+      return "trust";
+    }
+    return "reauth";
+  }
   let config;
   try {
     config = loadStepupConfig();
