@@ -218,6 +218,9 @@ jobs:
           echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Codex deny JSON missing"; exit 1; }
 
       - name: codex · PreToolUse verified-record → explicit allow
+        env:
+          # F2: the token-less recheck now fails closed; smokes opt back in.
+          TRANSCODES_GUARD_TEST_TRUST: '1'
         run: |
           set -e
           mkdir -p "$HOME/.transcodes/state"
@@ -271,6 +274,9 @@ jobs:
           fi
 
       - name: antigravity · PreToolUse verified-record → explicit allow
+        env:
+          # F2: the token-less recheck now fails closed; smokes opt back in.
+          TRANSCODES_GUARD_TEST_TRUST: '1'
         run: |
           set -e
           mkdir -p "$HOME/.transcodes/state"
@@ -352,6 +358,9 @@ jobs:
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not allow safe command"; exit 1; }
 
       - name: cursor · beforeShellExecution verified-record → explicit allow
+        env:
+          # F2: the token-less recheck now fails closed; smokes opt back in.
+          TRANSCODES_GUARD_TEST_TRUST: '1'
         run: |
           set -e
           mkdir -p "$HOME/.transcodes/state"
