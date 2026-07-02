@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.31.3...transcodes-guard-v0.32.0) (2026-07-02)
+
+
+### Features
+
+* **gate:** send raw hook payload to guard evaluate API ([bf4f5fa](https://github.com/transcodings/transcodes-guard/commit/bf4f5fa4afd57b61013f7e41cbd2119ee8d1b3b9))
+
 ## [0.31.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.31.2...transcodes-guard-v0.31.3) (2026-07-02)
 
 
