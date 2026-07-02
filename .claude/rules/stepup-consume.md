@@ -31,6 +31,7 @@ The FP-keyed fast path (`evaluate.ts`) trusts a locally-present `stepup-verified
 
 1. **Atomic claim** — `claimVerified(fp)` (`store.ts`) `rename`s the record to a pid-tagged sibling *before* anything else. rename is atomic on POSIX, so of N concurrent hooks for the same command exactly one gets the record; the losers get `null` and fall through to a fresh step-up. This is load-bearing: `recheckVerifiedSid` re-polls the backend (a network round-trip), which would otherwise widen the read→consume window enough for two hooks to both allow and both consume — one MFA authorising two runs. Claiming first collapses that window.
 2. **Backend re-poll** — `recheckVerifiedSid` re-polls the claimed record's sid (a forgery test against a fabricated file). Asymmetric verdict:
+   - no token → **`reauth`** (fail-closed, F2): the forgery test cannot run, so the record is not trusted and the caller falls through to `BLOCK_NO_TOKEN`. Token-less CI fast-path smokes opt back in with `TRANSCODES_GUARD_TEST_TRUST=1` (stderr-warned; never set in a real install).
    - backend says 2xx-non-verified, or 404 → **`reauth`** (force fresh step-up).
    - network `status 0` / 5xx / 401 / 403 → **`trust`** (availability fallback — a rogue local process does not control backend reachability).
 
