@@ -135,9 +135,13 @@ type Classified =
  * step-up.
  *
  * Decisions:
- *   - no token / config load fails → "trust": step-up is inert without a token
- *     and we cannot poll. Preserves pre-C-plan behaviour (and keeps the
- *     token-less CI fast-path tests green).
+ *   - no token → "reauth" (fail-closed, F2): the forgery test cannot run, so
+ *     the record is NOT trusted — the caller falls through to BLOCK_NO_TOKEN
+ *     like every other token-less path. Token-less CI fast-path smokes opt
+ *     back in with TRANSCODES_GUARD_TEST_TRUST=1 (stderr-warned; never set in
+ *     a real install).
+ *   - config load fails (token present) → "trust": we cannot build a request,
+ *     availability fallback as below.
  *   - backend authoritative (2xx) + status "verified" → "trust".
  *   - backend authoritative (2xx non-verified, or 404 unknown sid) → "reauth":
  *     the record is forged, expired, or revoked at the backend.
@@ -148,7 +152,20 @@ type Classified =
  *     network failures as an envelope with `status: 0` rather than throwing.
  */
 async function recheckVerifiedSid(sid: string): Promise<'trust' | 'reauth'> {
-  if (!resolveToken().token) return 'trust';
+  if (!resolveToken().token) {
+    // F2: without a token the forgery re-poll cannot run, so trusting the
+    // local record would let a fabricated stepup-verified file bypass MFA.
+    // Fail closed; only the explicit test flag restores the old behaviour.
+    if (process.env.TRANSCODES_GUARD_TEST_TRUST === '1') {
+      process.stderr.write(
+        'transcodes-guard: WARNING — TRANSCODES_GUARD_TEST_TRUST=1 trusts ' +
+          'the local verified record WITHOUT a backend recheck. Test/CI use ' +
+          'only; never set this in a real install.\n',
+      );
+      return 'trust';
+    }
+    return 'reauth';
+  }
   let config;
   try {
     config = loadStepupConfig();
@@ -273,8 +290,9 @@ export async function evaluatePreToolUse(
         fp,
       };
     }
-    // Backend says this record is no longer (or never was) verified — the claim
-    // already discarded it; just clear the paired pending and fall through.
+    // The record is not trusted — either the backend says it is no longer (or
+    // never was) verified, or there is no token to ask it (F2 fail-closed). The
+    // claim already discarded it; just clear the paired pending and fall through.
     clearPending(fp);
   }
 
