@@ -213,9 +213,7 @@ export const antigravityAdapter = {
         const workspacePaths = readStringArray(payload.workspacePaths);
         return {
             toolName: toolName ?? 'Unknown',
-            toolInput: toolName
-                ? normalizeToolInput(toolName, toolArgs)
-                : payload,
+            toolInput: toolName ? normalizeToolInput(toolName, toolArgs) : payload,
             rawPayload: payload,
             cwd: workspacePaths?.[0] ?? process.cwd(),
             sessionId: readString(payload.conversationId),

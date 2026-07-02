@@ -41,71 +41,19 @@ export const GATE_DECISION_KIND = {
     BLOCK_STEPUP_CHALLENGED: 'block-stepup-challenged',
 };
 const GUARD_EVALUATE_RULE_ID = 'guard-evaluate';
-function readString(v) {
-    return typeof v === 'string' ? v : undefined;
-}
 function resolvePayload(input) {
-    if (input.rawPayload !== undefined)
-        return input.rawPayload;
-    return {
+    return (input.rawPayload ?? {
         tool_name: input.toolName,
         tool_input: input.toolInput,
         cwd: input.cwd,
-    };
+    });
 }
-function extractShellCommand(input) {
-    const fromInput = input.toolInput
-        ?.command;
-    if (typeof fromInput === 'string')
-        return fromInput;
-    const payload = input.rawPayload;
-    if (payload === null || typeof payload !== 'object')
-        return undefined;
-    const p = payload;
-    if (typeof p.command === 'string')
-        return p.command;
-    const toolInput = p.tool_input;
-    if (toolInput !== null && typeof toolInput === 'object') {
-        const cmd = toolInput.command;
-        if (typeof cmd === 'string')
-            return cmd;
-    }
-    const toolCall = p.toolCall;
-    if (toolCall !== null && typeof toolCall === 'object') {
-        const args = toolCall.args;
-        if (args !== null && typeof args === 'object') {
-            const a = args;
-            if (typeof a.command === 'string')
-                return a.command;
-            if (typeof a.CommandLine === 'string')
-                return a.CommandLine;
-        }
-    }
-    return undefined;
+function shellCommand(toolInput) {
+    const cmd = toolInput?.command;
+    return typeof cmd === 'string' ? cmd : undefined;
 }
-function extractWireToolNames(input) {
-    const names = [];
-    if (input.toolName && input.toolName !== 'Unknown')
-        names.push(input.toolName);
-    const payload = input.rawPayload;
-    if (payload !== null && typeof payload === 'object') {
-        const p = payload;
-        const direct = readString(p.tool_name) ??
-            readString(p.toolName) ??
-            readString(p.name);
-        if (direct)
-            names.push(direct);
-        const toolCall = p.toolCall;
-        if (toolCall !== null && typeof toolCall === 'object') {
-            const nested = readString(toolCall.name);
-            if (nested)
-                names.push(nested);
-        }
-    }
-    return names;
-}
-function shouldSkipGate(input) {
-    return extractWireToolNames(input).some(isTranscodesGuardWireToolName);
+function wireToolName(input) {
+    return input.toolName !== 'Unknown' ? input.toolName : undefined;
 }
 function summarizePayload(payload) {
     try {
@@ -117,6 +65,18 @@ function summarizePayload(payload) {
     catch {
         return '[unserializable]';
     }
+}
+function classifyToolCall(input) {
+    const name = wireToolName(input);
+    if (name && isTranscodesGuardWireToolName(name))
+        return null;
+    const payload = resolvePayload(input);
+    const cmd = shellCommand(input.toolInput);
+    const label = name ?? 'tool';
+    const blob = summarizePayload(payload);
+    const fingerprintKey = cmd ?? blob;
+    const summary = cmd ?? `${label} ${blob}`;
+    return { kind: 'tool', summary, fingerprintKey };
 }
 /**
  * C-plan (backend-as-truth): re-confirm a locally-cached verified record with
@@ -180,19 +140,6 @@ async function recheckVerifiedSid(sid) {
     catch {
         return 'trust';
     }
-}
-function classifyToolCall(input) {
-    if (shouldSkipGate(input))
-        return null;
-    const payload = resolvePayload(input);
-    const shellCommand = extractShellCommand(input);
-    const wireNames = extractWireToolNames(input);
-    const label = wireNames[0] ?? readString(input.hookEventName) ?? 'tool';
-    const fingerprintKey = shellCommand ?? summarizePayload(payload);
-    const summary = shellCommand
-        ? shellCommand
-        : `${label} ${summarizePayload(payload)}`;
-    return { kind: 'tool', summary, fingerprintKey };
 }
 /**
  * Run the full PreToolUse gate against a parsed tool call.
@@ -281,7 +228,7 @@ export async function evaluatePreToolUse(input) {
     try {
         verdict = await evaluateAction(loadStepupConfig(), {
             payload: resolvePayload(input),
-            toolName: extractWireToolNames(input)[0],
+            toolName: wireToolName(input),
             cwd: input.cwd,
             comment: `Confirm tool call: ${block.command}`,
         });
