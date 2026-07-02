@@ -22,6 +22,29 @@ function dismissPendingSession(backend, sid) {
     if (found)
         backend.clearPending(found.fp);
 }
+/**
+ * Persist a verified record after a poll confirms `verified`, routing it to the
+ * store flavour the gate-time pending record dictates.
+ *
+ * The pending record carries the fp for the hook-consume (Bash/user) path; a
+ * pending with no fp is the genuine GLOBAL (MCP system) path. But a MISSING
+ * pending is neither: it means this sid was never mapped to a local record (a
+ * duplicate session whose pending was overwritten, or a stale sid). Writing to
+ * the GLOBAL store in that case cross-contaminates the MCP system path with a
+ * Bash-origin record and still leaves the fp-keyed retry stuck. So we only
+ * write when a pending was actually found; otherwise skip and warn (F3).
+ */
+function persistVerifiedRecord(backend, sid) {
+    const found = backend.findPendingBySid(sid);
+    if (!found) {
+        process.stderr.write(`transcodes-guard: verified sid ${sid} has no local pending record — ` +
+            'skipping verified-record write to avoid GLOBAL-store contamination. ' +
+            'The original command may need a fresh step-up.\n');
+        return;
+    }
+    backend.writeVerified({ sid, verifiedAt: Date.now() }, found.fp);
+    backend.markVerified(sid);
+}
 function textResult(text, isError = false) {
     return {
         isError,
@@ -91,6 +114,22 @@ export function createServer(backend = getGateBackend()) {
             resource,
             member_id,
         });
+        // Register the GLOBAL pending record for this standalone (non-hook)
+        // session. persistVerifiedRecord refuses to persist a verified sid that
+        // no local pending maps (the F3 anti-contamination guard), so without
+        // this write the create_stepup_session → poll → execProtectedTool flow
+        // would never see its verified record. fp stays absent → GLOBAL flavour.
+        if (result.envelope.ok && result.sid && result.browserUrl) {
+            backend.writePending({
+                sid: result.sid,
+                command: resource && action ? `${resource}/${action}` : comment,
+                reason: comment,
+                browserUrl: result.browserUrl,
+                createdAt: Date.now(),
+                expiresAt: result.expiresAt,
+                status: 'pending',
+            });
+        }
         return {
             content: [
                 {
@@ -125,14 +164,7 @@ export function createServer(backend = getGateBackend()) {
     }, async ({ sid }) => {
         const result = await backend.pollStepupSession(sid);
         if (result.status === 'verified') {
-            // Route the verified record to the right store: the pending record
-            // carries the fp for the hook-consume (Bash/user) path; absent fp
-            // → GLOBAL store (MCP system path). Recomputing fp here is impossible
-            // (we only have the sid), so the gate-time fp is read back via the
-            // pending record it created.
-            const fp = backend.findPendingBySid(sid)?.fp;
-            backend.writeVerified({ sid, verifiedAt: Date.now() }, fp);
-            backend.markVerified(sid);
+            persistVerifiedRecord(backend, sid);
         }
         else if (result.status === 'rejected') {
             dismissPendingSession(backend, sid);
@@ -188,9 +220,7 @@ export function createServer(backend = getGateBackend()) {
             intervalMs: interval_ms,
         });
         if (result.outcome === 'verified') {
-            const fp = backend.findPendingBySid(sid)?.fp;
-            backend.writeVerified({ sid, verifiedAt: Date.now() }, fp);
-            backend.markVerified(sid);
+            persistVerifiedRecord(backend, sid);
         }
         else {
             // rejected OR timeout: drop the pending record so the Stop hook

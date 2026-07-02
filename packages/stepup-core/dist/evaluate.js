@@ -19,10 +19,11 @@
 import { DEFAULT_RBAC_RESOURCE, isTranscodesGuardWireToolName, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
 import { fingerprintOf, launchStepupBrowser, } from './gate.js';
-import { clearPending } from './pending.js';
+import { clearPending, readPending } from './pending.js';
 import { evaluateAction } from './rbac-check.js';
 import { pollStepupSession } from './session.js';
-import { consumeVerified, readVerified } from './store.js';
+import { isExpiredAt } from './stepup-files.js';
+import { claimVerified } from './store.js';
 import { resolveToken } from './token-store.js';
 /**
  * Runtime + type-level kind constants for `GateDecision`. Source of truth for
@@ -179,9 +180,14 @@ export async function evaluatePreToolUse(input) {
     };
     const fp = fingerprintOf(fpKey);
     // Verified fast-path: skip /evaluate when this command already passed step-up.
-    const verified = readVerified(fp);
+    // claimVerified atomically renames the record away first, so exactly one of N
+    // concurrent hooks for the same command wins — the losers get null and fall
+    // through to a fresh step-up rather than all consuming one MFA (F1).
+    const verified = claimVerified(fp);
     if (verified) {
         if ((await recheckVerifiedSid(verified.sid)) === 'trust') {
+            // The record was already removed by the claim; the caller no longer needs
+            // to consume it, but still clears the paired pending record.
             return {
                 kind: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
                 block,
@@ -189,13 +195,32 @@ export async function evaluatePreToolUse(input) {
                 fp,
             };
         }
-        // Backend says this record is no longer (or never was) verified — discard
-        // the stale/forged record and fall through to a fresh step-up below.
-        consumeVerified(fp);
+        // Backend says this record is no longer (or never was) verified — the claim
+        // already discarded it; just clear the paired pending and fall through.
         clearPending(fp);
     }
     if (!resolveToken().token) {
         return { kind: GATE_DECISION_KIND.BLOCK_NO_TOKEN, block };
+    }
+    // Re-issue an in-flight challenge instead of creating a second session (F3).
+    // If this exact command already opened a still-valid step-up, minting a new
+    // sid would overwrite the pending record (last-writer-wins). The user might
+    // then verify the FIRST tab, whose sid the poll tool can no longer map back
+    // to this fp — the verified record lands in the GLOBAL store and the Bash
+    // retry never hits the fast path. Same dedup philosophy as the browser lock.
+    const existingPending = readPending(fp);
+    if (existingPending &&
+        existingPending.status === 'pending' &&
+        !isExpiredAt(existingPending.createdAt, existingPending.expiresAt, Date.now())) {
+        const browserLaunched = launchStepupBrowser(fpKey, existingPending.browserUrl);
+        return {
+            kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,
+            block,
+            sid: existingPending.sid,
+            browserUrl: existingPending.browserUrl,
+            browserLaunched,
+            pending: existingPending,
+        };
     }
     // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) step-up.
     let verdict = null;
