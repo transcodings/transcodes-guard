@@ -29,10 +29,10 @@
  * readVerified() runs after the upgrade. FP-KEYED files are new and need no
  * migration.
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, renameSync, rmSync } from 'node:fs';
 import { migrateLegacyFile, cacheDir as pluginCacheDir, } from '@transcodes-guard/plugin-paths';
 import { STEPUP_TTL_MS } from './config.js';
-import { listFingerprints, stepupDir, stepupFileName, stepupFilePath, } from './stepup-files.js';
+import { atomicWriteFile, listFingerprints, stepupFileName, stepupFilePath, } from './stepup-files.js';
 /**
  * Cache directory re-exported for backwards compatibility.
  *
@@ -56,35 +56,28 @@ function storePath(fp) {
  * Self-healing: a corrupt, malformed, or expired record is consumed on read
  * and reported as absent.
  */
-export function readVerified(fp) {
-    // Only the GLOBAL file has a legacy location to migrate from.
-    if (!fp)
-        migrateLegacyFile(stepupFileName(FILE_BASE), 'cache');
-    const file = storePath(fp);
-    let raw;
-    try {
-        raw = readFileSync(file, 'utf8');
-    }
-    catch {
-        return null;
-    }
+/**
+ * Validate the raw JSON of a verified record. Returns the record when it is a
+ * well-formed, non-expired `{sid, verifiedAt}`; returns null on malformed or
+ * expired input. Pure (no disk side effects) so both `readVerified` (which
+ * self-consumes the on-disk file) and `claimVerified` (which already holds the
+ * only copy) can reuse it. `fp` is used only for the expiry log line.
+ */
+function parseVerifiedRecord(raw, fp) {
     let parsed;
     try {
         parsed = JSON.parse(raw);
     }
     catch {
-        consumeVerified(fp);
         return null;
     }
     if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        consumeVerified(fp);
         return null;
     }
     const obj = parsed;
     const sid = typeof obj.sid === 'string' ? obj.sid : null;
     const verifiedAt = typeof obj.verifiedAt === 'number' ? obj.verifiedAt : null;
     if (!sid || verifiedAt === null) {
-        consumeVerified(fp);
         return null;
     }
     const ageMs = Date.now() - verifiedAt;
@@ -94,15 +87,29 @@ export function readVerified(fp) {
         // appears identical to a never-verified deny and root-cause analysis
         // requires reading timestamps off disk.
         process.stderr.write(`transcodes-guard: verified record EXPIRED (sid=${sid}, age=${ageMs}ms, ttl=${STEPUP_TTL_MS}ms${fp ? `, fp=${fp}` : ''}) — starting a new step-up.\n`);
-        consumeVerified(fp);
         return null;
     }
     return { sid, verifiedAt };
 }
+export function readVerified(fp) {
+    // Only the GLOBAL file has a legacy location to migrate from.
+    if (!fp)
+        migrateLegacyFile(stepupFileName(FILE_BASE), 'cache');
+    let raw;
+    try {
+        raw = readFileSync(storePath(fp), 'utf8');
+    }
+    catch {
+        return null;
+    }
+    const record = parseVerifiedRecord(raw, fp);
+    // Self-heal: a corrupt/expired record is consumed on read and reported absent.
+    if (!record)
+        consumeVerified(fp);
+    return record;
+}
 export function writeVerified(v, fp) {
-    const file = storePath(fp);
-    mkdirSync(stepupDir(), { recursive: true });
-    writeFileSync(file, JSON.stringify(v), { mode: 0o600 });
+    atomicWriteFile(storePath(fp), JSON.stringify(v));
 }
 export function consumeVerified(fp) {
     try {
@@ -111,6 +118,51 @@ export function consumeVerified(fp) {
     catch {
         // best-effort cleanup
     }
+}
+/**
+ * Atomically claim a verified record for exclusive use, returning it only to
+ * the caller that wins the race. Renames `stepup-verified.<fp>.json` to a
+ * pid-tagged sibling first (rename is atomic on POSIX, so exactly one of N
+ * concurrent hooks succeeds), then reads + validates the claimed copy.
+ *
+ * The fast path in evaluate.ts re-polls the backend AFTER reading the record —
+ * a network round-trip that widens the read→consume window to hundreds of ms.
+ * Without an exclusive claim, two hooks for the same command both read the
+ * record, both re-poll, both allow, and both consume — one MFA authorises two
+ * executions. Claiming up front collapses that window: the loser gets null and
+ * falls through to a fresh step-up.
+ *
+ * On any decision the claimed sibling is removed (the winner has the record in
+ * memory; a discard restores nothing since the record is single-use). Returns
+ * the validated record on win, `null` on loss or if the record is
+ * absent/corrupt/expired.
+ */
+export function claimVerified(fp) {
+    if (!fp)
+        migrateLegacyFile(stepupFileName(FILE_BASE), 'cache');
+    const file = storePath(fp);
+    const claimed = `${file}.claimed.${process.pid}`;
+    try {
+        renameSync(file, claimed);
+    }
+    catch {
+        // Lost the race (another hook renamed it first) or no record present.
+        return null;
+    }
+    let record;
+    try {
+        record = parseVerifiedRecord(readFileSync(claimed, 'utf8'), fp);
+    }
+    catch {
+        record = null;
+    }
+    try {
+        rmSync(claimed, { force: true });
+    }
+    catch {
+        // best-effort: the claim already succeeded, cleanup failure is harmless.
+    }
+    return record;
 }
 /**
  * List every FP-KEYED verified file currently on disk (excludes the GLOBAL

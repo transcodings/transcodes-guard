@@ -29,7 +29,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // host.ts
-process.env.TRANSCODES_GUARD_HOST = "antigravity";
+process.env.TRANSCODES_GUARD_HOST = "cursor";
 
 // ../../packages/gate-contract/dist/types.js
 var GATE_DECISION_KIND = {
@@ -1072,7 +1072,7 @@ function openBrowser2(url) {
 }
 
 // ../../packages/stepup-core/dist/pending.js
-import { mkdirSync as mkdirSync5, readFileSync as readFileSync4, rmSync as rmSync3, writeFileSync as writeFileSync4 } from "fs";
+import { readFileSync as readFileSync4, rmSync as rmSync3 } from "fs";
 
 // ../../node_modules/zod/v3/external.js
 var external_exports = {};
@@ -5116,16 +5116,13 @@ var coerce = {
 var NEVER = INVALID;
 
 // ../../packages/stepup-core/dist/stepup-files.js
-import { readdirSync } from "fs";
+import { mkdirSync as mkdirSync4, readdirSync, renameSync as renameSync2, writeFileSync as writeFileSync3 } from "fs";
 import path4 from "path";
 function stepupFileName(base, fp) {
   return fp ? `${base}.${fp}.json` : `${base}.json`;
 }
 function stepupFilePath(base, fp) {
   return path4.join(cacheDir(), stepupFileName(base, fp));
-}
-function stepupDir() {
-  return cacheDir();
 }
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -5141,6 +5138,12 @@ function listFingerprints(base) {
     return [];
   }
 }
+function atomicWriteFile(file, contents) {
+  mkdirSync4(path4.dirname(file), { recursive: true });
+  const tmp = `${file}.tmp.${process.pid}`;
+  writeFileSync3(tmp, contents, { mode: 384 });
+  renameSync2(tmp, file);
+}
 function isExpiredAt(createdAt, expiresAt, now, ttlMs = STEPUP_TTL_MS) {
   if (expiresAt) {
     const t = Date.parse(expiresAt);
@@ -5151,58 +5154,79 @@ function isExpiredAt(createdAt, expiresAt, now, ttlMs = STEPUP_TTL_MS) {
 }
 
 // ../../packages/stepup-core/dist/store.js
-import { mkdirSync as mkdirSync4, readFileSync as readFileSync3, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "fs";
+import { readFileSync as readFileSync3, renameSync as renameSync3, rmSync as rmSync2 } from "fs";
 var FILE_BASE = "stepup-verified";
 function storePath(fp) {
   return stepupFilePath(FILE_BASE, fp);
 }
-function readVerified(fp) {
-  if (!fp)
-    migrateLegacyFile(stepupFileName(FILE_BASE), "cache");
-  const file = storePath(fp);
-  let raw;
-  try {
-    raw = readFileSync3(file, "utf8");
-  } catch {
-    return null;
-  }
+function parseVerifiedRecord(raw, fp) {
   let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    consumeVerified(fp);
     return null;
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    consumeVerified(fp);
     return null;
   }
   const obj = parsed;
   const sid = typeof obj.sid === "string" ? obj.sid : null;
   const verifiedAt = typeof obj.verifiedAt === "number" ? obj.verifiedAt : null;
   if (!sid || verifiedAt === null) {
-    consumeVerified(fp);
     return null;
   }
   const ageMs = Date.now() - verifiedAt;
   if (ageMs > STEPUP_TTL_MS) {
     process.stderr.write(`transcodes-guard: verified record EXPIRED (sid=${sid}, age=${ageMs}ms, ttl=${STEPUP_TTL_MS}ms${fp ? `, fp=${fp}` : ""}) \u2014 starting a new step-up.
 `);
-    consumeVerified(fp);
     return null;
   }
   return { sid, verifiedAt };
 }
+function readVerified(fp) {
+  if (!fp)
+    migrateLegacyFile(stepupFileName(FILE_BASE), "cache");
+  let raw;
+  try {
+    raw = readFileSync3(storePath(fp), "utf8");
+  } catch {
+    return null;
+  }
+  const record = parseVerifiedRecord(raw, fp);
+  if (!record)
+    consumeVerified(fp);
+  return record;
+}
 function writeVerified(v, fp) {
-  const file = storePath(fp);
-  mkdirSync4(stepupDir(), { recursive: true });
-  writeFileSync3(file, JSON.stringify(v), { mode: 384 });
+  atomicWriteFile(storePath(fp), JSON.stringify(v));
 }
 function consumeVerified(fp) {
   try {
     rmSync2(storePath(fp), { force: true });
   } catch {
   }
+}
+function claimVerified(fp) {
+  if (!fp)
+    migrateLegacyFile(stepupFileName(FILE_BASE), "cache");
+  const file = storePath(fp);
+  const claimed = `${file}.claimed.${process.pid}`;
+  try {
+    renameSync3(file, claimed);
+  } catch {
+    return null;
+  }
+  let record;
+  try {
+    record = parseVerifiedRecord(readFileSync3(claimed, "utf8"), fp);
+  } catch {
+    record = null;
+  }
+  try {
+    rmSync2(claimed, { force: true });
+  } catch {
+  }
+  return record;
 }
 
 // ../../packages/stepup-core/dist/pending.js
@@ -5237,9 +5261,7 @@ function readPending(fp) {
   return parsePendingRaw(pendingPath(fp));
 }
 function writePending(state) {
-  const file = pendingPath(state.fp);
-  mkdirSync5(stepupDir(), { recursive: true });
-  writeFileSync4(file, JSON.stringify(state), { mode: 384 });
+  atomicWriteFile(pendingPath(state.fp), JSON.stringify(state));
 }
 function clearPending(fp) {
   try {
@@ -5449,7 +5471,7 @@ async function evaluatePreToolUse(input) {
     stepupAction: "update"
   };
   const fp = fingerprintOf(fpKey);
-  const verified = readVerified(fp);
+  const verified = claimVerified(fp);
   if (verified) {
     if (await recheckVerifiedSid(verified.sid) === "trust") {
       return {
@@ -5459,11 +5481,22 @@ async function evaluatePreToolUse(input) {
         fp
       };
     }
-    consumeVerified(fp);
     clearPending(fp);
   }
   if (!resolveToken().token) {
     return { kind: GATE_DECISION_KIND2.BLOCK_NO_TOKEN, block };
+  }
+  const existingPending = readPending(fp);
+  if (existingPending && existingPending.status === "pending" && !isExpiredAt(existingPending.createdAt, existingPending.expiresAt, Date.now())) {
+    const browserLaunched2 = launchStepupBrowser(fpKey, existingPending.browserUrl);
+    return {
+      kind: GATE_DECISION_KIND2.BLOCK_STEPUP_CHALLENGED,
+      block,
+      sid: existingPending.sid,
+      browserUrl: existingPending.browserUrl,
+      browserLaunched: browserLaunched2,
+      pending: existingPending
+    };
   }
   let verdict = null;
   try {

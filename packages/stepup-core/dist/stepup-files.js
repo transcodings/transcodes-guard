@@ -13,7 +13,7 @@
  * uses zod, inspector is strictly read-only) — only the file mechanics are
  * shared.
  */
-import { readdirSync } from 'node:fs';
+import { mkdirSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { cacheDir } from '@transcodes-guard/plugin-paths';
 import { STEPUP_TTL_MS } from './config.js';
@@ -62,6 +62,20 @@ export function listFingerprints(base) {
     catch {
         return [];
     }
+}
+/**
+ * Atomically write a step-up state file: write to a temp sibling, then
+ * `renameSync` into place. rename is atomic on POSIX, so a concurrent reader
+ * never sees a half-written file — important because `readVerified` consumes
+ * (deletes) any record it reads as corrupt, so a torn read would destroy the
+ * record a writer is mid-way through persisting. The temp name carries the pid
+ * so two writers to the same base don't clobber each other's temp file.
+ */
+export function atomicWriteFile(file, contents) {
+    mkdirSync(path.dirname(file), { recursive: true });
+    const tmp = `${file}.tmp.${process.pid}`;
+    writeFileSync(tmp, contents, { mode: 0o600 });
+    renameSync(tmp, file);
 }
 /**
  * Shared expiry rule for verified + pending records: an explicit RFC3339

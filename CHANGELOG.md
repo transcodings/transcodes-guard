@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.31.0...transcodes-guard-v0.31.1) (2026-07-02)
+
+
+### Bug Fixes
+
+* **gate:** 동시성 하 verified fast-path 강화 (F1/F3/F4) ([db25077](https://github.com/transcodings/transcodes-guard/commit/db25077debdf6f770de150b6d547f1a00a051a09))
+
 ## [0.31.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.30.1...transcodes-guard-v0.31.0) (2026-07-02)
 
 
