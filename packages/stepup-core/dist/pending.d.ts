@@ -15,6 +15,10 @@ declare const PendingStateSchema: z.ZodObject<{
      * `decision.consumeHere` (F5). Absent on legacy records → hook-consume
      * (true). */
     consumeInHook: z.ZodOptional<z.ZodBoolean>;
+    /** How many Stop-hook reminders have been emitted for this record. Lets
+     * the Stop hooks cap the block-loop instead of holding the session
+     * hostage until the backend TTL. Absent on legacy records → 0. */
+    remindedCount: z.ZodOptional<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
     status: "verified" | "pending";
     sid: string;
@@ -25,6 +29,7 @@ declare const PendingStateSchema: z.ZodObject<{
     expiresAt?: string | undefined;
     fp?: string | undefined;
     consumeInHook?: boolean | undefined;
+    remindedCount?: number | undefined;
 }, {
     status: "verified" | "pending";
     sid: string;
@@ -35,6 +40,7 @@ declare const PendingStateSchema: z.ZodObject<{
     expiresAt?: string | undefined;
     fp?: string | undefined;
     consumeInHook?: boolean | undefined;
+    remindedCount?: number | undefined;
 }>;
 export type PendingState = z.infer<typeof PendingStateSchema>;
 export declare function readPending(fp?: string): PendingState | null;

@@ -50,6 +50,8 @@ export interface PendingState {
     fp?: string;
     /** Backend consume_in_hook verdict captured at challenge time (F5). */
     consumeInHook?: boolean;
+    /** Stop-hook reminder count — caps the block-loop. Absent → 0. */
+    remindedCount?: number;
 }
 /** Verified step-up record on disk. Mirrors store.ts `VerifiedStepup`. */
 export interface VerifiedStepup {
