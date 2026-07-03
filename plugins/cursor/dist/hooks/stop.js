@@ -10,7 +10,7 @@ import {
   peekPromptSid,
   readLatchRecord,
   sweepLatches
-} from "../chunk-VLSHUJIX.js";
+} from "../chunk-7XFM34AJ.js";
 
 // hooks/stop.ts
 async function main() {
@@ -24,7 +24,9 @@ async function main() {
   const pending = promptSid ? listLatches().find((l) => !l.expired && l.sid === promptSid) : void 0;
   const rec = pending && readLatchRecord(pending.sid, pending.resource, pending.action);
   if (rec && (rec.remindedCount ?? 0) < MAX_STOP_REMINDERS) {
-    process.stdout.write(cursorAdapter.emitStop(formatStopReminderMessage(rec)));
+    process.stdout.write(
+      cursorAdapter.emitStop(formatStopReminderMessage(rec))
+    );
     incrementLatchRemindedCount(rec.sid, rec.resource, rec.action);
   }
   process.exit(0);
