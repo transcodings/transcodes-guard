@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.33.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.32.1...transcodes-guard-v0.33.0) (2026-07-03)
+
+
+### Features
+
+* **audit:** decision audit 메타데이터에 sid/toolName/host/pluginVersion 추가 ([3e80d6d](https://github.com/transcodings/transcodes-guard/commit/3e80d6deb55d8808628e0fdad40342b730c99629))
+* **stepup:** latch TTL, capped stop reminders, session-sid rename ([47a980b](https://github.com/transcodings/transcodes-guard/commit/47a980b66d0c1fad324855afa9069f25e9dc28f7))
+
+
+### Code Refactoring
+
+* **stepup:** guard v3 stepup-core refactor WIP ([8a1ebf3](https://github.com/transcodings/transcodes-guard/commit/8a1ebf32deecf589681ba05806b139589f439fec))
+
 ## [0.32.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.32.0...transcodes-guard-v0.32.1) (2026-07-03)
 
 
