@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.32.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.32.0...transcodes-guard-v0.32.1) (2026-07-03)
+
+
+### Bug Fixes
+
+* **gate:** meta-tool bypass, per-tool fingerprint, capped Stop reminders ([d43267e](https://github.com/transcodings/transcodes-guard/commit/d43267e16941260b5500b943410b547bfb79da1c))
+* **gate:** meta-tool bypass, per-tool fingerprint, capped Stop reminders ([7cfffb7](https://github.com/transcodings/transcodes-guard/commit/7cfffb745f93f4f5e7a7d7782f816b868d5f2508))
+
 ## [0.32.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.31.3...transcodes-guard-v0.32.0) (2026-07-02)
 
 
