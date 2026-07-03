@@ -18,10 +18,15 @@ import {
 } from '@transcodes-guard/gate-contract';
 import { antigravityAdapter } from '@transcodes-guard/hook-adapters';
 
+/** Cap the Stop block-loop: after this many reminders for the same pending
+ * record, let the turn end instead of holding the session hostage until the
+ * backend TTL (the user may have chosen not to authenticate). */
+const MAX_STOP_REMINDERS = 3;
+
 function reminderFor(pending: PendingState): string {
   return [
-    'transcodes-guard: a step-up MFA session is still PENDING. The shell',
-    'command it gated was NOT executed. Resume the loop or report to the',
+    'transcodes-guard: a step-up MFA session is still PENDING. The tool',
+    'call it gated was NOT executed. Resume the loop or report to the',
     'user that authentication is still required.',
     '',
     `Session sid     : ${pending.sid}`,
@@ -30,7 +35,7 @@ function reminderFor(pending: PendingState): string {
     '',
     'Next action:',
     `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${pending.sid}".`,
-    '  - On `outcome: "verified"` retry the exact original command.',
+    '  - On `outcome: "verified"` retry the exact original tool call.',
   ].join('\n');
 }
 
@@ -71,8 +76,12 @@ async function main(): Promise<void> {
       ? pending
       : backend.firstInFlightFpPending();
   if (!reminder) process.exit(0);
+  const shown = reminder.remindedCount ?? 0;
+  if (shown >= MAX_STOP_REMINDERS) process.exit(0);
 
   process.stdout.write(antigravityAdapter.emitStop(reminderFor(reminder)));
+  // Side effect only after the decision is on stdout (fail-safe order).
+  backend.writePending({ ...reminder, remindedCount: shown + 1 });
   process.exit(0);
 }
 

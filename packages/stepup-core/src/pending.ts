@@ -50,6 +50,10 @@ const PendingStateSchema = z.object({
    * `decision.consumeHere` (F5). Absent on legacy records → hook-consume
    * (true). */
   consumeInHook: z.boolean().optional(),
+  /** How many Stop-hook reminders have been emitted for this record. Lets
+   * the Stop hooks cap the block-loop instead of holding the session
+   * hostage until the backend TTL. Absent on legacy records → 0. */
+  remindedCount: z.number().int().nonnegative().optional(),
 });
 
 export type PendingState = z.infer<typeof PendingStateSchema>;

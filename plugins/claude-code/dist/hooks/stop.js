@@ -4,13 +4,14 @@ import {
 } from "../chunk-Y6A3DNLB.js";
 import {
   getGateBackend
-} from "../chunk-IRXSNSFX.js";
+} from "../chunk-RJWBMLBX.js";
 
 // hooks/stop.ts
+var MAX_STOP_REMINDERS = 3;
 function reminderFor(pending) {
   return [
-    "transcodes-guard: a step-up MFA session is still PENDING. The Bash",
-    "command it gated was NOT executed. Resume the loop or report to the",
+    "transcodes-guard: a step-up MFA session is still PENDING. The tool",
+    "call it gated was NOT executed. Resume the loop or report to the",
     "user that authentication is still required.",
     "",
     `Session sid     : ${pending.sid}`,
@@ -19,7 +20,7 @@ function reminderFor(pending) {
     "",
     "Next action:",
     `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${pending.sid}".`,
-    '  - On `outcome: "verified"` retry the exact original Bash command.'
+    '  - On `outcome: "verified"` retry the exact original tool call.'
   ].join("\n");
 }
 async function main() {
@@ -43,7 +44,10 @@ async function main() {
   }
   const reminder = pending && !backend.isExpired(pending) ? pending : backend.firstInFlightFpPending();
   if (!reminder) process.exit(0);
+  const shown = reminder.remindedCount ?? 0;
+  if (shown >= MAX_STOP_REMINDERS) process.exit(0);
   process.stdout.write(claudeCodeAdapter.emitStop(reminderFor(reminder)));
+  backend.writePending({ ...reminder, remindedCount: shown + 1 });
   process.exit(0);
 }
 main().catch((err) => {

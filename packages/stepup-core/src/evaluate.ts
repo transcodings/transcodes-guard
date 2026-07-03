@@ -153,16 +153,37 @@ function summarizePayload(payload: unknown): string {
   }
 }
 
+/**
+ * Host-internal meta tools that only mutate the harness's own conversation
+ * state — no filesystem, network, or shell reach. The backend classifier has
+ * no mapping for them, so gating them falls through to step-up (2) and the
+ * resulting pending record deadlocks the Stop-reminder loop (there is no
+ * meaningful "retry after verify" for a ToolSearch call). Keep this list
+ * small and strictly side-effect-free; host built-in names cannot be spoofed
+ * by MCP tools (those arrive namespaced as `mcp__server__tool`).
+ */
+const HOST_META_TOOL_NAMES = new Set([
+  'ToolSearch',
+  'TodoWrite',
+  'AskUserQuestion',
+  'EnterPlanMode',
+  'ExitPlanMode',
+]);
+
 function classifyToolCall(input: ToolCallInput): Classified | null {
   const name = wireToolName(input);
   if (name && isTranscodesGuardWireToolName(name)) return null;
+  if (name && HOST_META_TOOL_NAMES.has(name)) return null;
 
-  const payload = resolvePayload(input);
   const cmd = shellCommand(input.toolInput);
   const label = name ?? 'tool';
-  const blob = summarizePayload(payload);
-  const fingerprintKey = cmd ?? blob;
-  const summary = cmd ?? `${label} ${blob}`;
+  // fingerprint + summary key off tool_name/tool_input, NEVER the raw hook
+  // payload: the payload's session-constant prefix (session_id,
+  // transcript_path, cwd) alone exceeds the 200-char summary cap, so a
+  // payload-derived key collides across every non-shell tool call in a
+  // session — one verified step-up would unlock them all.
+  const fingerprintKey = cmd ?? `${label}:${JSON.stringify(input.toolInput)}`;
+  const summary = cmd ?? `${label} ${summarizePayload(input.toolInput)}`;
 
   return { kind: 'tool', summary, fingerprintKey };
 }
