@@ -64,7 +64,9 @@ export function decisionAuditEventOf(decision) {
                 ruleId: decision.block.ruleId,
                 ...(decision.fp ? { fp: decision.fp } : {}),
                 ...(decision.sid ? { sid: decision.sid } : {}),
-                ...(decision.block.toolName ? { toolName: decision.block.toolName } : {}),
+                ...(decision.block.toolName
+                    ? { toolName: decision.block.toolName }
+                    : {}),
             };
         case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
             // Narrow: only the backend explicit refusal is audited. The `no-token`
@@ -77,7 +79,9 @@ export function decisionAuditEventOf(decision) {
                 resource: decision.block.stepupResource,
                 action: decision.block.stepupAction,
                 ruleId: decision.block.ruleId,
-                ...(decision.block.toolName ? { toolName: decision.block.toolName } : {}),
+                ...(decision.block.toolName
+                    ? { toolName: decision.block.toolName }
+                    : {}),
             };
         default:
             return null;
