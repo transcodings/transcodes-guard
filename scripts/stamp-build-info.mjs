@@ -24,6 +24,7 @@ export const PLUGIN_VERSION = '${version}';
 
 const targets = [
   "packages/mcp-server-core/src/build-info.ts",
+  "packages/stepup-core/src/build-info.ts",
   "plugins/claude-code/src/version.ts",
   "plugins/codex/src/version.ts",
   "plugins/cursor/src/version.ts",

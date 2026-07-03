@@ -49,6 +49,8 @@ export interface BlockResult {
   details?: string[];
   /** Command / tool-call summary used in stderr logs and the pending file. */
   command: string;
+  /** Wire tool name (`Bash`, `mcp__…`). Feeds decision audit metadata. */
+  toolName?: string;
   /** Synthetic audit id. Feeds decision audit (H2). */
   ruleId: string;
   /** RBAC placeholder until `/guard/evaluate` returns the classified coordinate. */
@@ -93,6 +95,9 @@ export type GateDecision =
       consumeHere: boolean;
       /** Command fingerprint of the verified record to consume (FP-keyed store). */
       fp?: string;
+      /** Backend session id of the verified record — audit join key to the
+       * backend's own step-up session records. */
+      sid?: string;
     }
   | { kind: typeof GATE_DECISION_KIND.BLOCK_NO_TOKEN; block: BlockResult }
   | {
@@ -281,6 +286,7 @@ export async function evaluatePreToolUse(
   const block: BlockResult = {
     reason: 'POST /guard/evaluate',
     command: blockCommand,
+    toolName: wireToolName(input),
     ruleId: GUARD_EVALUATE_RULE_ID,
     stepupResource: DEFAULT_RBAC_RESOURCE,
     stepupAction: 'update',
@@ -304,6 +310,7 @@ export async function evaluatePreToolUse(
         block,
         consumeHere: readPending(fp)?.consumeInHook ?? true,
         fp,
+        sid: verified.sid,
       };
     }
     // The record is not trusted — either the backend says it is no longer (or

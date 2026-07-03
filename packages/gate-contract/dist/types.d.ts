@@ -27,6 +27,8 @@ export interface BlockResult {
     reason: string;
     details?: string[];
     command: string;
+    /** Wire tool name (`Bash`, `mcp__…`). Feeds decision audit metadata. */
+    toolName?: string;
     /** Id of the matched pattern/tool-rule. Feeds the decision audit (H2). */
     ruleId: string;
     stepupResource: string;
@@ -90,6 +92,8 @@ export type GateDecision = {
     block: BlockResult;
     consumeHere: boolean;
     fp?: string;
+    /** Backend session id of the verified record — audit join key. */
+    sid?: string;
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_NO_TOKEN;
     block: BlockResult;

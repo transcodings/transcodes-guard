@@ -21,6 +21,7 @@
  *  - Sends coordinates/decision/rule id/fp only. The raw command string is
  *    deliberately excluded (data minimisation — fp already identifies it).
  */
+import { PLUGIN_VERSION } from './build-info.js';
 import { request } from './client.js';
 import { loadStepupConfig } from './config.js';
 import { GATE_DECISION_KIND } from './evaluate.js';
@@ -62,6 +63,8 @@ export function decisionAuditEventOf(decision) {
                 action: decision.block.stepupAction,
                 ruleId: decision.block.ruleId,
                 ...(decision.fp ? { fp: decision.fp } : {}),
+                ...(decision.sid ? { sid: decision.sid } : {}),
+                ...(decision.block.toolName ? { toolName: decision.block.toolName } : {}),
             };
         case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
             // Narrow: only the backend explicit refusal is audited. The `no-token`
@@ -74,6 +77,7 @@ export function decisionAuditEventOf(decision) {
                 resource: decision.block.stepupResource,
                 action: decision.block.stepupAction,
                 ruleId: decision.block.ruleId,
+                ...(decision.block.toolName ? { toolName: decision.block.toolName } : {}),
             };
         default:
             return null;
@@ -97,7 +101,17 @@ export async function sendDecisionAudit(config, event, opts = {}) {
                 status: true,
                 // Wire-translation seam: send the legacy kind string the backend
                 // knows, not the renamed local kind. See LEGACY_WIRE_DECISION.
-                metadata: { ...event, decision: LEGACY_WIRE_DECISION[event.decision] },
+                // host/pluginVersion are ambient (per-process, not per-decision):
+                // host identity is claimed by each plugin's host.ts, the version is
+                // the stamped build info.
+                metadata: {
+                    ...event,
+                    decision: LEGACY_WIRE_DECISION[event.decision],
+                    ...(process.env.TRANSCODES_GUARD_HOST
+                        ? { host: process.env.TRANSCODES_GUARD_HOST }
+                        : {}),
+                    pluginVersion: PLUGIN_VERSION,
+                },
             },
         });
         if (!env.ok) {

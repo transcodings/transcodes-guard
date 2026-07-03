@@ -192,6 +192,7 @@ export async function evaluatePreToolUse(input) {
     const block = {
         reason: 'POST /guard/evaluate',
         command: blockCommand,
+        toolName: wireToolName(input),
         ruleId: GUARD_EVALUATE_RULE_ID,
         stepupResource: DEFAULT_RBAC_RESOURCE,
         stepupAction: 'update',
@@ -214,6 +215,7 @@ export async function evaluatePreToolUse(input) {
                 block,
                 consumeHere: readPending(fp)?.consumeInHook ?? true,
                 fp,
+                sid: verified.sid,
             };
         }
         // The record is not trusted — either the backend says it is no longer (or

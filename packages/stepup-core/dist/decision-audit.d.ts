@@ -11,6 +11,13 @@ export type DecisionAuditEvent = {
     ruleId: string;
     /** Command fingerprint (16-hex) when the decision carries one. */
     fp?: string;
+    /** Backend step-up session id — join key to the backend's own session
+     * records. Only `proceed-by-verification` carries one (create-failed
+     * never got a session). */
+    sid?: string;
+    /** Wire tool name (`Bash`, `mcp__…`) — the tool *species*, never the raw
+     * command string (data minimisation holds). */
+    toolName?: string;
 };
 /**
  * Map a gate decision onto its audit event. Returns null for every
