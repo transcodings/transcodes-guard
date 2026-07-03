@@ -27,7 +27,7 @@ export type CreatedStepupSession = {
 };
 export type PollStepupResult = {
     envelope: Envelope;
-    /** "pending" | "verified" | undefined when the envelope shape did not match. */
+    /** pending | verified | rejected | not_found (session expired / missing). */
     status?: string;
 };
 /** MCP / hook step-up — POST .../step-up/session (mode fixed server-side). */
@@ -38,8 +38,8 @@ export declare function pollStepupSession(config: StepupConfig, sid: string): Pr
 export type WaitStepupResult = {
     /** Last poll's envelope — useful for diagnostics. */
     envelope: Envelope;
-    /** "verified" | "rejected" if terminal before deadline, otherwise "timeout". */
-    outcome: 'verified' | 'rejected' | 'timeout';
+    /** verified = continue work; rejected/not_found = terminal; timeout = re-poll. */
+    outcome: 'verified' | 'rejected' | 'not_found' | 'timeout';
     /** Total elapsed time in ms across all polls. */
     elapsedMs: number;
     /** Number of poll requests issued. */

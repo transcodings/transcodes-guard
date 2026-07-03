@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 import {
-  COMPLETION_PATTERN,
   cursorAdapter
-} from "../chunk-JRMQSC6F.js";
+} from "../chunk-YZ5XJGSG.js";
 import {
   getGateBackend
-} from "../chunk-GAXDXD2Q.js";
+} from "../chunk-7BO7MLBP.js";
 
 // hooks/before-submit-prompt.ts
 import { readFileSync } from "fs";
@@ -15,21 +14,12 @@ function emitContinue() {
 }
 function main() {
   const raw = readFileSync(0, "utf8");
-  let parsed;
   try {
-    parsed = cursorAdapter.parseUserPromptSubmitStdin(raw);
+    cursorAdapter.parseUserPromptSubmitStdin(raw);
   } catch {
     emitContinue();
   }
-  if (!parsed.prompt) emitContinue();
-  if (!COMPLETION_PATTERN.test(parsed.prompt)) emitContinue();
-  const backend = getGateBackend();
-  const pending = backend.firstActivePending();
-  if (!pending) emitContinue();
-  if (backend.readVerified(pending.fp)) {
-    backend.consumeVerified(pending.fp);
-    backend.clearPending(pending.fp);
-  }
+  getGateBackend().rotatePromptSid();
   emitContinue();
 }
 try {

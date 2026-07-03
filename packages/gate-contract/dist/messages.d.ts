@@ -20,9 +20,6 @@ import { type BlockResult, GATE_DECISION_KIND, type GateDecision } from './types
  */
 export declare function formatNoTokenSessionNotice(): string;
 export declare function formatBlockedSummary(block: BlockResult): string;
-export declare function formatAllowReason(decision: Extract<GateDecision, {
-    kind: typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION;
-}>): string;
 export declare function formatNoTokenReason(block: BlockResult): string;
 export declare function formatNoTokenSystemMessage(block: BlockResult): string;
 export declare function formatRbacDeniedReason(decision: Extract<GateDecision, {
@@ -45,6 +42,12 @@ export declare function formatStepupPendingReason(decision: Extract<GateDecision
 }>): string;
 export declare function formatStepupPendingSystemMessage(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
+}>): string;
+export declare function formatStepupRejectedReason(decision: Extract<GateDecision, {
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED;
+}>): string;
+export declare function formatStepupRejectedSystemMessage(decision: Extract<GateDecision, {
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED;
 }>): string;
 /**
  * Stderr 1-line summary tag for the hook process. Distinct from the

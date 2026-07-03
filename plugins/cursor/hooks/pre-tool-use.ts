@@ -18,7 +18,6 @@ import '../host.js';
 import '../backend.js';
 import { readFileSync } from 'node:fs';
 import {
-  formatAllowReason,
   formatNoTokenReason,
   formatNoTokenSystemMessage,
   formatRbacDeniedReason,
@@ -28,6 +27,8 @@ import {
   formatStepupFailureSystemMessage,
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
+  formatStepupRejectedReason,
+  formatStepupRejectedSystemMessage,
   GATE_DECISION_KIND,
   getGateBackend,
 } from '@transcodes-guard/gate-contract';
@@ -43,21 +44,6 @@ async function main(): Promise<void> {
   switch (decision.kind) {
     case GATE_DECISION_KIND.PROCEED_UNGATED:
     case GATE_DECISION_KIND.PROCEED_BY_POLICY:
-      process.exit(0);
-
-    case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
-      process.stdout.write(
-        cursorAdapter.emitPreToolUse({
-          kind: 'allow',
-          reason: formatAllowReason(decision),
-        }),
-      );
-      if (decision.consumeHere) {
-        backend.consumeVerified(decision.fp);
-        backend.clearPending(decision.fp);
-      }
-      process.stderr.write(`${formatStderrTag(decision)}\n`);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
@@ -97,6 +83,7 @@ async function main(): Promise<void> {
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
+      // Browser launch + latch already handled in evaluatePreToolUse.
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: 'deny',
@@ -104,13 +91,18 @@ async function main(): Promise<void> {
           systemMessage: formatStepupPendingSystemMessage(decision),
         }),
       );
-      try {
-        backend.writePending(decision.pending);
-      } catch (err) {
-        process.stderr.write(
-          `transcodes-guard: pending file write failed (deny still emitted): ${err}\n`,
-        );
-      }
+      process.stderr.write(`${formatStderrTag(decision)}\n`);
+      await backend.sendGateDecisionAudit(decision);
+      process.exit(0);
+
+    case GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED:
+      process.stdout.write(
+        cursorAdapter.emitPreToolUse({
+          kind: 'deny',
+          reason: formatStepupRejectedReason(decision),
+          systemMessage: formatStepupRejectedSystemMessage(decision),
+        }),
+      );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);

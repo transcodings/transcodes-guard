@@ -11,20 +11,15 @@
  * load the StepupConfig here so the config type never escapes to the public
  * side. Error classes are wrapped in `is*Error` predicates for the same reason.
  */
-import { clearPending, consumeVerified, createStepupSession, evaluatePreToolUse, findPendingBySid, firstActivePending, firstInFlightFpPending, inspectStepupState, isExpired, loadStepupConfig, markVerified, pollStepupSession, pollStepupSessionWait, readPending, readVerified, resolveToken, sendGateDecisionAudit, sweepStepup, writePending, writeVerified, } from '@transcodes-guard/stepup-core';
+import { clearLatchByAuthSid, createStepupSession, evaluatePreToolUse, inspectStepupState, loadStepupConfig, markStepupVerified, pollStepupSession, pollStepupSessionWait, resolveToken, rotatePromptSid, sendGateDecisionAudit, sweepLatches, } from '@transcodes-guard/stepup-core';
 import { assertRbacCoordinate, RbacCoordinateError, registerAuditTools, registerAuthDeviceTools, registerJwkTools, registerMembershipTools, registerMemberTools, registerMetaTools, registerOrganizationTools, registerPasscodeTools, registerProjectTools, registerRbacTools, } from '@transcodes-guard/transcodes-mcp-tools';
 export const transcodesGateBackend = {
     // hook path — direct bindings
     evaluatePreToolUse,
-    writePending,
-    consumeVerified,
-    clearPending,
-    firstActivePending,
-    firstInFlightFpPending,
-    readPending,
-    readVerified,
-    isExpired,
-    sweepStepup,
+    rotatePromptSid: () => {
+        rotatePromptSid();
+    },
+    sweepLatches,
     hasToken: () => Boolean(resolveToken().token),
     sendGateDecisionAudit,
     // server path: step-up session — config loaded internally
@@ -32,9 +27,8 @@ export const transcodesGateBackend = {
     pollStepupSession: (sid) => pollStepupSession(loadStepupConfig(), sid),
     pollStepupSessionWait: (sid, options) => pollStepupSessionWait(loadStepupConfig(), sid, options),
     inspectStepupState,
-    findPendingBySid,
-    writeVerified,
-    markVerified,
+    markStepupVerified,
+    clearLatchByAuthSid,
     // server path: RBAC coordinate — config loaded internally, error wrapped
     assertRbacCoordinate: (resource, action) => assertRbacCoordinate(loadStepupConfig(), resource, action),
     isRbacCoordinateError: (e) => e instanceof RbacCoordinateError,

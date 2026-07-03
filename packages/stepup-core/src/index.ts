@@ -42,20 +42,13 @@ export {
   evaluatePreToolUse,
   GATE_DECISION_KIND,
   type GateDecision,
+  type StepupFailure,
   type ToolCallInput,
 } from './evaluate.js';
+export { openBrowser } from './gate.js';
 export {
-  fingerprintOf,
-  type RequestInput,
-  type RequestResult,
-  requestStepup,
-} from './gate.js';
-export {
-  type BrowserLockInspection,
   inspectStepupState,
-  type PendingInspection,
   type StepupStateInspection,
-  type VerifiedInspection,
 } from './inspector.js';
 export {
   type MemberTokenClaims,
@@ -64,19 +57,20 @@ export {
   REQUIRED_AUDIENCE,
 } from './jwt.js';
 export {
-  clearPending,
-  findPendingBySid,
-  firstActivePending,
-  firstInFlightFpPending,
-  isExpired,
-  listFpPendings,
-  markVerified,
-  type PendingState,
-  readPending,
-  sweepStepup,
-  writePending,
-} from './pending.js';
-export { checkRbacPermission, type RbacLevel } from './rbac-check.js';
+  clearLatch,
+  clearLatchByAuthSid,
+  hasLatch,
+  type LatchInspection,
+  listLatches,
+  sweepLatches,
+  writeLatch,
+} from './latch.js';
+export {
+  checkRbacPermission,
+  type GuardStepUpStatus,
+  type GuardVerdict,
+  type RbacLevel,
+} from './rbac-check.js';
 export {
   type CreateConsoleSessionArgs,
   type CreatedStepupSession,
@@ -89,13 +83,10 @@ export {
   type WaitStepupResult,
 } from './session.js';
 export {
-  cacheDir,
-  consumeVerified,
-  listVerifiedFingerprints,
-  readVerified,
-  type VerifiedStepup,
-  writeVerified,
-} from './store.js';
+  peekPromptSid,
+  resolvePromptSid,
+  rotatePromptSid,
+} from './sid.js';
 export {
   clearTokenFile,
   type ResolvedToken,
@@ -112,3 +103,8 @@ export {
   transcodesConfigFile,
   writeTokenToFile,
 } from './token-store.js';
+export {
+  claimStepupVerified,
+  hasStepupVerified,
+  markStepupVerified,
+} from './verified-memory.js';

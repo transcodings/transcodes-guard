@@ -152,7 +152,7 @@ describe('evaluateAction', () => {
     };
   }
 
-  it('parses consume_in_hook and reasoning from the evaluate payload', async () => {
+  it('parses a level-2 step-up verdict with grouping fields', async () => {
     respond = () =>
       payloadResponse([
         {
@@ -161,10 +161,11 @@ describe('evaluateAction', () => {
           action: 'create',
           permission: 2,
           reasoning: 'mkdir creates a new directory.',
-          consume_in_hook: true,
           sid: 'tc_stepup_test',
           url: 'https://auth.example/?sid=tc_stepup_test',
           expires_at: '2026-06-30T01:00:00.000Z',
+          exist: false,
+          status: 'pending',
         },
       ]);
 
@@ -175,6 +176,7 @@ describe('evaluateAction', () => {
       },
       cwd: '/tmp',
       comment: 'Confirm',
+      sid: 's_group1',
     });
 
     assert.deepEqual(verdict, {
@@ -182,14 +184,42 @@ describe('evaluateAction', () => {
       resource: 'system',
       action: 'create',
       reasoning: 'mkdir creates a new directory.',
-      consume_in_hook: true,
       sid: 'tc_stepup_test',
       url: 'https://auth.example/?sid=tc_stepup_test',
       expires_at: '2026-06-30T01:00:00.000Z',
+      exist: false,
+      status: 'pending',
     });
   });
 
-  it('returns null when consume_in_hook is omitted (fail-closed)', async () => {
+  it('flags a reused grouped session via exist=true', async () => {
+    respond = () =>
+      payloadResponse([
+        {
+          resource: 'system',
+          action: 'create',
+          permission: 2,
+          reasoning: '',
+          sid: 'tc_stepup_reused',
+          url: 'https://auth.example/?sid=tc_stepup_reused',
+          expires_at: '2026-06-30T01:00:00.000Z',
+          exist: true,
+          status: 'pending',
+        },
+      ]);
+
+    const verdict = await evaluateAction(config(), {
+      payload: { command: 'mkdir temp5' },
+      sid: 's_group1',
+    });
+
+    assert.ok(verdict);
+    assert.equal(verdict.exist, true);
+    assert.equal(verdict.status, 'pending');
+    assert.equal(verdict.sid, 'tc_stepup_reused');
+  });
+
+  it('parses a level-1 allow verdict with no step-up fields', async () => {
     respond = () =>
       payloadResponse([
         {
@@ -204,7 +234,17 @@ describe('evaluateAction', () => {
       payload: { command: 'ls' },
     });
 
-    assert.equal(verdict, null);
+    assert.deepEqual(verdict, {
+      permission: 1,
+      resource: 'system',
+      action: 'read',
+      reasoning: '',
+      sid: null,
+      url: null,
+      expires_at: null,
+      exist: false,
+      status: null,
+    });
   });
 
   it('returns null when payload is missing (no envelope fallback)', async () => {

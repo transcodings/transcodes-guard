@@ -31,38 +31,6 @@ function transcodesRouterBody(request?: string): string {
   );
 }
 
-/** Drop local pending state when the backend session is terminal (rejected). */
-function dismissPendingSession(backend: GateBackend, sid: string): void {
-  const found = backend.findPendingBySid(sid);
-  if (found) backend.clearPending(found.fp);
-}
-
-/**
- * Persist a verified record after a poll confirms `verified`, routing it to the
- * store flavour the gate-time pending record dictates.
- *
- * The pending record carries the fp for the hook-consume (Bash/user) path; a
- * pending with no fp is the genuine GLOBAL (MCP system) path. But a MISSING
- * pending is neither: it means this sid was never mapped to a local record (a
- * duplicate session whose pending was overwritten, or a stale sid). Writing to
- * the GLOBAL store in that case cross-contaminates the MCP system path with a
- * Bash-origin record and still leaves the fp-keyed retry stuck. So we only
- * write when a pending was actually found; otherwise skip and warn (F3).
- */
-function persistVerifiedRecord(backend: GateBackend, sid: string): void {
-  const found = backend.findPendingBySid(sid);
-  if (!found) {
-    process.stderr.write(
-      `transcodes-guard: verified sid ${sid} has no local pending record — ` +
-        'skipping verified-record write to avoid GLOBAL-store contamination. ' +
-        'The original command may need a fresh step-up.\n',
-    );
-    return;
-  }
-  backend.writeVerified({ sid, verifiedAt: Date.now() }, found.fp);
-  backend.markVerified(sid);
-}
-
 function textResult(text: string, isError = false) {
   return {
     isError,
@@ -154,22 +122,6 @@ export function createServer(
         resource,
         member_id,
       });
-      // Register the GLOBAL pending record for this standalone (non-hook)
-      // session. persistVerifiedRecord refuses to persist a verified sid that
-      // no local pending maps (the F3 anti-contamination guard), so without
-      // this write the create_stepup_session → poll → execProtectedTool flow
-      // would never see its verified record. fp stays absent → GLOBAL flavour.
-      if (result.envelope.ok && result.sid && result.browserUrl) {
-        backend.writePending({
-          sid: result.sid,
-          command: resource && action ? `${resource}/${action}` : comment,
-          reason: comment,
-          browserUrl: result.browserUrl,
-          createdAt: Date.now(),
-          expiresAt: result.expiresAt,
-          status: 'pending',
-        });
-      }
       return {
         content: [
           {
@@ -214,9 +166,12 @@ export function createServer(
     async ({ sid }) => {
       const result = await backend.pollStepupSession(sid);
       if (result.status === 'verified') {
-        persistVerifiedRecord(backend, sid);
-      } else if (result.status === 'rejected') {
-        dismissPendingSession(backend, sid);
+        backend.markStepupVerified(sid);
+      } else if (
+        result.status === 'rejected' ||
+        result.status === 'not_found'
+      ) {
+        backend.clearLatchByAuthSid(sid);
       }
       return {
         content: [
@@ -243,15 +198,15 @@ export function createServer(
     {
       title: 'Wait for Step-up MFA Session',
       description:
-        'Block until the step-up session reaches `verified`, `rejected`, or the ' +
+        'Block until the step-up session reaches `verified`, `rejected`, `not_found`, or the ' +
         'wait window elapses (default 60s, polling every 1s). Use this — NOT the ' +
         'single-shot `poll_stepup_session` — as the next action after a PreToolUse ' +
         'deny carrying a step-up sid. One call replaces the 60-iteration polling ' +
         'loop. On `outcome: "verified"` retry the original Bash command; on ' +
         '`outcome: "timeout"` ask the user to complete WebAuthn and call this ' +
-        'tool again; on `outcome: "rejected"` tell the user they declined step-up ' +
-        'and do NOT retry the command. Do NOT ask the user to confirm completion ' +
-        "before calling this tool — it waits on the user's behalf.",
+        'tool again; on `outcome: "rejected"` or `outcome: "not_found"` stop — ' +
+        'the user declined or abandoned step-up; do NOT retry the command. Do NOT ask ' +
+        "the user to confirm completion before calling this tool — it waits on the user's behalf.",
       inputSchema: {
         sid: z
           .string()
@@ -279,11 +234,12 @@ export function createServer(
         intervalMs: interval_ms,
       });
       if (result.outcome === 'verified') {
-        persistVerifiedRecord(backend, sid);
-      } else {
-        // rejected OR timeout: drop the pending record so the Stop hook
-        // stops re-emitting the "still PENDING" reminder every turn.
-        dismissPendingSession(backend, sid);
+        backend.markStepupVerified(sid);
+      } else if (
+        result.outcome === 'rejected' ||
+        result.outcome === 'not_found'
+      ) {
+        backend.clearLatchByAuthSid(sid);
       }
       return {
         content: [
@@ -452,26 +408,21 @@ export function createServer(
           (parsedStdout as Record<string, unknown>)
             .hookSpecificOutput as Record<string, unknown>
         ).permissionDecision === 'deny';
-      const verifiedConsumed = before.verified.exists && !after.verified.exists;
-      const pendingCleared = before.pending.exists && !after.pending.exists;
-      const newPendingStarted =
-        !before.pending.exists ||
-        (before.pending.exists &&
-          after.pending.exists &&
-          before.pending.sid !== after.pending.sid)
-          ? after.pending.exists
-          : false;
+      // Guard v3: the only local state a hook mutates is the per-coordinate
+      // latch set. A new latch after the run means a fresh step-up challenge
+      // opened; a smaller set means a coordinate resolved (allow/self-heal).
+      const latchCreated = after.latches.length > before.latches.length;
+      const latchCleared = after.latches.length < before.latches.length;
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify(
               {
-                fast_path_taken: verifiedConsumed && !denyEmitted,
                 deny_emitted: denyEmitted,
-                new_step_up_started: newPendingStarted && denyEmitted,
-                verified_consumed: verifiedConsumed,
-                pending_cleared: pendingCleared,
+                new_step_up_started: latchCreated && denyEmitted,
+                latch_created: latchCreated,
+                latch_cleared: latchCleared,
                 exit_code: exitCode,
                 stdout_json: parsedStdout,
                 stdout_raw: parsedStdout === null ? stdout : undefined,

@@ -27,39 +27,17 @@ export interface BlockResult {
     reason: string;
     details?: string[];
     command: string;
-    /** Wire tool name (`Bash`, `mcp__…`). Feeds decision audit metadata. */
-    toolName?: string;
     /** Id of the matched pattern/tool-rule. Feeds the decision audit (H2). */
     ruleId: string;
     stepupResource: string;
     stepupAction: RbacAction;
 }
-/** The `ok: false` half of stepup-core's gate.ts `RequestResult`. */
+/** The `ok: false` half of stepup-core's evaluate.ts `StepupFailure`. */
 export type StepupFailure = {
     ok: false;
     reason: 'no-token' | 'create-failed' | 'error';
     detail?: string;
 };
-/** Pending step-up record on disk. Mirrors pending.ts `PendingState`. */
-export interface PendingState {
-    sid: string;
-    command: string;
-    reason: string;
-    browserUrl: string;
-    createdAt: number;
-    expiresAt?: string;
-    status: 'pending' | 'verified';
-    fp?: string;
-    /** Backend consume_in_hook verdict captured at challenge time (F5). */
-    consumeInHook?: boolean;
-    /** Stop-hook reminder count — caps the block-loop. Absent → 0. */
-    remindedCount?: number;
-}
-/** Verified step-up record on disk. Mirrors store.ts `VerifiedStepup`. */
-export interface VerifiedStepup {
-    sid: string;
-    verifiedAt: number;
-}
 /** RBAC permission level: 0 deny, 1 allow, 2 allow+step-up. Mirrors rbac-check.ts. */
 export type RbacLevel = 0 | 1 | 2;
 /**
@@ -71,11 +49,11 @@ export type RbacLevel = 0 | 1 | 2;
 export declare const GATE_DECISION_KIND: {
     readonly PROCEED_UNGATED: "proceed-ungated";
     readonly PROCEED_BY_POLICY: "proceed-by-policy";
-    readonly PROCEED_BY_VERIFICATION: "proceed-by-verification";
     readonly BLOCK_NO_TOKEN: "block-no-token";
     readonly BLOCK_BY_POLICY: "block-by-policy";
     readonly BLOCK_STEPUP_CREATE_FAILED: "block-stepup-create-failed";
     readonly BLOCK_STEPUP_CHALLENGED: "block-stepup-challenged";
+    readonly BLOCK_STEPUP_REJECTED: "block-stepup-rejected";
 };
 /** Host-agnostic PreToolUse gate decision. Mirrors evaluate.ts `GateDecision`. */
 export type GateDecision = {
@@ -87,13 +65,6 @@ export type GateDecision = {
     action: string;
     /** Backend `/guard/evaluate` classification + matrix explanation. */
     reasoning?: string;
-} | {
-    kind: typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION;
-    block: BlockResult;
-    consumeHere: boolean;
-    fp?: string;
-    /** Backend session id of the verified record — audit join key. */
-    sid?: string;
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_NO_TOKEN;
     block: BlockResult;
@@ -111,10 +82,19 @@ export type GateDecision = {
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
     block: BlockResult;
+    /** Backend-minted auth session id (tc_stepup_…) for poll + retry. */
     sid: string;
     browserUrl: string;
     browserLaunched: boolean;
-    pending: PendingState;
+    /** Classified coordinate (also the local latch key). */
+    resource: string;
+    action: string;
+    reasoning?: string;
+} | {
+    kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED;
+    block: BlockResult;
+    resource: string;
+    action: string;
     reasoning?: string;
 };
 /** Backend HTTP envelope. Mirrors client.ts `Envelope`. */
@@ -146,23 +126,30 @@ export type PollStepupResult = {
 /** Mirrors session.ts `WaitStepupResult`. */
 export type WaitStepupResult = {
     envelope: Envelope;
-    outcome: 'verified' | 'rejected' | 'timeout';
+    /** verified/rejected/not_found = terminal; timeout = keep waiting (re-poll). */
+    outcome: 'verified' | 'rejected' | 'not_found' | 'timeout';
     elapsedMs: number;
     attempts: number;
 };
 /**
- * Step-up state inspection snapshot. The server consumes only `verified.exists`,
- * `pending.exists`, and `pending.sid`; the full record carries more fields
- * (verified_fp, browser_lock, etc.) that are serialized verbatim. Keeping this
- * structurally loose lets the private inspector's richer shape assign cleanly.
+ * Step-up state inspection snapshot (Guard v3). Mirrors stepup-core's
+ * `inspector.ts`. The client holds only the per-prompt grouping sid and the
+ * per-coordinate browser latches — all step-up *status* lives in the backend.
  */
-export interface InspectionRecord {
-    exists: boolean;
-    sid?: string;
+export interface LatchInspection {
+    sid: string;
+    resource: string;
+    action: string;
+    created_at_ms: number;
+    age_ms: number;
+    expired: boolean;
 }
 export interface StepupStateInspection {
-    verified: InspectionRecord;
-    pending: InspectionRecord;
+    cache_dir: string;
+    now_ms: number;
+    ttl_ms: number;
+    prompt_sid: string | null;
+    latches: LatchInspection[];
 }
 /**
  * Outcome of a forced policy-bundle refresh. Mirrors stepup-core's

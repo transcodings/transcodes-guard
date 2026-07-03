@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Codex CLI SessionStart hook — pending carry-over notice only.
+ * Codex CLI SessionStart hook — fresh grouping sid + no-token notice.
  *
  * The static protocol primer lives in AGENTS.md (Codex auto-loads it into
- * every turn's system message), so this hook focuses on the dynamic part:
- * if a step-up session carried over from the previous session, surface its
- * sid + status so the agent can resume polling instead of starting over.
+ * every turn's system message). Step-up status lives in the backend (SSOT), so
+ * there is no carry-over state to surface — this hook only mints a fresh
+ * per-prompt grouping sid and, when no token is configured, emits the notice.
  * Pure additive context — never blocks.
  */
 import '../host.js';
@@ -16,34 +16,12 @@ import {
 } from '@transcodes-guard/gate-contract';
 import { codexAdapter } from '@transcodes-guard/hook-adapters';
 
-function carryoverBlock(): string | null {
-  const pending = getGateBackend().firstActivePending();
-  if (!pending) return null;
-  const statusNote =
-    pending.status === 'verified'
-      ? 'VERIFIED but not yet consumed — retry the original command to release it.'
-      : 'PENDING — resume polling.';
-  return [
-    'Carried-over step-up state from a previous session:',
-    `  sid     : ${pending.sid}`,
-    `  status  : ${pending.status} (${statusNote})`,
-    `  command : ${pending.command}`,
-    `  reason  : ${pending.reason}`,
-    `  url     : ${pending.browserUrl}`,
-  ].join('\n');
-}
-
 async function main(): Promise<void> {
-  const tokenNotice = getGateBackend().hasToken()
-    ? null
-    : formatNoTokenSessionNotice();
-  const parts = [carryoverBlock(), tokenNotice].filter((s): s is string =>
-    Boolean(s),
-  );
-  if (parts.length > 0) {
-    process.stdout.write(
-      codexAdapter.emitSessionStartContext(parts.join('\n')),
-    );
+  const backend = getGateBackend();
+  backend.rotatePromptSid();
+  const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
+  if (tokenNotice) {
+    process.stdout.write(codexAdapter.emitSessionStartContext(tokenNotice));
   }
   process.exit(0);
 }

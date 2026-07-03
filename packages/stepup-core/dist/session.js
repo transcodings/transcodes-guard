@@ -98,6 +98,9 @@ export async function pollStepupSession(config, sid) {
         method: 'GET',
         path: `${STEPUP_PATH}/${encodeURIComponent(trimmed)}`,
     });
+    if (envelope.status === 404) {
+        return { envelope, status: 'not_found' };
+    }
     const payload = readStepupPayload(envelope);
     return {
         envelope,
@@ -138,6 +141,14 @@ export async function pollStepupSessionWait(config, sid, options = {}) {
             return {
                 envelope: result.envelope,
                 outcome: 'rejected',
+                elapsedMs: maxWaitMs - Math.max(0, deadline - Date.now()),
+                attempts,
+            };
+        }
+        if (result.status === 'not_found') {
+            return {
+                envelope: result.envelope,
+                outcome: 'not_found',
                 elapsedMs: maxWaitMs - Math.max(0, deadline - Date.now()),
                 attempts,
             };

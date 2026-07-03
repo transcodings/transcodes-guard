@@ -14,26 +14,18 @@
 
 import type { GateBackend } from '@transcodes-guard/gate-contract';
 import {
-  clearPending,
-  consumeVerified,
+  clearLatchByAuthSid,
   createStepupSession,
   evaluatePreToolUse,
-  findPendingBySid,
-  firstActivePending,
-  firstInFlightFpPending,
   inspectStepupState,
-  isExpired,
   loadStepupConfig,
-  markVerified,
+  markStepupVerified,
   pollStepupSession,
   pollStepupSessionWait,
-  readPending,
-  readVerified,
   resolveToken,
+  rotatePromptSid,
   sendGateDecisionAudit,
-  sweepStepup,
-  writePending,
-  writeVerified,
+  sweepLatches,
 } from '@transcodes-guard/stepup-core';
 import {
   assertRbacCoordinate,
@@ -53,15 +45,10 @@ import {
 export const transcodesGateBackend: GateBackend = {
   // hook path — direct bindings
   evaluatePreToolUse,
-  writePending,
-  consumeVerified,
-  clearPending,
-  firstActivePending,
-  firstInFlightFpPending,
-  readPending,
-  readVerified,
-  isExpired,
-  sweepStepup,
+  rotatePromptSid: () => {
+    rotatePromptSid();
+  },
+  sweepLatches,
   hasToken: () => Boolean(resolveToken().token),
   sendGateDecisionAudit,
 
@@ -71,9 +58,8 @@ export const transcodesGateBackend: GateBackend = {
   pollStepupSessionWait: (sid, options) =>
     pollStepupSessionWait(loadStepupConfig(), sid, options),
   inspectStepupState,
-  findPendingBySid,
-  writeVerified,
-  markVerified,
+  markStepupVerified,
+  clearLatchByAuthSid,
 
   // server path: RBAC coordinate — config loaded internally, error wrapped
   assertRbacCoordinate: (resource, action) =>

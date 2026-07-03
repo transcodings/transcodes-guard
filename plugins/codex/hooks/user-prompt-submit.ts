@@ -1,63 +1,26 @@
 #!/usr/bin/env node
 /**
- * Codex CLI UserPromptSubmit hook — same logic as the Claude Code variant.
+ * Codex CLI UserPromptSubmit hook — rotate the per-prompt grouping sid.
  *
- * Detects user prompts that signal step-up completion and injects a sid +
- * next-action context block. Identical body to the Claude Code hook except
- * for the adapter import.
+ * Same logic as the Claude Code variant (only the adapter import differs):
+ * each new user prompt opens a fresh step-up grouping window. Step-up status
+ * lives in the backend (SSOT); there is no local pending to surface. Never
+ * blocks — always exits 0.
  */
 import '../host.js';
 import '../backend.js';
 import { readFileSync } from 'node:fs';
-import {
-  getGateBackend,
-  type PendingState,
-} from '@transcodes-guard/gate-contract';
-import {
-  COMPLETION_PATTERN,
-  codexAdapter,
-} from '@transcodes-guard/hook-adapters';
-
-function buildContext(prompt: string, pending: PendingState): string | null {
-  if (!COMPLETION_PATTERN.test(prompt)) return null;
-  const statusNote =
-    pending.status === 'verified'
-      ? 'already verified — just retry the original command.'
-      : 'still pending — call poll_stepup_session_wait now to block until verified.';
-  return [
-    'transcodes-guard: user appears to report step-up MFA completion.',
-    '',
-    `Pending session sid : ${pending.sid}`,
-    `Status              : ${pending.status} (${statusNote})`,
-    `Original command    : ${pending.command}`,
-    '',
-    'Next action:',
-    `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${pending.sid}".`,
-    '  - On `outcome: "verified"` retry the exact original Bash command above.',
-  ].join('\n');
-}
+import { getGateBackend } from '@transcodes-guard/gate-contract';
+import { codexAdapter } from '@transcodes-guard/hook-adapters';
 
 function main(): void {
   const raw = readFileSync(0, 'utf8');
-
-  let parsed;
   try {
-    parsed = codexAdapter.parseUserPromptSubmitStdin(raw);
+    codexAdapter.parseUserPromptSubmitStdin(raw);
   } catch {
     process.exit(0);
   }
-
-  if (!parsed.prompt) process.exit(0);
-
-  const pending = getGateBackend().firstActivePending();
-  if (!pending) process.exit(0);
-
-  const additionalContext = buildContext(parsed.prompt, pending);
-  if (!additionalContext) process.exit(0);
-
-  process.stdout.write(
-    codexAdapter.emitUserPromptSubmitContext(additionalContext),
-  );
+  getGateBackend().rotatePromptSid();
   process.exit(0);
 }
 

@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 import {
-  antigravityAdapter,
-  detectUserDoneFromTranscript
-} from "../chunk-SIS7TDTH.js";
+  antigravityAdapter
+} from "../chunk-HBLMEC7F.js";
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-I7K3DZ32.js";
+} from "../chunk-B7T5675K.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";
-function primerMessage(pending) {
-  const base = [
+function primerMessage() {
+  return [
     "transcodes-guard step-up MFA protocol primer:",
     "",
     "When a PreToolUse hook denies a shell or MCP tool call with reason",
@@ -23,39 +22,13 @@ function primerMessage(pending) {
     "     it did not open).",
     "  2. Immediately call MCP tool `poll_stepup_session_wait` with the sid",
     "     from the deny message. It blocks until verified or 60s timeout.",
-    '  3. On `outcome: "verified"` retry the same command \u2014 the hook detects',
-    "     the verified state and allows it.",
+    '  3. On `outcome: "verified"` retry the same command \u2014 the backend cache',
+    "     reports it verified and the gate allows it.",
     '  4. On `outcome: "timeout"` ask the user to retry WebAuthn, then call',
     "     the wait tool again.",
     "",
     "Never assume the blocked command ran. Never invent an alternative",
-    "command. Always resume from the pending sid the hook reported."
-  ];
-  if (pending) {
-    base.push(
-      "",
-      "Carried-over step-up state from a previous turn:",
-      `  sid     : ${pending.sid}`,
-      `  status  : ${pending.status}`,
-      `  command : ${pending.command}`,
-      `  url     : ${pending.browserUrl}`
-    );
-  }
-  return base.join("\n");
-}
-function userDoneNotice(pending, matchedContent) {
-  const trimmed = matchedContent.length > 80 ? `${matchedContent.slice(0, 77)}...` : matchedContent;
-  const statusNote = pending.status === "verified" ? "already verified \u2014 just retry the original command." : "still pending \u2014 call poll_stepup_session_wait now to block until verified.";
-  return [
-    `transcodes-guard: user message matched completion pattern ("${trimmed}").`,
-    "",
-    `Pending session sid : ${pending.sid}`,
-    `Status              : ${pending.status} (${statusNote})`,
-    `Original command    : ${pending.command}`,
-    "",
-    "Next action:",
-    `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${pending.sid}".`,
-    '  - On `outcome: "verified"` retry the exact original command above.'
+    "command. Always resume from the sid the hook reported."
   ].join("\n");
 }
 async function main() {
@@ -70,20 +43,11 @@ async function main() {
     process.exit(0);
   }
   const backend = getGateBackend();
-  const pending = backend.firstActivePending();
   const injectSteps = [];
   if (input.invocationNum <= 1) {
-    injectSteps.push({ ephemeralMessage: primerMessage(pending) });
+    injectSteps.push({ ephemeralMessage: primerMessage() });
     if (!backend.hasToken()) {
       injectSteps.push({ ephemeralMessage: formatNoTokenSessionNotice() });
-    }
-  }
-  if (pending) {
-    const matched = detectUserDoneFromTranscript(input.transcriptPath);
-    if (matched) {
-      injectSteps.push({
-        ephemeralMessage: userDoneNotice(pending, matched)
-      });
     }
   }
   process.stdout.write(antigravityAdapter.emitPreInvocation(injectSteps));

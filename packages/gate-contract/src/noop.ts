@@ -30,25 +30,8 @@ export const denyByDefaultBackend: GateBackend = {
   async evaluatePreToolUse() {
     return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
   },
-  writePending() {},
-  consumeVerified() {},
-  clearPending() {},
-  firstActivePending() {
-    return null;
-  },
-  firstInFlightFpPending() {
-    return null;
-  },
-  readPending() {
-    return null;
-  },
-  readVerified() {
-    return null;
-  },
-  isExpired() {
-    return true;
-  },
-  sweepStepup() {},
+  rotatePromptSid() {},
+  sweepLatches() {},
   hasToken() {
     return false;
   },
@@ -67,11 +50,8 @@ export const denyByDefaultBackend: GateBackend = {
   inspectStepupState() {
     return notInstalled();
   },
-  findPendingBySid() {
-    return null;
-  },
-  writeVerified() {},
-  markVerified() {},
+  markStepupVerified() {},
+  clearLatchByAuthSid() {},
   assertRbacCoordinate() {
     return notInstalled();
   },
