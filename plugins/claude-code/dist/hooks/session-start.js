@@ -8,7 +8,7 @@ import {
 } from "../chunk-RJWBMLBX.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.32.0";
+var PLUGIN_VERSION = "0.32.1";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
