@@ -54,10 +54,6 @@ export function formatBlockedSummary(block) {
         `Command: ${block.command}`,
     ].join('\n');
 }
-export function formatAllowReason(decision) {
-    return ('transcodes-guard: step-up MFA verified — overriding default permission policy. ' +
-        `Original danger match: ${decision.block.reason}. Command: ${decision.block.command}`);
-}
 export function formatNoTokenReason(block) {
     return (`Bash blocked by transcodes-guard: ${block.reason}. ` +
         'Step-up MFA gate is not configured (no Transcodes token found). ' +
@@ -132,8 +128,25 @@ export function formatStepupPendingSystemMessage(decision) {
             'It blocks until verified or 60s timeout — one call replaces the polling loop.',
         '  3. On `outcome: "verified"` retry the SAME Bash command — the hook detects the ' +
             'verified state and allows it. On `outcome: "timeout"` ask the user to retry ' +
-            'WebAuthn, then call the wait tool again. On `outcome: "rejected"` tell the user ' +
-            'they declined step-up; do NOT retry the command unless they explicitly ask.',
+            'WebAuthn, then call the wait tool again. On `outcome: "rejected"` or ' +
+            '`outcome: "not_found"` stop — the user declined or abandoned step-up; ' +
+            'do NOT retry the command unless they explicitly ask.',
+    ].join('\n'), decision.reasoning);
+}
+export function formatStepupRejectedReason(decision) {
+    return ('Step-up MFA was declined for this action. Do not poll or retry the command ' +
+        `(${decision.resource}/${decision.action}) unless the user explicitly asks.`);
+}
+export function formatStepupRejectedSystemMessage(decision) {
+    return appendBackendReasoning([
+        '🔐 BLOCKED — Step-up MFA declined. This command was NOT executed.',
+        '',
+        `Reason : ${decision.block.reason}`,
+        `Command: ${decision.block.command}`,
+        '',
+        'The user rejected WebAuthn for this grouped challenge. Do NOT call ' +
+            '`poll_stepup_session_wait` or retry this command unless the user ' +
+            'explicitly asks to authenticate again.',
     ].join('\n'), decision.reasoning);
 }
 /**
@@ -146,8 +159,6 @@ export function formatStderrTag(decision) {
         case GATE_DECISION_KIND.PROCEED_UNGATED:
         case GATE_DECISION_KIND.PROCEED_BY_POLICY:
             return 'transcodes-guard: pass';
-        case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
-            return `transcodes-guard: ALLOWED (stepup-verified) — ${decision.block.command}`;
         case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
             return `transcodes-guard: BLOCKED (no token) — ${decision.block.command}`;
         case GATE_DECISION_KIND.BLOCK_BY_POLICY:
@@ -156,6 +167,8 @@ export function formatStderrTag(decision) {
             return `transcodes-guard: BLOCKED (stepup-failure) — ${decision.block.command}`;
         case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
             return `transcodes-guard: STEPUP-PENDING sid=${decision.sid} — ${decision.block.command}`;
+        case GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED:
+            return `transcodes-guard: STEPUP-REJECTED ${decision.resource}/${decision.action} — ${decision.block.command}`;
     }
 }
 //# sourceMappingURL=messages.js.map

@@ -3,15 +3,13 @@
  * Claude Code PreToolUse hook — thin entrypoint over @transcodes-guard/stepup-core.
  *
  * All real logic (regex match, git ls-files semantic check, MCP tool-rule
- * lookup, fast-path verified consume, step-up MFA session creation) lives in
+ * lookup, backend RBAC evaluate, grouped step-up session create/reuse, and the
+ * crash-safe browser launch + per-coordinate latch write) lives in
  * `evaluatePreToolUse` in stepup-core. This file:
  *   1. Parses stdin via the Claude Code adapter.
  *   2. Calls evaluatePreToolUse to produce a host-agnostic GateDecision.
  *   3. Renders the decision into Claude Code wire format via the adapter +
- *      message formatters.
- *   4. Performs the post-emit side effects in the right order (writePending
- *      AFTER stdout emit so a throw cannot suppress the deny — see
- *      `.claude/rules/hooks.md` "Order is load-bearing").
+ *      message formatters, then fires the decision audit.
  *
  * Fail-open before any danger match, fail-safe after — same asymmetric policy
  * as the original 500-line file, now expressed in ~80 lines.
@@ -20,7 +18,6 @@ import '../host.js';
 import '../backend.js';
 import { readFileSync } from 'node:fs';
 import {
-  formatAllowReason,
   formatNoTokenReason,
   formatNoTokenSystemMessage,
   formatRbacDeniedReason,
@@ -30,6 +27,8 @@ import {
   formatStepupFailureSystemMessage,
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
+  formatStepupRejectedReason,
+  formatStepupRejectedSystemMessage,
   GATE_DECISION_KIND,
   getGateBackend,
 } from '@transcodes-guard/gate-contract';
@@ -45,21 +44,6 @@ async function main(): Promise<void> {
   switch (decision.kind) {
     case GATE_DECISION_KIND.PROCEED_UNGATED:
     case GATE_DECISION_KIND.PROCEED_BY_POLICY:
-      process.exit(0);
-
-    case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
-      process.stdout.write(
-        claudeCodeAdapter.emitPreToolUse({
-          kind: 'allow',
-          reason: formatAllowReason(decision),
-        }),
-      );
-      if (decision.consumeHere) {
-        backend.consumeVerified(decision.fp);
-        backend.clearPending(decision.fp);
-      }
-      process.stderr.write(`${formatStderrTag(decision)}\n`);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
@@ -99,8 +83,9 @@ async function main(): Promise<void> {
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
-      // Emit deny FIRST: writePending below may throw on disk failure, and
-      // the deny JSON must already be on stdout in that case.
+      // The browser launch + per-coordinate latch were already handled inside
+      // evaluatePreToolUse (crash-safe, never throws). The hook only emits the
+      // deny and fires the audit.
       process.stdout.write(
         claudeCodeAdapter.emitPreToolUse({
           kind: 'deny',
@@ -108,13 +93,18 @@ async function main(): Promise<void> {
           systemMessage: formatStepupPendingSystemMessage(decision),
         }),
       );
-      try {
-        backend.writePending(decision.pending);
-      } catch (err) {
-        process.stderr.write(
-          `transcodes-guard: pending file write failed (deny still emitted): ${err}\n`,
-        );
-      }
+      process.stderr.write(`${formatStderrTag(decision)}\n`);
+      await backend.sendGateDecisionAudit(decision);
+      process.exit(0);
+
+    case GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED:
+      process.stdout.write(
+        claudeCodeAdapter.emitPreToolUse({
+          kind: 'deny',
+          reason: formatStepupRejectedReason(decision),
+          systemMessage: formatStepupRejectedSystemMessage(decision),
+        }),
+      );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
       await backend.sendGateDecisionAudit(decision);
       process.exit(0);

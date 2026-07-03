@@ -34,7 +34,7 @@ export type CreatedStepupSession = {
 
 export type PollStepupResult = {
   envelope: Envelope;
-  /** "pending" | "verified" | undefined when the envelope shape did not match. */
+  /** pending | verified | rejected | not_found (session expired / missing). */
   status?: string;
 };
 
@@ -150,6 +150,9 @@ export async function pollStepupSession(
     method: 'GET',
     path: `${STEPUP_PATH}/${encodeURIComponent(trimmed)}`,
   });
+  if (envelope.status === 404) {
+    return { envelope, status: 'not_found' };
+  }
   const payload = readStepupPayload(envelope);
   return {
     envelope,
@@ -160,8 +163,8 @@ export async function pollStepupSession(
 export type WaitStepupResult = {
   /** Last poll's envelope — useful for diagnostics. */
   envelope: Envelope;
-  /** "verified" | "rejected" if terminal before deadline, otherwise "timeout". */
-  outcome: 'verified' | 'rejected' | 'timeout';
+  /** verified = continue work; rejected/not_found = terminal; timeout = re-poll. */
+  outcome: 'verified' | 'rejected' | 'not_found' | 'timeout';
   /** Total elapsed time in ms across all polls. */
   elapsedMs: number;
   /** Number of poll requests issued. */
@@ -206,6 +209,14 @@ export async function pollStepupSessionWait(
       return {
         envelope: result.envelope,
         outcome: 'rejected',
+        elapsedMs: maxWaitMs - Math.max(0, deadline - Date.now()),
+        attempts,
+      };
+    }
+    if (result.status === 'not_found') {
+      return {
+        envelope: result.envelope,
+        outcome: 'not_found',
         elapsedMs: maxWaitMs - Math.max(0, deadline - Date.now()),
         attempts,
       };

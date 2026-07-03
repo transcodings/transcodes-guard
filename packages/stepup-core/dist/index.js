@@ -15,12 +15,13 @@ export { DEFAULT_BACKEND_URL, loadStepupConfig, STEPUP_TTL_MS, } from './config.
 export { CONSOLE_SESSION_COMMENT, fetchMemberProfile, openConsoleSession, } from './console.js';
 export { DECISION_AUDIT_TAG, DECISION_AUDIT_TIMEOUT_MS, decisionAuditEventOf, sendDecisionAudit, sendGateDecisionAudit, } from './decision-audit.js';
 export { evaluatePreToolUse, GATE_DECISION_KIND, } from './evaluate.js';
-export { fingerprintOf, requestStepup, } from './gate.js';
+export { openBrowser } from './gate.js';
 export { inspectStepupState, } from './inspector.js';
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
-export { clearPending, findPendingBySid, firstActivePending, firstInFlightFpPending, isExpired, listFpPendings, markVerified, readPending, sweepStepup, writePending, } from './pending.js';
-export { checkRbacPermission } from './rbac-check.js';
+export { clearLatch, clearLatchByAuthSid, hasLatch, listLatches, sweepLatches, writeLatch, } from './latch.js';
+export { checkRbacPermission, } from './rbac-check.js';
 export { createConsoleBrowserSession, createStepupSession, pollStepupSession, pollStepupSessionWait, } from './session.js';
-export { cacheDir, consumeVerified, listVerifiedFingerprints, readVerified, writeVerified, } from './store.js';
+export { peekPromptSid, resolvePromptSid, rotatePromptSid, } from './sid.js';
 export { clearTokenFile, readTokenFromFile, readTokenList, readTokenRecords, removeTokenFromFile, resolveToken, setActiveToken, setTokenLabel, transcodesConfigDir, transcodesConfigFile, writeTokenToFile, } from './token-store.js';
+export { claimStepupVerified, hasStepupVerified, markStepupVerified, } from './verified-memory.js';
 //# sourceMappingURL=index.js.map

@@ -2,12 +2,11 @@
  * Unit tests for the gate decision audit (Phase 3 v2 Unit H, H2).
  *
  * Pins the invariants that matter: the send never throws/blocks beyond
- * its timeout, the payload carries coordinates/decision/rule id/fp but
- * NEVER the raw command string. Also pins the narrowed audit scope: only
- * `proceed-by-verification` and `block-stepup-create-failed` (w/
- * `reason === 'create-failed'`) are recorded; every other kind returns null.
- * Finally, pins the wire-translation seam: the backend receives the *legacy*
- * kind strings, not the renamed local kinds.
+ * its timeout, the payload carries coordinates/decision/rule id but NEVER the
+ * raw command string. Also pins the narrowed audit scope (Guard v3): only
+ * `block-stepup-create-failed` (w/ `reason === 'create-failed'`) is recorded;
+ * every other kind returns null. Finally, pins the wire-translation seam: the
+ * backend receives the *legacy* kind strings, not the renamed local kinds.
  */
 import assert from 'node:assert/strict';
 import type { Server } from 'node:http';
@@ -30,38 +29,7 @@ const BLOCK = {
 } as const;
 
 describe('decisionAuditEventOf — recorded kinds', () => {
-  it('maps proceed-by-verification with its fp', () => {
-    const decision: GateDecision = {
-      kind: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
-      block: BLOCK,
-      consumeHere: true,
-      fp: 'abcd1234abcd1234',
-    };
-    assert.deepEqual(decisionAuditEventOf(decision), {
-      decision: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
-      resource: 'system',
-      action: 'delete',
-      ruleId: 'rm-rf-root',
-      fp: 'abcd1234abcd1234',
-    });
-  });
-
-  it('maps proceed-by-verification without fp (MCP system rule path)', () => {
-    const decision: GateDecision = {
-      kind: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
-      block: BLOCK,
-      consumeHere: false,
-    };
-    const event = decisionAuditEventOf(decision);
-    assert.ok(event);
-    assert.equal(event.decision, GATE_DECISION_KIND.PROCEED_BY_VERIFICATION);
-    assert.equal(event.resource, 'system');
-    assert.equal(event.action, 'delete');
-    assert.equal(event.ruleId, 'rm-rf-root');
-    assert.equal(event.fp, undefined);
-  });
-
-  it('maps block-stepup-create-failed (reason create-failed) without fp', () => {
+  it('maps block-stepup-create-failed (reason create-failed)', () => {
     const decision: GateDecision = {
       kind: GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED,
       block: BLOCK,
@@ -122,18 +90,11 @@ describe('decisionAuditEventOf — excluded kinds return null', () => {
     const decision: GateDecision = {
       kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,
       block: BLOCK,
+      resource: 'system',
+      action: 'delete',
       sid: 'tc_stepup_x',
       browserUrl: 'http://localhost/x',
       browserLaunched: false,
-      pending: {
-        sid: 'tc_stepup_x',
-        command: BLOCK.command,
-        reason: BLOCK.reason,
-        browserUrl: 'http://localhost/x',
-        createdAt: 0,
-        status: 'pending',
-        fp: 'ffff0000ffff0000',
-      },
     };
     assert.equal(decisionAuditEventOf(decision), null);
   });
@@ -223,17 +184,6 @@ describe('sendDecisionAudit', () => {
       decision: 'deny-stepup-failure', // legacy wire value
     });
     assert.ok(!JSON.stringify(body).includes('rm -rf'));
-  });
-
-  it('translates proceed-by-verification to the legacy wire value "allow"', async () => {
-    await sendDecisionAudit(config(), {
-      ...EVENT,
-      decision: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
-    });
-    assert.ok(received);
-    const body = received.body as { severity?: string; metadata?: { decision?: string } };
-    assert.equal(body.severity, 'low');
-    assert.equal(body.metadata?.decision, 'allow');
   });
 
   it('translates block-stepup-create-failed to the legacy wire value "deny-stepup-failure"', async () => {

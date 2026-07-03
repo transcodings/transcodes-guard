@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import {
   claudeCodeAdapter
-} from "../chunk-Y6A3DNLB.js";
+} from "../chunk-7X2GUVN6.js";
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-OLNSPDTT.js";
+} from "../chunk-KYY4ODN5.js";
 
 // src/version.ts
 var PLUGIN_VERSION = "0.31.3";
@@ -34,27 +34,14 @@ var PROTOCOL_PRIMER = [
   "Never assume the blocked command ran. Never invent an alternative",
   "command. Always resume from the pending sid the hook reported."
 ].join("\n");
-function carryoverBlock() {
-  const pending = getGateBackend().firstActivePending();
-  if (!pending) return null;
-  const statusNote = pending.status === "verified" ? "VERIFIED but not yet consumed \u2014 retry the original command to release it." : "PENDING \u2014 resume polling.";
-  return [
-    "",
-    "Carried-over step-up state from a previous session:",
-    `  sid     : ${pending.sid}`,
-    `  status  : ${pending.status} (${statusNote})`,
-    `  command : ${pending.command}`,
-    `  reason  : ${pending.reason}`,
-    `  url     : ${pending.browserUrl}`
-  ].join("\n");
-}
 async function main() {
   process.stderr.write(`[transcodes-guard] v${PLUGIN_VERSION}
 `);
-  const carry = carryoverBlock();
-  const tokenNotice = getGateBackend().hasToken() ? null : formatNoTokenSessionNotice();
+  const backend = getGateBackend();
+  backend.rotatePromptSid();
+  const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
   const versionLine = `transcodes-guard v${PLUGIN_VERSION}`;
-  const additionalContext = [versionLine, PROTOCOL_PRIMER, carry, tokenNotice].filter((s) => Boolean(s)).join("\n");
+  const additionalContext = [versionLine, PROTOCOL_PRIMER, tokenNotice].filter((s) => Boolean(s)).join("\n");
   process.stdout.write(
     claudeCodeAdapter.emitSessionStartContext(additionalContext)
   );

@@ -1,36 +1,19 @@
 #!/usr/bin/env node
 /**
- * Codex CLI Stop hook — dangling step-up reminder + orphan reap.
+ * Codex CLI Stop hook — silent housekeeping only.
  *
- * Identical behaviour to the Claude Code variant; differs only in the
- * adapter import. Codex accepts the same top-level `{ decision: "block",
- * reason }` payload as Claude Code for Stop hooks.
+ * Deadlock fix (Guard v3 grouping): the Stop hook NEVER blocks the turn for an
+ * in-flight step-up. A pending MFA lives in the backend cache (SSOT), not on
+ * disk, so there is nothing local to reconcile — the only client-side state is
+ * the per-coordinate browser latch. Stop just reaps expired latches (orphaned
+ * when a host killed the PreToolUse hook mid-flight) and exits 0.
  */
 import '../host.js';
 import '../backend.js';
-import {
-  getGateBackend,
-  type PendingState,
-} from '@transcodes-guard/gate-contract';
-import { codexAdapter } from '@transcodes-guard/hook-adapters';
-
-function reminderFor(pending: PendingState): string {
-  return [
-    'transcodes-guard: a step-up MFA session is still PENDING. The Bash',
-    'command it gated was NOT executed. Resume the loop or report to the',
-    'user that authentication is still required.',
-    '',
-    `Session sid     : ${pending.sid}`,
-    `Original command: ${pending.command}`,
-    `Browser URL     : ${pending.browserUrl}`,
-    '',
-    'Next action:',
-    `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${pending.sid}".`,
-    '  - On `outcome: "verified"` retry the exact original Bash command.',
-  ].join('\n');
-}
+import { getGateBackend } from '@transcodes-guard/gate-contract';
 
 async function main(): Promise<void> {
+  // Drain stdin even though we don't read it; some hosts require it.
   try {
     for await (const _chunk of process.stdin) {
       // discard
@@ -39,29 +22,9 @@ async function main(): Promise<void> {
     // ignore
   }
 
-  const backend = getGateBackend();
-  backend.sweepStepup();
+  // Reap expired browser/poll latches. Never blocks the turn.
+  getGateBackend().sweepLatches();
 
-  const pending = backend.readPending();
-  const verified = backend.readVerified();
-
-  if (verified && pending?.status !== 'pending') {
-    backend.consumeVerified();
-    if (pending) backend.clearPending();
-    process.exit(0);
-  }
-  if (pending && !verified && pending.status === 'verified') {
-    backend.clearPending();
-    process.exit(0);
-  }
-
-  const reminder =
-    pending && !backend.isExpired(pending)
-      ? pending
-      : backend.firstInFlightFpPending();
-  if (!reminder) process.exit(0);
-
-  process.stdout.write(codexAdapter.emitStop(reminderFor(reminder)));
   process.exit(0);
 }
 

@@ -11,7 +11,7 @@ import {
   isTranscodesGuardWireToolName,
   loadMergedToolRules,
   objectType
-} from "../chunk-2S7VCV4U.js";
+} from "../chunk-7BO7MLBP.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17056,21 +17056,6 @@ function transcodesRouterBody(request) {
   const trimmed = request?.trim();
   return TRANSCODES_ROUTER_BODY.replace("{{REQUEST}}", trimmed && trimmed.length > 0 ? trimmed : "(no request given \u2014 show the menu and ask what they want)");
 }
-function dismissPendingSession(backend, sid) {
-  const found = backend.findPendingBySid(sid);
-  if (found)
-    backend.clearPending(found.fp);
-}
-function persistVerifiedRecord(backend, sid) {
-  const found = backend.findPendingBySid(sid);
-  if (!found) {
-    process.stderr.write(`transcodes-guard: verified sid ${sid} has no local pending record \u2014 skipping verified-record write to avoid GLOBAL-store contamination. The original command may need a fresh step-up.
-`);
-    return;
-  }
-  backend.writeVerified({ sid, verifiedAt: Date.now() }, found.fp);
-  backend.markVerified(sid);
-}
 function textResult(text, isError = false) {
   return {
     isError,
@@ -17126,17 +17111,6 @@ function createServer(backend = getGateBackend()) {
       resource,
       member_id
     });
-    if (result.envelope.ok && result.sid && result.browserUrl) {
-      backend.writePending({
-        sid: result.sid,
-        command: resource && action ? `${resource}/${action}` : comment,
-        reason: comment,
-        browserUrl: result.browserUrl,
-        createdAt: Date.now(),
-        expiresAt: result.expiresAt,
-        status: "pending"
-      });
-    }
     return {
       content: [
         {
@@ -17162,9 +17136,9 @@ function createServer(backend = getGateBackend()) {
   }, async ({ sid }) => {
     const result = await backend.pollStepupSession(sid);
     if (result.status === "verified") {
-      persistVerifiedRecord(backend, sid);
-    } else if (result.status === "rejected") {
-      dismissPendingSession(backend, sid);
+      backend.markStepupVerified(sid);
+    } else if (result.status === "rejected" || result.status === "not_found") {
+      backend.clearLatchByAuthSid(sid);
     }
     return {
       content: [
@@ -17182,7 +17156,7 @@ function createServer(backend = getGateBackend()) {
   });
   server.registerTool("poll_stepup_session_wait", {
     title: "Wait for Step-up MFA Session",
-    description: 'Block until the step-up session reaches `verified`, `rejected`, or the wait window elapses (default 60s, polling every 1s). Use this \u2014 NOT the single-shot `poll_stepup_session` \u2014 as the next action after a PreToolUse deny carrying a step-up sid. One call replaces the 60-iteration polling loop. On `outcome: "verified"` retry the original Bash command; on `outcome: "timeout"` ask the user to complete WebAuthn and call this tool again; on `outcome: "rejected"` tell the user they declined step-up and do NOT retry the command. Do NOT ask the user to confirm completion before calling this tool \u2014 it waits on the user\'s behalf.',
+    description: 'Block until the step-up session reaches `verified`, `rejected`, `not_found`, or the wait window elapses (default 60s, polling every 1s). Use this \u2014 NOT the single-shot `poll_stepup_session` \u2014 as the next action after a PreToolUse deny carrying a step-up sid. One call replaces the 60-iteration polling loop. On `outcome: "verified"` retry the original Bash command; on `outcome: "timeout"` ask the user to complete WebAuthn and call this tool again; on `outcome: "rejected"` or `outcome: "not_found"` stop \u2014 the user declined or abandoned step-up; do NOT retry the command. Do NOT ask the user to confirm completion before calling this tool \u2014 it waits on the user\'s behalf.',
     inputSchema: {
       sid: external_exports.string().min(1).describe("Session id returned from create_stepup_session."),
       max_wait_ms: external_exports.number().int().positive().max(3e5).optional().describe("Maximum time to wait in ms. Defaults to 60_000."),
@@ -17194,9 +17168,9 @@ function createServer(backend = getGateBackend()) {
       intervalMs: interval_ms
     });
     if (result.outcome === "verified") {
-      persistVerifiedRecord(backend, sid);
-    } else {
-      dismissPendingSession(backend, sid);
+      backend.markStepupVerified(sid);
+    } else if (result.outcome === "rejected" || result.outcome === "not_found") {
+      backend.clearLatchByAuthSid(sid);
     }
     return {
       content: [
@@ -17273,19 +17247,17 @@ function createServer(backend = getGateBackend()) {
     } catch {
     }
     const denyEmitted = parsedStdout !== null && typeof parsedStdout === "object" && parsedStdout.hookSpecificOutput !== void 0 && parsedStdout.hookSpecificOutput.permissionDecision === "deny";
-    const verifiedConsumed = before.verified.exists && !after.verified.exists;
-    const pendingCleared = before.pending.exists && !after.pending.exists;
-    const newPendingStarted = !before.pending.exists || before.pending.exists && after.pending.exists && before.pending.sid !== after.pending.sid ? after.pending.exists : false;
+    const latchCreated = after.latches.length > before.latches.length;
+    const latchCleared = after.latches.length < before.latches.length;
     return {
       content: [
         {
           type: "text",
           text: JSON.stringify({
-            fast_path_taken: verifiedConsumed && !denyEmitted,
             deny_emitted: denyEmitted,
-            new_step_up_started: newPendingStarted && denyEmitted,
-            verified_consumed: verifiedConsumed,
-            pending_cleared: pendingCleared,
+            new_step_up_started: latchCreated && denyEmitted,
+            latch_created: latchCreated,
+            latch_cleared: latchCleared,
             exit_code: exitCode,
             stdout_json: parsedStdout,
             stdout_raw: parsedStdout === null ? stdout : void 0,

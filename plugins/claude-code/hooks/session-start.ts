@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
- * Claude Code SessionStart hook — protocol primer + carry-over notice.
+ * Claude Code SessionStart hook — protocol primer + fresh grouping sid.
  *
  * Injects an `additionalContext` block describing how the agent should react
- * to PreToolUse step-up denies, plus a pointer to any session-spanning
- * pending sid that survived a restart. Pure additive context — never blocks.
+ * to PreToolUse step-up denies, and mints a fresh per-prompt grouping sid so a
+ * new session starts a clean step-up grouping window. Pure additive context —
+ * never blocks. Step-up status lives in the backend (SSOT), so there is no
+ * carry-over state to surface.
  */
 import '../host.js';
 import '../backend.js';
@@ -39,33 +41,16 @@ const PROTOCOL_PRIMER = [
   'command. Always resume from the pending sid the hook reported.',
 ].join('\n');
 
-function carryoverBlock(): string | null {
-  const pending = getGateBackend().firstActivePending();
-  if (!pending) return null;
-  const statusNote =
-    pending.status === 'verified'
-      ? 'VERIFIED but not yet consumed — retry the original command to release it.'
-      : 'PENDING — resume polling.';
-  return [
-    '',
-    'Carried-over step-up state from a previous session:',
-    `  sid     : ${pending.sid}`,
-    `  status  : ${pending.status} (${statusNote})`,
-    `  command : ${pending.command}`,
-    `  reason  : ${pending.reason}`,
-    `  url     : ${pending.browserUrl}`,
-  ].join('\n');
-}
-
 async function main(): Promise<void> {
   process.stderr.write(`[transcodes-guard] v${PLUGIN_VERSION}\n`);
 
-  const carry = carryoverBlock();
-  const tokenNotice = getGateBackend().hasToken()
-    ? null
-    : formatNoTokenSessionNotice();
+  const backend = getGateBackend();
+  // New session → fresh grouping window for step-up dedup.
+  backend.rotatePromptSid();
+
+  const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
   const versionLine = `transcodes-guard v${PLUGIN_VERSION}`;
-  const additionalContext = [versionLine, PROTOCOL_PRIMER, carry, tokenNotice]
+  const additionalContext = [versionLine, PROTOCOL_PRIMER, tokenNotice]
     .filter((s): s is string => Boolean(s))
     .join('\n');
   process.stdout.write(

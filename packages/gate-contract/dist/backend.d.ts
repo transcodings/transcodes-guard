@@ -18,19 +18,13 @@
  * (instanceof would require exporting the class).
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { CreatedStepupSession, CreateStepupArgs, GateDecision, PendingState, PollStepupResult, StepupStateInspection, ToolCallInput, VerifiedStepup, WaitStepupResult } from './types.js';
+import type { CreatedStepupSession, CreateStepupArgs, GateDecision, PollStepupResult, StepupStateInspection, ToolCallInput, WaitStepupResult } from './types.js';
 export interface GateBackend {
     evaluatePreToolUse(input: ToolCallInput): Promise<GateDecision>;
-    /** Caller writes the pending record AFTER emitting deny (fail-safe order). */
-    writePending(state: PendingState): void;
-    consumeVerified(fp?: string): void;
-    clearPending(fp?: string): void;
-    firstActivePending(now?: number): PendingState | null;
-    firstInFlightFpPending(now?: number): PendingState | null;
-    readPending(fp?: string): PendingState | null;
-    readVerified(fp?: string): VerifiedStepup | null;
-    isExpired(state: PendingState, now?: number): boolean;
-    sweepStepup(now?: number): void;
+    /** Mint a fresh per-prompt grouping sid (prompt-submit / session-start). */
+    rotatePromptSid(): void;
+    /** Reap expired browser/poll latches (Stop-hook housekeeping). */
+    sweepLatches(now?: number): void;
     /** Whether a Transcodes token is resolvable (session-start no-token notice). */
     hasToken(): boolean;
     /**
@@ -46,12 +40,13 @@ export interface GateBackend {
         intervalMs?: number;
     }): Promise<WaitStepupResult>;
     inspectStepupState(): StepupStateInspection;
-    findPendingBySid(sid: string): {
-        fp?: string;
-        pending: PendingState;
-    } | null;
-    writeVerified(v: VerifiedStepup, fp?: string): void;
-    markVerified(sid: string): void;
+    /** Record a backend-verified sid in the server's in-memory verified set so the
+     * `execProtectedTool` handler backstop can consume it (single-shot). Called
+     * by the poll tools on `verified`.
+     */
+    markStepupVerified(sid: string): void;
+    /** Drop the latch for a terminal poll (rejected / not-found). */
+    clearLatchByAuthSid(authSid: string): void;
     assertRbacCoordinate(resource: string, action: string): Promise<void>;
     isRbacCoordinateError(e: unknown): e is Error;
     registerBackendTools(server: McpServer): void;

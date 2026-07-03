@@ -20,23 +20,31 @@ import type { StepupConfig } from './config.js';
 
 export type RbacLevel = 0 | 1 | 2;
 
+export type GuardStepUpStatus = 'pending' | 'verified' | 'rejected';
+
 export type GuardVerdict = {
   permission: RbacLevel;
   resource: string;
   action: string;
   reasoning: string;
-  /** Where the verified sid gets re-enforced (mirrors EvaluateActionResponseDto). */
-  consume_in_hook: boolean;
   sid: string | null;
   url: string | null;
   expires_at: string | null;
+  /**
+   * Guard v3 grouping (from evaluate, sourced from step-up-session SSOT):
+   *   exist  — a sibling already created this coordinate's authSid.
+   *   status — live session status (poll the same authSid via GET .../session/:sid).
+   */
+  exist: boolean;
+  status: GuardStepUpStatus | null;
 };
 
 /**
  * POST /v1/guard/evaluate — one round-trip: backend classifies the raw hook
- * payload, applies the matrix, and (for level 2) creates the step-up session.
- * Every tool call (except built-in transcodes-guard MCP) reaches this path.
- * Returns null on any failure → caller fails closed.
+ * payload, applies the matrix, and (for level 2) creates or reuses the grouped
+ * step-up session keyed on `sid`. Every tool call (except built-in
+ * transcodes-guard MCP) reaches this path. Returns null on any failure →
+ * caller fails closed.
  */
 export async function evaluateAction(
   config: StepupConfig,
@@ -46,6 +54,8 @@ export async function evaluateAction(
     toolName?: string;
     cwd?: string;
     comment?: string;
+    /** Client-minted per-prompt grouping id (Guard v3). */
+    sid?: string;
   },
 ): Promise<GuardVerdict | null> {
   const env = await request(config, {
@@ -56,6 +66,7 @@ export async function evaluateAction(
       tool_name: body.toolName,
       cwd: body.cwd,
       comment: body.comment,
+      sid: body.sid,
     },
   });
   if (!env.ok) return null;
@@ -68,16 +79,20 @@ export async function evaluateAction(
   const { permission, resource, action } = p;
   if (permission !== 0 && permission !== 1 && permission !== 2) return null;
   if (typeof resource !== 'string' || typeof action !== 'string') return null;
-  if (typeof p.consume_in_hook !== 'boolean') return null;
+  const status =
+    p.status === 'pending' || p.status === 'verified' || p.status === 'rejected'
+      ? p.status
+      : null;
   return {
     permission,
     resource,
     action,
     reasoning: typeof p.reasoning === 'string' ? p.reasoning : '',
-    consume_in_hook: p.consume_in_hook,
     sid: typeof p.sid === 'string' ? p.sid : null,
     url: typeof p.url === 'string' ? p.url : null,
     expires_at: typeof p.expires_at === 'string' ? p.expires_at : null,
+    exist: p.exist === true,
+    status,
   };
 }
 

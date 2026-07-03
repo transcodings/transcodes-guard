@@ -1,44 +1,48 @@
 /**
- * Host-agnostic PreToolUse gate decision.
+ * Host-agnostic PreToolUse gate decision (Guard v3, backend-as-SSOT).
  *
- * Extracted from the original `plugins/ai-action-tracker/hooks/pre-tool-use.ts`
- * so every host's hook entrypoint can be a thin shell: parse stdin → call
- * `evaluatePreToolUse` → emit via that host's adapter. The same decision
- * shape drives Claude Code, Codex, Cursor, and Antigravity.
+ * Every host's hook entrypoint is a thin shell: parse stdin → call
+ * `evaluatePreToolUse` → emit via that host's adapter. The same decision shape
+ * drives Claude Code, Codex, Cursor, and Antigravity.
  *
- * Guard v3: every host tool call (except built-in transcodes-guard MCP) →
- * POST /guard/evaluate with the raw hook stdin JSON as `payload`.
+ * Guard v3 grouping: every host tool call (except built-in transcodes-guard
+ * MCP) → `POST /guard/evaluate` with the raw hook stdin JSON as `payload` and a
+ * client-minted per-prompt `sid`. The backend is the single source of truth for
+ * step-up status; the client keeps NO on-disk verified/pending records — only a
+ * per-coordinate latch (`latch.ts`) that dedupes the browser launch across the
+ * N concurrent tool calls of one prompt.
  *
  * Fail policy:
- *  - Before classify (stdin parse) → return `{ kind: "proceed-ungated" }`
- *    (fail-open). Callers exit 0 with no JSON.
- *  - After classify → POST /guard/evaluate. Fail-closed: backend unreachable
- *    → permission 2 (step-up).
+ *  - Before classify (stdin parse) → `proceed-ungated` (fail-open); the caller
+ *    exits 0 with no JSON.
+ *  - After classify, no token → `block-no-token` (fail-closed).
+ *  - After classify, backend unreachable / unparseable → permission 2
+ *    (step-up); a null verdict without a session becomes
+ *    `block-stepup-create-failed`.
  */
 import { DEFAULT_RBAC_RESOURCE, isTranscodesGuardWireToolName, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
-import { fingerprintOf, launchStepupBrowser, } from './gate.js';
-import { clearPending, readPending } from './pending.js';
+import { openBrowser } from './gate.js';
+import { clearLatch, hasLatch, writeLatch } from './latch.js';
 import { evaluateAction } from './rbac-check.js';
-import { pollStepupSession } from './session.js';
-import { isExpiredAt } from './stepup-files.js';
-import { claimVerified } from './store.js';
+import { resolvePromptSid } from './sid.js';
 import { resolveToken } from './token-store.js';
 /**
  * Runtime + type-level kind constants for `GateDecision`. Source of truth for
- * the discriminated union below and for every `switch`/comparison across the
- * codebase. Mirrored in `gate-contract/src/types.ts` (import firewall — the
- * two copies must stay in lockstep; the `gate-backend` drift alarm catches a
- * missed sync).
+ * the discriminated union below and every `switch`/comparison across the
+ * codebase. Mirrored in `gate-contract/src/types.ts` (import firewall — the two
+ * copies must stay in lockstep; the `gate-backend` drift alarm catches a missed
+ * sync).
  */
 export const GATE_DECISION_KIND = {
     PROCEED_UNGATED: 'proceed-ungated',
     PROCEED_BY_POLICY: 'proceed-by-policy',
-    PROCEED_BY_VERIFICATION: 'proceed-by-verification',
     BLOCK_NO_TOKEN: 'block-no-token',
     BLOCK_BY_POLICY: 'block-by-policy',
     BLOCK_STEPUP_CREATE_FAILED: 'block-stepup-create-failed',
     BLOCK_STEPUP_CHALLENGED: 'block-stepup-challenged',
+    /** Terminal: user declined MFA for this grouped challenge — do not poll/retry. */
+    BLOCK_STEPUP_REJECTED: 'block-stepup-rejected',
 };
 const GUARD_EVALUATE_RULE_ID = 'guard-evaluate';
 function resolvePayload(input) {
@@ -74,86 +78,19 @@ function classifyToolCall(input) {
     const cmd = shellCommand(input.toolInput);
     const label = name ?? 'tool';
     const blob = summarizePayload(payload);
-    const fingerprintKey = cmd ?? blob;
     const summary = cmd ?? `${label} ${blob}`;
-    return { kind: 'tool', summary, fingerprintKey };
-}
-/**
- * C-plan (backend-as-truth): re-confirm a locally-cached verified record with
- * the backend before the fast-path trusts it.
- *
- * Without this, the fast-path allows on the mere presence of
- * `stepup-verified.<fp>.json`, so a process that fabricates that file with a
- * made-up sid bypasses MFA. The sid the file carries was issued by the backend
- * (the poll tool wrote it), so re-polling it is a forgery test: a fabricated
- * sid was never issued → backend answers "not verified" → we force a fresh
- * step-up.
- *
- * Decisions:
- *   - no token → "reauth" (fail-closed, F2): the forgery test cannot run, so
- *     the record is NOT trusted — the caller falls through to BLOCK_NO_TOKEN
- *     like every other token-less path. Token-less CI fast-path smokes opt
- *     back in with TRANSCODES_GUARD_TEST_TRUST=1 (stderr-warned; never set in
- *     a real install).
- *   - config load fails (token present) → "trust": we cannot build a request,
- *     availability fallback as below.
- *   - backend authoritative (2xx) + status "verified" → "trust".
- *   - backend authoritative (2xx non-verified, or 404 unknown sid) → "reauth":
- *     the record is forged, expired, or revoked at the backend.
- *   - cannot confirm (network failure status 0, 5xx, 401/403) → "trust":
- *     availability fallback. A transient blip must not lock out a user who
- *     legitimately authenticated; the realistic forgery threat (a rogue local
- *     process) does not control backend reachability. Note `request()` reports
- *     network failures as an envelope with `status: 0` rather than throwing.
- */
-async function recheckVerifiedSid(sid) {
-    if (!resolveToken().token) {
-        // F2: without a token the forgery re-poll cannot run, so trusting the
-        // local record would let a fabricated stepup-verified file bypass MFA.
-        // Fail closed; only the explicit test flag restores the old behaviour.
-        if (process.env.TRANSCODES_GUARD_TEST_TRUST === '1') {
-            process.stderr.write('transcodes-guard: WARNING — TRANSCODES_GUARD_TEST_TRUST=1 trusts ' +
-                'the local verified record WITHOUT a backend recheck. Test/CI use ' +
-                'only; never set this in a real install.\n');
-            return 'trust';
-        }
-        return 'reauth';
-    }
-    let config;
-    try {
-        config = loadStepupConfig();
-    }
-    catch {
-        return 'trust';
-    }
-    try {
-        const { envelope, status } = await pollStepupSession(config, sid);
-        if (status === 'verified')
-            return 'trust';
-        // Authoritative "not verified": reachable 2xx with a non-verified status,
-        // or 404 meaning the backend never issued this sid (fabricated).
-        if (envelope.ok || envelope.status === 404)
-            return 'reauth';
-        // status 0 (network) / 5xx / 401 / 403 → cannot confirm → availability.
-        return 'trust';
-    }
-    catch {
-        return 'trust';
-    }
+    return { summary };
 }
 /**
  * Run the full PreToolUse gate against a parsed tool call.
  *
- * Side effects performed here:
+ * Side effects performed here (all crash-safe / never throw into the caller):
  *  - `POST /v1/guard/evaluate` (via `evaluateAction`).
- *  - `readVerified` reads from disk.
- *
- * Side effects intentionally NOT performed here (caller's responsibility):
- *  - `writePending(decision.pending)` — caller must call this AFTER
- *    emitting the deny JSON so a throw in writePending cannot suppress
- *    the deny on stdout (CLAUDE.md fail-safe rule).
- *  - `consumeVerified` + `clearPending` on allow — caller decides based on
- *    `decision.consumeHere`.
+ *  - resolve/mint the per-prompt grouping sid (`resolvePromptSid`).
+ *  - on a step-up challenge: open the browser once per coordinate + write the
+ *    latch. The stdout deny is emitted by the caller AFTER this returns, so a
+ *    latch write cannot suppress the deny — and the latch write already swallows
+ *    every error.
  */
 export async function evaluatePreToolUse(input) {
     let classified;
@@ -166,64 +103,19 @@ export async function evaluatePreToolUse(input) {
     }
     if (!classified)
         return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
-    const blockCommand = classified.summary;
-    const fpKey = classified.fingerprintKey;
     const block = {
         reason: 'POST /guard/evaluate',
-        command: blockCommand,
+        command: classified.summary,
         ruleId: GUARD_EVALUATE_RULE_ID,
         stepupResource: DEFAULT_RBAC_RESOURCE,
         stepupAction: 'update',
     };
-    const fp = fingerprintOf(fpKey);
-    // Verified fast-path: skip /evaluate when this command already passed step-up.
-    // claimVerified atomically renames the record away first, so exactly one of N
-    // concurrent hooks for the same command wins — the losers get null and fall
-    // through to a fresh step-up rather than all consuming one MFA (F1).
-    const verified = claimVerified(fp);
-    if (verified) {
-        if ((await recheckVerifiedSid(verified.sid)) === 'trust') {
-            // The record was already removed by the claim; the caller no longer needs
-            // to consume it, but still clears the paired pending record.
-            // consumeHere forwards the backend's consume_in_hook verdict captured in
-            // the paired pending at challenge time (F5). Absent — legacy record or
-            // pending already gone — defaults to hook-consume (true).
-            return {
-                kind: GATE_DECISION_KIND.PROCEED_BY_VERIFICATION,
-                block,
-                consumeHere: readPending(fp)?.consumeInHook ?? true,
-                fp,
-            };
-        }
-        // The record is not trusted — either the backend says it is no longer (or
-        // never was) verified, or there is no token to ask it (F2 fail-closed). The
-        // claim already discarded it; just clear the paired pending and fall through.
-        clearPending(fp);
-    }
     if (!resolveToken().token) {
         return { kind: GATE_DECISION_KIND.BLOCK_NO_TOKEN, block };
     }
-    // Re-issue an in-flight challenge instead of creating a second session (F3).
-    // If this exact command already opened a still-valid step-up, minting a new
-    // sid would overwrite the pending record (last-writer-wins). The user might
-    // then verify the FIRST tab, whose sid the poll tool can no longer map back
-    // to this fp — the verified record lands in the GLOBAL store and the Bash
-    // retry never hits the fast path. Same dedup philosophy as the browser lock.
-    const existingPending = readPending(fp);
-    if (existingPending &&
-        existingPending.status === 'pending' &&
-        !isExpiredAt(existingPending.createdAt, existingPending.expiresAt, Date.now())) {
-        const browserLaunched = launchStepupBrowser(fpKey, existingPending.browserUrl);
-        return {
-            kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,
-            block,
-            sid: existingPending.sid,
-            browserUrl: existingPending.browserUrl,
-            browserLaunched,
-            pending: existingPending,
-        };
-    }
-    // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) step-up.
+    const sid = resolvePromptSid();
+    // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) grouped
+    // step-up keyed on sid. Fail-closed on any error → permission 2.
     let verdict = null;
     try {
         verdict = await evaluateAction(loadStepupConfig(), {
@@ -231,17 +123,20 @@ export async function evaluatePreToolUse(input) {
             toolName: wireToolName(input),
             cwd: input.cwd,
             comment: `Confirm tool call: ${block.command}`,
+            sid,
         });
     }
     catch {
         verdict = null;
     }
-    // Fail-closed: null verdict → treat as permission 2 (step-up required).
     const permission = verdict?.permission ?? 2;
     const resource = verdict?.resource ?? block.stepupResource;
     const action = verdict?.action ?? block.stepupAction;
     const backendReasoning = verdict?.reasoning?.trim() || undefined;
     if (permission === 0) {
+        // Hard RBAC deny — never a challenge, so any stale latch for this
+        // coordinate is orphaned; clear it.
+        clearLatch(sid, resource, action);
         return {
             kind: GATE_DECISION_KIND.BLOCK_BY_POLICY,
             block,
@@ -251,6 +146,10 @@ export async function evaluatePreToolUse(input) {
         };
     }
     if (permission === 1) {
+        // Allowed — either the role permits it outright, or a grouped step-up for
+        // this coordinate was already verified (backend grant). Self-heal: drop the
+        // latch so a later distinct challenge in this prompt can relaunch.
+        clearLatch(sid, resource, action);
         return {
             kind: GATE_DECISION_KIND.PROCEED_BY_POLICY,
             block,
@@ -259,7 +158,7 @@ export async function evaluatePreToolUse(input) {
             reasoning: backendReasoning,
         };
     }
-    // Level 2 — backend created the session; open MFA URL (deduped per fingerprint).
+    // Level 2 — the backend created (or reused) the grouped session.
     if (!verdict?.sid || !verdict.url) {
         return {
             kind: GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED,
@@ -268,25 +167,44 @@ export async function evaluatePreToolUse(input) {
             reasoning: backendReasoning,
         };
     }
-    const browserLaunched = launchStepupBrowser(fpKey, verdict.url);
-    const pending = {
-        sid: verdict.sid,
-        command: block.command,
-        reason: block.reason,
-        browserUrl: verdict.url,
-        createdAt: Date.now(),
-        expiresAt: verdict.expires_at ?? undefined,
-        status: 'pending',
-        fp,
-        consumeInHook: verdict.consume_in_hook,
-    };
+    // ── Terminal: rejected — stop immediately (no poll loop, no retry nag) ───
+    if (verdict.status === 'rejected') {
+        clearLatch(sid, resource, action);
+        return {
+            kind: GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED,
+            block,
+            resource,
+            action,
+            reasoning: backendReasoning,
+        };
+    }
+    // ── Self-heal: stale latch when backend says NOT an in-flight pending ───
+    //
+    // pending + verified are "continue work" paths (poll or retry). Only drop a
+    // latch when the backend is starting fresh (exist:false → prior cache gone /
+    // not-found) so a new browser tab can open.
+    const reused = verdict.exist === true;
+    const pending = verdict.status === 'pending' || verdict.status === null || verdict.status === undefined;
+    if (hasLatch(sid, resource, action) && !(reused && pending)) {
+        clearLatch(sid, resource, action);
+    }
+    // pending → open browser once, write latch, tell agent to poll.
+    let browserLaunched = false;
+    if (pending && !reused) {
+        openBrowser(verdict.url);
+        browserLaunched = true;
+    }
+    if (pending) {
+        writeLatch(sid, resource, action, verdict.sid);
+    }
     return {
         kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,
         block,
         sid: verdict.sid,
         browserUrl: verdict.url,
         browserLaunched,
-        pending,
+        resource,
+        action,
         reasoning: backendReasoning,
     };
 }

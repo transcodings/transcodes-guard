@@ -1,35 +1,19 @@
 #!/usr/bin/env node
 import {
   codexAdapter
-} from "../chunk-T4DWWV6F.js";
+} from "../chunk-DRZMA5IG.js";
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-JDNZGVUA.js";
+} from "../chunk-NVTLZX2S.js";
 
 // hooks/session-start.ts
-function carryoverBlock() {
-  const pending = getGateBackend().firstActivePending();
-  if (!pending) return null;
-  const statusNote = pending.status === "verified" ? "VERIFIED but not yet consumed \u2014 retry the original command to release it." : "PENDING \u2014 resume polling.";
-  return [
-    "Carried-over step-up state from a previous session:",
-    `  sid     : ${pending.sid}`,
-    `  status  : ${pending.status} (${statusNote})`,
-    `  command : ${pending.command}`,
-    `  reason  : ${pending.reason}`,
-    `  url     : ${pending.browserUrl}`
-  ].join("\n");
-}
 async function main() {
-  const tokenNotice = getGateBackend().hasToken() ? null : formatNoTokenSessionNotice();
-  const parts = [carryoverBlock(), tokenNotice].filter(
-    (s) => Boolean(s)
-  );
-  if (parts.length > 0) {
-    process.stdout.write(
-      codexAdapter.emitSessionStartContext(parts.join("\n"))
-    );
+  const backend = getGateBackend();
+  backend.rotatePromptSid();
+  const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
+  if (tokenNotice) {
+    process.stdout.write(codexAdapter.emitSessionStartContext(tokenNotice));
   }
   process.exit(0);
 }

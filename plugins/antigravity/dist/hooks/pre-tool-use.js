@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 import {
   antigravityAdapter
-} from "../chunk-SIS7TDTH.js";
+} from "../chunk-HBLMEC7F.js";
 import {
   GATE_DECISION_KIND,
-  formatAllowReason,
   formatNoTokenReason,
   formatNoTokenSystemMessage,
   formatRbacDeniedReason,
@@ -14,8 +13,10 @@ import {
   formatStepupFailureSystemMessage,
   formatStepupPendingReason,
   formatStepupPendingSystemMessage,
+  formatStepupRejectedReason,
+  formatStepupRejectedSystemMessage,
   getGateBackend
-} from "../chunk-4SGR4KVS.js";
+} from "../chunk-B7T5675K.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
@@ -27,21 +28,6 @@ async function main() {
   switch (decision.kind) {
     case GATE_DECISION_KIND.PROCEED_UNGATED:
     case GATE_DECISION_KIND.PROCEED_BY_POLICY:
-      process.exit(0);
-    case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
-      process.stdout.write(
-        antigravityAdapter.emitPreToolUse({
-          kind: "allow",
-          reason: formatAllowReason(decision)
-        })
-      );
-      if (decision.consumeHere) {
-        backend.consumeVerified(decision.fp);
-        backend.clearPending(decision.fp);
-      }
-      process.stderr.write(`${formatStderrTag(decision)}
-`);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
     case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
       process.stdout.write(
@@ -87,14 +73,18 @@ async function main() {
           systemMessage: formatStepupPendingSystemMessage(decision)
         })
       );
-      try {
-        backend.writePending(decision.pending);
-      } catch (err) {
-        process.stderr.write(
-          `transcodes-guard: pending file write failed (deny still emitted): ${err}
-`
-        );
-      }
+      process.stderr.write(`${formatStderrTag(decision)}
+`);
+      await backend.sendGateDecisionAudit(decision);
+      process.exit(0);
+    case GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED:
+      process.stdout.write(
+        antigravityAdapter.emitPreToolUse({
+          kind: "deny",
+          reason: formatStepupRejectedReason(decision),
+          systemMessage: formatStepupRejectedSystemMessage(decision)
+        })
+      );
       process.stderr.write(`${formatStderrTag(decision)}
 `);
       await backend.sendGateDecisionAudit(decision);

@@ -10,12 +10,11 @@ import {
   type MergedToolRule,
 } from '@transcodes-guard/danger-patterns';
 import {
-  clearPending,
+  claimStepupVerified,
   clearTokenFile,
-  consumeVerified,
-  readVerified,
+  hasStepupVerified,
+  markStepupVerified,
   writeTokenToFile,
-  writeVerified,
 } from '@transcodes-guard/stepup-core';
 import {
   execProtectedTool,
@@ -182,8 +181,8 @@ describe('execProtectedTool step-up backstop', () => {
   afterEach(() => {
     requestedPaths = [];
     permission = 2;
-    consumeVerified();
-    clearPending();
+    // Drain any leftover in-memory verified sid between cases.
+    claimStepupVerified();
     clearTokenFile();
     delete process.env.TRANSCODES_BACKEND_URL;
   });
@@ -204,11 +203,11 @@ describe('execProtectedTool step-up backstop', () => {
     assert.deepEqual(requestedPaths, ['POST /v1/auth/role/check-permission']);
   });
 
-  it('consumes a stale verified record after a level-1 allow path', async () => {
+  it('runs level-1 with no sid and leaves the verified set untouched', async () => {
     writeTokenToFile(fakeToken('member-level-1'), 'test');
     process.env.TRANSCODES_BACKEND_URL = baseUrl;
     permission = 1;
-    writeVerified({ sid: 'stale-sid', verifiedAt: Date.now() });
+    markStepupVerified('unrelated-sid');
 
     const result = await execProtectedTool('create_resource', async (sid) => {
       assert.equal(sid, undefined);
@@ -217,6 +216,24 @@ describe('execProtectedTool step-up backstop', () => {
 
     assert.equal(result.isError, false);
     assert.equal(result.content[0]?.text, 'ok');
-    assert.equal(readVerified(), null);
+    // Level 1 never touches the in-memory verified set.
+    assert.equal(hasStepupVerified(), true);
+  });
+
+  it('consumes a verified sid single-shot on the level-2 path', async () => {
+    writeTokenToFile(fakeToken('member-level-2'), 'test');
+    process.env.TRANSCODES_BACKEND_URL = baseUrl;
+    permission = 2;
+    markStepupVerified('fresh-sid');
+
+    const result = await execProtectedTool('create_resource', async (sid) => {
+      assert.equal(sid, 'fresh-sid');
+      return 'ok';
+    });
+
+    assert.equal(result.isError, false);
+    assert.equal(result.content[0]?.text, 'ok');
+    // Single-shot: the sid is gone after one successful level-2 run.
+    assert.equal(hasStepupVerified(), false);
   });
 });

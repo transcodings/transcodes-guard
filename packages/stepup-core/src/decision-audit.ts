@@ -1,10 +1,12 @@
 /**
  * Gate decision audit — fire-and-forget visibility (Phase 3 v2 Unit H, H2).
  *
- * Every step-up MFA *outcome* — an action authorized by step-up
- * (`proceed-by-verification`), or a step-up session explicitly refused by the
- * backend (`block-stepup-create-failed` w/ `reason === 'create-failed'`) — is
- * reported to the backend's existing generic audit module
+ * Guard v3: step-up *success* is audited by the backend itself on finalize (it
+ * owns the grouped cache + WebAuthn result), so the client no longer reports a
+ * local "verified" outcome. The one MFA outcome still worth reporting from the
+ * client is a step-up session explicitly refused by the backend
+ * (`block-stepup-create-failed` w/ `reason === 'create-failed'`), reported to
+ * the backend's existing generic audit module
  * (`POST /v1/audit/logs`, src/audit/ in transcode-backend-nestjs-v1) under
  * the `guard_gate_decision` tag. Evasion-attempt visibility is the
  * compensating control for publishing the policy data (PRD §6).
@@ -28,18 +30,15 @@ import { GATE_DECISION_KIND, type GateDecision } from './evaluate.js';
 export const DECISION_AUDIT_TAG = 'guard_gate_decision';
 export const DECISION_AUDIT_TIMEOUT_MS = 1_000;
 
-/** The two recorded decision kinds (the MFA outcomes). */
+/** The recorded decision kind (the client-side MFA outcome). */
 export type RecordedDecisionKind =
-  | typeof GATE_DECISION_KIND.PROCEED_BY_VERIFICATION
-  | typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
+  typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
 
 export type DecisionAuditEvent = {
   decision: RecordedDecisionKind;
   resource: string;
   action: string;
   ruleId: string;
-  /** Command fingerprint (16-hex) when the decision carries one. */
-  fp?: string;
 };
 
 /**
@@ -53,15 +52,12 @@ export type DecisionAuditEvent = {
  * filtered out by `decisionAuditEventOf` before it reaches the wire.
  */
 const LEGACY_WIRE_DECISION: Record<RecordedDecisionKind, string> = {
-  [GATE_DECISION_KIND.PROCEED_BY_VERIFICATION]: 'allow',
   [GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED]: 'deny-stepup-failure',
 };
 
-/** Legacy severity the backend expects: `allow` is low, everything else medium. */
-function legacySeverity(decision: RecordedDecisionKind): 'low' | 'medium' {
-  return decision === GATE_DECISION_KIND.PROCEED_BY_VERIFICATION
-    ? 'low'
-    : 'medium';
+/** Legacy severity the backend expects: the create-failed refusal is medium. */
+function legacySeverity(_decision: RecordedDecisionKind): 'low' | 'medium' {
+  return 'medium';
 }
 
 /**
@@ -69,20 +65,12 @@ function legacySeverity(decision: RecordedDecisionKind): 'low' | 'medium' {
  * non-recorded kind (gate-uninvolved, policy-only allow/deny, no-token,
  * step-up challenged-but-unfinished) and for the `block-stepup-create-failed`
  * branches that are not a backend explicit refusal (`reason === 'no-token'`
- * or `'error'`). Only the two MFA-outcome events are recorded.
+ * or `'error'`). Only the backend explicit-refusal event is recorded.
  */
 export function decisionAuditEventOf(
   decision: GateDecision,
 ): DecisionAuditEvent | null {
   switch (decision.kind) {
-    case GATE_DECISION_KIND.PROCEED_BY_VERIFICATION:
-      return {
-        decision: decision.kind,
-        resource: decision.block.stepupResource,
-        action: decision.block.stepupAction,
-        ruleId: decision.block.ruleId,
-        ...(decision.fp ? { fp: decision.fp } : {}),
-      };
     case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
       // Narrow: only the backend explicit refusal is audited. The `no-token`
       // race (semantically `block-no-token`) and the `error` (local config

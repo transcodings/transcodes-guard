@@ -2,9 +2,15 @@
  * RBAC + optional step-up sid for protected MCP tool handlers.
  * Hook is first line; this re-checks on handler run (stdio/curl bypass backstop).
  * Matrix: 0=block, 1=pass (no sid), 2=step-up (verified sid required).
+ *
+ * Guard v3: the "verified" signal is no longer an on-disk record. The poll
+ * tools mark a backend-verified sid in the server's in-memory verified set
+ * (`verified-memory.ts`); this backstop consumes it single-shot via
+ * `claimStepupVerified()`. Same long-lived MCP server process, so the mark →
+ * claim handoff never crosses a process boundary.
  */
 import { loadMergedToolRules, ruleAppliesToHost, toolNameMatchesRule, } from '@transcodes-guard/danger-patterns';
-import { checkRbacPermission, clearPending, consumeVerified, loadStepupConfig, readVerified, } from '@transcodes-guard/stepup-core';
+import { checkRbacPermission, claimStepupVerified, loadStepupConfig, } from '@transcodes-guard/stepup-core';
 const RBAC_TTL_MS = 5 * 60_000;
 const SYSTEM_WIRE_PREFIX = 'mcp__plugin_transcodes-guard_transcodes-guard__';
 const rbacCache = new Map();
@@ -66,7 +72,6 @@ function stepupRequiredResult(toolName, rule) {
 }
 // 보호된 MCP tool 실행 전 RBAC와 step-up verified record를 최종 방어선으로 재확인한다.
 export async function execProtectedTool(toolName, run) {
-    const verified = readVerified();
     const rule = resolveProtectedToolRule(toolName);
     if (rule?.action !== undefined && rule.resource !== undefined) {
         let level = 2;
@@ -88,26 +93,25 @@ export async function execProtectedTool(toolName, run) {
                 ],
             };
         }
-        if (level === 2 && !verified) {
-            return stepupRequiredResult(toolName, rule);
-        }
         // Level 1 = allowed without step-up: the backend guard resolves RBAC itself
-        // and requires no sid, so only level 2 attaches the verified sid here.
-        const sid = level === 2 ? verified?.sid : undefined;
-        try {
+        // and requires no sid. Level 2 requires a backend-verified sid, consumed
+        // single-shot from the in-memory verified set.
+        if (level === 1) {
             return {
                 isError: false,
-                content: [{ type: 'text', text: await run(sid) }],
+                content: [{ type: 'text', text: await run(undefined) }],
             };
         }
-        finally {
-            if (verified) {
-                consumeVerified();
-                clearPending();
-            }
-        }
+        const sid = claimStepupVerified();
+        if (!sid)
+            return stepupRequiredResult(toolName, rule);
+        return {
+            isError: false,
+            content: [{ type: 'text', text: await run(sid) }],
+        };
     }
-    if (!verified) {
+    const sid = claimStepupVerified();
+    if (!sid) {
         return {
             isError: true,
             content: [
@@ -128,15 +132,9 @@ export async function execProtectedTool(toolName, run) {
             ],
         };
     }
-    try {
-        return {
-            isError: false,
-            content: [{ type: 'text', text: await run(verified.sid) }],
-        };
-    }
-    finally {
-        consumeVerified();
-        clearPending();
-    }
+    return {
+        isError: false,
+        content: [{ type: 'text', text: await run(sid) }],
+    };
 }
 //# sourceMappingURL=stepup-helper.js.map
