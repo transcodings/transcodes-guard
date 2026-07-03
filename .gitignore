@@ -267,3 +267,7 @@ cdn-dist/
 # Local scratch / verification scripts — never committed (kept out of the repo
 # so a stray `git add -A` can't re-introduce one with hardcoded local paths)
 .tmp-*
+
+# PRD / planning docs are local working documents — never committed.
+# (docs/prd/gate-decision-audit-redesign.md predates this rule and stays tracked.)
+docs/prd/
