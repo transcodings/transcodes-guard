@@ -1,7 +1,16 @@
 #!/usr/bin/env node
 import {
-  getGateBackend
-} from "../chunk-NVTLZX2S.js";
+  codexAdapter
+} from "../chunk-DRZMA5IG.js";
+import {
+  MAX_STOP_REMINDERS,
+  formatStopReminderMessage,
+  incrementLatchRemindedCount,
+  listLatches,
+  peekPromptSid,
+  readLatchRecord,
+  sweepLatches
+} from "../chunk-IFLTXULD.js";
 
 // hooks/stop.ts
 async function main() {
@@ -10,7 +19,14 @@ async function main() {
     }
   } catch {
   }
-  getGateBackend().sweepLatches();
+  sweepLatches();
+  const promptSid = peekPromptSid();
+  const pending = promptSid ? listLatches().find((l) => !l.expired && l.sid === promptSid) : void 0;
+  const rec = pending && readLatchRecord(pending.sid, pending.resource, pending.action);
+  if (rec && (rec.remindedCount ?? 0) < MAX_STOP_REMINDERS) {
+    process.stdout.write(codexAdapter.emitStop(formatStopReminderMessage(rec)));
+    incrementLatchRemindedCount(rec.sid, rec.resource, rec.action);
+  }
   process.exit(0);
 }
 main().catch((err) => {

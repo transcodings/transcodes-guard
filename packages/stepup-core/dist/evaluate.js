@@ -106,6 +106,7 @@ export async function evaluatePreToolUse(input) {
     const block = {
         reason: 'POST /guard/evaluate',
         command: classified.summary,
+        toolName: wireToolName(input),
         ruleId: GUARD_EVALUATE_RULE_ID,
         stepupResource: DEFAULT_RBAC_RESOURCE,
         stepupAction: 'update',
@@ -184,7 +185,9 @@ export async function evaluatePreToolUse(input) {
     // latch when the backend is starting fresh (exist:false → prior cache gone /
     // not-found) so a new browser tab can open.
     const reused = verdict.exist === true;
-    const pending = verdict.status === 'pending' || verdict.status === null || verdict.status === undefined;
+    const pending = verdict.status === 'pending' ||
+        verdict.status === null ||
+        verdict.status === undefined;
     if (hasLatch(sid, resource, action) && !(reused && pending)) {
         clearLatch(sid, resource, action);
     }

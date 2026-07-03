@@ -39,6 +39,13 @@ type LatchRecord = {
   /** Backend-minted `tc_stepup_…` for poll → latch cleanup on terminal poll. */
   authSid?: string;
   createdAt: number;
+  /** Stop-hook reminders emitted for this in-flight latch (cap in stop-reminder.ts). */
+  remindedCount?: number;
+};
+
+export type LatchRecordWithCoordinate = LatchRecord & {
+  resource: string;
+  action: string;
 };
 
 /** Collapse anything outside `[A-Za-z0-9_-]` so the coordinate is a safe
@@ -55,18 +62,73 @@ function latchPath(sid: string, resource: string, action: string): string {
   return path.join(cacheDir(), latchName(sid, resource, action));
 }
 
+function parseLatchRecord(
+  file: string,
+  now: number,
+): LatchRecordWithCoordinate | null {
+  let raw: string;
+  try {
+    raw = readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<LatchRecord> | null;
+    if (
+      !parsed ||
+      typeof parsed.sid !== 'string' ||
+      typeof parsed.resource !== 'string' ||
+      typeof parsed.action !== 'string' ||
+      typeof parsed.createdAt !== 'number'
+    ) {
+      rmSync(file, { force: true });
+      return null;
+    }
+    if (now - parsed.createdAt > STEPUP_TTL_MS) {
+      rmSync(file, { force: true });
+      return null;
+    }
+    return {
+      sid: parsed.sid,
+      resource: parsed.resource,
+      action: parsed.action,
+      authSid: parsed.authSid?.trim() || undefined,
+      createdAt: parsed.createdAt,
+      remindedCount:
+        typeof parsed.remindedCount === 'number' &&
+        Number.isInteger(parsed.remindedCount) &&
+        parsed.remindedCount >= 0
+          ? parsed.remindedCount
+          : undefined,
+    };
+  } catch {
+    try {
+      rmSync(file, { force: true });
+    } catch {
+      // best-effort
+    }
+    return null;
+  }
+}
+
+/** Read a latch when present and non-expired; reaps stale/corrupt files. */
+export function readLatchRecord(
+  sid: string,
+  resource: string,
+  action: string,
+  now: number = Date.now(),
+): LatchRecordWithCoordinate | null {
+  return parseLatchRecord(latchPath(sid, resource, action), now);
+}
+
 /** True when a challenge for this coordinate is already in flight this prompt. */
 export function hasLatch(
   sid: string,
   resource: string,
   action: string,
+  now: number = Date.now(),
 ): boolean {
-  try {
-    readFileSync(latchPath(sid, resource, action), 'utf8');
-    return true;
-  } catch {
-    return false;
-  }
+  return readLatchRecord(sid, resource, action, now) !== null;
 }
 
 /** Best-effort claim. Overwrites unconditionally; never throws. */
@@ -76,6 +138,7 @@ export function writeLatch(
   action: string,
   authSid?: string,
   now: number = Date.now(),
+  remindedCount?: number,
 ): void {
   const record: LatchRecord = {
     sid,
@@ -83,6 +146,12 @@ export function writeLatch(
     action,
     authSid: authSid?.trim() || undefined,
     createdAt: now,
+    remindedCount:
+      typeof remindedCount === 'number' &&
+      Number.isInteger(remindedCount) &&
+      remindedCount >= 0
+        ? remindedCount
+        : undefined,
   };
   try {
     writeFileSync(latchPath(sid, resource, action), JSON.stringify(record), {
@@ -185,6 +254,41 @@ export function listLatches(now: number = Date.now()): LatchInspection[] {
     }
   }
   return out;
+}
+
+/** Bump the Stop reminder counter on a live latch. Never throws. */
+export function incrementLatchRemindedCount(
+  sid: string,
+  resource: string,
+  action: string,
+  now: number = Date.now(),
+): number | null {
+  const rec = readLatchRecord(sid, resource, action, now);
+  if (!rec) return null;
+  const next = (rec.remindedCount ?? 0) + 1;
+  writeLatch(sid, resource, action, rec.authSid, rec.createdAt, next);
+  return next;
+}
+
+/** Stop-hook reminder copy (cap enforced by the caller). */
+export function formatStopReminderMessage(
+  latch: LatchRecordWithCoordinate,
+): string {
+  const authSid =
+    latch.authSid?.trim() ||
+    '(use the tc_stepup_ sid from the PreToolUse deny message)';
+  return [
+    'transcodes-guard: a step-up MFA session is still PENDING. The tool',
+    'call it gated was NOT executed. Resume the loop or report to the',
+    'user that authentication is still required.',
+    '',
+    `Session sid     : ${authSid}`,
+    `Coordinate      : ${latch.resource}:${latch.action}`,
+    '',
+    'Next action:',
+    `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${authSid}".`,
+    '  - On `outcome: "verified"` retry the exact original tool call.',
+  ].join('\n');
 }
 
 /**

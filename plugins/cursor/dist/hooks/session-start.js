@@ -5,11 +5,12 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-7BO7MLBP.js";
+} from "../chunk-VLSHUJIX.js";
 
 // hooks/session-start.ts
 async function main() {
   const backend = getGateBackend();
+  backend.sweepLatches();
   backend.rotatePromptSid();
   const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
   if (tokenNotice) {

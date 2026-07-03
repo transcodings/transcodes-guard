@@ -18,6 +18,7 @@ import { codexAdapter } from '@transcodes-guard/hook-adapters';
 
 async function main(): Promise<void> {
   const backend = getGateBackend();
+  backend.sweepLatches();
   backend.rotatePromptSid();
   const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
   if (tokenNotice) {

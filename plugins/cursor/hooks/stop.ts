@@ -1,19 +1,21 @@
 #!/usr/bin/env node
 /**
- * Cursor Stop hook — silent housekeeping only.
- *
- * Deadlock fix (Guard v3 grouping): the Stop hook NEVER blocks the turn for an
- * in-flight step-up. A pending MFA lives in the backend cache (SSOT), not on
- * disk, so there is nothing local to reconcile — the only client-side state is
- * the per-coordinate browser latch. Stop just reaps expired latches (orphaned
- * when a host killed the PreToolUse hook mid-flight) and exits 0.
+ * Cursor Stop hook — expired latch reap + capped MFA reminder.
  */
 import '../host.js';
 import '../backend.js';
-import { getGateBackend } from '@transcodes-guard/gate-contract';
+import { cursorAdapter } from '@transcodes-guard/hook-adapters';
+import {
+  formatStopReminderMessage,
+  incrementLatchRemindedCount,
+  listLatches,
+  MAX_STOP_REMINDERS,
+  peekPromptSid,
+  readLatchRecord,
+  sweepLatches,
+} from '@transcodes-guard/stepup-core';
 
 async function main(): Promise<void> {
-  // Drain stdin even though we don't read it; some hosts require it.
   try {
     for await (const _chunk of process.stdin) {
       // discard
@@ -22,8 +24,20 @@ async function main(): Promise<void> {
     // ignore
   }
 
-  // Reap expired browser/poll latches. Never blocks the turn.
-  getGateBackend().sweepLatches();
+  sweepLatches();
+
+  const promptSid = peekPromptSid();
+  const pending = promptSid
+    ? listLatches().find((l) => !l.expired && l.sid === promptSid)
+    : undefined;
+  const rec =
+    pending && readLatchRecord(pending.sid, pending.resource, pending.action);
+  if (rec && (rec.remindedCount ?? 0) < MAX_STOP_REMINDERS) {
+    process.stdout.write(
+      cursorAdapter.emitStop(formatStopReminderMessage(rec)),
+    );
+    incrementLatchRemindedCount(rec.sid, rec.resource, rec.action);
+  }
 
   process.exit(0);
 }

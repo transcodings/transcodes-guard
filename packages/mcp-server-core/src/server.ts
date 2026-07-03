@@ -50,7 +50,9 @@ function formatToolRulesMarkdown(rules: MergedToolRule[]): string {
   ];
   for (const r of rules) {
     lines.push(
-      `| \`${r.id}\` | \`${r.name}\` | ${r.description} | ${r.action ?? '—'} | ${r.resource ?? '—'} |`,
+      `| \`${r.id}\` | \`${r.name}\` | ${r.description} | ${
+        r.action ?? '—'
+      } | ${r.resource ?? '—'} |`,
     );
   }
   return lines.join('\n');

@@ -5,10 +5,10 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-KYY4ODN5.js";
+} from "../chunk-SXXQ5NHU.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.31.3";
+var PLUGIN_VERSION = "0.32.1";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = [
@@ -38,6 +38,7 @@ async function main() {
   process.stderr.write(`[transcodes-guard] v${PLUGIN_VERSION}
 `);
   const backend = getGateBackend();
+  backend.sweepLatches();
   backend.rotatePromptSid();
   const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
   const versionLine = `transcodes-guard v${PLUGIN_VERSION}`;

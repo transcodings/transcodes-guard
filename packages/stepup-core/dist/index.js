@@ -11,14 +11,14 @@
  * without collision.
  */
 export { request, } from './client.js';
-export { DEFAULT_BACKEND_URL, loadStepupConfig, STEPUP_TTL_MS, } from './config.js';
+export { DEFAULT_BACKEND_URL, loadStepupConfig, MAX_STOP_REMINDERS, STEPUP_TTL_MS, } from './config.js';
 export { CONSOLE_SESSION_COMMENT, fetchMemberProfile, openConsoleSession, } from './console.js';
 export { DECISION_AUDIT_TAG, DECISION_AUDIT_TIMEOUT_MS, decisionAuditEventOf, sendDecisionAudit, sendGateDecisionAudit, } from './decision-audit.js';
 export { evaluatePreToolUse, GATE_DECISION_KIND, } from './evaluate.js';
 export { openBrowser } from './gate.js';
 export { inspectStepupState, } from './inspector.js';
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
-export { clearLatch, clearLatchByAuthSid, hasLatch, listLatches, sweepLatches, writeLatch, } from './latch.js';
+export { clearLatch, clearLatchByAuthSid, formatStopReminderMessage, hasLatch, incrementLatchRemindedCount, listLatches, readLatchRecord, sweepLatches, writeLatch, } from './latch.js';
 export { checkRbacPermission, } from './rbac-check.js';
 export { createConsoleBrowserSession, createStepupSession, pollStepupSession, pollStepupSessionWait, } from './session.js';
 export { peekPromptSid, resolvePromptSid, rotatePromptSid, } from './sid.js';

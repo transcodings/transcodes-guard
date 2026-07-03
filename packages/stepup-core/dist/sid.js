@@ -11,6 +11,8 @@
  * It is NOT the `tc_stepup_` auth token (that is backend-minted per action and
  * lives in the auth URL) — the two never overlap.
  *
+ * Persisted at `~/.transcodes/state/session-sid.json`.
+ *
  * Lifecycle:
  *   - `rotatePromptSid()` mints a fresh sid — called by the prompt-submit /
  *     session-start hooks so each user prompt starts a new grouping window.
@@ -27,7 +29,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { cacheDir } from '@transcodes-guard/plugin-paths';
 import { STEPUP_TTL_MS } from './config.js';
-const SID_FILE = 'stepup-sid.json';
+const SID_FILE = 'grouping-session.json';
 function sidPath() {
     return path.join(cacheDir(), SID_FILE);
 }

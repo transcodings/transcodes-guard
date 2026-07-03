@@ -121,7 +121,8 @@ export function createServer(backend = getGateBackend()) {
         if (result.status === 'verified') {
             backend.markStepupVerified(sid);
         }
-        else if (result.status === 'rejected' || result.status === 'not_found') {
+        else if (result.status === 'rejected' ||
+            result.status === 'not_found') {
             backend.clearLatchByAuthSid(sid);
         }
         return {

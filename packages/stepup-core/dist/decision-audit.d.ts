@@ -9,6 +9,9 @@ export type DecisionAuditEvent = {
     resource: string;
     action: string;
     ruleId: string;
+    /** Wire tool name (`Bash`, `mcp__…`) — the tool *species*, never the raw
+     * command string (data minimisation holds). */
+    toolName?: string;
 };
 /**
  * Map a gate decision onto its audit event. Returns null for every

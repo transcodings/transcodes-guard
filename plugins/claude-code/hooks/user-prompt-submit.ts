@@ -21,7 +21,9 @@ function main(): void {
   } catch {
     process.exit(0);
   }
-  getGateBackend().rotatePromptSid();
+  const backend = getGateBackend();
+  backend.sweepLatches();
+  backend.rotatePromptSid();
   process.exit(0);
 }
 

@@ -36,6 +36,8 @@ export interface BlockResult {
     details?: string[];
     /** Command / tool-call summary used in stderr logs. */
     command: string;
+    /** Wire tool name (`Bash`, `mcp__…`). Feeds decision audit metadata. */
+    toolName?: string;
     /** Synthetic audit id. Feeds decision audit (H2). */
     ruleId: string;
     /** RBAC placeholder until `/guard/evaluate` returns the classified coordinate. */

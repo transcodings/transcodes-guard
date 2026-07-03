@@ -45,6 +45,7 @@ async function main(): Promise<void> {
   process.stderr.write(`[transcodes-guard] v${PLUGIN_VERSION}\n`);
 
   const backend = getGateBackend();
+  backend.sweepLatches();
   // New session → fresh grouping window for step-up dedup.
   backend.rotatePromptSid();
 
