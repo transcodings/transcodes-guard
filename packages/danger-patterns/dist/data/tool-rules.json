@@ -5,7 +5,7 @@
       "type": "mcp",
       "label": "Retire member",
       "description": "Permanent member deletion",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__retire_member",
+      "name": "tc_retire_member",
       "action": "delete",
       "resource": "system",
       "matcher": "exact"
@@ -15,7 +15,7 @@
       "type": "mcp",
       "label": "Suspend member",
       "description": "Member login suspension",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__suspend_member",
+      "name": "tc_suspend_member",
       "action": "update",
       "resource": "system",
       "matcher": "exact"
@@ -25,7 +25,7 @@
       "type": "mcp",
       "label": "Unsuspend member",
       "description": "Member suspension removal",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__unsuspend_member",
+      "name": "tc_unsuspend_member",
       "action": "update",
       "resource": "system",
       "matcher": "exact"
@@ -35,7 +35,7 @@
       "type": "mcp",
       "label": "Retire role",
       "description": "Permanent role deletion",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__retire_role",
+      "name": "tc_retire_role",
       "action": "delete",
       "resource": "system",
       "matcher": "exact"
@@ -45,7 +45,7 @@
       "type": "mcp",
       "label": "Set role permissions",
       "description": "Role permissions matrix reset",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__set_role_permissions",
+      "name": "tc_set_role_permissions",
       "action": "update",
       "resource": "system",
       "matcher": "exact"
@@ -55,7 +55,7 @@
       "type": "mcp",
       "label": "Update member role",
       "description": "Member role reassignment",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__update_member_role",
+      "name": "tc_update_member_role",
       "action": "update",
       "resource": "system",
       "matcher": "exact"
@@ -65,7 +65,7 @@
       "type": "mcp",
       "label": "Retire resource",
       "description": "Permanent RBAC resource deletion",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__retire_resource",
+      "name": "tc_retire_resource",
       "action": "delete",
       "resource": "system",
       "matcher": "exact"
@@ -75,7 +75,7 @@
       "type": "mcp",
       "label": "Passcode create",
       "description": "Recovery passcode generation",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__passcode_create",
+      "name": "tc_passcode_create",
       "action": "create",
       "resource": "system",
       "matcher": "exact"
@@ -85,7 +85,7 @@
       "type": "mcp",
       "label": "Create member",
       "description": "New member provisioning",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__create_member",
+      "name": "tc_create_member",
       "action": "create",
       "resource": "system",
       "matcher": "exact"
@@ -95,7 +95,7 @@
       "type": "mcp",
       "label": "Update member",
       "description": "Member profile update",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__update_member",
+      "name": "tc_update_member",
       "action": "update",
       "resource": "system",
       "matcher": "exact"
@@ -105,7 +105,7 @@
       "type": "mcp",
       "label": "Create role",
       "description": "New RBAC role creation",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__create_role",
+      "name": "tc_create_role",
       "action": "create",
       "resource": "system",
       "matcher": "exact"
@@ -115,7 +115,7 @@
       "type": "mcp",
       "label": "Update role",
       "description": "RBAC role metadata update",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__update_role",
+      "name": "tc_update_role",
       "action": "update",
       "resource": "system",
       "matcher": "exact"
@@ -125,7 +125,7 @@
       "type": "mcp",
       "label": "Create resource",
       "description": "New RBAC resource creation",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__create_resource",
+      "name": "tc_create_resource",
       "action": "create",
       "resource": "system",
       "matcher": "exact"
@@ -135,7 +135,7 @@
       "type": "mcp",
       "label": "Update resource",
       "description": "RBAC resource metadata update",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__update_resource",
+      "name": "tc_update_resource",
       "action": "update",
       "resource": "system",
       "matcher": "exact"
@@ -145,7 +145,7 @@
       "type": "mcp",
       "label": "Get security logs",
       "description": "Project audit log access",
-      "name": "mcp__plugin_transcodes-guard_transcodes-guard__get_security_logs",
+      "name": "tc_get_security_logs",
       "action": "read",
       "resource": "system",
       "matcher": "exact"

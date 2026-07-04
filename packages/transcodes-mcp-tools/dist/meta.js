@@ -7,7 +7,7 @@ const textResult = (text, isError = false) => ({
     content: [{ type: 'text', text }],
 });
 export function registerMetaTools(server) {
-    server.registerTool('get_current_project_id', {
+    server.registerTool('tc_get_current_project_id', {
         title: 'Get current project id',
         description: 'Returns the active project ID parsed from TRANSCODES_TOKEN. ' +
             'Call this tool first when you need the project ID instead of asking the user.',
@@ -16,7 +16,7 @@ export function registerMetaTools(server) {
         const config = loadStepupConfig();
         return textResult(JSON.stringify({ ok: true, project_id: config.projectId }, null, 2));
     });
-    server.registerTool('get_current_organization_id', {
+    server.registerTool('tc_get_current_organization_id', {
         title: 'Get current organization id',
         description: 'Returns organizationId from TRANSCODES_TOKEN JWT.',
         inputSchema: {},
@@ -24,7 +24,7 @@ export function registerMetaTools(server) {
         const config = loadStepupConfig();
         return textResult(JSON.stringify({ ok: true, organization_id: config.organizationId }, null, 2));
     });
-    server.registerTool('get_current_member_id', {
+    server.registerTool('tc_get_current_member_id', {
         title: 'Get current member id',
         description: 'Returns memberId from TRANSCODES_TOKEN JWT.',
         inputSchema: {},
@@ -32,7 +32,7 @@ export function registerMetaTools(server) {
         const config = loadStepupConfig();
         return textResult(JSON.stringify({ ok: true, member_id: config.memberId }, null, 2));
     });
-    server.registerTool('get_my_profile', {
+    server.registerTool('tc_get_my_profile', {
         title: 'Get my profile',
         description: 'Returns the profile of the member identified by TRANSCODES_TOKEN (organizationId, projectId, memberId in config). ' +
             'Use when the user asks "who am I", "show my profile", or "show my member info". ' +
@@ -46,7 +46,7 @@ export function registerMetaTools(server) {
         }, 'get_member');
         return textResult(text);
     });
-    server.registerTool('get_console_url', {
+    server.registerTool('tc_get_console_url', {
         title: 'Get console URL',
         description: 'Mint a step-up-protected console URL. Console access is gated behind step-up MFA ' +
             'via POST .../console/session; this tool returns the browser URL ' +
@@ -77,7 +77,7 @@ export function registerMetaTools(server) {
             message: 'Console access is protected by step-up MFA. Direct the user to browser_url to authenticate, then complete the browser-only action.',
         }, null, 2));
     });
-    server.registerTool('get_integration_guide', {
+    server.registerTool('tc_get_integration_guide', {
         title: 'Get integration guide',
         description: 'IMPORTANT: You MUST call this tool BEFORE writing ANY Transcodes-related code. ' +
             'Fetches the official Transcodes integration guide (llms.txt) — the single source of truth for all implementation details. ' +

@@ -50,6 +50,8 @@ export {
   type ToolRuleMatch,
   type ToolRuleSource,
   ToolRuleValidationError,
+  TRANSCODES_GUARD_TOOL_PREFIX,
+  TRANSCODES_MCP_HOST_MARKER,
   toolNameMatchesRule,
   validateNewToolRule,
 } from './tool-rules.js';

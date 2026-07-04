@@ -18,7 +18,7 @@ const textResult = (text: string, isError = false) => ({
 
 export function registerAuthDeviceTools(server: McpServer): void {
   server.registerTool(
-    'list_authenticators',
+    'tc_list_authenticators',
     {
       title: 'List authenticators',
       description:
@@ -42,7 +42,7 @@ export function registerAuthDeviceTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'list_passkeys',
+    'tc_list_passkeys',
     {
       title: 'List passkeys',
       description:
@@ -66,7 +66,7 @@ export function registerAuthDeviceTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'list_totps',
+    'tc_list_totps',
     {
       title: 'List TOTP devices',
       description:

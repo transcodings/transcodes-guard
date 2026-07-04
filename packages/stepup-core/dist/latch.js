@@ -217,7 +217,7 @@ export function formatStopReminderMessage(latch) {
         `Coordinate      : ${latch.resource}:${latch.action}`,
         '',
         'Next action:',
-        `  - Call MCP tool \`poll_stepup_session_wait\` with sid="${authSid}".`,
+        `  - Call MCP tool \`tc_poll_stepup_session_wait\` with sid="${authSid}".`,
         '  - On `outcome: "verified"` retry the exact original tool call.',
     ].join('\n');
 }

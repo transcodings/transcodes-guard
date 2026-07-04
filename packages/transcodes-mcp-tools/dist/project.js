@@ -211,7 +211,7 @@ async function loadProjectForOriginCheck() {
     return project;
 }
 export function registerProjectTools(server) {
-    server.registerTool('get_project', {
+    server.registerTool('tc_get_project', {
         title: 'Get project',
         description: 'Fetch the active project (fixed by TRANSCODES_TOKEN pid claim). ' +
             'Returns all information about the project — including toolkit, domain_url, title, description, and created/updated timestamps. ' +
@@ -222,7 +222,7 @@ export function registerProjectTools(server) {
         const text = await req(config, { method: 'GET' }, 'get_project', `/${config.projectId}`);
         return textResult(text);
     });
-    server.registerTool('check_related_origin', {
+    server.registerTool('tc_check_related_origin', {
         title: 'Check sign-in related origin',
         description: 'Read-only diagnostic for hosted sign-in redirect setup. ' +
             'Checks whether a redirect_uri/origin is present in the active project authentication.related_origins allow-list, matching the backend sign-in callback policy.',
@@ -250,7 +250,7 @@ export function registerProjectTools(server) {
             }, null, 2), true);
         }
     });
-    server.registerTool('check_project_assets', {
+    server.registerTool('tc_check_project_assets', {
         title: 'Check project CDN assets',
         description: 'Read-only CDN asset diagnostic for the active project. ' +
             'Separates Authentication-only SDK availability (`webworker.js`) from optional Web App Kit install assets (`manifest.json`, `sw.js`) so missing manifest/sw.js is not mistaken for auth failures. ' +
@@ -269,7 +269,7 @@ export function registerProjectTools(server) {
             }, null, 2), true);
         }
     });
-    server.registerTool('project_pwa_auth_console', {
+    server.registerTool('tc_project_pwa_auth_console', {
         title: 'Auth config (console-only)',
         description: 'Blocked: Authentication and console configuration (manifest, service worker, branding, WebAuthn, related origins, token expiry, etc.) must be done in the Transcodes console. ' +
             'These settings trigger an SDK rebuild and redeployment — a pipeline the console manages automatically. ' +

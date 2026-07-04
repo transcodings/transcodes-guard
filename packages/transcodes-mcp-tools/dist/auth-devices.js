@@ -6,7 +6,7 @@ const textResult = (text, isError = false) => ({
     content: [{ type: 'text', text }],
 });
 export function registerAuthDeviceTools(server) {
-    server.registerTool('list_authenticators', {
+    server.registerTool('tc_list_authenticators', {
         title: 'List authenticators',
         description: 'List all WebAuthn authenticators for a member. Separate from the passkey service. Requires member_id.',
         inputSchema: {
@@ -20,7 +20,7 @@ export function registerAuthDeviceTools(server) {
         }, 'list_authenticators');
         return textResult(text);
     });
-    server.registerTool('list_passkeys', {
+    server.registerTool('tc_list_passkeys', {
         title: 'List passkeys',
         description: 'List passkeys for a member. Server typically filters by project rp_id. Requires member_id.',
         inputSchema: {
@@ -34,7 +34,7 @@ export function registerAuthDeviceTools(server) {
         }, 'list_passkeys');
         return textResult(text);
     });
-    server.registerTool('list_totps', {
+    server.registerTool('tc_list_totps', {
         title: 'List TOTP devices',
         description: 'List TOTP devices for a member. Use to audit MFA enrollment. Requires member_id.',
         inputSchema: {

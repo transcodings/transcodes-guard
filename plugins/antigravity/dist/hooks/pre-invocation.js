@@ -5,7 +5,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-3XH6MCR5.js";
+} from "../chunk-Y24C4S4C.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";
@@ -20,7 +20,7 @@ function primerMessage() {
     "  1. Tell the user (one short line) to complete WebAuthn in the",
     "     auto-opened browser tab (paste the URL from the deny message if",
     "     it did not open).",
-    "  2. Immediately call MCP tool `poll_stepup_session_wait` with the sid",
+    "  2. Immediately call MCP tool `tc_poll_stepup_session_wait` with the sid",
     "     from the deny message. It blocks until verified or 60s timeout.",
     '  3. On `outcome: "verified"` retry the same command \u2014 the backend cache',
     "     reports it verified and the gate allows it.",

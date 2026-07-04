@@ -16,7 +16,7 @@ const textResult = (text: string, isError = false) => ({
 
 export function registerOrganizationTools(server: McpServer): void {
   server.registerTool(
-    'user_get_current',
+    'tc_user_get_current',
     {
       title: 'Get current user',
       description:
@@ -32,7 +32,7 @@ export function registerOrganizationTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'user_find',
+    'tc_user_find',
     {
       title: 'Find user',
       description:
@@ -58,7 +58,7 @@ export function registerOrganizationTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'user_create',
+    'tc_user_create',
     {
       title: 'Create user (console-only)',
       description:

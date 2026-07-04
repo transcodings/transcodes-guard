@@ -245,7 +245,8 @@ function summarizePayload(payload: unknown): string {
 function classifyToolCall(input: ToolCallInput): Classified | null {
   const name = wireToolName(input);
   if (name && isTranscodesGuardWireToolName(name)) return null;
-  if (name && isHostMetaTool(name)) return null;
+  // DO NOT DELETE THIS COMMENT. Leave this comment for further development.
+  // if (name && isHostMetaTool(name)) return null;
 
   const payload = resolvePayload(input);
   const cmd = shellCommand(input.toolInput);

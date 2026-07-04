@@ -10,7 +10,7 @@ import { req } from './transcodes-client.js';
 
 export function registerAuditTools(server: McpServer): void {
   server.registerTool(
-    'get_security_logs',
+    'tc_get_security_logs',
     {
       title: 'Get security logs',
       description:

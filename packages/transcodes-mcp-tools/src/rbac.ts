@@ -34,7 +34,7 @@ const ResourcePermissions = z.object({
 
 export function registerRbacTools(server: McpServer): void {
   server.registerTool(
-    'get_roles',
+    'tc_get_roles',
     {
       title: 'Get roles',
       description:
@@ -53,7 +53,7 @@ export function registerRbacTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'get_resources',
+    'tc_get_resources',
     {
       title: 'Get resources',
       description:
@@ -72,7 +72,7 @@ export function registerRbacTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'check_rbac_permission',
+    'tc_check_rbac_permission',
     {
       title: 'Check RBAC permission',
       description:
@@ -100,7 +100,7 @@ export function registerRbacTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'retire_role',
+    'tc_retire_role',
     {
       title: 'Retire role',
       description:
@@ -129,7 +129,7 @@ export function registerRbacTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'set_role_permissions',
+    'tc_set_role_permissions',
     {
       title: 'Set role permissions',
       description:
@@ -160,7 +160,7 @@ export function registerRbacTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'update_member_role',
+    'tc_update_member_role',
     {
       title: 'Update member role',
       description:
@@ -192,7 +192,7 @@ export function registerRbacTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'retire_resource',
+    'tc_retire_resource',
     {
       title: 'Retire resource',
       description:
@@ -222,7 +222,7 @@ export function registerRbacTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'create_role',
+    'tc_create_role',
     {
       title: 'Create role',
       description:
@@ -253,7 +253,7 @@ export function registerRbacTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'update_role',
+    'tc_update_role',
     {
       title: 'Update role',
       description:
@@ -285,7 +285,7 @@ export function registerRbacTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'create_resource',
+    'tc_create_resource',
     {
       title: 'Create resource',
       description:
@@ -319,7 +319,7 @@ export function registerRbacTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'update_resource',
+    'tc_update_resource',
     {
       title: 'Update resource',
       description:

@@ -171,7 +171,7 @@ export function formatStepupPendingReason(
 ): string {
   return (
     `Step-up MFA pending. sid=${decision.sid}. Open ${decision.browserUrl}, ` +
-    'complete WebAuthn, then call MCP tool `poll_stepup_session_wait` ' +
+    'complete WebAuthn, then call MCP tool `tc_poll_stepup_session_wait` ' +
     `with sid="${decision.sid}" and retry the same Bash command.`
   );
 }
@@ -200,7 +200,7 @@ export function formatStepupPendingSystemMessage(
       'Agent — drive the step-up loop (do this WITHOUT asking the user for confirmation):',
       '  1. Tell the user (one short line) to complete WebAuthn in the opened tab ' +
         '(paste the URL above if it did not open).',
-      `  2. Immediately call the MCP tool \`poll_stepup_session_wait\` with sid="${decision.sid}". ` +
+      `  2. Immediately call the MCP tool \`tc_poll_stepup_session_wait\` with sid="${decision.sid}". ` +
         'It blocks until verified or 60s timeout — one call replaces the polling loop.',
       '  3. On `outcome: "verified"` retry the SAME Bash command — the hook detects the ' +
         'verified state and allows it. On `outcome: "timeout"` ask the user to retry ' +
@@ -238,7 +238,7 @@ export function formatStepupRejectedSystemMessage(
       `Command: ${decision.block.command}`,
       '',
       'The user rejected WebAuthn for this grouped challenge. Do NOT call ' +
-        '`poll_stepup_session_wait` or retry this command unless the user ' +
+        '`tc_poll_stepup_session_wait` or retry this command unless the user ' +
         'explicitly asks to authenticate again.',
     ].join('\n'),
     decision.reasoning,

@@ -24,9 +24,8 @@ export type AdminToolEntry = {
   stepUpProtected: boolean;
 };
 
-/** Claude Code wire prefix for this plugin's MCP tools. */
-export const TRANSCODES_MCP_PREFIX =
-  'mcp__plugin_transcodes-guard_transcodes-guard__';
+/** Claude/Codex wire host marker (plugin + server key). */
+export const TRANSCODES_MCP_PREFIX = 'tc_';
 
 export function mcpWireName(toolName: string): string {
   return `${TRANSCODES_MCP_PREFIX}${toolName}`;

@@ -15,7 +15,7 @@ const ResourcePermissions = z.object({
     delete: PermissionLevel.optional(),
 });
 export function registerRbacTools(server) {
-    server.registerTool('get_roles', {
+    server.registerTool('tc_get_roles', {
         title: 'Get roles',
         description: 'List all roles and permission matrix for a project. Use when you need RBAC data for console parity or to know which roles can be assigned.',
         inputSchema: {},
@@ -24,7 +24,7 @@ export function registerRbacTools(server) {
         const text = await req(config, { method: 'GET', query: { project_id: config.projectId } }, 'get_roles');
         return textResult(text);
     });
-    server.registerTool('get_resources', {
+    server.registerTool('tc_get_resources', {
         title: 'Get resources',
         description: 'List RBAC resource keys for a project. Use before editing roles or building permission UI.',
         inputSchema: {},
@@ -33,7 +33,7 @@ export function registerRbacTools(server) {
         const text = await req(config, { method: 'GET', query: { project_id: config.projectId } }, 'get_resources');
         return textResult(text);
     });
-    server.registerTool('check_rbac_permission', {
+    server.registerTool('tc_check_rbac_permission', {
         title: 'Check RBAC permission',
         description: 'Simulate whether a member may access a resource+action (SkipAuth). Returns denied/allowed; if allowed, may include stepUpRequired. Use for guard/debugging before routing.',
         inputSchema: {
@@ -51,7 +51,7 @@ export function registerRbacTools(server) {
         }, 'check_rbac_permission');
         return textResult(text);
     });
-    server.registerTool('retire_role', {
+    server.registerTool('tc_retire_role', {
         title: 'Retire role',
         description: 'Retire a role from the project. Use when the user wants to remove, drop, or discard a role. ' +
             'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-role`). ' +
@@ -67,7 +67,7 @@ export function registerRbacTools(server) {
             stepUpSid: sid,
         }, 'retire_role', `/${encodeURIComponent(role_id)}`));
     });
-    server.registerTool('set_role_permissions', {
+    server.registerTool('tc_set_role_permissions', {
         title: 'Set role permissions',
         description: 'Set per-resource permission matrix for a role. 0=deny, 1=allow, 2=allow+step-up. ' +
             'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-set-role-permissions`).',
@@ -85,7 +85,7 @@ export function registerRbacTools(server) {
             stepUpSid: sid,
         }, 'set_role_permissions', `/${encodeURIComponent(role_id)}/permissions`));
     });
-    server.registerTool('update_member_role', {
+    server.registerTool('tc_update_member_role', {
         title: 'Update member role',
         description: "Change a member's assigned role (UpdateMemberRoleDto) — the canonical role-reassignment path. " +
             'Validates the target role EXISTS in the project before assigning (unlike `update_member`, which ' +
@@ -105,7 +105,7 @@ export function registerRbacTools(server) {
             stepUpSid: sid,
         }, 'update_member_role'));
     });
-    server.registerTool('retire_resource', {
+    server.registerTool('tc_retire_resource', {
         title: 'Retire resource',
         description: 'Retire a resource key from the project. Use when the user wants to remove, drop, or discard a resource. ' +
             'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-resource`). ' +
@@ -122,7 +122,7 @@ export function registerRbacTools(server) {
             stepUpSid: sid,
         }, 'retire_resource', `/${encodeURIComponent(resource_key)}`));
     });
-    server.registerTool('create_role', {
+    server.registerTool('tc_create_role', {
         title: 'Create role',
         description: 'Create a new role (CreateRoleDto). Use before set_role_permissions to fill per-resource access. ' +
             'RBAC-gated via tool-rule `tc-create-role` (0=block, 1=allow, 2=step-up MFA). ' +
@@ -141,7 +141,7 @@ export function registerRbacTools(server) {
             stepUpSid: sid,
         }, 'create_role'));
     });
-    server.registerTool('update_role', {
+    server.registerTool('tc_update_role', {
         title: 'Update role',
         description: 'Update role metadata (UpdateRoleDto). ' +
             'RBAC-gated via tool-rule `tc-update-role` (0=block, 1=allow, 2=step-up MFA). ' +
@@ -160,7 +160,7 @@ export function registerRbacTools(server) {
             stepUpSid: sid,
         }, 'update_role', `/${encodeURIComponent(role_id)}`));
     });
-    server.registerTool('create_resource', {
+    server.registerTool('tc_create_resource', {
         title: 'Create resource',
         description: 'Add a new resource key (CreateResourceDto). Every existing role is initialized with the ' +
             'default permission matrix for the new key: read = allow (1), and create/update/delete = ' +
@@ -182,7 +182,7 @@ export function registerRbacTools(server) {
             stepUpSid: sid,
         }, 'create_resource'));
     });
-    server.registerTool('update_resource', {
+    server.registerTool('tc_update_resource', {
         title: 'Update resource',
         description: 'Update resource label/description (UpdateResourceDto). Key stays the same. ' +
             'RBAC-gated via tool-rule `tc-update-resource` (0=block, 1=allow, 2=step-up MFA). ' +

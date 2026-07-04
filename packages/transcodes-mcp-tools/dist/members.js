@@ -9,7 +9,7 @@ const textResult = (text, isError = false) => ({
 const MEMBER_SUSPENSION_API_NOTE = 'Exact path after /v1: /auth/member/revocation (singular member, NOT members). ' +
     'GET=query only; POST=suspend body; DELETE=unsuspend body. No PUT, PATCH, or /member/suspend.';
 export function registerMemberTools(server) {
-    server.registerTool('get_member', {
+    server.registerTool('tc_get_member', {
         title: 'Get member',
         description: 'Get one member profile. Pass `member_id` OR `email` — at least one is required (never omit both). Use for support lookups and auth debugging.',
         inputSchema: {
@@ -28,7 +28,7 @@ export function registerMemberTools(server) {
         }, 'get_member');
         return textResult(text);
     });
-    server.registerTool('list_members_paginated', {
+    server.registerTool('tc_list_members_paginated', {
         title: 'List members (paginated)',
         description: 'Paginated member list without search. Fast for large directories; use sort_by/order.',
         inputSchema: {
@@ -51,7 +51,7 @@ export function registerMemberTools(server) {
         }, 'list_members_paginated');
         return textResult(text);
     });
-    server.registerTool('list_member_devices', {
+    server.registerTool('tc_list_member_devices', {
         title: 'List member devices',
         description: 'Summary of passkeys, authenticators, and TOTP devices for a member. Labels and last-used timestamps. Use to audit MFA surface.',
         inputSchema: {
@@ -65,7 +65,7 @@ export function registerMemberTools(server) {
         }, 'list_member_devices');
         return textResult(text);
     });
-    server.registerTool('get_member_suspension', {
+    server.registerTool('tc_get_member_suspension', {
         title: 'Get member suspension status',
         description: 'Check whether a member is currently suspended and when it was applied. Returns { revoked_at: ISO date string } if suspended, or { revoked_at: null } if active. Read-only. ' +
             MEMBER_SUSPENSION_API_NOTE,
@@ -80,7 +80,7 @@ export function registerMemberTools(server) {
         }, 'get_member_suspension');
         return textResult(text);
     });
-    server.registerTool('retire_member', {
+    server.registerTool('tc_retire_member', {
         title: 'Retire member (permanent)',
         description: 'PERMANENTLY delete a member from the project (kill switch — irreversible). ' +
             'Use only when the user wants to fully delete / remove a member; for a temporary block use suspend_member. ' +
@@ -97,7 +97,7 @@ export function registerMemberTools(server) {
             stepUpSid: sid,
         }, 'retire_member'));
     });
-    server.registerTool('suspend_member', {
+    server.registerTool('tc_suspend_member', {
         title: 'Suspend member (reversible)',
         description: 'Temporarily SUSPEND a member: blocks login and invalidates active sessions. Reversible via unsuspend_member. ' +
             'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-suspend-member`). ' +
@@ -113,7 +113,7 @@ export function registerMemberTools(server) {
             stepUpSid: sid,
         }, 'suspend_member'));
     });
-    server.registerTool('unsuspend_member', {
+    server.registerTool('tc_unsuspend_member', {
         title: 'Unsuspend member',
         description: "Lift a member's suspension and restore their ability to log in and create sessions. Use only on members previously suspended. " +
             'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-unsuspend-member`). ' +
@@ -129,7 +129,7 @@ export function registerMemberTools(server) {
             stepUpSid: sid,
         }, 'unsuspend_member'));
     });
-    server.registerTool('create_member', {
+    server.registerTool('tc_create_member', {
         title: 'Create member',
         description: 'Create a member (CreateMemberDto). member_id/name may be auto-generated. Use for onboarding or manual provisioning. ' +
             'RBAC-gated via tool-rule `tc-create-member` (0=block, 1=allow, 2=step-up MFA). ' +
@@ -150,7 +150,7 @@ export function registerMemberTools(server) {
             stepUpSid: sid,
         }, 'create_member'));
     });
-    server.registerTool('update_member', {
+    server.registerTool('tc_update_member', {
         title: 'Update member',
         description: 'Update member PROFILE fields — name, email, metadata (UpdateMemberDto, flat shape). ' +
             'RBAC-gated via tool-rule `tc-update-member` (0=block, 1=allow, 2=step-up MFA). ' +

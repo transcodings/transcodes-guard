@@ -67,8 +67,8 @@ export function createServer(
   });
 
   server.registerResource(
-    'version-info',
-    'version://info',
+    'tc_version-info',
+    'tc_version://info',
     {
       title: 'Plugin version',
       description:
@@ -87,7 +87,7 @@ export function createServer(
   );
 
   server.registerTool(
-    'create_stepup_session',
+    'tc_create_stepup_session',
     {
       title: 'Create Step-up MFA Session',
       description:
@@ -147,7 +147,7 @@ export function createServer(
   );
 
   server.registerTool(
-    'poll_stepup_session',
+    'tc_poll_stepup_session',
     {
       title: 'Poll Step-up MFA Session',
       description:
@@ -155,14 +155,14 @@ export function createServer(
         "'verified', or 'rejected'. On verified the result is cached cross-platform " +
         'so a subsequent danger command in the hook can pass without re-prompting. ' +
         'On rejected the local pending record is cleared so Stop hooks stop reminding. ' +
-        'Prefer `poll_stepup_session_wait` for the deny-recovery loop — it ' +
+        'Prefer `tc_poll_stepup_session_wait` for the deny-recovery loop — it ' +
         'blocks until a terminal status in one call instead of requiring 60 manual ' +
         'iterations.',
       inputSchema: {
         sid: z
           .string()
           .min(1)
-          .describe('Session id returned from create_stepup_session.'),
+          .describe('Session id returned from tc_create_stepup_session.'),
       },
     },
     async ({ sid }) => {
@@ -196,13 +196,13 @@ export function createServer(
   );
 
   server.registerTool(
-    'poll_stepup_session_wait',
+    'tc_poll_stepup_session_wait',
     {
       title: 'Wait for Step-up MFA Session',
       description:
         'Block until the step-up session reaches `verified`, `rejected`, `not_found`, or the ' +
         'wait window elapses (default 60s, polling every 1s). Use this — NOT the ' +
-        'single-shot `poll_stepup_session` — as the next action after a PreToolUse ' +
+        'single-shot `tc_poll_stepup_session` — as the next action after a PreToolUse ' +
         'deny carrying a step-up sid. One call replaces the 60-iteration polling ' +
         'loop. On `outcome: "verified"` retry the original Bash command; on ' +
         '`outcome: "timeout"` ask the user to complete WebAuthn and call this ' +
@@ -213,7 +213,7 @@ export function createServer(
         sid: z
           .string()
           .min(1)
-          .describe('Session id returned from create_stepup_session.'),
+          .describe('Session id returned from tc_create_stepup_session.'),
         max_wait_ms: z
           .number()
           .int()
@@ -265,7 +265,7 @@ export function createServer(
   );
 
   server.registerTool(
-    'inspect_stepup_state',
+    'tc_inspect_stepup_state',
     {
       title: 'Inspect step-up state on disk',
       description:
@@ -293,7 +293,7 @@ export function createServer(
   );
 
   server.registerTool(
-    'simulate_hook_invocation',
+    'tc_simulate_hook_invocation',
     {
       title: 'Invoke PreToolUse hook in a controlled subprocess',
       description:
@@ -326,7 +326,7 @@ export function createServer(
           .min(1)
           .optional()
           .describe(
-            "Tool name to put in the PreToolUse payload. Defaults to 'Bash'. For MCP tool simulation use the wire name, e.g. 'mcp__plugin_transcodes-guard_transcodes-guard__retire_member'.",
+            "Tool name to put in the PreToolUse payload. Defaults to 'Bash'. For MCP tool simulation use the wire name, e.g. 'tc_retire_member'.",
           ),
         tool_input: z
           .unknown()
@@ -442,7 +442,7 @@ export function createServer(
   );
 
   server.registerTool(
-    'echo',
+    'tc_echo',
     {
       title: 'Echo',
       description: 'Echoes the given message back to the caller.',
@@ -454,11 +454,11 @@ export function createServer(
   );
 
   server.registerTool(
-    'simulate_command',
+    'tc_simulate_command',
     {
       title: 'Simulate Bash hook gating (Guard v3)',
       description:
-        'Read-only check whether a Bash command would be intercepted by the PreToolUse hook. Guard v3 routes ALL Bash commands through POST /guard/evaluate — there is no local regex layer. Does NOT invoke the hook, open a browser, or write disk state. Use `simulate_hook_invocation` for full-fidelity hook testing (including verified fast-path consumption).',
+        'Read-only check whether a Bash command would be intercepted by the PreToolUse hook. Guard v3 routes ALL Bash commands through POST /guard/evaluate — there is no local regex layer. Does NOT invoke the hook, open a browser, or write disk state. Use `tc_simulate_hook_invocation` for full-fidelity hook testing (including verified fast-path consumption).',
       inputSchema: { command: z.string().min(1) },
     },
     async ({ command }) => {
@@ -484,7 +484,7 @@ export function createServer(
             will_trigger_hook: true,
             matched_by: 'guard-evaluate',
             command,
-            note: 'All Bash commands reach POST /guard/evaluate. Outcome: permission 0=hard block, 1=allow, 2=step-up MFA. A valid verified record for this command may allow without re-prompting — use simulate_hook_invocation to test.',
+            note: 'All Bash commands reach POST /guard/evaluate. Outcome: permission 0=hard block, 1=allow, 2=step-up MFA. A valid verified record for this command may allow without re-prompting — use tc_simulate_hook_invocation to test.',
           },
           null,
           2,
@@ -494,7 +494,7 @@ export function createServer(
   );
 
   server.registerPrompt(
-    'greeting',
+    'tc_greeting',
     {
       title: 'Greeting',
       description: 'Generate a greeting addressed to the given name.',
@@ -542,8 +542,8 @@ export function createServer(
   backend.registerBackendTools(server);
 
   server.registerResource(
-    'tool-rules',
-    'tool-rules://list',
+    'tc_tool_rules',
+    'tc_tool_rules://list',
     {
       title: 'Step-up-protected MCP tool rules (system)',
       description:
@@ -562,7 +562,7 @@ export function createServer(
   );
 
   server.registerTool(
-    'simulate_tool_call',
+    'tc_simulate_tool_call',
     {
       title: 'Simulate MCP hook gating',
       description:

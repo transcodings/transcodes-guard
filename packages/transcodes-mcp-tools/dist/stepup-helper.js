@@ -9,10 +9,9 @@
  * `claimStepupVerified()`. Same long-lived MCP server process, so the mark →
  * claim handoff never crosses a process boundary.
  */
-import { loadMergedToolRules, ruleAppliesToHost, toolNameMatchesRule, } from '@transcodes-guard/danger-patterns';
+import { loadMergedToolRules, ruleAppliesToHost, toolNameMatchesRule, TRANSCODES_GUARD_TOOL_PREFIX, } from '@transcodes-guard/danger-patterns';
 import { checkRbacPermission, claimStepupVerified, loadStepupConfig, } from '@transcodes-guard/stepup-core';
 const RBAC_TTL_MS = 5 * 60_000;
-const SYSTEM_WIRE_PREFIX = 'mcp__plugin_transcodes-guard_transcodes-guard__';
 const rbacCache = new Map();
 // 동일 멤버/리소스/액션 조합의 RBAC 판정을 짧게 캐시해 반복 호출 비용을 줄인다.
 async function getCachedRbacLevel(config, resource, action) {
@@ -26,20 +25,16 @@ async function getCachedRbacLevel(config, resource, action) {
 }
 // 로컬 handler 이름과 MCP wire 이름을 모두 시스템 tool-rule 기준으로 해석한다.
 export function resolveProtectedToolRule(toolName, rules = loadMergedToolRules()) {
-    // host-scoping 가드: provider-scoped 룰은 자기 호스트에서만 적용해야 한다
-    // (그렇지 않으면 다른 호스트용 룰이 엉뚱한 호스트의 도구를 막는다).
-    if (toolName.startsWith('mcp__')) {
-        return rules.find((r) => toolNameMatchesRule(toolName, r) && ruleAppliesToHost(r));
-    }
     return rules.find((r) => {
-        if (r.source !== 'system' || r.type !== 'mcp' || r.matcher !== 'exact') {
-            return false;
-        }
         if (!ruleAppliesToHost(r))
             return false;
-        if (!r.name.startsWith(SYSTEM_WIRE_PREFIX))
-            return false;
-        return r.name.slice(SYSTEM_WIRE_PREFIX.length) === toolName;
+        if (r.name === toolName)
+            return true;
+        if (toolName.startsWith('mcp__') ||
+            toolName.includes(TRANSCODES_GUARD_TOOL_PREFIX)) {
+            return toolNameMatchesRule(toolName, r);
+        }
+        return false;
     });
 }
 // step-up이 필요한 상황을 에이전트가 바로 재시도 흐름으로 이어갈 수 있게 구조화한다.

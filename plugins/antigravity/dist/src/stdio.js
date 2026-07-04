@@ -11,7 +11,7 @@ import {
   isTranscodesGuardWireToolName,
   loadMergedToolRules,
   objectType
-} from "../chunk-3XH6MCR5.js";
+} from "../chunk-Y24C4S4C.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17095,7 +17095,7 @@ function createServer(backend = getGateBackend()) {
       }
     ]
   }));
-  server.registerTool("create_stepup_session", {
+  server.registerTool("tc_create_stepup_session", {
     title: "Create Step-up MFA Session",
     description: "Open a Transcodes step-up MFA session. Returns sid and the browser URL the user must visit to complete WebAuthn. The same flow is used by the PreToolUse hook when a danger command is detected.",
     inputSchema: {
@@ -17127,11 +17127,11 @@ function createServer(backend = getGateBackend()) {
       ]
     };
   });
-  server.registerTool("poll_stepup_session", {
+  server.registerTool("tc_poll_stepup_session", {
     title: "Poll Step-up MFA Session",
-    description: "Single GET against the step-up backend. Returns status 'pending', 'verified', or 'rejected'. On verified the result is cached cross-platform so a subsequent danger command in the hook can pass without re-prompting. On rejected the local pending record is cleared so Stop hooks stop reminding. Prefer `poll_stepup_session_wait` for the deny-recovery loop \u2014 it blocks until a terminal status in one call instead of requiring 60 manual iterations.",
+    description: "Single GET against the step-up backend. Returns status 'pending', 'verified', or 'rejected'. On verified the result is cached cross-platform so a subsequent danger command in the hook can pass without re-prompting. On rejected the local pending record is cleared so Stop hooks stop reminding. Prefer `tc_poll_stepup_session_wait` for the deny-recovery loop \u2014 it blocks until a terminal status in one call instead of requiring 60 manual iterations.",
     inputSchema: {
-      sid: external_exports.string().min(1).describe("Session id returned from create_stepup_session.")
+      sid: external_exports.string().min(1).describe("Session id returned from tc_create_stepup_session.")
     }
   }, async ({ sid }) => {
     const result = await backend.pollStepupSession(sid);
@@ -17154,11 +17154,11 @@ function createServer(backend = getGateBackend()) {
       ]
     };
   });
-  server.registerTool("poll_stepup_session_wait", {
+  server.registerTool("tc_poll_stepup_session_wait", {
     title: "Wait for Step-up MFA Session",
-    description: 'Block until the step-up session reaches `verified`, `rejected`, `not_found`, or the wait window elapses (default 60s, polling every 1s). Use this \u2014 NOT the single-shot `poll_stepup_session` \u2014 as the next action after a PreToolUse deny carrying a step-up sid. One call replaces the 60-iteration polling loop. On `outcome: "verified"` retry the original Bash command; on `outcome: "timeout"` ask the user to complete WebAuthn and call this tool again; on `outcome: "rejected"` or `outcome: "not_found"` stop \u2014 the user declined or abandoned step-up; do NOT retry the command. Do NOT ask the user to confirm completion before calling this tool \u2014 it waits on the user\'s behalf.',
+    description: 'Block until the step-up session reaches `verified`, `rejected`, `not_found`, or the wait window elapses (default 60s, polling every 1s). Use this \u2014 NOT the single-shot `tc_poll_stepup_session` \u2014 as the next action after a PreToolUse deny carrying a step-up sid. One call replaces the 60-iteration polling loop. On `outcome: "verified"` retry the original Bash command; on `outcome: "timeout"` ask the user to complete WebAuthn and call this tool again; on `outcome: "rejected"` or `outcome: "not_found"` stop \u2014 the user declined or abandoned step-up; do NOT retry the command. Do NOT ask the user to confirm completion before calling this tool \u2014 it waits on the user\'s behalf.',
     inputSchema: {
-      sid: external_exports.string().min(1).describe("Session id returned from create_stepup_session."),
+      sid: external_exports.string().min(1).describe("Session id returned from tc_create_stepup_session."),
       max_wait_ms: external_exports.number().int().positive().max(3e5).optional().describe("Maximum time to wait in ms. Defaults to 60_000."),
       interval_ms: external_exports.number().int().positive().max(1e4).optional().describe("Polling interval in ms. Defaults to 1_000.")
     }
@@ -17187,7 +17187,7 @@ function createServer(backend = getGateBackend()) {
       ]
     };
   });
-  server.registerTool("inspect_stepup_state", {
+  server.registerTool("tc_inspect_stepup_state", {
     title: "Inspect step-up state on disk",
     description: "Single source of truth for what the step-up state files look like RIGHT NOW. Returns structured JSON for verified / pending / browser-lock records with explicit `age_ms`, `expired`, and `ttl_ms` fields so the agent never has to compute expiry from raw timestamps or trust a wrapped `ls` output. Strict read-only: this tool never consumes or rewrites any record. Call this BEFORE and AFTER any step-up flow to verify state transitions deterministically.",
     inputSchema: {}
@@ -17202,13 +17202,13 @@ function createServer(backend = getGateBackend()) {
       ]
     };
   });
-  server.registerTool("simulate_hook_invocation", {
+  server.registerTool("tc_simulate_hook_invocation", {
     title: "Invoke PreToolUse hook in a controlled subprocess",
     description: "Spawns the actual PreToolUse hook binary with a Bash payload as stdin, captures stdout/stderr/exit, and diffs the step-up state files before/after \u2014 all in one structured response. Use this when you need to verify hook behaviour (fast-path consumption, deny emission, new step-up start) without inferring from `exit 127` or `ls` output. WARNING: this is NOT a dry run \u2014 the hook may consume the verified record or create a new step-up session and open a browser tab if a danger pattern is hit. Use it the way you would a real hook invocation, not as a side-effect-free probe.",
     inputSchema: {
       command: external_exports.string().min(1).optional().describe("Bash command string. Builds tool_input={command} when tool_name is Bash and tool_input is not provided. Ignored if tool_input is set."),
       cwd: external_exports.string().optional().describe("Optional working directory passed to the hook payload. Defaults to process.cwd()."),
-      tool_name: external_exports.string().min(1).optional().describe("Tool name to put in the PreToolUse payload. Defaults to 'Bash'. For MCP tool simulation use the wire name, e.g. 'mcp__plugin_transcodes-guard_transcodes-guard__retire_member'."),
+      tool_name: external_exports.string().min(1).optional().describe("Tool name to put in the PreToolUse payload. Defaults to 'Bash'. For MCP tool simulation use the wire name, e.g. 'tc_retire_member'."),
       tool_input: external_exports.unknown().optional().describe("Raw tool_input object. Overrides the {command}-based default. Use for MCP tool simulation.")
     }
   }, async ({ command, cwd, tool_name, tool_input }) => {
@@ -17269,16 +17269,16 @@ function createServer(backend = getGateBackend()) {
       ]
     };
   });
-  server.registerTool("echo", {
+  server.registerTool("tc_echo", {
     title: "Echo",
     description: "Echoes the given message back to the caller.",
     inputSchema: { message: external_exports.string() }
   }, async ({ message }) => ({
     content: [{ type: "text", text: `Echo: ${message}` }]
   }));
-  server.registerTool("simulate_command", {
+  server.registerTool("tc_simulate_command", {
     title: "Simulate Bash hook gating (Guard v3)",
-    description: "Read-only check whether a Bash command would be intercepted by the PreToolUse hook. Guard v3 routes ALL Bash commands through POST /guard/evaluate \u2014 there is no local regex layer. Does NOT invoke the hook, open a browser, or write disk state. Use `simulate_hook_invocation` for full-fidelity hook testing (including verified fast-path consumption).",
+    description: "Read-only check whether a Bash command would be intercepted by the PreToolUse hook. Guard v3 routes ALL Bash commands through POST /guard/evaluate \u2014 there is no local regex layer. Does NOT invoke the hook, open a browser, or write disk state. Use `tc_simulate_hook_invocation` for full-fidelity hook testing (including verified fast-path consumption).",
     inputSchema: { command: external_exports.string().min(1) }
   }, async ({ command }) => {
     if (!backend.hasToken()) {
@@ -17295,7 +17295,7 @@ function createServer(backend = getGateBackend()) {
       will_trigger_hook: true,
       matched_by: "guard-evaluate",
       command,
-      note: "All Bash commands reach POST /guard/evaluate. Outcome: permission 0=hard block, 1=allow, 2=step-up MFA. A valid verified record for this command may allow without re-prompting \u2014 use simulate_hook_invocation to test."
+      note: "All Bash commands reach POST /guard/evaluate. Outcome: permission 0=hard block, 1=allow, 2=step-up MFA. A valid verified record for this command may allow without re-prompting \u2014 use tc_simulate_hook_invocation to test."
     }, null, 2));
   });
   server.registerPrompt("greeting", {
@@ -17339,7 +17339,7 @@ function createServer(backend = getGateBackend()) {
       }
     ]
   }));
-  server.registerTool("simulate_tool_call", {
+  server.registerTool("tc_simulate_tool_call", {
     title: "Simulate MCP hook gating",
     description: "Given a full MCP wire tool name from a PreToolUse hook, report whether the hook would gate it. External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP (mcp__*transcodes-guard*) skips the hook \u2014 execProtectedTool handler backstop applies. Read-only \u2014 does not invoke the hook or call the backend.",
     inputSchema: {

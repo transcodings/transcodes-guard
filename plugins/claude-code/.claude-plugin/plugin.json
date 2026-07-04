@@ -8,12 +8,5 @@
   "homepage": "https://github.com/transcodings/transcodes-guard",
   "repository": "https://github.com/transcodings/transcodes-guard",
   "license": "FSL-1.1-ALv2",
-  "keywords": [
-    "safety",
-    "hook",
-    "mcp",
-    "audit",
-    "security",
-    "bash"
-  ]
+  "keywords": ["safety", "hook", "mcp", "audit", "security", "bash"]
 }

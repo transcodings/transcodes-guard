@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { execProtectedTool } from './stepup-helper.js';
 import { req } from './transcodes-client.js';
 export function registerPasscodeTools(server) {
-    server.registerTool('passcode_create', {
+    server.registerTool('tc_passcode_create', {
         title: 'Create recovery passcode',
         description: 'Create a recovery passcode (CreatePasscodeDto in body). ' +
             'RBAC-gated via tool-rule `tc-passcode-create` (0=block, 1=allow, 2=step-up MFA). ' +

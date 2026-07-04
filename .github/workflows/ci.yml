@@ -129,6 +129,17 @@ jobs:
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow safe command"; exit 1; }
 
+      - name: claude-code · canonical transcodes-guard MCP name skips hook (poll wait)
+        run: |
+          set -e
+          OUT=$(echo '{"tool_name":"tc_poll_stepup_session_wait","tool_input":{"sid":"ci-test-sid"}}' \
+            | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for canonical transcodes MCP tool"; exit 1; }
+          if echo "$OUT" | grep -q '"permissionDecision"'; then
+            echo "::error::Canonical transcodes-guard MCP must skip the hook"; exit 1
+          fi
+
       - name: claude-code · built-in transcodes-guard MCP skips the hook (retire_member)
         run: |
           set -e
@@ -140,7 +151,7 @@ jobs:
           mkdir -p "$HOME/.transcodes/state"
           NOW=$(node -e 'console.log(Date.now())')
           echo "{\"sid\":\"ci-test-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
-          OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
+          OUT=$(echo '{"tool_name":"tc_retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
             | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for built-in MCP tool"; exit 1; }
@@ -153,7 +164,7 @@ jobs:
       - name: claude-code · unprotected MCP tool passes (get_member)
         run: |
           set -e
-          OUT=$(echo '{"tool_name":"mcp__plugin_transcodes-guard_transcodes-guard__get_member","tool_input":{"member_id":"x"}}' \
+          OUT=$(echo '{"tool_name":"tc_get_member","tool_input":{"member_id":"x"}}' \
             | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow unprotected MCP tool"; exit 1; }

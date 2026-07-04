@@ -13,7 +13,7 @@ import { req } from './transcodes-client.js';
 
 export function registerPasscodeTools(server: McpServer): void {
   server.registerTool(
-    'passcode_create',
+    'tc_passcode_create',
     {
       title: 'Create recovery passcode',
       description:

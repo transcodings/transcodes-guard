@@ -275,7 +275,7 @@ async function loadProjectForOriginCheck() {
 
 export function registerProjectTools(server: McpServer): void {
   server.registerTool(
-    'get_project',
+    'tc_get_project',
     {
       title: 'Get project',
       description:
@@ -297,7 +297,7 @@ export function registerProjectTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'check_related_origin',
+    'tc_check_related_origin',
     {
       title: 'Check sign-in related origin',
       description:
@@ -344,7 +344,7 @@ export function registerProjectTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'check_project_assets',
+    'tc_check_project_assets',
     {
       title: 'Check project CDN assets',
       description:
@@ -375,7 +375,7 @@ export function registerProjectTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'project_pwa_auth_console',
+    'tc_project_pwa_auth_console',
     {
       title: 'Auth config (console-only)',
       description:

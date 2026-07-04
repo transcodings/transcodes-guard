@@ -39,10 +39,16 @@ export declare function loadMergedToolRules(bundleRules?: ToolRule[]): MergedToo
 export interface ToolRuleMatch {
     matched: MergedToolRule;
 }
+/**
+ * Claude/Codex host namespace marker — plugin `mcp_plugin_transcodes` + server `guard`
+ * → `mcp__plugin_mcp_plugin_transcodes_guard__{tool}`.
+ */
+export declare const TRANSCODES_MCP_HOST_MARKER = "mcp_plugin_transcodes_guard";
+/** Canonical registerTool / tool-rules prefix for built-in transcodes-guard MCP. */
+export declare const TRANSCODES_GUARD_TOOL_PREFIX = "tc_";
 /** Wire names emitted by host PreToolUse hooks for MCP tool calls. */
 export declare function isMcpWireToolName(toolName: string): boolean;
-/** Built-in transcodes-guard MCP wire names — PreToolUse skips /guard/evaluate.
- * Backend duplicates this regex in guard.evaluate.service.ts; drift → contract tests. */
+/** Built-in transcodes-guard MCP — PreToolUse skips /guard/evaluate. */
 export declare function isTranscodesGuardWireToolName(toolName: string): boolean;
 export declare function toolNameMatchesRule(toolName: string, rule: ToolRule): boolean;
 /**

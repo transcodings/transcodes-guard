@@ -7,7 +7,7 @@ const textResult = (text, isError = false) => ({
     content: [{ type: 'text', text }],
 });
 export function registerOrganizationTools(server) {
-    server.registerTool('user_get_current', {
+    server.registerTool('tc_user_get_current', {
         title: 'Get current user',
         description: 'Returns the currently authenticated platform user (Firebase/console account). ' +
             'Use when the user asks "who am I" at the platform-user level (distinct from `get_my_profile`, which returns the member record for TRANSCODES_TOKEN).',
@@ -17,7 +17,7 @@ export function registerOrganizationTools(server) {
         const text = await req(config, { method: 'GET' }, 'user_get_current');
         return textResult(text);
     });
-    server.registerTool('user_find', {
+    server.registerTool('tc_user_find', {
         title: 'Find user',
         description: 'Find platform users by comma-separated ids or emails. Pass `ids` and/or `emails`.',
         inputSchema: {
@@ -32,7 +32,7 @@ export function registerOrganizationTools(server) {
         }, 'user_find', '/find');
         return textResult(text);
     });
-    server.registerTool('user_create', {
+    server.registerTool('tc_user_create', {
         title: 'Create user (console-only)',
         description: 'Blocked: user creation must be done in the Transcodes console.',
         inputSchema: {},

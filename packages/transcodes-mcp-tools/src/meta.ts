@@ -25,7 +25,7 @@ const textResult = (text: string, isError = false) => ({
 
 export function registerMetaTools(server: McpServer): void {
   server.registerTool(
-    'get_current_project_id',
+    'tc_get_current_project_id',
     {
       title: 'Get current project id',
       description:
@@ -42,7 +42,7 @@ export function registerMetaTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'get_current_organization_id',
+    'tc_get_current_organization_id',
     {
       title: 'Get current organization id',
       description: 'Returns organizationId from TRANSCODES_TOKEN JWT.',
@@ -61,7 +61,7 @@ export function registerMetaTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'get_current_member_id',
+    'tc_get_current_member_id',
     {
       title: 'Get current member id',
       description: 'Returns memberId from TRANSCODES_TOKEN JWT.',
@@ -76,7 +76,7 @@ export function registerMetaTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'get_my_profile',
+    'tc_get_my_profile',
     {
       title: 'Get my profile',
       description:
@@ -100,7 +100,7 @@ export function registerMetaTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'get_console_url',
+    'tc_get_console_url',
     {
       title: 'Get console URL',
       description:
@@ -152,7 +152,7 @@ export function registerMetaTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'get_integration_guide',
+    'tc_get_integration_guide',
     {
       title: 'Get integration guide',
       description:

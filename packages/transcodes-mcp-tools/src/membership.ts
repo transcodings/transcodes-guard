@@ -19,7 +19,7 @@ const textResult = (text: string, isError = false) => ({
 
 export function registerMembershipTools(server: McpServer): void {
   server.registerTool(
-    'membership_plans',
+    'tc_membership_plans',
     {
       title: 'Membership plans',
       description:
@@ -36,7 +36,7 @@ export function registerMembershipTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'membership_plans_limits',
+    'tc_membership_plans_limits',
     {
       title: 'Membership plan limits',
       description:
@@ -60,7 +60,7 @@ export function registerMembershipTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'membership_customer_status_by_project',
+    'tc_membership_customer_status_by_project',
     {
       title: 'Customer status by project',
       description:
@@ -81,7 +81,7 @@ export function registerMembershipTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'membership_customer_status_by_organization',
+    'tc_membership_customer_status_by_organization',
     {
       title: 'Customer status by organization',
       description:
@@ -102,7 +102,7 @@ export function registerMembershipTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'membership_create_checkout_session',
+    'tc_membership_create_checkout_session',
     {
       title: 'Create checkout session',
       description:

@@ -43,7 +43,7 @@ function systemRule(overrides: Partial<MergedToolRule> = {}): MergedToolRule {
     type: 'mcp',
     label: 'Custom rule',
     description: 'Custom rule',
-    name: 'mcp__plugin_transcodes-guard_transcodes-guard__custom_tool',
+    name: 'tc_custom_tool',
     matcher: 'exact',
     action: 'create',
     resource: 'system',
@@ -53,18 +53,18 @@ function systemRule(overrides: Partial<MergedToolRule> = {}): MergedToolRule {
 }
 
 describe('step-up protected tool rule resolution', () => {
-  it('matches the local handler name to the system MCP wire rule', () => {
-    const rule = resolveProtectedToolRule('create_resource');
+  it('matches the registered MCP tool name to the system rule', () => {
+    const rule = resolveProtectedToolRule('tc_create_resource');
 
     assert.equal(rule?.id, 'tc-create-resource');
     assert.equal(rule?.resource, 'system');
     assert.equal(rule?.action, 'create');
   });
 
-  it('still matches the full MCP wire name directly', () => {
+  it('still matches host-wrapped MCP wire names', () => {
     const rules = loadMergedToolRules();
     const rule = resolveProtectedToolRule(
-      'mcp__plugin_transcodes-guard_transcodes-guard__create_resource',
+      'tc_create_resource',
       rules,
     );
 
@@ -77,7 +77,7 @@ describe('step-up protected tool rule resolution', () => {
     assert.equal(rule, undefined);
   });
 
-  it('does not resolve local handler names from bundle rules', () => {
+  it('does not resolve transcodes tool names from bundle rules', () => {
     const bundleRule: MergedToolRule = {
       id: 'external-create-resource',
       type: 'mcp',
@@ -89,22 +89,9 @@ describe('step-up protected tool rule resolution', () => {
       resource: 'system',
       source: 'bundle',
     };
-    const localExactRule: MergedToolRule = {
-      ...bundleRule,
-      id: 'bundle-local-exact',
-      name: 'create_resource',
-    };
-    const localGlobRule: MergedToolRule = {
-      ...bundleRule,
-      id: 'bundle-local-glob',
-      name: 'create_*',
-      matcher: 'glob',
-    };
 
-    const rule = resolveProtectedToolRule('create_resource', [
+    const rule = resolveProtectedToolRule('tc_create_resource', [
       bundleRule,
-      localExactRule,
-      localGlobRule,
     ]);
 
     assert.equal(rule, undefined);
@@ -113,13 +100,13 @@ describe('step-up protected tool rule resolution', () => {
   it('does not misread canonical tool ids that contain double underscores', () => {
     const rules = [
       systemRule({
-        name: 'mcp__plugin_transcodes-guard_transcodes-guard__project__archive',
+        name: 'tc_project__archive',
       }),
     ];
 
     assert.equal(resolveProtectedToolRule('archive', rules), undefined);
     assert.equal(
-      resolveProtectedToolRule('project__archive', rules)?.id,
+      resolveProtectedToolRule('tc_project__archive', rules)?.id,
       'tc-custom',
     );
   });
@@ -131,11 +118,11 @@ describe('step-up protected tool rule resolution', () => {
       const rules = [
         systemRule({
           provider: 'cursor',
-          name: 'mcp__plugin_transcodes-guard_transcodes-guard__custom_tool',
+          name: 'tc_custom_tool',
         }),
       ];
 
-      assert.equal(resolveProtectedToolRule('custom_tool', rules), undefined);
+      assert.equal(resolveProtectedToolRule('tc_custom_tool', rules), undefined);
     } finally {
       if (previous !== undefined) process.env.TRANSCODES_GUARD_HOST = previous;
       else delete process.env.TRANSCODES_GUARD_HOST;
@@ -192,7 +179,7 @@ describe('execProtectedTool step-up backstop', () => {
     process.env.TRANSCODES_BACKEND_URL = baseUrl;
     let called = false;
 
-    const result = await execProtectedTool('create_resource', async () => {
+    const result = await execProtectedTool('tc_create_resource', async () => {
       called = true;
       return 'should not run';
     });
@@ -209,7 +196,7 @@ describe('execProtectedTool step-up backstop', () => {
     permission = 1;
     markStepupVerified('unrelated-sid');
 
-    const result = await execProtectedTool('create_resource', async (sid) => {
+    const result = await execProtectedTool('tc_create_resource', async (sid) => {
       assert.equal(sid, undefined);
       return 'ok';
     });
@@ -226,7 +213,7 @@ describe('execProtectedTool step-up backstop', () => {
     permission = 2;
     markStepupVerified('fresh-sid');
 
-    const result = await execProtectedTool('create_resource', async (sid) => {
+    const result = await execProtectedTool('tc_create_resource', async (sid) => {
       assert.equal(sid, 'fresh-sid');
       return 'ok';
     });

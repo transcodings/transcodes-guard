@@ -6,7 +6,7 @@ const textResult = (text, isError = false) => ({
     content: [{ type: 'text', text }],
 });
 export function registerMembershipTools(server) {
-    server.registerTool('membership_plans', {
+    server.registerTool('tc_membership_plans', {
         title: 'Membership plans',
         description: 'Returns the full list of available Transcodes membership plans (free, standard, business, enterprise) including price, currency, billing interval, and Stripe product metadata. ' +
             'This is a public endpoint — no authentication required. ' +
@@ -17,7 +17,7 @@ export function registerMembershipTools(server) {
         const text = await req(config, { method: 'GET' }, 'membership_plans');
         return textResult(text);
     });
-    server.registerTool('membership_plans_limits', {
+    server.registerTool('tc_membership_plans_limits', {
         title: 'Membership plan limits',
         description: 'Returns the resource limits enforced per plan tier. ' +
             'Each plan entry includes: projects (max projects allowed), roles, resources, members (max members per project), and price (monthly USD, null = contact for pricing). ' +
@@ -31,7 +31,7 @@ export function registerMembershipTools(server) {
         const text = await req(config, { method: 'GET' }, 'membership_plans_limits');
         return textResult(text);
     });
-    server.registerTool('membership_customer_status_by_project', {
+    server.registerTool('tc_membership_customer_status_by_project', {
         title: 'Customer status by project',
         description: 'Returns the active subscription status of the organization that owns the project in TRANSCODES_TOKEN (pid claim). ' +
             'SkipAuth — GET /v1/membership/customer/status/project?project_id=... ' +
@@ -42,7 +42,7 @@ export function registerMembershipTools(server) {
         const text = await req(config, { method: 'GET', query: { project_id: config.projectId } }, 'membership_customer_status_by_project');
         return textResult(text);
     });
-    server.registerTool('membership_customer_status_by_organization', {
+    server.registerTool('tc_membership_customer_status_by_organization', {
         title: 'Customer status by organization',
         description: 'Returns the active subscription status for the organization in TRANSCODES_TOKEN (oid claim). ' +
             'SkipAuth — GET /v1/membership/customer/status/organization?organization_id=... ' +
@@ -53,7 +53,7 @@ export function registerMembershipTools(server) {
         const text = await req(config, { method: 'GET', query: { organization_id: config.organizationId } }, 'membership_customer_status_by_organization');
         return textResult(text);
     });
-    server.registerTool('membership_create_checkout_session', {
+    server.registerTool('tc_membership_create_checkout_session', {
         title: 'Create checkout session',
         description: 'MCP checkout: POST /v1/membership/mcp/session — creates a Stripe Checkout session for the organization bound to the MAT (x-transcodes-token) and returns a one-time redirect URL. ' +
             'Use for plan upgrade or first purchase (e.g. free → standard). ' +

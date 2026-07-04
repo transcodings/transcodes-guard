@@ -25,7 +25,7 @@ const MEMBER_SUSPENSION_API_NOTE =
 
 export function registerMemberTools(server: McpServer): void {
   server.registerTool(
-    'get_member',
+    'tc_get_member',
     {
       title: 'Get member',
       description:
@@ -54,7 +54,7 @@ export function registerMemberTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'list_members_paginated',
+    'tc_list_members_paginated',
     {
       title: 'List members (paginated)',
       description:
@@ -87,7 +87,7 @@ export function registerMemberTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'list_member_devices',
+    'tc_list_member_devices',
     {
       title: 'List member devices',
       description:
@@ -111,7 +111,7 @@ export function registerMemberTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'get_member_suspension',
+    'tc_get_member_suspension',
     {
       title: 'Get member suspension status',
       description:
@@ -136,7 +136,7 @@ export function registerMemberTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'retire_member',
+    'tc_retire_member',
     {
       title: 'Retire member (permanent)',
       description:
@@ -165,7 +165,7 @@ export function registerMemberTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'suspend_member',
+    'tc_suspend_member',
     {
       title: 'Suspend member (reversible)',
       description:
@@ -193,7 +193,7 @@ export function registerMemberTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'unsuspend_member',
+    'tc_unsuspend_member',
     {
       title: 'Unsuspend member',
       description:
@@ -221,7 +221,7 @@ export function registerMemberTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'create_member',
+    'tc_create_member',
     {
       title: 'Create member',
       description:
@@ -254,7 +254,7 @@ export function registerMemberTools(server: McpServer): void {
   );
 
   server.registerTool(
-    'update_member',
+    'tc_update_member',
     {
       title: 'Update member',
       description:

@@ -5,7 +5,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-AWLEB3AD.js";
+} from "../chunk-HPPEMW77.js";
 
 // src/version.ts
 var PLUGIN_VERSION = "0.34.0";
@@ -22,10 +22,10 @@ var PROTOCOL_PRIMER = [
   "  1. Tell the user (one short line) to complete WebAuthn in the",
   "     auto-opened browser tab (use the URL from the deny message",
   "     if it did not open).",
-  "  2. Immediately call the MCP tool `poll_stepup_session_wait` with the",
+  "  2. Immediately call the MCP tool `tc_poll_stepup_session_wait` with the",
   "     provided sid. It blocks until verified or 60s timeout \u2014 a single",
   "     call replaces the manual polling loop. (The legacy single-shot",
-  "     `poll_stepup_session` is only for diagnostics.)",
+  "     `tc_poll_stepup_session` is only for diagnostics.)",
   '  3. On `outcome: "verified"` retry the SAME Bash command \u2014 the hook',
   "     detects the verified state locally and allows it. On `outcome:",
   '     "timeout"` ask the user to retry WebAuthn, then call the wait',

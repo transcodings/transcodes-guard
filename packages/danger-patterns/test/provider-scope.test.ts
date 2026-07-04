@@ -37,7 +37,7 @@ const systemRule: ToolRule = {
   type: 'mcp',
   label: 'Retire member',
   description: 'baseline — every host',
-  name: 'mcp__plugin_transcodes-guard_transcodes-guard__retire_member',
+  name: 'tc_retire_member',
   matcher: 'exact',
 };
 
@@ -130,7 +130,7 @@ describe('findFirstToolRule provider scoping', () => {
   it('a provider-less rule still matches on the scoped host', () => {
     const mixed: MergedToolRule[] = [{ ...systemRule, source: 'system' }];
     const match = findFirstToolRule(
-      'mcp__plugin_transcodes-guard_transcodes-guard__retire_member',
+      'tc_retire_member',
       mixed,
       'cursor',
     );

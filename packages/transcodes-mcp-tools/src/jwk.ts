@@ -12,7 +12,7 @@ const MSG_JWK_BACKUP_CONSOLE =
 
 export function registerJwkTools(server: McpServer): void {
   server.registerTool(
-    'jwk_backup',
+    'tc_jwk_backup',
     {
       title: 'JWK backup (console-only)',
       description:
