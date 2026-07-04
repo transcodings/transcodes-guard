@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.33.0...transcodes-guard-v0.33.1) (2026-07-04)
+
+
+### Bug Fixes
+
+* **stepup:** host meta-tool bypass per host + gate dangerous internals ([49a1584](https://github.com/transcodings/transcodes-guard/commit/49a1584b5bd7390b1a83d8d6f4bb8a43c9efd891))
+
 ## [0.33.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.32.1...transcodes-guard-v0.33.0) (2026-07-03)
 
 
