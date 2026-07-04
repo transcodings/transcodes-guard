@@ -6,11 +6,11 @@
  * drives Claude Code, Codex, Cursor, and Antigravity.
  *
  * Guard v3 grouping: every host tool call (except built-in transcodes-guard
- * MCP) → `POST /guard/evaluate` with the raw hook stdin JSON as `payload` and a
- * client-minted per-prompt `sid`. The backend is the single source of truth for
- * step-up status; the client keeps NO on-disk verified/pending records — only a
- * per-coordinate latch (`latch.ts`) that dedupes the browser launch across the
- * N concurrent tool calls of one prompt.
+ * MCP and host meta-tool bypass sets below) → `POST /guard/evaluate` with the
+ * raw hook stdin JSON as `payload` and a client-minted per-prompt `sid`. The
+ * backend is the single source of truth for step-up status; the client keeps
+ * NO on-disk verified/pending records — only a per-coordinate latch (`latch.ts`)
+ * that dedupes the browser launch across the N concurrent tool calls of one prompt.
  *
  * Fail policy:
  *  - Before classify (stdin parse) → `proceed-ungated` (fail-open); the caller
@@ -53,11 +53,83 @@ function resolvePayload(input) {
     });
 }
 function shellCommand(toolInput) {
-    const cmd = toolInput?.command;
-    return typeof cmd === 'string' ? cmd : undefined;
+    const o = toolInput;
+    if (typeof o?.command === 'string')
+        return o.command;
+    if (typeof o?.CommandLine === 'string')
+        return o.CommandLine;
+    return undefined;
 }
 function wireToolName(input) {
     return input.toolName !== 'Unknown' ? input.toolName : undefined;
+}
+/**
+ * Claude Code — harness meta tools (no shell/MCP reach). Gating ToolSearch etc.
+ * causes Stop-reminder deadlock. Always gated: `Bash`, any `mcp_*` / `mcp__*`.
+ */
+const CLAUDE_INTERNAL_TOOL_REGEX = /^(ToolSearch|TodoWrite|TodoRead|TaskCreate|TaskUpdate|TaskList|AskUserQuestion|EnterPlanMode|ExitPlanMode|exit_plan_mode)$/;
+const CLAUDE_GATED_WIRE_NAMES = new Set(['Bash']);
+function isClaudeInternalTool(name) {
+    if (CLAUDE_GATED_WIRE_NAMES.has(name))
+        return false;
+    if (/^mcp_/i.test(name))
+        return false;
+    return CLAUDE_INTERNAL_TOOL_REGEX.test(name);
+}
+/**
+ * Cursor Agent — wire names from docs matcher + common built-ins.
+ * Always gated: `Shell`, any `mcp_*` / `mcp__*`.
+ * @see https://cursor.com/docs/hooks (preToolUse: Shell|Read|Write|Grep|Delete|Task|…)
+ */
+const CURSOR_INTERNAL_TOOL_REGEX = /^(Read|Write|Grep|Delete|Glob|SemanticSearch|StrReplace|SwitchMode|TodoWrite|todo_write|AskQuestion|ask_question|Task|WebSearch|WebFetch|GenerateImage|EditNotebook|Await)$/i;
+const CURSOR_GATED_WIRE_NAMES = new Set(['Shell']);
+function isCursorInternalTool(name) {
+    if (CURSOR_GATED_WIRE_NAMES.has(name))
+        return false;
+    if (/^mcp_/i.test(name))
+        return false;
+    return CURSOR_INTERNAL_TOOL_REGEX.test(name);
+}
+/**
+ * OpenAI Codex CLI — snake_case harness tools (published function list).
+ * Always gated: `Bash`, `exec_command`, `apply_patch`, `parallel`, `write_stdin`,
+ * any `mcp_*` / `mcp__*`.
+ */
+const CODEX_INTERNAL_TOOL_REGEX = /^(view_image|update_plan|request_user_input|list_mcp_resources|list_mcp_resource_templates|read_mcp_resource|list_available_plugins_to_install|request_plugin_install|get_goal|create_goal|update_goal|load_workspace_dependencies|navigate_to_codex_page|read_thread_terminal|read_thread|list_threads|list_projects|send_message_to_thread|create_thread|fork_thread|handoff_thread|set_thread_title|set_thread_pinned|set_thread_archived|automation_update|tool_search_tool|imagegen|run)$/;
+const CODEX_GATED_WIRE_NAMES = new Set([
+    'Bash',
+    'exec_command',
+    'apply_patch',
+    'parallel',
+    'write_stdin',
+]);
+function isCodexInternalTool(name) {
+    if (CODEX_GATED_WIRE_NAMES.has(name))
+        return false;
+    if (/^mcp_/i.test(name))
+        return false;
+    return CODEX_INTERNAL_TOOL_REGEX.test(name);
+}
+/**
+ * Google Antigravity — wire names matched by regex (no published function list).
+ * Always gated: `run_command`, `call_mcp_tool`, `terminal*`, any `mcp_*` / `mcp__*`.
+ */
+const ANTIGRAVITY_INTERNAL_TOOL_REGEX = /^(?!mcp__)(editor|files?|filesystem|code[_-]?search|file[_-]?editing|web[_-]?search|browser|browser[_-]?subagent|artifacts?|task[_-]?plan|implementation[_-]?plan|walkthrough|subagents?)([._:-]?[A-Za-z0-9_]+)*$/i;
+const ANTIGRAVITY_GATED_WIRE_NAMES = new Set(['run_command', 'call_mcp_tool']);
+function isAntigravityInternalTool(name) {
+    if (ANTIGRAVITY_GATED_WIRE_NAMES.has(name))
+        return false;
+    if (/^mcp_/i.test(name))
+        return false;
+    if (/^terminal/i.test(name))
+        return false;
+    return ANTIGRAVITY_INTERNAL_TOOL_REGEX.test(name);
+}
+function isHostMetaTool(name) {
+    return (isClaudeInternalTool(name) ||
+        isCursorInternalTool(name) ||
+        isCodexInternalTool(name) ||
+        isAntigravityInternalTool(name));
 }
 function summarizePayload(payload) {
     try {
@@ -73,6 +145,8 @@ function summarizePayload(payload) {
 function classifyToolCall(input) {
     const name = wireToolName(input);
     if (name && isTranscodesGuardWireToolName(name))
+        return null;
+    if (name && isHostMetaTool(name))
         return null;
     const payload = resolvePayload(input);
     const cmd = shellCommand(input.toolInput);

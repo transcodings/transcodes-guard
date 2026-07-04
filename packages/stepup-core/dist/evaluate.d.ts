@@ -6,11 +6,11 @@
  * drives Claude Code, Codex, Cursor, and Antigravity.
  *
  * Guard v3 grouping: every host tool call (except built-in transcodes-guard
- * MCP) → `POST /guard/evaluate` with the raw hook stdin JSON as `payload` and a
- * client-minted per-prompt `sid`. The backend is the single source of truth for
- * step-up status; the client keeps NO on-disk verified/pending records — only a
- * per-coordinate latch (`latch.ts`) that dedupes the browser launch across the
- * N concurrent tool calls of one prompt.
+ * MCP and host meta-tool bypass sets below) → `POST /guard/evaluate` with the
+ * raw hook stdin JSON as `payload` and a client-minted per-prompt `sid`. The
+ * backend is the single source of truth for step-up status; the client keeps
+ * NO on-disk verified/pending records — only a per-coordinate latch (`latch.ts`)
+ * that dedupes the browser launch across the N concurrent tool calls of one prompt.
  *
  * Fail policy:
  *  - Before classify (stdin parse) → `proceed-ungated` (fail-open); the caller
