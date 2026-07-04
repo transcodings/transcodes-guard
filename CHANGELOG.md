@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.34.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.33.1...transcodes-guard-v0.34.0) (2026-07-04)
+
+### Bug Fixes
+
+* **hooks:** restore narrow PreToolUse matchers (bash + MCP + bypass wrappers) instead of `.*` to stop meta-tool step-up spam; Codex also gates exec_command/apply_patch/parallel/write_stdin
+
 ## [0.33.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.33.0...transcodes-guard-v0.33.1) (2026-07-04)
 
 

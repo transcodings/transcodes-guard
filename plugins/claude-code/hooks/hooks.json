@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": ".*",
+        "matcher": "Bash|mcp__.*",
         "hooks": [
           {
             "type": "command",
