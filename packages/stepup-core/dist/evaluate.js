@@ -20,7 +20,7 @@
  *    (step-up); a null verdict without a session becomes
  *    `block-stepup-create-failed`.
  */
-import { DEFAULT_RBAC_RESOURCE, isTranscodesGuardWireToolName, } from '@transcodes-guard/danger-patterns';
+import { currentHostProvider, DEFAULT_RBAC_RESOURCE, isTranscodesGuardWireToolName, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
 import { openBrowser } from './gate.js';
 import { clearLatch, hasLatch, writeLatch } from './latch.js';
@@ -197,7 +197,7 @@ export async function evaluatePreToolUse(input) {
             payload: resolvePayload(input),
             toolName: wireToolName(input),
             cwd: input.cwd,
-            comment: `Confirm tool call: ${block.command}`,
+            provider: currentHostProvider(),
             sid,
         });
     }

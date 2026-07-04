@@ -31,7 +31,7 @@ export async function evaluateAction(config, body) {
             payload: body.payload,
             tool_name: body.toolName,
             cwd: body.cwd,
-            comment: body.comment,
+            provider: body.provider,
             sid: body.sid,
         },
     });
@@ -49,11 +49,16 @@ export async function evaluateAction(config, body) {
     const status = p.status === 'pending' || p.status === 'verified' || p.status === 'rejected'
         ? p.status
         : null;
+    const summary = typeof p.summary === 'string' && p.summary.trim() ? p.summary.trim() : '';
+    const providerRaw = p.provider;
+    const provider = providerRaw;
     return {
         permission,
         resource,
         action,
         reasoning: typeof p.reasoning === 'string' ? p.reasoning : '',
+        summary,
+        provider,
         sid: typeof p.sid === 'string' ? p.sid : null,
         url: typeof p.url === 'string' ? p.url : null,
         expires_at: typeof p.expires_at === 'string' ? p.expires_at : null,

@@ -21,6 +21,7 @@
  *    `block-stepup-create-failed`.
  */
 import {
+  currentHostProvider,
   DEFAULT_RBAC_RESOURCE,
   isTranscodesGuardWireToolName,
   type RbacAction,
@@ -303,7 +304,7 @@ export async function evaluatePreToolUse(
       payload: resolvePayload(input),
       toolName: wireToolName(input),
       cwd: input.cwd,
-      comment: `Confirm tool call: ${block.command}`,
+      provider: currentHostProvider(),
       sid,
     });
   } catch {

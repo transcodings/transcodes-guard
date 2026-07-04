@@ -15,6 +15,8 @@
  * failure). Callers MUST fail-closed — treat `null` as step-up required (2),
  * never as allow.
  */
+
+import type { GuardProvider } from '@transcodes-guard/danger-patterns';
 import { request } from './client.js';
 import type { StepupConfig } from './config.js';
 
@@ -27,6 +29,8 @@ export type GuardVerdict = {
   resource: string;
   action: string;
   reasoning: string;
+  summary: string;
+  provider: GuardProvider | null;
   sid: string | null;
   url: string | null;
   expires_at: string | null;
@@ -53,7 +57,7 @@ export async function evaluateAction(
     /** Wire tool name resolved from the host hook shape (plugin-side). */
     toolName?: string;
     cwd?: string;
-    comment?: string;
+    provider?: GuardProvider;
     /** Client-minted per-prompt grouping id (Guard v3). */
     sid?: string;
   },
@@ -65,7 +69,7 @@ export async function evaluateAction(
       payload: body.payload,
       tool_name: body.toolName,
       cwd: body.cwd,
-      comment: body.comment,
+      provider: body.provider,
       sid: body.sid,
     },
   });
@@ -83,11 +87,17 @@ export async function evaluateAction(
     p.status === 'pending' || p.status === 'verified' || p.status === 'rejected'
       ? p.status
       : null;
+  const summary =
+    typeof p.summary === 'string' && p.summary.trim() ? p.summary.trim() : '';
+  const providerRaw = p.provider;
+  const provider = providerRaw as GuardProvider;
   return {
     permission,
     resource,
     action,
     reasoning: typeof p.reasoning === 'string' ? p.reasoning : '',
+    summary,
+    provider,
     sid: typeof p.sid === 'string' ? p.sid : null,
     url: typeof p.url === 'string' ? p.url : null,
     expires_at: typeof p.expires_at === 'string' ? p.expires_at : null,

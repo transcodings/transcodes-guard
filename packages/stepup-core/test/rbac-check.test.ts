@@ -161,6 +161,8 @@ describe('evaluateAction', () => {
           action: 'create',
           permission: 2,
           reasoning: 'mkdir creates a new directory.',
+          summary: 'Create a new directory named temp4',
+          provider: 'cursor',
           sid: 'tc_stepup_test',
           url: 'https://auth.example/?sid=tc_stepup_test',
           expires_at: '2026-06-30T01:00:00.000Z',
@@ -175,7 +177,7 @@ describe('evaluateAction', () => {
         tool_input: { command: 'mkdir temp4' },
       },
       cwd: '/tmp',
-      comment: 'Confirm',
+      provider: 'cursor',
       sid: 's_group1',
     });
 
@@ -184,6 +186,8 @@ describe('evaluateAction', () => {
       resource: 'system',
       action: 'create',
       reasoning: 'mkdir creates a new directory.',
+      summary: 'Create a new directory named temp4',
+      provider: 'cursor',
       sid: 'tc_stepup_test',
       url: 'https://auth.example/?sid=tc_stepup_test',
       expires_at: '2026-06-30T01:00:00.000Z',
@@ -200,6 +204,8 @@ describe('evaluateAction', () => {
           action: 'create',
           permission: 2,
           reasoning: '',
+          summary: 'Create a new directory',
+          provider: 'claude',
           sid: 'tc_stepup_reused',
           url: 'https://auth.example/?sid=tc_stepup_reused',
           expires_at: '2026-06-30T01:00:00.000Z',
@@ -227,6 +233,8 @@ describe('evaluateAction', () => {
           resource: 'system',
           action: 'read',
           reasoning: '',
+          summary: 'List directory contents',
+          provider: null,
         },
       ]);
 
@@ -239,6 +247,8 @@ describe('evaluateAction', () => {
       resource: 'system',
       action: 'read',
       reasoning: '',
+      summary: 'List directory contents',
+      provider: null,
       sid: null,
       url: null,
       expires_at: null,
