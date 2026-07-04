@@ -1,12 +1,19 @@
 {
   "name": "transcodes-guard",
   "description": "Risky-shell interceptor (PreToolUse hook) and step-up MFA audit MCP server for Claude Code",
-  "version": "0.35.0",
+  "version": "0.35.1",
   "author": {
     "name": "bigstrider"
   },
   "homepage": "https://github.com/transcodings/transcodes-guard",
   "repository": "https://github.com/transcodings/transcodes-guard",
   "license": "FSL-1.1-ALv2",
-  "keywords": ["safety", "hook", "mcp", "audit", "security", "bash"]
+  "keywords": [
+    "safety",
+    "hook",
+    "mcp",
+    "audit",
+    "security",
+    "bash"
+  ]
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.35.0...transcodes-guard-v0.35.1) (2026-07-04)
+
+
+### Code Refactoring
+
+* **mcp:** rename built-in tools to tc_ prefix and hardcode wire names ([48aff45](https://github.com/transcodings/transcodes-guard/commit/48aff45f2bf3595aa85db5b2cd605a91f9647fa8))
+
 ## [0.35.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.34.0...transcodes-guard-v0.35.0) (2026-07-04)
 
 
