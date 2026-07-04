@@ -83,7 +83,8 @@ export function isMcpWireToolName(toolName) {
 export function isTranscodesGuardWireToolName(toolName) {
     const lower = toolName.toLowerCase();
     return (lower.includes(TRANSCODES_GUARD_TOOL_PREFIX) ||
-        lower.startsWith(TRANSCODES_MCP_HOST_MARKER));
+        lower.startsWith(TRANSCODES_MCP_HOST_MARKER) ||
+        lower.includes('transcodes'));
 }
 export function toolNameMatchesRule(toolName, rule) {
     if (rule.type === 'bash')

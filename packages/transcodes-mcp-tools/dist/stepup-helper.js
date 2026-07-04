@@ -9,7 +9,7 @@
  * `claimStepupVerified()`. Same long-lived MCP server process, so the mark →
  * claim handoff never crosses a process boundary.
  */
-import { loadMergedToolRules, ruleAppliesToHost, toolNameMatchesRule, TRANSCODES_GUARD_TOOL_PREFIX, } from '@transcodes-guard/danger-patterns';
+import { loadMergedToolRules, ruleAppliesToHost, TRANSCODES_GUARD_TOOL_PREFIX, toolNameMatchesRule, } from '@transcodes-guard/danger-patterns';
 import { checkRbacPermission, claimStepupVerified, loadStepupConfig, } from '@transcodes-guard/stepup-core';
 const RBAC_TTL_MS = 5 * 60_000;
 const rbacCache = new Map();

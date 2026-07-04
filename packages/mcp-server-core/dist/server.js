@@ -42,7 +42,7 @@ export function createServer(backend = getGateBackend()) {
         name: 'transcodes-guard-mcp',
         version: PLUGIN_VERSION,
     });
-    server.registerResource('version-info', 'version://info', {
+    server.registerResource('tc_version-info', 'tc_version://info', {
         title: 'Plugin version',
         description: 'Returns the running plugin version. Use this to confirm which build is currently loaded after an update.',
         mimeType: 'application/json',
@@ -361,7 +361,7 @@ export function createServer(backend = getGateBackend()) {
             note: 'All Bash commands reach POST /guard/evaluate. Outcome: permission 0=hard block, 1=allow, 2=step-up MFA. A valid verified record for this command may allow without re-prompting — use tc_simulate_hook_invocation to test.',
         }, null, 2));
     });
-    server.registerPrompt('greeting', {
+    server.registerPrompt('tc_greeting', {
         title: 'Greeting',
         description: 'Generate a greeting addressed to the given name.',
         argsSchema: { name: z.string() },
@@ -397,7 +397,7 @@ export function createServer(backend = getGateBackend()) {
         ],
     }));
     backend.registerBackendTools(server);
-    server.registerResource('tool-rules', 'tool-rules://list', {
+    server.registerResource('tc_tool_rules', 'tc_tool_rules://list', {
         title: 'Step-up-protected MCP tool rules (system)',
         description: 'Read-only list of system MCP tool-rules from hooks/tool-rules.json. These gate built-in transcodes-guard MCP tools via execProtectedTool — external mcp__* tools use POST /guard/evaluate instead.',
         mimeType: 'text/markdown',
