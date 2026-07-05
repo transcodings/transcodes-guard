@@ -257,6 +257,40 @@ describe('evaluateAction', () => {
     });
   });
 
+  it('falls back to provider null when the field is missing', async () => {
+    respond = () =>
+      payloadResponse([
+        { permission: 1, resource: 'system', action: 'read', reasoning: '' },
+      ]);
+
+    const verdict = await evaluateAction(config(), {
+      payload: { command: 'ls' },
+    });
+
+    assert.ok(verdict);
+    assert.equal(verdict.provider, null);
+  });
+
+  it('falls back to provider null on an unknown provider string', async () => {
+    respond = () =>
+      payloadResponse([
+        {
+          permission: 1,
+          resource: 'system',
+          action: 'read',
+          reasoning: '',
+          provider: 'mystery-host',
+        },
+      ]);
+
+    const verdict = await evaluateAction(config(), {
+      payload: { command: 'ls' },
+    });
+
+    assert.ok(verdict);
+    assert.equal(verdict.provider, null);
+  });
+
   it('returns null when payload is missing (no envelope fallback)', async () => {
     respond = () => ({
       status: 200,

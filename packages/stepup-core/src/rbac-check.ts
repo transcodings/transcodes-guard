@@ -89,8 +89,14 @@ export async function evaluateAction(
       : null;
   const summary =
     typeof p.summary === 'string' && p.summary.trim() ? p.summary.trim() : '';
-  const providerRaw = p.provider;
-  const provider = providerRaw as GuardProvider;
+  const provider =
+    p.provider === 'claude' ||
+    p.provider === 'codex' ||
+    p.provider === 'cursor' ||
+    p.provider === 'antigravity' ||
+    p.provider === 'web'
+      ? p.provider
+      : null;
   return {
     permission,
     resource,
