@@ -66,9 +66,9 @@ curl -fsSL https://antigravity.google/cli/install.sh | bash
 git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install && node /tmp/tg-install/plugins/antigravity/install.mjs && rm -rf /tmp/tg-install
 ```
 
-번들 인스톨러는 Antigravity 플러그인을 `~/.gemini/config/plugins/transcodes-guard`에 복사합니다(CLI v1.0 이후 데스크톱 앱과 `agy` CLI가 공유). `hooks.json` / `mcp_config.json`의 `__PLUGIN_DIR__` 플레이스홀더를 그 디렉터리의 절대 경로로 치환합니다. Antigravity는 플러그인 루트 경로 변수를 제공하지 않으므로 설치 시점에 절대 경로를 주입해야 합니다.
+번들 인스톨러는 Antigravity 플러그인을 `~/.gemini/config/plugins/transcodes-guard`에 복사합니다(CLI v1.0 이후 데스크톱 앱과 `agy` CLI가 공유). `hooks.json` / `mcp_config.json`의 `__PLUGIN_DIR__` 플레이스홀더를 그 디렉터리의 절대 경로로 치환합니다. Antigravity는 플러그인 루트 경로 변수를 제공하지 않으므로 설치 시점에 절대 경로를 주입해야 합니다. `transcodes-guard` 플러그인 디렉터리만 갱신하며 `~/.gemini/config/plugins/`의 다른 플러그인은 유지됩니다. `~/.transcodes/`(토큰·step-up 상태·policy cache)는 **지우지 않습니다**.
 
-업데이트도 같은 한 줄을 다시 실행하면 기존 설치 위에 덮어씁니다.
+같은 한 줄을 재실행하면 in-place 업데이트됩니다.
 
 토큰도 저장하세요 — 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`.
 
@@ -82,22 +82,25 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 
 > ⚠️ **베타** — Cursor 플러그인은 아직 베타 버전이라 크래시나 버그가 발생할 수 있고, 설치 방법과 API가 바뀔 수 있습니다. 안정적인 사용에는 **Claude Code** 또는 **Codex** 플러그인을 권장합니다.
 
-사전 요구사항: **Node >= 20**, Hooks가 켜진 Cursor **데스크톱**(Settings → Hooks). 클라우드 에이전트는 2026-05 기준 미연동.
+사전 요구사항: **Node >= 20**, Hooks가 켜진 Cursor **데스크톱**(Settings → Hooks). 2026-05 기준 Cloud Agent는 `beforeShellExecution` / `beforeMCPExecution` hook을 실행하지 않습니다.
 
-**1단계 — 플러그인 설치.** 저장소에는 `.cursor-plugin/plugin.json`과 `plugins/cursor`를 가리키는 `.cursor-plugin/marketplace.json`이 들어 있고 `dist/`도 커밋돼 있어, clone도 빌드도 필요 없습니다. 어느 경로를 쓸지는 플랜에 따라 다릅니다(Cursor에는 "URL로 플러그인 설치"하는 CLI가 없어, 플러그인 관리는 에디터와 팀 대시보드에서 합니다):
+**한 줄**로 설치합니다 — 수동 `cd`, `npm install`, 빌드 불필요(`dist/` 커밋됨):
 
-- **개인 / Pro** — 에디터에서 `/add-plugin`을 실행하거나 **Customize → Plugins → Marketplace**([cursor.com/marketplace](https://cursor.com/marketplace))를 연 뒤 **Transcodes (bigstrider)** 를 설치합니다.
-- **Teams / Enterprise** — 관리자가 **Dashboard → Settings → Plugins → Add Marketplace**에서 저장소를 한 번 import 합니다(`https://github.com/transcodings/transcodes-guard` 붙여넣기). 파싱된 플러그인을 검토하고 Team Access를 지정하면, 개발자는 **Customize → Plugins**에서 설치합니다.
+```bash
+git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install && node /tmp/tg-install/plugins/cursor/install.mjs && rm -rf /tmp/tg-install
+```
 
-![Cursor Marketplace에서 transcodes-guard 설치](./docs/images/cursor-marketplace-install.png)
+인스톨러는 `~/.cursor/plugins/local/transcodes-guard`에 플러그인을 복사하고, hook/MCP 설정의 `${CURSOR_PLUGIN_ROOT}`를 절대 경로로 치환한 뒤 `~/.cursor/hooks.json`에 transcodes-guard hook만 merge(다른 hook 유지)하고 `~/.cursor/mcp.json`의 `transcodes-guard` 항목만 upsert합니다(다른 MCP 서버 유지). 같은 한 줄을 재실행하면 업데이트됩니다. `~/.transcodes/`(토큰·step-up 상태·policy cache)는 **지우지 않습니다**.
 
-어느 경로든 `.cursor-plugin/plugin.json`을 읽어 hook과 MCP 서버를 `${CURSOR_PLUGIN_ROOT}`로 자동 연결합니다.
+**첫 실행:** 일회성 hook 신뢰 검토를 승인합니다(커맨드 팔레트 → **Cursor: Review Hooks**).
 
-**2단계 — 첫 실행.** 일회성 hook 신뢰 검토를 승인합니다(커맨드 팔레트 → **Cursor: Review Hooks**).
+**토큰 저장:** `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`.
 
-**3단계 — 토큰 저장.** 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`.
+**CLI Agent 참고:** `~/.cursor/cli-config.json`에 `"approvalMode": "unrestricted"`(Run Everything)이거나 Shell/MCP가 allowlist에 미리 등록돼 있으면, Cursor가 gate hook 없이 도구를 실행할 수 있습니다. 게이트를 타게 하려면 `"approvalMode": "allowlist"`로 바꾸고 allowlist에서 해당 항목을 제거하세요.
 
-**업데이트**는 Marketplace에서 재설치(또는 Customize → Plugins에서 업데이트) 후 **Developer: Reload Window**.
+> **기여자 / 워크스페이스 전용:** 저장소를 클론한 뒤 `node plugins/cursor/install.mjs --local` (`<cwd>/.cursor/plugins/transcodes-guard` + `<cwd>/.cursor/hooks.json`).
+
+> **선택 — Team Marketplace:** Teams/Enterprise 관리자는 `https://github.com/transcodings/transcodes-guard`를 팀 마켓플레이스로 import해 Required/Optional로 배포할 수 있습니다. Marketplace만으로는 user-level hook이 항상 등록되지 않을 수 있으므로, 안정적인 게이트 연동을 위해 위 `install.mjs` one-liner를 함께 실행하세요.
 
 ## CLI 설치
 

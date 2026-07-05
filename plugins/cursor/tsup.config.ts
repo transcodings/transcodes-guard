@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 // Fully self-contained bundle: the committed dist/ is run directly from a git
-// clone (install.sh wires absolute paths into .cursor/hooks.json + mcp.json;
+// clone (install.mjs copies dist/ to ~/.cursor/plugins/local/transcodes-guard;
 // no `npm install`, no node_modules), so internal @transcodes-guard/* AND
 // runtime deps (@modelcontextprotocol/sdk, zod) must all be bundled
 // (noExternal). Externalising zod/the SDK crashes every hook with

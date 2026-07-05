@@ -27,7 +27,7 @@ Then run **one line** (no `cd`, no `npm install`, no build — `dist/` is commit
 git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install && node /tmp/tg-install/plugins/antigravity/install.mjs && rm -rf /tmp/tg-install
 ```
 
-The installer copies into `~/.gemini/config/plugins/transcodes-guard` (shared by desktop and `agy` CLI) and rewrites `__PLUGIN_DIR__` in `hooks.json` / `mcp_config.json` to absolute paths. Re-run the same one-liner to update.
+The installer copies into `~/.gemini/config/plugins/transcodes-guard` (shared by desktop and `agy` CLI) and rewrites `__PLUGIN_DIR__` in `hooks.json` / `mcp_config.json` to absolute paths. Re-run the same one-liner to update in place. Only the `transcodes-guard` plugin directory is touched — other plugins under `~/.gemini/config/plugins/` are preserved. Does **not** wipe `~/.transcodes/` (token, step-up state, policy cache).
 
 > **Do not use** `agy plugin install https://github.com/transcodings/transcodes-guard` — it installs multiple host plugins from this monorepo and skips path rewriting.
 

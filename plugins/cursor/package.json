@@ -14,7 +14,7 @@
     ".cursor",
     ".cursor-plugin",
     "mcp.json",
-    "install.sh"
+    "install.mjs"
   ],
   "scripts": {
     "build": "tsup",

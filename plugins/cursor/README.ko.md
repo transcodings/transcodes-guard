@@ -6,29 +6,40 @@
 
 Cursor용 위험 셸 인터셉터(`beforeShellExecution` / `beforeMCPExecution`) + 감사 MCP 서버.
 
-Claude Code / Codex / Antigravity 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`)을 공유하며, Cursor에 특화된 부분은 hook 어댑터(`cursorAdapter`)뿐입니다. 이 플러그인은 Cursor 매니페스트(`.cursor-plugin/plugin.json`)를 제공하고 리포지토리는 마켓플레이스 매니페스트(`.cursor-plugin/marketplace.json`)를 제공하므로, 네이티브 Cursor 플러그인으로 설치됩니다 — `dist/`가 커밋되어 있어 빌드가 필요 없습니다.
+Claude Code / Codex / Antigravity 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`)을 공유하며, Cursor에 특화된 부분은 hook 어댑터(`cursorAdapter`)뿐입니다. `dist/`가 커밋되어 있어 설치 시 빌드가 필요 없습니다.
 
 ## 사전 요구사항
 
 - **Cursor 0.46+** (Hooks 기능 활성화 — Settings → Hooks에서 확인).
 - `PATH`에 **Node.js ≥ 20**.
-- Cursor 데스크톱 앱 — 2026-05 기준 `beforeMCPExecution`, `stop`, `sessionStart`, `beforeSubmitPrompt`는 Cursor Cloud Agents에서 연결되지 않습니다.
+- Cursor **데스크톱** 앱 — 2026-05 기준 Cloud Agent는 `beforeMCPExecution`, `stop`, `sessionStart`, `beforeSubmitPrompt` hook을 실행하지 않습니다.
 
 ## 설치
 
-Cursor의 플러그인 마켓플레이스에서 설치하며, 경로는 플랜에 따라 다릅니다. 리포지토리는 `.cursor-plugin/plugin.json`과 `plugins/cursor`를 가리키는 `.cursor-plugin/marketplace.json`을 제공하고 `dist/`가 커밋되어 있어, 설치 시 매니페스트를 읽어 hook + MCP 서버를 `${CURSOR_PLUGIN_ROOT}`로 연결합니다 — clone도 빌드도 필요 없습니다.
+**한 줄**로 설치합니다 — 수동 `cd`, `npm install`, 빌드 불필요:
 
-### 개인 / Pro
+```bash
+git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install && node /tmp/tg-install/plugins/cursor/install.mjs && rm -rf /tmp/tg-install
+```
 
-에디터에서 `/add-plugin`을 실행하거나 **Customize → Plugins → Marketplace**(`cursor.com/marketplace`)를 연 뒤 **Transcodes (bigstrider)** 를 설치합니다.
+인스톨러가 하는 일:
 
-### 팀 / 엔터프라이즈
+1. `~/.cursor/plugins/local/transcodes-guard`에 플러그인 복사
+2. hook/MCP 설정의 `${CURSOR_PLUGIN_ROOT}`를 절대 경로로 치환
+3. `~/.cursor/hooks.json`에 transcodes-guard hook만 merge(다른 hook 유지)
+4. `~/.cursor/mcp.json`의 `transcodes-guard` 항목만 upsert(다른 MCP 서버는 유지)
 
-관리자가 리포지토리를 한 번 임포트하면(Dashboard → Settings → Plugins → Team Marketplaces → **Add Marketplace**, `https://github.com/transcodings/transcodes-guard` 붙여넣기), Cursor가 `.cursor-plugin/marketplace.json`을 파싱합니다. `transcodes-guard`를 **Required** 또는 **Optional**로 표시하면 개발자는 **Customize → Plugins**에서 설치합니다.
+같은 한 줄을 재실행하면 업데이트됩니다.
+
+**기여자 / 워크스페이스 전용:** 저장소 클론 후 `node plugins/cursor/install.mjs --local` (`<cwd>/.cursor/plugins/transcodes-guard` + `<cwd>/.cursor/hooks.json`).
+
+> **Marketplace 설치만으로는 부족합니다.** Cursor Marketplace / `/add-plugin`은 `.cursor-plugin/plugin.json`을 읽지만, 모든 Agent 실행 경로에서 user-level hook이 등록되지 않을 수 있습니다(CLI `unrestricted`, allowlist 우회, Cloud Agent). 안정적인 게이트 연동을 위해 항상 `install.mjs`를 실행하세요.
+>
+> **선택 — Teams / Enterprise:** 관리자가 `https://github.com/transcodings/transcodes-guard`를 팀 마켓플레이스로 import해 Required/Optional로 배포할 수 있습니다 — 개발자 PC마다 `install.mjs`도 함께 실행하세요.
 
 ### 첫 실행 시 hook 신뢰 승인
 
-hook이 처음 발동할 때 Cursor가 일회성 신뢰 검토를 요청합니다. 한 번 승인하면 Cursor가 결정을 캐시합니다. 명령 팔레트 → "Cursor: Review Hooks"에서 언제든 확인할 수 있습니다.
+hook이 처음 발동할 때 Cursor가 일회성 신뢰 검토를 요청합니다. 한 번 승인하면 Cursor가 결정을 캐시합니다. 명령 팔레트 → **Cursor: Review Hooks**에서 언제든 확인할 수 있습니다.
 
 ### 토큰 저장
 
@@ -42,6 +53,10 @@ transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출�
 비대화형 대안(같은 저장소): `transcodes set <token> -l <label>`.
 
 토큰이 없으면 hook은 여전히 위험 명령을 **차단**하지만 스텝업 세션을 시작할 수 없습니다.
+
+### CLI Agent 설정
+
+`~/.cursor/cli-config.json`에 `"approvalMode": "unrestricted"`(Run Everything)이거나 Shell/MCP가 `permissions.allow`에 미리 등록돼 있으면, Cursor가 `beforeShellExecution` / `beforeMCPExecution` **없이** 도구를 실행할 수 있습니다. 게이트를 타게 하려면 `"approvalMode": "allowlist"`로 바꾸고 allowlist에서 해당 항목을 제거하세요.
 
 ## 플러그인이 하는 일
 
@@ -67,7 +82,7 @@ MCP 서버 자체(`mcp.json`에 `transcodes-guard`로 등록)는 다른 플러�
 /transcodes is "git push --force" blocked?
 ```
 
-이 명령은 플러그인의 `.cursor/commands/` 디렉터리에 있으며, `plugin.json`이 이를 선언(`"commands": "./.cursor/commands/"`)하므로 네이티브 플러그인 설치 시 자동으로 로드됩니다. Agent 입력창에서 `/`를 입력하면 나타납니다. 라우팅 대상: MCP 도구 게이트(`add_tool_rule`), Bash 명령 차단(`add_user_pattern`), 룰 변경(`update_*`), 룰 목록, 차단 여부 확인(`simulate_*`), 스텝업 상태 조회, 프론트엔드 Transcodes SDK 연동(`get_integration_guide`).
+`install.mjs`가 `.cursor/commands/`를 `~/.cursor/commands/`로 복사합니다. Agent 입력창에서 `/`를 입력하면 나타납니다. 라우팅 대상: MCP 도구 게이트(`add_tool_rule`), Bash 명령 차단(`add_user_pattern`), 룰 변경(`update_*`), 룰 목록, 차단 여부 확인(`simulate_*`), 스텝업 상태 조회, 프론트엔드 Transcodes SDK 연동(`get_integration_guide`).
 
 ## AI 에이전트를 위한 안내
 
@@ -83,7 +98,7 @@ MCP 서버 자체(`mcp.json`에 `transcodes-guard`로 등록)는 다른 플러�
 
 ## 활성화 / 비활성화
 
-런타임 킬 스위치는 없습니다. 보호를 끄려면 호스트의 기본 메커니즘으로 플러그인을 비활성화하거나 제거하세요(예: Cursor는 `hooks.json` / `mcp.json`에서 제거, Claude Code는 `/plugin disable transcodes-guard`). 게이트를 켜는 것은 에이전트에게 안전하지만, 끄는 것은 사람만 할 수 있는 작업입니다.
+런타임 킬 스위치는 없습니다. 보호를 끄려면 호스트의 기본 메커니즘으로 플러그인을 비활성화하거나 제거하세요(예: Cursor는 `~/.cursor/hooks.json` / `mcp.json`에서 제거). 게이트를 켜는 것은 에이전트에게 안전하지만, 끄는 것은 사람만 할 수 있는 작업입니다.
 
 ## Claude Code 대비 와이어 포맷 차이
 
@@ -108,9 +123,9 @@ Cursor의 hook 계약은 어댑터가 캡슐화하는 두 가지 면에서 Claud
 
 ## 문제 해결
 
-- **hook이 발동하지 않음.** Settings → Hooks를 열어 플러그인이 설치되고 hook이 신뢰됐는지, `node`가 Cursor의 `PATH`에 있는지 확인하세요(Cursor는 macOS에서 터미널로 실행했을 때만 로그인 셸 환경을 상속합니다).
-- **`permission: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — CLI를 설치(`npm install -g @bigstrider/transcodes-cli`)한 뒤 `transcodes`로 대시보드에서 토큰을 저장하세요(또는 `transcodes set <token> -l <label>`).
-- **MCP 도구 호출이 멈춤.** `~/.cursor/mcp.json`이 작성됐고 `dist/src/stdio.js`가 존재하는지 확인하세요. Cursor는 MCP 실패를 Output 패널에 기록합니다.
+- **hook이 발동하지 않음.** `~/.cursor/hooks.json` 존재 여부 확인(`install.mjs` 실행). Settings → Hooks에서 transcodes-guard trust 확인. `approvalMode`가 `unrestricted`가 아닌지, allowlist에 도구가 등록돼 있지 않은지 확인. **로컬 IDE Agent**로 테스트(Cloud Agent 아님). `node`가 Cursor `PATH`에 있는지 확인.
+- **`permission: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — CLI 설치(`npm install -g @bigstrider/transcodes-cli`) 후 `transcodes`로 토큰 저장(또는 `transcodes set <token> -l <label>`).
+- **MCP 도구 호출이 멈춤.** `~/.cursor/mcp.json`에 `transcodes-guard`가 있고 `~/.cursor/plugins/local/transcodes-guard/dist/src/stdio.js`가 존재하는지 확인. Cursor는 MCP 실패를 Output 패널에 기록합니다.
 
 ## 라이선스
 

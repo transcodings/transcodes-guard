@@ -1,4 +1,21 @@
 #!/usr/bin/env node
+/**
+ * Google Antigravity plugin installer.
+ *
+ * Copies the committed dist/ bundle into a fixed plugin directory and rewrites
+ * __PLUGIN_DIR__ in hooks.json / mcp_config.json to absolute paths. Antigravity
+ * has no plugin-root env var, so paths must be baked in at install time.
+ *
+ * Installs only to ~/.gemini/config/plugins/transcodes-guard (or --local workspace
+ * copy). Does NOT register user-level hook/MCP files — other Antigravity plugins
+ * under ~/.gemini/config/plugins/ are untouched.
+ *
+ * Does NOT touch ~/.transcodes/ (token, step-up state, policy cache).
+ *
+ * Usage:
+ *   node plugins/antigravity/install.mjs          # ~/.gemini/config/plugins/transcodes-guard
+ *   node plugins/antigravity/install.mjs --local  # <cwd>/.agents/plugins/transcodes-guard
+ */
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -8,7 +25,15 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Helper to resolve home directory shorthand (~)
+const filesToCopy = [
+  'plugin.json',
+  'mcp_config.json',
+  'hooks.json',
+  'rules',
+  'dist',
+  'skills',
+];
+
 function resolveHome(filepath) {
   if (filepath.startsWith('~/') || filepath === '~') {
     return path.join(os.homedir(), filepath.slice(1));
@@ -16,71 +41,70 @@ function resolveHome(filepath) {
   return filepath;
 }
 
-// Replace the __PLUGIN_DIR__ placeholder in a copied config with the install
-// dir's absolute path. The absolute path is forward-slash normalized so it is
-// safe to embed in JSON strings and shell commands on Windows (raw backslashes
-// would be invalid JSON escapes). Throws if the placeholder is absent so a
-// config-format drift fails loudly at install time instead of silently
-// shipping a broken relative path that only breaks at runtime.
 function rewritePluginDir(configPath, targetDir) {
   if (!fs.existsSync(configPath)) return;
   const pluginDir = targetDir.split(path.sep).join('/');
   const content = fs.readFileSync(configPath, 'utf8');
   if (!content.includes('__PLUGIN_DIR__')) {
-    throw new Error(`__PLUGIN_DIR__ placeholder not found in ${configPath} — config format changed; update install.mjs.`);
+    throw new Error(
+      `__PLUGIN_DIR__ placeholder not found in ${configPath} — config format changed; update install.mjs.`,
+    );
   }
-  fs.writeFileSync(configPath, content.split('__PLUGIN_DIR__').join(pluginDir), 'utf8');
+  fs.writeFileSync(
+    configPath,
+    content.split('__PLUGIN_DIR__').join(pluginDir),
+    'utf8',
+  );
   console.log(`- Path rewrite completed in: ${configPath}`);
 }
 
-// Parse command line arguments
-const args = process.argv.slice(2);
-const isLocal = args.includes('--local');
-
-// Determine target installation directories
-const targetDirs = [];
-if (isLocal) {
-  // Local workspace installation
-  targetDirs.push(path.resolve(process.cwd(), '.agents/plugins/transcodes-guard'));
-} else {
-  // Global installation for both Desktop App/IDE and CLI (agy)
-  targetDirs.push(resolveHome('~/.gemini/config/plugins/transcodes-guard'));
+function printPostInstall(isLocal) {
+  console.log('');
+  console.log('Next steps:');
+  if (isLocal) {
+    console.log('  1. Restart Antigravity in this workspace.');
+  } else {
+    console.log('  1. Restart Antigravity desktop app and/or `agy` CLI session.');
+    console.log('  2. Confirm: `agy plugin list` shows transcodes-guard.');
+  }
+  console.log('  3. Save your token: npm install -g @bigstrider/transcodes-cli && transcodes');
+  console.log('');
+  console.log('Re-run this installer to update in place.');
+  console.log('Do not use `agy plugin install` on this monorepo — it skips __PLUGIN_DIR__ rewrite.');
 }
 
-// Assets to copy
-const filesToCopy = [
-  'plugin.json',
-  'mcp_config.json',
-  'hooks.json',
-  'rules',
-  'dist',
-  // /transcodes umbrella command. Antigravity auto-converts a plugin's
-  // skills/<name>/SKILL.md into the /<name> slash command in the TUI.
-  'skills'
-];
+const isLocal = process.argv.includes('--local');
 
-console.log('Starting Google Antigravity plugin installation...');
+const targetDirs = isLocal
+  ? [path.resolve(process.cwd(), '.agents/plugins/transcodes-guard')]
+  : [resolveHome('~/.gemini/config/plugins/transcodes-guard')];
 
-targetDirs.forEach((targetDir) => {
+console.log('Starting Google Antigravity transcodes-guard plugin installation...');
+
+for (const targetDir of targetDirs) {
   console.log(`Installing to: ${targetDir}`);
-  
-  // Ensure the directory exists
   fs.mkdirSync(targetDir, { recursive: true });
-  
-  // Copy plugin assets (force overwrites in place — no destructive pre-delete)
-  filesToCopy.forEach((item) => {
+
+  const distDest = path.join(targetDir, 'dist');
+  if (fs.existsSync(distDest)) {
+    fs.rmSync(distDest, { recursive: true, force: true });
+    console.log(`- Removed stale ${distDest}/ before copy`);
+  }
+
+  for (const item of filesToCopy) {
     const srcPath = path.resolve(__dirname, item);
     const destPath = path.join(targetDir, item);
     if (fs.existsSync(srcPath)) {
       fs.cpSync(srcPath, destPath, { recursive: true, force: true });
     } else {
-      console.warn(`Warning: Source file/folder "${item}" not found.`);
+      console.warn(`Warning: Source "${item}" not found — run npm run build:plugin first.`);
     }
-  });
+  }
 
-  // Resolve the __PLUGIN_DIR__ placeholder to this install dir's absolute path
   rewritePluginDir(path.join(targetDir, 'hooks.json'), targetDir);
   rewritePluginDir(path.join(targetDir, 'mcp_config.json'), targetDir);
-});
+}
 
-console.log('Google Antigravity plugin installation completed successfully!');
+console.log('');
+console.log('Google Antigravity transcodes-guard plugin installation completed successfully!');
+printPostInstall(isLocal);

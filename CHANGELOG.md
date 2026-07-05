@@ -10,6 +10,9 @@
 * 패키지 이름이 @transcodes-guard-private scope로 이동. 외부에서 직접 import하던 경로가 변경됨 (현재로선 모노레포 내부 의존만 있어 영향 없음).
 
 ### Features
+* **cursor:** add `install.mjs` one-liner installer with merge-aware hooks/MCP registration
+* **antigravity:** improve `install.mjs` (dist clean, post-install checklist, docs)
+* **cursor:** remove obsolete `install.sh`; merge hooks.json and upsert mcp.json instead of clobbering user config
 
 * **antigravity:** add automated installer to resolve path issues ([d63b0e2](https://github.com/transcodings/transcodes-guard/commit/d63b0e2dba9a9e2e56b4272ca76316c2ce673ff6))
 * **antigravity:** add automated installer to resolve path issues ([e2cf60f](https://github.com/transcodings/transcodes-guard/commit/e2cf60f66097b35825415bc4328b2712d79b4129))
@@ -221,7 +224,6 @@
 * transcodes-mcp-tools 패키지 분리 ([8f8ec36](https://github.com/transcodings/transcodes-guard/commit/8f8ec365311cd45ef409f8c7d48025f2dda1e2b1))
 * workspace flatten (public/private 해체) + FSL-1.1-ALv2 라이선스 (Unit I) ([db8c33b](https://github.com/transcodings/transcodes-guard/commit/db8c33b662ad97760534145816aa7e84e961b07f))
 * workspace flatten (public/private 해체) + FSL-1.1-ALv2 라이선스 (Unit I) ([812cd17](https://github.com/transcodings/transcodes-guard/commit/812cd1756b84d91d5d9609855921a7b49c0bd8db))
-
 ## [0.39.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.38.0...transcodes-guard-v0.39.0) (2026-07-05)
 
 

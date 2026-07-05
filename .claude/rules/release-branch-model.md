@@ -24,8 +24,8 @@ paths:
 
 ## Per-host deploy divergence
 
-- **Path placeholders differ per host and are substituted differently**: claude-code/codex use `${CLAUDE_PLUGIN_ROOT}` (runtime env); antigravity uses `__PLUGIN_DIR__`; cursor uses `__TRANSCODES_GUARD_ROOT__` (sed-replaced to an absolute path by `install.sh`).
-- **Antigravity `hooks.json` is host-divergent**: a named top-level key (`transcodes-guard-stepup`) wraps the events, and `PreInvocation`/`Stop` are bare command objects — *not* the `{hooks:[...]}` array Claude/Codex use.
-- **Cursor `install.sh` is merge-aware**: it always renders/overwrites `.cursor/hooks.json`, but **refuses to clobber an existing `.cursor/mcp.json`** (prints the entry for manual addition) to preserve the user's other MCP servers.
+- **Path placeholders differ per host and are substituted differently**: claude-code/codex use `${CLAUDE_PLUGIN_ROOT}` (runtime env); antigravity uses `__PLUGIN_DIR__` (rewritten by `plugins/antigravity/install.mjs` into an isolated plugin dir); cursor uses `${CURSOR_PLUGIN_ROOT}` (rewritten by `plugins/cursor/install.mjs`, merge-aware into user-level `~/.cursor/hooks.json` + `mcp.json`).
+- **Antigravity install is plugin-scoped**: writes only `~/.gemini/config/plugins/transcodes-guard/` — no user-level hook/MCP merge needed; other Antigravity plugins are untouched.
+- **Cursor `install.mjs` is merge-aware**: it **upserts only transcodes-guard hook entries** in `~/.cursor/hooks.json` (other hooks preserved), and **upserts only `mcpServers.transcodes-guard`** in an existing `~/.cursor/mcp.json`.
 - **Only Claude Code ships an HTTP transport** (`src/http.ts`, Streamable HTTP `/mcp`). codex/antigravity/cursor are stdio-only and must not gain an http entry.
 - **Only claude-code benefits from a host-scoped data dir.** codex/antigravity/cursor `host.ts` deliberately do *not* set a `$CLAUDE_PLUGIN_DATA` equivalent — those hosts have none, so `plugin-paths` falls back to the consolidated host-agnostic path (see [[policy-and-state]]).

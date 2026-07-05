@@ -6,29 +6,40 @@
 
 Risky-shell interceptor (`beforeShellExecution` / `beforeMCPExecution`) and audit MCP server for Cursor.
 
-Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`). The plugin ships a Cursor manifest (`.cursor-plugin/plugin.json`) and the repo ships a marketplace manifest (`.cursor-plugin/marketplace.json`), so it installs as a native Cursor plugin — `dist/` is committed, no build needed.
+Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`). `dist/` is committed — no build step at install time.
 
 ## Prerequisites
 
 - **Cursor 0.46+** with the Hooks feature enabled (verify in Settings → Hooks).
 - **Node.js ≥ 20** in `PATH`.
-- Cursor desktop app — `beforeMCPExecution`, `stop`, `sessionStart`, `beforeSubmitPrompt` are not wired in Cursor Cloud Agents as of 2026-05.
+- Cursor **desktop** app — `beforeMCPExecution`, `stop`, `sessionStart`, `beforeSubmitPrompt` are not wired in Cursor Cloud Agents as of 2026-05.
 
 ## Installation
 
-Install from Cursor's plugin marketplace; the path depends on your plan. The repo ships `.cursor-plugin/plugin.json` and `.cursor-plugin/marketplace.json` (pointing at `plugins/cursor`) with `dist/` committed, so installation reads the manifest and wires up the hooks + MCP server via `${CURSOR_PLUGIN_ROOT}` — no clone, no build.
+Run **one line** — no manual `cd`, no `npm install`, no build step:
 
-### Individual / Pro
+```bash
+git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install && node /tmp/tg-install/plugins/cursor/install.mjs && rm -rf /tmp/tg-install
+```
 
-In the editor, run `/add-plugin` or open **Customize → Plugins → Marketplace** (also at `cursor.com/marketplace`) and install **Transcodes (bigstrider)**.
+The installer:
 
-### Teams / Enterprise
+1. Copies the plugin into `~/.cursor/plugins/local/transcodes-guard`
+2. Rewrites `${CURSOR_PLUGIN_ROOT}` in hook/MCP configs to absolute paths
+3. Registers `~/.cursor/hooks.json` — **merges** transcodes-guard hook entries only (other hooks preserved)
+4. Upserts `mcpServers.transcodes-guard` in `~/.cursor/mcp.json` (other MCP servers preserved)
 
-An admin imports the repo once (Dashboard → Settings → Plugins → Team Marketplaces → **Add Marketplace**, paste `https://github.com/transcodings/transcodes-guard`); Cursor parses `.cursor-plugin/marketplace.json`. Mark `transcodes-guard` **Required** or **Optional**, then developers install from **Customize → Plugins**.
+Re-run the same one-liner to update in place.
+
+**Contributors / workspace-only:** clone the repo and run `node plugins/cursor/install.mjs --local` (copies into `<cwd>/.cursor/plugins/transcodes-guard` and wires `<cwd>/.cursor/hooks.json`).
+
+> **Do not rely on Marketplace install alone.** Cursor Marketplace / `/add-plugin` reads `.cursor-plugin/plugin.json` but does not always register user-level hooks for every Agent execution path (CLI `unrestricted` mode, allowlist bypass, Cloud Agent). Always run `install.mjs` for reliable gate wiring.
+>
+> **Optional — Teams / Enterprise:** an admin may import `https://github.com/transcodings/transcodes-guard` as a team marketplace and assign the plugin as Required/Optional — still run `install.mjs` on each developer machine afterward.
 
 ### Trust the hooks on first run
 
-Cursor prompts a one-time trust review the first time a hook fires. Approve once and Cursor caches the decision. Inspect at any time via the command palette → "Cursor: Review Hooks".
+Cursor prompts a one-time trust review the first time a hook fires. Approve once and Cursor caches the decision. Inspect at any time via the command palette → **Cursor: Review Hooks**.
 
 ### Save your token
 
@@ -42,6 +53,10 @@ transcodes   # opens the local dashboard — URL is printed in the terminal (def
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
 
 If neither is set, the hook still **denies** danger commands but cannot start a step-up session.
+
+### CLI Agent settings
+
+If `~/.cursor/cli-config.json` has `"approvalMode": "unrestricted"` (Run Everything) or Shell/MCP tools pre-listed under `permissions.allow`, Cursor may execute those tools **without** calling `beforeShellExecution` / `beforeMCPExecution`. Switch to `"approvalMode": "allowlist"` and remove allowlist entries you want the gate to intercept.
 
 ## What the plugin does
 
@@ -67,7 +82,7 @@ A single "front door" for managing the gate's own rules. Type `/transcodes` foll
 /transcodes is "git push --force" blocked?
 ```
 
-It lives in the plugin's `.cursor/commands/` directory, which `plugin.json` declares (`"commands": "./.cursor/commands/"`) so a native plugin install loads it automatically; it shows up when you type `/` in the Agent input. It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
+It lives in the plugin's `.cursor/commands/` directory, which `plugin.json` declares (`"commands": "./.cursor/commands/"`); `install.mjs` copies it into `~/.cursor/commands/`. It shows up when you type `/` in the Agent input. It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
 
 ## For AI agents
 
@@ -83,7 +98,7 @@ Never assume the blocked command ran. Never invent an alternative. Always resume
 
 ## Enabling / disabling
 
-There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (e.g. Cursor: remove from `hooks.json` / `mcp.json`; Claude Code: `/plugin disable transcodes-guard`). Enabling the gate is safe for an agent; disabling it is a human-only action.
+There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (e.g. Cursor: remove `~/.cursor/hooks.json` entries / `mcp.json` server; Claude Code: `/plugin disable transcodes-guard`). Enabling the gate is safe for an agent; disabling it is a human-only action.
 
 ## Wire-format quirks vs Claude Code
 
@@ -108,9 +123,9 @@ These items were not validated against a live Cursor build before release. File 
 
 ## Troubleshooting
 
-- **Hook doesn't fire.** Open Settings → Hooks and confirm the plugin is installed and hooks are trusted; ensure `node` is in Cursor's `PATH` (Cursor inherits your login shell env on macOS only if launched from a terminal).
+- **Hook doesn't fire.** Confirm `~/.cursor/hooks.json` exists (run `install.mjs`). Open Settings → Hooks and trust transcodes-guard. Check `approvalMode` is not `unrestricted` and target tools are not on the allowlist. Test with the **local IDE Agent**, not Cloud Agent. Ensure `node` is in Cursor's `PATH`.
 - **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`).
-- **MCP tool calls hang.** Check `~/.cursor/mcp.json` was written and `dist/src/stdio.js` exists. Cursor logs MCP failures to the Output panel.
+- **MCP tool calls hang.** Check `~/.cursor/mcp.json` includes `transcodes-guard` and `~/.cursor/plugins/local/transcodes-guard/dist/src/stdio.js` exists. Cursor logs MCP failures to the Output panel.
 
 ## License
 

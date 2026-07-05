@@ -15,7 +15,8 @@
     "plugin.json",
     "mcp_config.json",
     "hooks.json",
-    "skills"
+    "skills",
+    "install.mjs"
   ],
   "scripts": {
     "build": "tsup",

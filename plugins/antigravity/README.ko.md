@@ -27,7 +27,7 @@ curl -fsSL https://antigravity.google/cli/install.sh | bash
 git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install && node /tmp/tg-install/plugins/antigravity/install.mjs && rm -rf /tmp/tg-install
 ```
 
-`~/.gemini/config/plugins/transcodes-guard`에 복사하고 `hooks.json` / `mcp_config.json`의 `__PLUGIN_DIR__`를 절대 경로로 치환합니다. 업데이트도 같은 한 줄을 재실행하세요.
+`~/.gemini/config/plugins/transcodes-guard`에 복사하고 `hooks.json` / `mcp_config.json`의 `__PLUGIN_DIR__`를 절대 경로로 치환합니다. 같은 한 줄을 재실행하면 in-place 업데이트됩니다. `transcodes-guard` 플러그인 디렉터리만 건드리며 `~/.gemini/config/plugins/`의 다른 플러그인은 유지됩니다. `~/.transcodes/`(토큰·step-up 상태·policy cache)는 **지우지 않습니다**.
 
 > **`agy plugin install https://github.com/transcodings/transcodes-guard` 사용 금지** — 모노레포에서 여러 호스트 플러그인을 함께 설치하고 경로 치환을 건너뜁니다.
 
