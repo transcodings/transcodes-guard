@@ -6,12 +6,13 @@ import {
   __export,
   __toESM,
   external_exports,
+  formatPollStepupSessionWaitAgentContext,
   getGateBackend,
   isMcpWireToolName,
   isTranscodesGuardWireToolName,
   loadMergedToolRules,
   objectType
-} from "../chunk-47FAQO4Z.js";
+} from "../chunk-RRGGN3PJ.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17082,7 +17083,7 @@ function createServer(backend = getGateBackend()) {
     name: "transcodes-guard-mcp",
     version: PLUGIN_VERSION
   });
-  server.registerResource("tc_version-info", "tc_version://info", {
+  server.registerResource("version-info", "version://info", {
     title: "Plugin version",
     description: "Returns the running plugin version. Use this to confirm which build is currently loaded after an update.",
     mimeType: "application/json"
@@ -17092,6 +17093,21 @@ function createServer(backend = getGateBackend()) {
         uri: uri.href,
         mimeType: "application/json",
         text: JSON.stringify({ version: PLUGIN_VERSION }, null, 2)
+      }
+    ]
+  }));
+  server.registerPrompt("transcodes", {
+    title: "transcodes-guard",
+    description: "Open the transcodes-guard control surface. Say what you want in plain language (check whether a Bash/MCP call would trigger step-up, inspect step-up state, Transcodes Admin API operations, integrate/install the SDK) and the agent routes to the right guard tool, asking for any missing detail.",
+    argsSchema: { request: external_exports.string().optional() }
+  }, ({ request }) => ({
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: transcodesRouterBody(request)
+        }
       }
     ]
   }));
@@ -17174,6 +17190,10 @@ function createServer(backend = getGateBackend()) {
     }
     return {
       content: [
+        {
+          type: "text",
+          text: formatPollStepupSessionWaitAgentContext()
+        },
         {
           type: "text",
           text: JSON.stringify({
@@ -17307,21 +17327,6 @@ function createServer(backend = getGateBackend()) {
       {
         role: "user",
         content: { type: "text", text: `Hello ${name}!` }
-      }
-    ]
-  }));
-  server.registerPrompt("transcodes", {
-    title: "transcodes-guard",
-    description: "Open the transcodes-guard control surface. Say what you want in plain language (check whether a Bash/MCP call would trigger step-up, inspect step-up state, Transcodes Admin API operations, integrate/install the SDK) and the agent routes to the right guard tool, asking for any missing detail.",
-    argsSchema: { request: external_exports.string().optional() }
-  }, ({ request }) => ({
-    messages: [
-      {
-        role: "user",
-        content: {
-          type: "text",
-          text: transcodesRouterBody(request)
-        }
       }
     ]
   }));

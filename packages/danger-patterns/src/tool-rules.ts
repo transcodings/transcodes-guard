@@ -144,7 +144,8 @@ export function isTranscodesGuardWireToolName(toolName: string): boolean {
   return (
     lower.includes(TRANSCODES_GUARD_TOOL_PREFIX) ||
     lower.startsWith(TRANSCODES_MCP_HOST_MARKER) ||
-    lower.includes('transcodes')
+    lower.includes('transcodes') ||
+    lower.includes('version')
   );
 }
 

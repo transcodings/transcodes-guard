@@ -127,8 +127,9 @@ export function formatStepupPendingSystemMessage(decision) {
         `  2. Immediately call the MCP tool \`tc_poll_stepup_session_wait\` with sid="${decision.sid}". ` +
             'It blocks until verified or 60s timeout — one call replaces the polling loop.',
         '  3. On `outcome: "verified"` retry the SAME Bash command — the hook detects the ' +
-            'verified state and allows it. On `outcome: "timeout"` ask the user to retry ' +
-            'WebAuthn, then call the wait tool again. On `outcome: "rejected"` or ' +
+            'verified state and allows it. On `outcome: "timeout"` ask the user to complete ' +
+            'WebAuthn and whether to retry; only call the wait tool again if they say yes. ' +
+            'On `outcome: "rejected"` or ' +
             '`outcome: "not_found"` stop — the user declined or abandoned step-up; ' +
             'do NOT retry the command unless they explicitly ask.',
     ].join('\n'), decision.reasoning);
@@ -137,6 +138,13 @@ export function formatStepupRejectedReason(decision) {
     return ('Step-up MFA was declined. Tell the user this command did not run. Do not ' +
         'retry or poll unless they explicitly ask to authenticate again ' +
         `(${decision.resource}/${decision.action}).`);
+}
+export function formatPollStepupSessionWaitAgentContext() {
+    return [
+        'verified → retry the same blocked command.',
+        'timeout → ask the user to complete WebAuthn and whether to retry; only call this tool again if they say yes.',
+        'rejected, not_found, stop, or cancel → stop immediately; no retry or follow-up questions until the user explicitly asks.',
+    ].join('\n');
 }
 export function formatStepupRejectedSystemMessage(decision) {
     return appendBackendReasoning([
@@ -157,6 +165,10 @@ export function formatStepupRejectedSystemMessage(decision) {
             'around the block in this turn.',
         '  4. Wait for the user. Only start step-up again if they explicitly ask ' +
             'to authenticate and retry.',
+        '',
+        'Protocol: rejected is terminal — do not retry commands or poll tools until ' +
+            'the user explicitly asks.',
+        'Security fatigue: do not reopen auth tabs or nag for MFA after a decline.',
     ].join('\n'), decision.reasoning);
 }
 /**

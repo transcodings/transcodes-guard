@@ -46,6 +46,7 @@ export declare function formatStepupPendingSystemMessage(decision: Extract<GateD
 export declare function formatStepupRejectedReason(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED;
 }>): string;
+export declare function formatPollStepupSessionWaitAgentContext(): string;
 export declare function formatStepupRejectedSystemMessage(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED;
 }>): string;

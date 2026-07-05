@@ -2,7 +2,7 @@ import { spawn as childSpawn } from 'node:child_process';
 import path from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { isMcpWireToolName, isTranscodesGuardWireToolName, loadMergedToolRules, } from '@transcodes-guard/danger-patterns';
-import { getGateBackend, } from '@transcodes-guard/gate-contract';
+import { formatPollStepupSessionWaitAgentContext, getGateBackend, } from '@transcodes-guard/gate-contract';
 import { z } from 'zod';
 import { PLUGIN_VERSION } from './build-info.js';
 import { TRANSCODES_ROUTER_BODY } from './router-body.js';
@@ -42,7 +42,7 @@ export function createServer(backend = getGateBackend()) {
         name: 'transcodes-guard-mcp',
         version: PLUGIN_VERSION,
     });
-    server.registerResource('tc_version-info', 'tc_version://info', {
+    server.registerResource('version-info', 'version://info', {
         title: 'Plugin version',
         description: 'Returns the running plugin version. Use this to confirm which build is currently loaded after an update.',
         mimeType: 'application/json',
@@ -52,6 +52,29 @@ export function createServer(backend = getGateBackend()) {
                 uri: uri.href,
                 mimeType: 'application/json',
                 text: JSON.stringify({ version: PLUGIN_VERSION }, null, 2),
+            },
+        ],
+    }));
+    // ── /transcodes — single umbrella command (MCP prompt) ───────────────────
+    // One "front door" the user opens with free-form text; the agent routes the
+    // request to the right guard workflow and asks for any missing detail before
+    // acting. It adds no capability — only a deterministic entrypoint that stops
+    // the agent from mis-routing a natural-language request. The exact same
+    // router body is mirrored in each plugin's native command/skill file for
+    // hosts that don't surface MCP prompts as slash commands (Cursor/Codex/
+    // Antigravity); keep them in sync (see TRANSCODES_ROUTER_BODY consumers).
+    server.registerPrompt('transcodes', {
+        title: 'transcodes-guard',
+        description: 'Open the transcodes-guard control surface. Say what you want in plain language (check whether a Bash/MCP call would trigger step-up, inspect step-up state, Transcodes Admin API operations, integrate/install the SDK) and the agent routes to the right guard tool, asking for any missing detail.',
+        argsSchema: { request: z.string().optional() },
+    }, ({ request }) => ({
+        messages: [
+            {
+                role: 'user',
+                content: {
+                    type: 'text',
+                    text: transcodesRouterBody(request),
+                },
             },
         ],
     }));
@@ -184,6 +207,10 @@ export function createServer(backend = getGateBackend()) {
         }
         return {
             content: [
+                {
+                    type: 'text',
+                    text: formatPollStepupSessionWaitAgentContext(),
+                },
                 {
                     type: 'text',
                     text: JSON.stringify({
@@ -370,29 +397,6 @@ export function createServer(backend = getGateBackend()) {
             {
                 role: 'user',
                 content: { type: 'text', text: `Hello ${name}!` },
-            },
-        ],
-    }));
-    // ── /transcodes — single umbrella command (MCP prompt) ───────────────────
-    // One "front door" the user opens with free-form text; the agent routes the
-    // request to the right guard workflow and asks for any missing detail before
-    // acting. It adds no capability — only a deterministic entrypoint that stops
-    // the agent from mis-routing a natural-language request. The exact same
-    // router body is mirrored in each plugin's native command/skill file for
-    // hosts that don't surface MCP prompts as slash commands (Cursor/Codex/
-    // Antigravity); keep them in sync (see TRANSCODES_ROUTER_BODY consumers).
-    server.registerPrompt('transcodes', {
-        title: 'transcodes-guard',
-        description: 'Open the transcodes-guard control surface. Say what you want in plain language (check whether a Bash/MCP call would trigger step-up, inspect step-up state, Transcodes Admin API operations, integrate/install the SDK) and the agent routes to the right guard tool, asking for any missing detail.',
-        argsSchema: { request: z.string().optional() },
-    }, ({ request }) => ({
-        messages: [
-            {
-                role: 'user',
-                content: {
-                    type: 'text',
-                    text: transcodesRouterBody(request),
-                },
             },
         ],
     }));
