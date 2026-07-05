@@ -39,7 +39,7 @@ const WORKFLOW_MENU = [
   '1) Check whether a Bash command or MCP tool call would trigger step-up (read-only)',
   '   - Bash: ALL commands reach POST /guard/evaluate in the PreToolUse hook. Call `simulate_command` with the command string.',
   '   - External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP skips the hook (handler backstop only). Call `simulate_tool_call` with the full wire name from the host tool list.',
-  '   - System MCP tool-rules (handler backstop): read `tool-rules://list`.',
+  '   - System MCP tool-rules (handler backstop): read `tc-tool-rules://list`.',
   '2) Step-up MFA state (read-only)',
   '   - `inspect_stepup_state`; summarize pending/verified. If a session is pending, the user completes WebAuthn in the browser, then call `poll_stepup_session_wait`.',
   '3) Integrate / install the Transcodes SDK into the app (frontend)',
