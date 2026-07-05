@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.40.0...transcodes-guard-v0.41.0) (2026-07-05)
+
+
+### Features
+
+* **cursor:** add install.mjs with merge-aware hook/MCP registration ([9314328](https://github.com/transcodings/transcodes-guard/commit/9314328354bc2165ac1f0e485b78c1ea8dd80d78))
+
 ## [0.40.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.39.0...transcodes-guard-v0.40.0) (2026-07-05)
 
 
