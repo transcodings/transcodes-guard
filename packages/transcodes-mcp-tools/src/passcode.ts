@@ -26,7 +26,7 @@ export function registerPasscodeTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('passcode_create', (sid) =>
+      return execProtectedTool('tc_passcode_create', (sid) =>
         req(
           config,
           {

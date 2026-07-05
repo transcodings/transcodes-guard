@@ -113,7 +113,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ role_id }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('retire_role', (sid) =>
+      return execProtectedTool('tc_retire_role', (sid) =>
         req(
           config,
           {
@@ -144,7 +144,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ role_id, body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('set_role_permissions', (sid) =>
+      return execProtectedTool('tc_set_role_permissions', (sid) =>
         req(
           config,
           {
@@ -177,7 +177,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('update_member_role', (sid) =>
+      return execProtectedTool('tc_update_member_role', (sid) =>
         req(
           config,
           {
@@ -205,7 +205,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ resource_key }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('retire_resource', (sid) =>
+      return execProtectedTool('tc_retire_resource', (sid) =>
         req(
           config,
           {
@@ -238,7 +238,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('create_role', (sid) =>
+      return execProtectedTool('tc_create_role', (sid) =>
         req(
           config,
           {
@@ -269,7 +269,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ role_id, body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('update_role', (sid) =>
+      return execProtectedTool('tc_update_role', (sid) =>
         req(
           config,
           {
@@ -304,7 +304,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('create_resource', (sid) =>
+      return execProtectedTool('tc_create_resource', (sid) =>
         req(
           config,
           {
@@ -335,7 +335,7 @@ export function registerRbacTools(server: McpServer): void {
     },
     async ({ resource_key, body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('update_resource', (sid) =>
+      return execProtectedTool('tc_update_resource', (sid) =>
         req(
           config,
           {

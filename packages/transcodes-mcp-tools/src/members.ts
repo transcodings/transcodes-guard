@@ -150,7 +150,7 @@ export function registerMemberTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('retire_member', (sid) =>
+      return execProtectedTool('tc_retire_member', (sid) =>
         req(
           config,
           {
@@ -178,7 +178,7 @@ export function registerMemberTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('suspend_member', (sid) =>
+      return execProtectedTool('tc_suspend_member', (sid) =>
         req(
           config,
           {
@@ -206,7 +206,7 @@ export function registerMemberTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('unsuspend_member', (sid) =>
+      return execProtectedTool('tc_unsuspend_member', (sid) =>
         req(
           config,
           {
@@ -239,7 +239,7 @@ export function registerMemberTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('create_member', (sid) =>
+      return execProtectedTool('tc_create_member', (sid) =>
         req(
           config,
           {
@@ -275,7 +275,7 @@ export function registerMemberTools(server: McpServer): void {
     },
     async ({ body }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('update_member', (sid) =>
+      return execProtectedTool('tc_update_member', (sid) =>
         req(
           config,
           {

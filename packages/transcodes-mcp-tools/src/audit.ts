@@ -26,7 +26,7 @@ export function registerAuditTools(server: McpServer): void {
     },
     async ({ page, limit, tag, start_date, end_date }) => {
       const config = loadStepupConfig();
-      return execProtectedTool('get_security_logs', (sid) =>
+      return execProtectedTool('tc_get_security_logs', (sid) =>
         req(
           config,
           {
