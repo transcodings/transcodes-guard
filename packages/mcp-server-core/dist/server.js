@@ -403,7 +403,10 @@ export function createServer(backend = getGateBackend()) {
         ],
     }));
     backend.registerBackendTools(server);
-    server.registerResource('tc_tool_rules', 'tc_tool_rules://list', {
+    server.registerResource('tc_tool_rules', 
+    // Scheme must be WHATWG-legal (no underscore) — the MCP SDK parses the
+    // URI with `new URL()` on every resources/read.
+    'tc-tool-rules://list', {
         title: 'Step-up-protected MCP tool rules (system)',
         description: 'Read-only list of system MCP tool-rules from hooks/tool-rules.json. These gate built-in transcodes-guard MCP tools via execProtectedTool — external mcp__* tools use POST /guard/evaluate instead.',
         mimeType: 'text/markdown',

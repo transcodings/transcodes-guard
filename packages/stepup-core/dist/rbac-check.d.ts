@@ -15,7 +15,7 @@
  * failure). Callers MUST fail-closed — treat `null` as step-up required (2),
  * never as allow.
  */
-import type { GuardProvider } from '@transcodes-guard/danger-patterns';
+import { type GuardProvider } from '@transcodes-guard/danger-patterns';
 import type { StepupConfig } from './config.js';
 export type RbacLevel = 0 | 1 | 2;
 export type GuardStepUpStatus = 'pending' | 'verified' | 'rejected';

@@ -23,7 +23,7 @@
 import { currentHostProvider, DEFAULT_RBAC_RESOURCE, isTranscodesGuardWireToolName, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
 import { openBrowser } from './gate.js';
-import { clearLatch, hasLatch, writeLatch } from './latch.js';
+import { clearLatch, hasLatch, readLatchRecord, writeLatch } from './latch.js';
 import { evaluateAction } from './rbac-check.js';
 import { resolvePromptSid } from './sid.js';
 import { resolveToken } from './token-store.js';
@@ -272,7 +272,11 @@ export async function evaluatePreToolUse(input) {
         browserLaunched = true;
     }
     if (pending) {
-        writeLatch(sid, resource, action, verdict.sid);
+        // Reused-pending rewrite must carry over createdAt/remindedCount — resetting
+        // them would extend the latch TTL and restart the Stop-reminder cap on
+        // every retry of the same in-flight challenge.
+        const prior = readLatchRecord(sid, resource, action);
+        writeLatch(sid, resource, action, verdict.sid ?? prior?.authSid, prior?.createdAt, prior?.remindedCount);
     }
     return {
         kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,
