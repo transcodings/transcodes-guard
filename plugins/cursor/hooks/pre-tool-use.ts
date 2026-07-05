@@ -44,6 +44,9 @@ async function main(): Promise<void> {
   switch (decision.kind) {
     case GATE_DECISION_KIND.PROCEED_UNGATED:
     case GATE_DECISION_KIND.PROCEED_BY_POLICY:
+      process.stdout.write(
+        cursorAdapter.emitPreToolUse({ kind: 'allow', reason: '' }),
+      );
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_NO_TOKEN:

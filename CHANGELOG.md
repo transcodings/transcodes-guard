@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.38.0...transcodes-guard-v0.39.0) (2026-07-05)
+
+
+### Bug Fixes
+
+* **cursor:** emit allow JSON on proceed so failClosed hooks do not block with empty stdout
+
 ## [0.38.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.37.0...transcodes-guard-v0.38.0) (2026-07-05)
 
 

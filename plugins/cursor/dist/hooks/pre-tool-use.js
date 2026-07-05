@@ -16,7 +16,7 @@ import {
   formatStepupRejectedReason,
   formatStepupRejectedSystemMessage,
   getGateBackend
-} from "../chunk-SKSK3Z5C.js";
+} from "../chunk-CVI2NO46.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
@@ -28,6 +28,9 @@ async function main() {
   switch (decision.kind) {
     case GATE_DECISION_KIND.PROCEED_UNGATED:
     case GATE_DECISION_KIND.PROCEED_BY_POLICY:
+      process.stdout.write(
+        cursorAdapter.emitPreToolUse({ kind: "allow", reason: "" })
+      );
       process.exit(0);
     case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
       process.stdout.write(
