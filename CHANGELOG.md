@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.36.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.35.1...transcodes-guard-v0.36.0) (2026-07-05)
+
+
+### Features
+
+* **gate:** add web guard provider and tighten step-up agent messages ([5446963](https://github.com/transcodings/transcodes-guard/commit/5446963233898bdc21e23273160dec89d783a89a))
+* **stepup:** send guard provider and parse AI summary from evaluate ([3d300cc](https://github.com/transcodings/transcodes-guard/commit/3d300ccb6f57d87cf809d018bb32c4f3ef64a9bd))
+
 ## [0.35.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.35.0...transcodes-guard-v0.35.1) (2026-07-04)
 
 
