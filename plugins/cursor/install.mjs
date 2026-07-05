@@ -184,6 +184,18 @@ const cursorHome = isLocal
 console.log('Starting Cursor transcodes-guard plugin installation...');
 console.log(`Installing plugin to: ${pluginTarget}`);
 
+const sourceRoot = fs.realpathSync(__dirname);
+const targetRoot = fs.existsSync(pluginTarget)
+  ? fs.realpathSync(pluginTarget)
+  : path.resolve(pluginTarget);
+if (sourceRoot === targetRoot) {
+  console.error('');
+  console.error('Error: install target is the same directory as this plugin source.');
+  console.error('If ~/.cursor/plugins/local/transcodes-guard is a symlink to this repo, remove it first.');
+  console.error('The installer must copy into a separate directory under ~/.cursor/plugins/local/.');
+  process.exit(1);
+}
+
 fs.mkdirSync(pluginTarget, { recursive: true });
 
 const distDest = path.join(pluginTarget, 'dist');
