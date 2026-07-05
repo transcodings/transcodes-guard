@@ -13,6 +13,7 @@ export const GUARD_PROVIDERS = [
     'codex',
     'cursor',
     'antigravity',
+    'web',
 ];
 const ID_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 export function loadSystemToolRules() {

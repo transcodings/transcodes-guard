@@ -51,7 +51,7 @@ export function formatNoTokenSessionNotice(): string {
 
 export function formatBlockedSummary(block: BlockResult): string {
   return [
-    '⛔ BLOCKED — Bash was NOT executed.',
+    'Blocked by Transcodes: Bash was NOT executed.',
     '',
     `Reason : ${block.reason}`,
     ...(block.details && block.details.length > 0
@@ -156,9 +156,9 @@ export function formatStepupFailureSystemMessage(
   >,
 ): string {
   return appendBackendReasoning(
-    `${formatBlockedSummary(
-      decision.block,
-    )}\n\n${formatStepupFailureDetail(decision)}`,
+    `${formatBlockedSummary(decision.block)}\n\n${formatStepupFailureDetail(
+      decision,
+    )}`,
     decision.reasoning,
   );
 }
@@ -187,7 +187,7 @@ export function formatStepupPendingSystemMessage(
     : 'A concurrent hook process already opened a tab — reuse it:';
   return appendBackendReasoning(
     [
-      '🔐 BLOCKED — Step-up MFA required. This Bash command was NOT executed.',
+      'Pending for Step-up MFA authentication. This Bash command was NOT executed.',
       '',
       `Reason : ${decision.block.reason}`,
       `Command: ${decision.block.command}`,
@@ -219,8 +219,9 @@ export function formatStepupRejectedReason(
   >,
 ): string {
   return (
-    'Step-up MFA was declined for this action. Do not poll or retry the command ' +
-    `(${decision.resource}/${decision.action}) unless the user explicitly asks.`
+    'Step-up MFA was declined. Tell the user this command did not run. Do not ' +
+    'retry or poll unless they explicitly ask to authenticate again ' +
+    `(${decision.resource}/${decision.action}).`
   );
 }
 
@@ -232,14 +233,23 @@ export function formatStepupRejectedSystemMessage(
 ): string {
   return appendBackendReasoning(
     [
-      '🔐 BLOCKED — Step-up MFA declined. This command was NOT executed.',
+      'BLOCKED — Step-up MFA declined. This command was NOT executed.',
       '',
       `Reason : ${decision.block.reason}`,
       `Command: ${decision.block.command}`,
+      `Coordinate: ${decision.resource}/${decision.action}`,
       '',
-      'The user rejected WebAuthn for this grouped challenge. Do NOT call ' +
-        '`tc_poll_stepup_session_wait` or retry this command unless the user ' +
-        'explicitly asks to authenticate again.',
+      'The user rejected WebAuthn for this grouped step-up challenge.',
+      '',
+      'Agent — stop the step-up loop (do this now):',
+      '  1. Tell the user in one short line that step-up MFA was declined ' +
+        'and this command did not run.',
+      '  2. Do NOT call `tc_poll_stepup_session_wait` or `tc_poll_stepup_session` — ' +
+        'the challenge is terminal.',
+      '  3. Do NOT retry this command or run alternate Bash/MCP tools to work ' +
+        'around the block in this turn.',
+      '  4. Wait for the user. Only start step-up again if they explicitly ask ' +
+        'to authenticate and retry.',
     ].join('\n'),
     decision.reasoning,
   );

@@ -1,6 +1,6 @@
 import { type RbacAction } from './rbac.js';
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
-export declare const GUARD_PROVIDERS: readonly ["claude", "codex", "cursor", "antigravity"];
+export declare const GUARD_PROVIDERS: readonly ["claude", "codex", "cursor", "antigravity", "web"];
 export type GuardProvider = (typeof GUARD_PROVIDERS)[number];
 export interface ToolRule {
     id: string;

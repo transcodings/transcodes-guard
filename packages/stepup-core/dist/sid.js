@@ -11,7 +11,7 @@
  * It is NOT the `tc_stepup_` auth token (that is backend-minted per action and
  * lives in the auth URL) — the two never overlap.
  *
- * Persisted at `~/.transcodes/state/session-sid.json`.
+ * Persisted at `~/.transcodes/state/grouping-session.json`.
  *
  * Lifecycle:
  *   - `rotatePromptSid()` mints a fresh sid — called by the prompt-submit /

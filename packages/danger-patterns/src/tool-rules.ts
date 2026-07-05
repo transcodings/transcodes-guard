@@ -21,6 +21,7 @@ export const GUARD_PROVIDERS = [
   'codex',
   'cursor',
   'antigravity',
+  'web',
 ] as const;
 
 export type GuardProvider = (typeof GUARD_PROVIDERS)[number];

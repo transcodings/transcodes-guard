@@ -164,7 +164,7 @@ export interface StepupStateInspection {
 export type PolicyBundleRefreshOutcome = 'fresh' | 'refreshed' | 'not-modified' | 'failed' | 'skipped';
 /** Tool-rule registry types. Mirror danger-patterns tool-rules.ts (schema v2). */
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
-export type GuardProvider = 'claude' | 'codex' | 'cursor' | 'antigravity';
+export type GuardProvider = 'claude' | 'codex' | 'cursor' | 'antigravity' | 'web';
 export type ToolRuleSource = 'system' | 'bundle';
 export interface ToolRule {
     id: string;
