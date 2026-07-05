@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.37.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.36.0...transcodes-guard-v0.37.0) (2026-07-05)
+
+
+### Features
+
+* **gate:** add web guard provider and tighten step-up agent messages ([5446963](https://github.com/transcodings/transcodes-guard/commit/5446963233898bdc21e23273160dec89d783a89a))
+* **stepup:** add poll wait agent context and clear latch on terminal outcomes ([598ee20](https://github.com/transcodings/transcodes-guard/commit/598ee2037a2b01358e8fae0d797f54d4da37b0f7))
+
 ## [0.36.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.35.1...transcodes-guard-v0.36.0) (2026-07-05)
 
 
