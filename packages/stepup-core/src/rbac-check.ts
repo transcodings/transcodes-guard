@@ -16,7 +16,10 @@
  * never as allow.
  */
 
-import type { GuardProvider } from '@transcodes-guard/danger-patterns';
+import {
+  GUARD_PROVIDERS,
+  type GuardProvider,
+} from '@transcodes-guard/danger-patterns';
 import { request } from './client.js';
 import type { StepupConfig } from './config.js';
 
@@ -89,8 +92,11 @@ export async function evaluateAction(
       : null;
   const summary =
     typeof p.summary === 'string' && p.summary.trim() ? p.summary.trim() : '';
-  const providerRaw = p.provider;
-  const provider = providerRaw as GuardProvider;
+  const provider =
+    typeof p.provider === 'string' &&
+    (GUARD_PROVIDERS as readonly string[]).includes(p.provider)
+      ? (p.provider as GuardProvider)
+      : null;
   return {
     permission,
     resource,

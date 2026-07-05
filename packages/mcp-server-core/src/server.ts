@@ -550,7 +550,9 @@ export function createServer(
 
   server.registerResource(
     'tc_tool_rules',
-    'tc_tool_rules://list',
+    // Scheme must be WHATWG-legal (no underscore) — the MCP SDK parses the
+    // URI with `new URL()` on every resources/read.
+    'tc-tool-rules://list',
     {
       title: 'Step-up-protected MCP tool rules (system)',
       description:

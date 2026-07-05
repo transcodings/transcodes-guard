@@ -34,7 +34,7 @@ export const MCP_RESOURCES = [
       'Returns the running plugin version. Use to confirm which build is loaded.',
   },
   {
-    uri: 'tool-rules://list',
+    uri: 'tc-tool-rules://list',
     description:
       'Read-only list of system MCP tool-rules (execProtectedTool handler backstop).',
   },
