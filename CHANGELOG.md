@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.41.0...transcodes-guard-v0.41.1) (2026-07-05)
+
+
+### Bug Fixes
+
+* **cursor:** reject install when target resolves to plugin source ([ae98c61](https://github.com/transcodings/transcodes-guard/commit/ae98c6101bda59cc44ed9f06fbddf136dcbba7ab))
+
 ## [0.41.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.40.0...transcodes-guard-v0.41.0) (2026-07-05)
 
 
