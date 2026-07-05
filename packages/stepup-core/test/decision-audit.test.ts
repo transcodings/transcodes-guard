@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import type { Server } from 'node:http';
 import { createServer } from 'node:http';
 import { after, before, beforeEach, describe, it } from 'node:test';
+import { PLUGIN_VERSION } from '../src/build-info.js';
 import type { StepupConfig } from '../src/config.js';
 import {
   DECISION_AUDIT_TAG,
@@ -182,6 +183,7 @@ describe('sendDecisionAudit', () => {
     assert.deepEqual(body.metadata, {
       ...EVENT,
       decision: 'deny-stepup-failure', // legacy wire value
+      pluginVersion: PLUGIN_VERSION,
     });
     assert.ok(!JSON.stringify(body).includes('rm -rf'));
   });
