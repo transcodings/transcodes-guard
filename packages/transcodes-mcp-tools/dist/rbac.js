@@ -61,7 +61,7 @@ export function registerRbacTools(server) {
         },
     }, async ({ role_id }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('retire_role', (sid) => req(config, {
+        return execProtectedTool('tc_retire_role', (sid) => req(config, {
             method: 'DELETE',
             body: { project_id: config.projectId },
             stepUpSid: sid,
@@ -79,7 +79,7 @@ export function registerRbacTools(server) {
         },
     }, async ({ role_id, body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('set_role_permissions', (sid) => req(config, {
+        return execProtectedTool('tc_set_role_permissions', (sid) => req(config, {
             method: 'PUT',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,
@@ -99,7 +99,7 @@ export function registerRbacTools(server) {
         },
     }, async ({ body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('update_member_role', (sid) => req(config, {
+        return execProtectedTool('tc_update_member_role', (sid) => req(config, {
             method: 'PUT',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,
@@ -115,7 +115,7 @@ export function registerRbacTools(server) {
         },
     }, async ({ resource_key }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('retire_resource', (sid) => req(config, {
+        return execProtectedTool('tc_retire_resource', (sid) => req(config, {
             method: 'DELETE',
             query: { project_id: config.projectId },
             omitBody: true,
@@ -135,7 +135,7 @@ export function registerRbacTools(server) {
         },
     }, async ({ body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('create_role', (sid) => req(config, {
+        return execProtectedTool('tc_create_role', (sid) => req(config, {
             method: 'POST',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,
@@ -154,7 +154,7 @@ export function registerRbacTools(server) {
         },
     }, async ({ role_id, body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('update_role', (sid) => req(config, {
+        return execProtectedTool('tc_update_role', (sid) => req(config, {
             method: 'PUT',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,
@@ -176,7 +176,7 @@ export function registerRbacTools(server) {
         },
     }, async ({ body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('create_resource', (sid) => req(config, {
+        return execProtectedTool('tc_create_resource', (sid) => req(config, {
             method: 'POST',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,
@@ -195,7 +195,7 @@ export function registerRbacTools(server) {
         },
     }, async ({ resource_key, body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('update_resource', (sid) => req(config, {
+        return execProtectedTool('tc_update_resource', (sid) => req(config, {
             method: 'PATCH',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,

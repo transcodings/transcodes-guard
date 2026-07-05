@@ -16,7 +16,7 @@ export function registerAuditTools(server) {
         },
     }, async ({ page, limit, tag, start_date, end_date }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('get_security_logs', (sid) => req(config, {
+        return execProtectedTool('tc_get_security_logs', (sid) => req(config, {
             method: 'GET',
             query: {
                 project_id: config.projectId,

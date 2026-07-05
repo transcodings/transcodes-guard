@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.41.2...transcodes-guard-v0.41.3) (2026-07-05)
+
+
+### Bug Fixes
+
+* **mcp:** align execProtectedTool names with tool-rules.json ([05d51f0](https://github.com/transcodings/transcodes-guard/commit/05d51f0fdea93ed0248ebcdcc6ecf23e9c6bcab3))
+
 ## [0.41.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.41.1...transcodes-guard-v0.41.2) (2026-07-05)
 
 

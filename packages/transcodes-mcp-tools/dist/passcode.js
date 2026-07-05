@@ -13,7 +13,7 @@ export function registerPasscodeTools(server) {
         },
     }, async ({ body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('passcode_create', (sid) => req(config, {
+        return execProtectedTool('tc_passcode_create', (sid) => req(config, {
             method: 'POST',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,

@@ -91,7 +91,7 @@ export function registerMemberTools(server) {
         },
     }, async ({ body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('retire_member', (sid) => req(config, {
+        return execProtectedTool('tc_retire_member', (sid) => req(config, {
             method: 'DELETE',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,
@@ -107,7 +107,7 @@ export function registerMemberTools(server) {
         },
     }, async ({ body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('suspend_member', (sid) => req(config, {
+        return execProtectedTool('tc_suspend_member', (sid) => req(config, {
             method: 'POST',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,
@@ -123,7 +123,7 @@ export function registerMemberTools(server) {
         },
     }, async ({ body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('unsuspend_member', (sid) => req(config, {
+        return execProtectedTool('tc_unsuspend_member', (sid) => req(config, {
             method: 'DELETE',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,
@@ -144,7 +144,7 @@ export function registerMemberTools(server) {
         },
     }, async ({ body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('create_member', (sid) => req(config, {
+        return execProtectedTool('tc_create_member', (sid) => req(config, {
             method: 'POST',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,
@@ -168,7 +168,7 @@ export function registerMemberTools(server) {
         },
     }, async ({ body }) => {
         const config = loadStepupConfig();
-        return execProtectedTool('update_member', (sid) => req(config, {
+        return execProtectedTool('tc_update_member', (sid) => req(config, {
             method: 'PUT',
             body: { ...body, project_id: config.projectId },
             stepUpSid: sid,
