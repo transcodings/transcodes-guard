@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.41.1...transcodes-guard-v0.41.2) (2026-07-05)
+
+
+### Bug Fixes
+
+* 07-04~05 리뷰 후속 — funes 분담분(F1~F4) 수정 ([#167](https://github.com/transcodings/transcodes-guard/issues/167)) ([b3543a4](https://github.com/transcodings/transcodes-guard/commit/b3543a4b9f6a872ca60b9e1b646726bd2514292c))
+
 ## [0.41.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.41.0...transcodes-guard-v0.41.1) (2026-07-05)
 
 
