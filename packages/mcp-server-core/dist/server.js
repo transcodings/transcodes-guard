@@ -84,10 +84,11 @@ export function createServer(backend = getGateBackend()) {
             'the user must visit to complete WebAuthn. The same flow is used by the ' +
             'PreToolUse hook when a danger command is detected.',
         inputSchema: {
-            comment: z
+            summary: z
                 .string()
                 .min(1)
-                .describe('One short sentence shown on the step-up screen explaining the reason.'),
+                .max(140)
+                .describe('One sentence describing what the user is confirming on the step-up screen.'),
             action: z
                 .string()
                 .optional()
@@ -101,9 +102,9 @@ export function createServer(backend = getGateBackend()) {
                 .optional()
                 .describe('Member public id to authenticate. Defaults to the mid claim in TRANSCODES_TOKEN.'),
         },
-    }, async ({ comment, action, resource, member_id }) => {
+    }, async ({ summary, action, resource, member_id }) => {
         const result = await backend.createStepupSession({
-            comment,
+            summary,
             action,
             resource,
             member_id,

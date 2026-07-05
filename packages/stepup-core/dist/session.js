@@ -32,9 +32,9 @@ function readString(rec, key) {
 }
 /** MCP / hook step-up — POST .../step-up/session (mode fixed server-side). */
 export async function createStepupSession(config, args) {
-    const comment = args.comment?.trim();
-    if (!comment) {
-        throw new Error('comment is required: one short sentence for the step-up UI');
+    const summary = (args.summary ?? args.comment)?.trim();
+    if (!summary) {
+        throw new Error('summary is required — one short sentence describing the action');
     }
     const envelope = await request(config, {
         method: 'POST',
@@ -44,7 +44,7 @@ export async function createStepupSession(config, args) {
             member_id: args.member_id ?? config.memberId,
             action: args.action,
             resource: args.resource,
-            comment,
+            summary,
         },
     });
     const payload = readStepupPayload(envelope);

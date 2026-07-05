@@ -12,7 +12,7 @@ import {
   isTranscodesGuardWireToolName,
   loadMergedToolRules,
   objectType
-} from "../chunk-EPO47CUF.js";
+} from "../chunk-Z7GJEY7H.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17115,14 +17115,14 @@ function createServer(backend = getGateBackend()) {
     title: "Create Step-up MFA Session",
     description: "Open a Transcodes step-up MFA session. Returns sid and the browser URL the user must visit to complete WebAuthn. The same flow is used by the PreToolUse hook when a danger command is detected.",
     inputSchema: {
-      comment: external_exports.string().min(1).describe("One short sentence shown on the step-up screen explaining the reason."),
+      summary: external_exports.string().min(1).max(140).describe("One sentence describing what the user is confirming on the step-up screen."),
       action: external_exports.string().optional().describe("Action identifier for the audit log."),
       resource: external_exports.string().optional().describe("Protected resource identifier for the audit log."),
       member_id: external_exports.string().optional().describe("Member public id to authenticate. Defaults to the mid claim in TRANSCODES_TOKEN.")
     }
-  }, async ({ comment, action, resource, member_id }) => {
+  }, async ({ summary, action, resource, member_id }) => {
     const result = await backend.createStepupSession({
-      comment,
+      summary,
       action,
       resource,
       member_id

@@ -125,11 +125,12 @@ export function createServer(
         'the user must visit to complete WebAuthn. The same flow is used by the ' +
         'PreToolUse hook when a danger command is detected.',
       inputSchema: {
-        comment: z
+        summary: z
           .string()
           .min(1)
+          .max(140)
           .describe(
-            'One short sentence shown on the step-up screen explaining the reason.',
+            'One sentence describing what the user is confirming on the step-up screen.',
           ),
         action: z
           .string()
@@ -147,9 +148,9 @@ export function createServer(
           ),
       },
     },
-    async ({ comment, action, resource, member_id }) => {
+    async ({ summary, action, resource, member_id }) => {
       const result = await backend.createStepupSession({
-        comment,
+        summary,
         action,
         resource,
         member_id,

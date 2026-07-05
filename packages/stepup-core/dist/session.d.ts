@@ -8,10 +8,13 @@
 import { type Envelope } from './client.js';
 import type { StepupConfig } from './config.js';
 export type CreateStepupArgs = {
-    comment: string;
+    /** One short sentence describing what the user is confirming. */
+    summary: string;
     action?: string;
     resource?: string;
     member_id?: string;
+    /** @deprecated Use `summary`. Kept for callers that still pass `comment`. */
+    comment?: string;
 };
 export type CreateConsoleSessionArgs = {
     comment?: string;

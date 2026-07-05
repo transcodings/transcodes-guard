@@ -107,10 +107,12 @@ export type Envelope = {
 };
 /** Args for creating a step-up session. Mirrors session.ts `CreateStepupArgs`. */
 export type CreateStepupArgs = {
-    comment: string;
+    summary: string;
     action?: string;
     resource?: string;
     member_id?: string;
+    /** @deprecated Use `summary`. */
+    comment?: string;
 };
 /** Mirrors session.ts `CreatedStepupSession`. */
 export type CreatedStepupSession = {

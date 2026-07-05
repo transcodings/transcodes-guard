@@ -12,10 +12,13 @@ const STEPUP_PATH = '/auth/temp-session/step-up/session';
 const CONSOLE_SESSION_PATH = '/auth/temp-session/console/session';
 
 export type CreateStepupArgs = {
-  comment: string;
+  /** One short sentence describing what the user is confirming. */
+  summary: string;
   action?: string;
   resource?: string;
   member_id?: string;
+  /** @deprecated Use `summary`. Kept for callers that still pass `comment`. */
+  comment?: string;
 };
 
 export type CreateConsoleSessionArgs = {
@@ -71,10 +74,10 @@ export async function createStepupSession(
   config: StepupConfig,
   args: CreateStepupArgs,
 ): Promise<CreatedStepupSession> {
-  const comment = args.comment?.trim();
-  if (!comment) {
+  const summary = (args.summary ?? args.comment)?.trim();
+  if (!summary) {
     throw new Error(
-      'comment is required: one short sentence for the step-up UI',
+      'summary is required — one short sentence describing the action',
     );
   }
 
@@ -86,7 +89,7 @@ export async function createStepupSession(
       member_id: args.member_id ?? config.memberId,
       action: args.action,
       resource: args.resource,
-      comment,
+      summary,
     },
   });
 
