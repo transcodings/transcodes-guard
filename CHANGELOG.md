@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.37.0...transcodes-guard-v0.38.0) (2026-07-05)
+
+
+### Features
+
+* **stepup:** rename create session comment field to summary ([b1b228e](https://github.com/transcodings/transcodes-guard/commit/b1b228ebdf2733eb5b3b09c3588ed2cf401a7da0))
+
 ## [0.37.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.36.0...transcodes-guard-v0.37.0) (2026-07-05)
 
 
