@@ -5,7 +5,7 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-YVSBOPJJ.js";
+} from "../chunk-E7WPUGQH.js";
 
 // hooks/session-start.ts
 async function main() {

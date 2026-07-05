@@ -15,6 +15,7 @@
  * failure). Callers MUST fail-closed — treat `null` as step-up required (2),
  * never as allow.
  */
+import { GUARD_PROVIDERS, } from '@transcodes-guard/danger-patterns';
 import { request } from './client.js';
 /**
  * POST /v1/guard/evaluate — one round-trip: backend classifies the raw hook
@@ -50,8 +51,10 @@ export async function evaluateAction(config, body) {
         ? p.status
         : null;
     const summary = typeof p.summary === 'string' && p.summary.trim() ? p.summary.trim() : '';
-    const providerRaw = p.provider;
-    const provider = providerRaw;
+    const provider = typeof p.provider === 'string' &&
+        GUARD_PROVIDERS.includes(p.provider)
+        ? p.provider
+        : null;
     return {
         permission,
         resource,
