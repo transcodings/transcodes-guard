@@ -66,7 +66,9 @@ $transcodes is "git push --force" blocked?
 
 ## AI 에이전트를 위한 안내
 
-`PreToolUse` 차단 시 에이전트가 따라야 할 스텝업 응답 프로토콜(사용자에게 WebAuthn 완료 요청 → `sid`로 `poll_stepup_session_wait` 호출 → `verified`면 동일 호출 재시도)은 [`AGENTS.md`](./AGENTS.md)에 있으며, Codex가 매 턴 에이전트 컨텍스트에 자동 로드합니다. 런타임 루프의 단일 진실 공급원이므로 그곳에서 확인하세요.
+오픈 소스: [transcodes-guard](https://github.com/transcodings/transcodes-guard)
+
+`PreToolUse` 차단 시 에이전트가 따라야 할 스텝업 응답 프로토콜은 [`AGENTS.md`](./AGENTS.md)에 있으며, Codex가 매 턴 에이전트 컨텍스트에 자동 로드합니다. 런타임 루프의 단일 진실 공급원이므로 그곳에서 확인하세요.
 
 ## 활성화 / 비활성화
 

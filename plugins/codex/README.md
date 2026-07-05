@@ -66,7 +66,9 @@ It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_use
 
 ## For AI agents
 
-The step-up response protocol the agent must follow on a `PreToolUse` deny (tell the user to complete WebAuthn → call `poll_stepup_session_wait` with the `sid` → retry the same call on `verified`) lives in [`AGENTS.md`](./AGENTS.md), which Codex auto-loads into the agent's context every turn. Read it there — it is the single source of truth for the runtime loop.
+Open source: [transcodes-guard](https://github.com/transcodings/transcodes-guard)
+
+The step-up response protocol the agent must follow on a `PreToolUse` deny lives in [`AGENTS.md`](./AGENTS.md), which Codex auto-loads into the agent's context every turn. Read it there — it is the single source of truth for the runtime loop.
 
 ## Enabling / disabling
 

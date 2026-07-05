@@ -11,6 +11,8 @@
  * render decisions without importing private code.
  */
 import { GATE_DECISION_KIND, } from './types.js';
+/** Public GitHub repository — link in agent-facing protocol docs. */
+export const TRANSCODES_GUARD_REPO_URL = 'https://github.com/transcodings/transcodes-guard';
 function appendBackendReasoning(text, reasoning) {
     const trimmed = reasoning?.trim();
     if (!trimmed)
@@ -139,11 +141,40 @@ export function formatStepupRejectedReason(decision) {
         'retry or poll unless they explicitly ask to authenticate again ' +
         `(${decision.resource}/${decision.action}).`);
 }
+/**
+ * Static step-up loop primer for session-start / AGENTS.md / STEPUP.md / skills.
+ * Keep `scripts/router-body.mjs` STEPUP_PROTOCOL_SECTION in sync.
+ */
+export function formatStepupProtocolPrimer() {
+    return [
+        'transcodes-guard step-up MFA protocol:',
+        `Open source: ${TRANSCODES_GUARD_REPO_URL}`,
+        '',
+        'When a PreToolUse hook denies with Step-up MFA, the command was BLOCKED',
+        'and did NOT execute. Drive the loop deterministically — do NOT wait for',
+        'user confirmation before calling the wait tool:',
+        '',
+        '  1. Tell the user (one short line) to complete WebAuthn in the opened tab',
+        '     (paste the URL from the deny message if it did not open).',
+        '  2. Immediately call MCP tool `tc_poll_stepup_session_wait` with the sid.',
+        '     It blocks until verified or 60s timeout.',
+        '  3. verified → retry the SAME blocked command.',
+        '     timeout → ask the user to complete WebAuthn and whether to retry;',
+        '     only call the wait tool again if they say yes.',
+        '     rejected, not_found, stop, or cancel → stop immediately;',
+        '     no retry or follow-up questions until the user explicitly asks.',
+        '  Do not reopen auth tabs or re-poll after cancel (security fatigue).',
+        '',
+        'Never assume the blocked command ran. Never invent an alternative command.',
+        'Always resume from the pending sid the hook reported.',
+    ].join('\n');
+}
 export function formatPollStepupSessionWaitAgentContext() {
     return [
         'verified → retry the same blocked command.',
         'timeout → ask the user to complete WebAuthn and whether to retry; only call this tool again if they say yes.',
         'rejected, not_found, stop, or cancel → stop immediately; no retry or follow-up questions until the user explicitly asks.',
+        'Do not reopen auth tabs or re-poll after cancel (security fatigue).',
     ].join('\n');
 }
 export function formatStepupRejectedSystemMessage(decision) {

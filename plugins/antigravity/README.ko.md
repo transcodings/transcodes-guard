@@ -70,7 +70,9 @@ PreToolUse hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실�
 
 ## AI 에이전트를 위한 안내
 
-`PreToolUse` 차단 시 에이전트가 따라야 할 스텝업 응답 프로토콜(사용자에게 WebAuthn 완료 요청 → `sid`로 `poll_stepup_session_wait` 호출 → `verified`면 동일 호출 재시도)은 [`rules/STEPUP.md`](./rules/STEPUP.md)에 있으며, Antigravity가 에이전트 작업 컨텍스트에 자동 로드합니다(모든 플러그인의 `rules/` 디렉터리를 스캔). 런타임 루프의 단일 진실 공급원이므로 그곳에서 확인하세요.
+오픈 소스: [transcodes-guard](https://github.com/transcodings/transcodes-guard)
+
+`PreToolUse` 차단 시 에이전트가 따라야 할 스텝업 응답 프로토콜은 [`rules/STEPUP.md`](./rules/STEPUP.md)에 있으며, Antigravity가 에이전트 작업 컨텍스트에 자동 로드합니다(모든 플러그인의 `rules/` 디렉터리를 스캔). 런타임 루프의 단일 진실 공급원이므로 그곳에서 확인하세요.
 
 ## 활성화 / 비활성화
 

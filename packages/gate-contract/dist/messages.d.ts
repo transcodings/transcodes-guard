@@ -11,6 +11,8 @@
  * render decisions without importing private code.
  */
 import { type BlockResult, GATE_DECISION_KIND, type GateDecision } from './types.js';
+/** Public GitHub repository — link in agent-facing protocol docs. */
+export declare const TRANSCODES_GUARD_REPO_URL = "https://github.com/transcodings/transcodes-guard";
 /**
  * Session-start notice text shown when no Transcodes token is configured.
  *
@@ -46,6 +48,11 @@ export declare function formatStepupPendingSystemMessage(decision: Extract<GateD
 export declare function formatStepupRejectedReason(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED;
 }>): string;
+/**
+ * Static step-up loop primer for session-start / AGENTS.md / STEPUP.md / skills.
+ * Keep `scripts/router-body.mjs` STEPUP_PROTOCOL_SECTION in sync.
+ */
+export declare function formatStepupProtocolPrimer(): string;
 export declare function formatPollStepupSessionWaitAgentContext(): string;
 export declare function formatStepupRejectedSystemMessage(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED;

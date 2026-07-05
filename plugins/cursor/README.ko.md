@@ -71,13 +71,15 @@ MCP 서버 자체(`mcp.json`에 `transcodes-guard`로 등록)는 다른 플러�
 
 ## AI 에이전트를 위한 안내
 
-`beforeShellExecution` / `beforeMCPExecution` hook이 **Step-up MFA**를 언급하는 사유와 함께 차단하면, 그 명령은 **차단되어 실행되지 않았습니다**. 차단 메시지 자체가 이 스텝업 지침을 담고 있습니다(`sessionStart` hook은 프로토콜이 아니라 carry-over 상태만 노출합니다). 루프를 결정적으로 진행하세요 — 단계 사이에 사용자 확인을 기다리지 마세요:
+오픈 소스: [transcodes-guard](https://github.com/transcodings/transcodes-guard)
+
+`beforeShellExecution` / `beforeMCPExecution` hook이 **Step-up MFA**를 언급하는 사유와 함께 차단하면, 그 명령은 **차단되어 실행되지 않았습니다**. 차단 메시지 자체가 이 스텝업 지침을 담고 있습니다(`sessionStart` hook은 프로토콜이 아니라 carry-over 상태만 노출합니다). wait tool 호출 전까지 사용자 확인을 기다리지 말고 루프를 결정적으로 진행하세요:
 
 1. 자동으로 열린 브라우저 탭에서 WebAuthn을 완료하라고 사용자에게 한 줄로 알립니다(탭이 열리지 않았으면 차단 메시지의 URL 사용).
-2. 즉시 MCP 도구 **`poll_stepup_session_wait`**를 제공된 `sid`로 호출합니다. verified 되거나 60초 타임아웃까지 블록됩니다.
-3. `outcome: "verified"`면 **원래 차단된 명령**을 재시도합니다 — hook이 verified 상태를 로컬에서 감지해 허용합니다. `outcome: "timeout"`이면 사용자에게 WebAuthn 재시도를 요청한 뒤 wait 도구를 다시 호출합니다. `outcome: "rejected"`면 사용자가 스텝업을 거부한 것이므로 그 사실을 알리고 **재시도하지 마세요**.
+2. 즉시 MCP 도구 **`tc_poll_stepup_session_wait`**를 제공된 `sid`로 호출합니다. verified 되거나 60초 타임아웃까지 블록됩니다.
+3. **`outcome: "verified"`**면 **원래 차단된 명령**을 재시도합니다. **`outcome: "timeout"`**이면 WebAuthn 완료 여부와 **재시도할지** 사용자에게 묻고, yes일 때만 wait 도구를 다시 호출합니다. **`outcome: "rejected"`**, **`not_found`**, 또는 사용자 **stop/cancel**이면 즉시 중단 — 사용자가 명시적으로 요청하기 전까지 재시도하지 마세요. 취소 후 auth 탭 재오픈·재폴링 금지(security fatigue).
 
-차단된 명령이 실행됐다고 가정하지 마세요. 대체 명령을 임의로 만들지 마세요. 항상 대기 중 `sid`에서 이어가세요. `inspect_stepup_state`로 읽기 전용 스냅샷을 확인하세요. 참고: Cursor에서는 `beforeSubmitPrompt`에 컨텍스트 채널이 없어 사용자의 "완료" 메시지가 조용히 처리되므로, 프롬프트 측 확인을 기대하기보다 `poll_stepup_session_wait` 루프에 의존하세요.
+차단된 명령이 실행됐다고 가정하지 마세요. 대체 명령을 임의로 만들지 마세요. 항상 대기 중 `sid`에서 이어가세요. `tc_inspect_stepup_state`로 읽기 전용 스냅샷을 확인하세요. 참고: Cursor에서는 `beforeSubmitPrompt`에 컨텍스트 채널이 없어 사용자의 "완료" 메시지가 조용히 처리되므로, 프롬프트 측 확인을 기대하기보다 `tc_poll_stepup_session_wait` 루프에 의존하세요.
 
 ## 활성화 / 비활성화
 

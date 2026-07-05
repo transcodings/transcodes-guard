@@ -71,13 +71,15 @@ It lives in the plugin's `.cursor/commands/` directory, which `plugin.json` decl
 
 ## For AI agents
 
-When a `beforeShellExecution` / `beforeMCPExecution` hook denies with a reason mentioning **Step-up MFA**, the command was **blocked and did NOT run**. The deny message itself carries these step-up instructions (the `sessionStart` hook only surfaces carry-over state, not the protocol). Drive the loop deterministically — do not wait for user confirmation between steps:
+Open source: [transcodes-guard](https://github.com/transcodings/transcodes-guard)
+
+When a `beforeShellExecution` / `beforeMCPExecution` hook denies with a reason mentioning **Step-up MFA**, the command was **blocked and did NOT run**. The deny message itself carries these step-up instructions (the `sessionStart` hook only surfaces carry-over state, not the protocol). Drive the loop deterministically — do not wait for user confirmation before calling the wait tool:
 
 1. Tell the user (one short line) to complete WebAuthn in the auto-opened browser tab (use the URL from the deny message if it did not open).
-2. Immediately call the MCP tool **`poll_stepup_session_wait`** with the provided `sid`. It blocks until verified or a 60s timeout.
-3. On `outcome: "verified"`, retry the **original blocked command** — the hook detects the verified state locally and allows it. On `outcome: "timeout"`, ask the user to retry WebAuthn, then call the wait tool again. On `outcome: "rejected"`, the user declined step-up — tell them and do **not** retry.
+2. Immediately call the MCP tool **`tc_poll_stepup_session_wait`** with the provided `sid`. It blocks until verified or a 60s timeout.
+3. On **`outcome: "verified"`**, retry the **original blocked command** — the hook detects the verified state locally and allows it. On **`outcome: "timeout"`**, ask the user to complete WebAuthn **and whether to retry**; only call the wait tool again if they say yes. On **`outcome: "rejected"`**, **`not_found`**, or user **stop/cancel**, stop immediately — do not retry until the user explicitly asks. Do not reopen auth tabs or re-poll after cancel (security fatigue).
 
-Never assume the blocked command ran. Never invent an alternative. Always resume from the pending `sid`. Use `inspect_stepup_state` for a read-only snapshot. Note: on Cursor, `beforeSubmitPrompt` has no context channel, so a user "done" message is handled silently — rely on the `poll_stepup_session_wait` loop rather than expecting a prompt-side acknowledgement.
+Never assume the blocked command ran. Never invent an alternative. Always resume from the pending `sid`. Use `tc_inspect_stepup_state` for a read-only snapshot. Note: on Cursor, `beforeSubmitPrompt` has no context channel, so a user "done" message is handled silently — rely on the `tc_poll_stepup_session_wait` loop rather than expecting a prompt-side acknowledgement.
 
 ## Enabling / disabling
 

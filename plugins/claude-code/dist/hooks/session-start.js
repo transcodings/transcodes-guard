@@ -4,36 +4,15 @@ import {
 } from "../chunk-7X2GUVN6.js";
 import {
   formatNoTokenSessionNotice,
+  formatStepupProtocolPrimer,
   getGateBackend
-} from "../chunk-WC4I5U3P.js";
+} from "../chunk-BQQ4RLSC.js";
 
 // src/version.ts
 var PLUGIN_VERSION = "0.37.0";
 
 // hooks/session-start.ts
-var PROTOCOL_PRIMER = [
-  "transcodes-guard step-up MFA protocol:",
-  "",
-  'When a PreToolUse hook denies a Bash with `permissionDecision: "deny"`',
-  "and the reason mentions Step-up MFA, the command was BLOCKED and",
-  "did NOT execute. Drive the loop deterministically \u2014 DO NOT wait for",
-  "user confirmation between steps:",
-  "",
-  "  1. Tell the user (one short line) to complete WebAuthn in the",
-  "     auto-opened browser tab (use the URL from the deny message",
-  "     if it did not open).",
-  "  2. Immediately call the MCP tool `tc_poll_stepup_session_wait` with the",
-  "     provided sid. It blocks until verified or 60s timeout \u2014 a single",
-  "     call replaces the manual polling loop. (The legacy single-shot",
-  "     `tc_poll_stepup_session` is only for diagnostics.)",
-  '  3. On `outcome: "verified"` retry the SAME Bash command \u2014 the hook',
-  "     detects the verified state locally and allows it. On `outcome:",
-  '     "timeout"` ask the user to retry WebAuthn, then call the wait',
-  "     tool again.",
-  "",
-  "Never assume the blocked command ran. Never invent an alternative",
-  "command. Always resume from the pending sid the hook reported."
-].join("\n");
+var PROTOCOL_PRIMER = formatStepupProtocolPrimer();
 async function main() {
   process.stderr.write(`[transcodes-guard] v${PLUGIN_VERSION}
 `);

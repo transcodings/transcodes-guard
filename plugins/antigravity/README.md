@@ -82,7 +82,9 @@ The installer copies the plugin's `skills/` directory into place; Antigravity au
 
 ## For AI agents
 
-The step-up response protocol the agent must follow on a `PreToolUse` deny (tell the user to complete WebAuthn → call `poll_stepup_session_wait` with the `sid` → retry the same call on `verified`) lives in [`rules/STEPUP.md`](./rules/STEPUP.md), which Antigravity auto-loads into the agent's working context (it scans every plugin's `rules/` directory). Read it there — it is the single source of truth for the runtime loop.
+Open source: [transcodes-guard](https://github.com/transcodings/transcodes-guard)
+
+The step-up response protocol the agent must follow on a `PreToolUse` deny lives in [`rules/STEPUP.md`](./rules/STEPUP.md), which Antigravity auto-loads into the agent's working context (it scans every plugin's `rules/` directory). Read it there — it is the single source of truth for the runtime loop.
 
 ## Enabling / disabling
 
