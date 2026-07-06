@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.42.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.41.3...transcodes-guard-v0.42.0) (2026-07-06)
+
+
+### Features
+
+* **stepup:** latch sid for evaluate reuse (Guard v3) ([bd25407](https://github.com/transcodings/transcodes-guard/commit/bd254073ab690e3d7f6648ac88b7bdfa2a8e46df))
+
+
+### Bug Fixes
+
+* **stepup:** latch stop reminders and rebuild plugin dist ([35db1b8](https://github.com/transcodings/transcodes-guard/commit/35db1b8db6d46c610f00fdc3fb641e9132883b3d))
+
 ## [0.41.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.41.2...transcodes-guard-v0.41.3) (2026-07-05)
 
 
