@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.42.0...transcodes-guard-v0.42.1) (2026-07-06)
+
+
+### Bug Fixes
+
+* **stepup:** reuse newest latch sid on multi-coordinate prompts ([0aa4484](https://github.com/transcodings/transcodes-guard/commit/0aa4484036c0c639b9e4a2ca726f737b369a5f69))
+
 ## [0.42.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.41.3...transcodes-guard-v0.42.0) (2026-07-06)
 
 
