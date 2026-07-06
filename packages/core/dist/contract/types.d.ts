@@ -1,16 +1,18 @@
 /**
  * Shared wire types for the step-up gate DI boundary.
  *
- * These mirror the structural shapes defined inside the private packages
- * (`@transcodes-guard/core/stepup`, `.../core/patterns`). TypeScript is
- * structural, so the private adapter (`@transcodes-guard/gate-backend`)
- * satisfies `GateBackend` by assigning the real functions directly — the
- * `transcodesGateBackend: GateBackend` annotation makes the compiler enforce
- * that these shapes stay in sync. If a private shape drifts, the adapter build
- * fails loudly.
+ * These mirror the structural shapes defined in `../stepup/` and
+ * `../patterns/`. TypeScript is structural, so the private adapter
+ * (`@transcodes-guard/gate-backend`) satisfies `GateBackend` by assigning the
+ * real functions directly — the `transcodesGateBackend: GateBackend`
+ * annotation makes the compiler enforce that these shapes stay in sync. If a
+ * shape drifts, the adapter build fails loudly.
  *
- * The public side (hooks + core/server) imports only these types, never the
- * private packages, so it type-checks and builds standalone.
+ * NOTE: since the package consolidation the only import firewall left is
+ * contract ↔ `gate-backend`; `stepup/`/`patterns/` live in this same package,
+ * so the duplication here is transitional — removing it (importing the shapes
+ * directly) is a planned follow-up that needs a boundary-and-seams rule
+ * revision.
  */
 import type { MergedPattern, RbacAction } from '../patterns/index.js';
 export type { MergedPattern, RbacAction };
@@ -44,9 +46,9 @@ export type StepupFailure = {
 export type RbacLevel = 0 | 1 | 2;
 /**
  * Runtime + type-level kind constants for `GateDecision`. Source of truth
- * for the discriminated union below. Mirrored in `core/src/stepup/evaluate.ts`
- * (import firewall — the two copies must stay in lockstep; the `gate-backend`
- * drift alarm catches a missed sync).
+ * for the discriminated union below. Mirrored in `../stepup/evaluate.ts`
+ * (transitional duplication, same package — the two copies must stay in
+ * lockstep; the `gate-backend` drift alarm catches a missed sync).
  */
 export declare const GATE_DECISION_KIND: {
     readonly PROCEED_UNGATED: "proceed-ungated";

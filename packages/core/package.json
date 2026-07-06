@@ -6,35 +6,32 @@
   "type": "module",
   "exports": {
     "./contract": {
-      "import": "./dist/contract/index.js",
-      "types": "./dist/contract/index.d.ts"
+      "types": "./dist/contract/index.d.ts",
+      "import": "./dist/contract/index.js"
     },
     "./stepup": {
-      "import": "./dist/stepup/index.js",
-      "types": "./dist/stepup/index.d.ts"
+      "types": "./dist/stepup/index.d.ts",
+      "import": "./dist/stepup/index.js"
     },
     "./server": {
-      "import": "./dist/server/server.js",
-      "types": "./dist/server/server.d.ts"
+      "types": "./dist/server/server.d.ts",
+      "import": "./dist/server/server.js"
     },
     "./patterns": {
-      "import": "./dist/patterns/index.js",
-      "types": "./dist/patterns/index.d.ts"
+      "types": "./dist/patterns/index.d.ts",
+      "import": "./dist/patterns/index.js"
     },
     "./hosts": {
-      "import": "./dist/hosts/index.js",
-      "types": "./dist/hosts/index.d.ts"
+      "types": "./dist/hosts/index.d.ts",
+      "import": "./dist/hosts/index.js"
     },
     "./paths": {
-      "import": "./dist/paths/index.js",
-      "types": "./dist/paths/index.d.ts"
+      "types": "./dist/paths/index.d.ts",
+      "import": "./dist/paths/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
-    "build": "tsc && mkdir -p dist/patterns/data && cp src/patterns/data/*.json dist/patterns/data/",
+    "build": "tsc",
     "type-check": "tsc --noEmit -p tsconfig.test.json",
     "test": "tsx --test test/*.test.ts"
   },

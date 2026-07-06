@@ -4,17 +4,12 @@
   "description": "Private GateBackend implementation — binds core/stepup + core/patterns + the Transcodes-backend MCP tools (src/mcp-tools/) into the public @transcodes-guard/core/contract DI interface. Injected via setGateBackend() at plugin bootstrap (phase 1: bundled; phase 2: CDN-loaded).",
   "private": true,
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "tsc",
     "type-check": "tsc --noEmit",

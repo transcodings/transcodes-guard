@@ -1,8 +1,8 @@
 /**
  * Runtime + type-level kind constants for `GateDecision`. Source of truth
- * for the discriminated union below. Mirrored in `core/src/stepup/evaluate.ts`
- * (import firewall — the two copies must stay in lockstep; the `gate-backend`
- * drift alarm catches a missed sync).
+ * for the discriminated union below. Mirrored in `../stepup/evaluate.ts`
+ * (transitional duplication, same package — the two copies must stay in
+ * lockstep; the `gate-backend` drift alarm catches a missed sync).
  */
 export const GATE_DECISION_KIND = {
     PROCEED_UNGATED: 'proceed-ungated',

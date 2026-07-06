@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import type { Server } from 'node:http';
 import { createServer } from 'node:http';
 import { after, before, beforeEach, describe, it } from 'node:test';
-import { PLUGIN_VERSION } from '../src/stepup/build-info.js';
+import { PLUGIN_VERSION } from '../src/build-info.js';
 import type { StepupConfig } from '../src/stepup/config.js';
 import {
   DECISION_AUDIT_TAG,

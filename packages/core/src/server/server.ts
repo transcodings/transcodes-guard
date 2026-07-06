@@ -2,6 +2,7 @@ import { spawn as childSpawn } from 'node:child_process';
 import path from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { PLUGIN_VERSION } from '../build-info.js';
 import {
   formatPollStepupSessionWaitAgentContext,
   type GateBackend,
@@ -13,7 +14,6 @@ import {
   loadMergedToolRules,
   type MergedToolRule,
 } from '../patterns/index.js';
-import { PLUGIN_VERSION } from './build-info.js';
 import { TRANSCODES_ROUTER_BODY } from './router-body.js';
 
 const MCP_TOOL_LOOKUP_NAME_GUIDANCE =

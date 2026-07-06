@@ -30,9 +30,9 @@ import { resolveToken } from './token-store.js';
 /**
  * Runtime + type-level kind constants for `GateDecision`. Source of truth for
  * the discriminated union below and every `switch`/comparison across the
- * codebase. Mirrored in `core/src/contract/types.ts` (import firewall — the two
- * copies must stay in lockstep; the `gate-backend` drift alarm catches a missed
- * sync).
+ * codebase. Mirrored in `../contract/types.ts` (transitional duplication, same
+ * package — the two copies must stay in lockstep; the `gate-backend` drift
+ * alarm catches a missed sync).
  */
 export const GATE_DECISION_KIND = {
     PROCEED_UNGATED: 'proceed-ungated',

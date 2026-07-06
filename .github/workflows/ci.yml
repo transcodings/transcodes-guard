@@ -101,8 +101,8 @@ jobs:
           exit $MISSING
 
       # ─────────────────────────────────────────────────────────
-      # Unit tests (node:test via tsx). core (stepup) + gate-backend (mcp-tools) —
-      # decision-audit + rbac-check (Guard v3 evaluate contract).
+      # Unit tests (node:test via tsx) — core suites (stepup + patterns) and
+      # gate-backend mcp-tools suites.
       - name: core unit tests
         run: npm test -w @transcodes-guard/core -w @transcodes-guard/gate-backend
 

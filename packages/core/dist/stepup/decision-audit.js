@@ -23,7 +23,7 @@
  *  - Sends coordinates/decision/rule id/fp only. The raw command string is
  *    deliberately excluded (data minimisation — fp already identifies it).
  */
-import { PLUGIN_VERSION } from './build-info.js';
+import { PLUGIN_VERSION } from '../build-info.js';
 import { request } from './client.js';
 import { loadStepupConfig } from './config.js';
 import { GATE_DECISION_KIND } from './evaluate.js';

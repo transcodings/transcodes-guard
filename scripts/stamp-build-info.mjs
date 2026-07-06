@@ -1,5 +1,5 @@
 /**
- * Pre-build stamp: generates packages/core/src/server/build-info.ts
+ * Pre-build stamp: generates packages/core/src/build-info.ts
  * with the plugin version (from root package.json).
  *
  * Called by `npm run build:plugin` via the prebuild:plugin lifecycle hook.
@@ -23,8 +23,7 @@ export const PLUGIN_VERSION = '${version}';
 `;
 
 const targets = [
-  "packages/core/src/server/build-info.ts",
-  "packages/core/src/stepup/build-info.ts",
+  "packages/core/src/build-info.ts",
   "plugins/claude-code/src/version.ts",
   "plugins/codex/src/version.ts",
   "plugins/cursor/src/version.ts",
