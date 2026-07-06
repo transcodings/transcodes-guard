@@ -2,9 +2,9 @@ import { spawn as childSpawn } from 'node:child_process';
 import path from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { PLUGIN_VERSION } from '../build-info.js';
 import { formatPollStepupSessionWaitAgentContext, getGateBackend, } from '../contract/index.js';
 import { isMcpWireToolName, isTranscodesGuardWireToolName, loadMergedToolRules, } from '../patterns/index.js';
-import { PLUGIN_VERSION } from '../build-info.js';
 import { TRANSCODES_ROUTER_BODY } from './router-body.js';
 const MCP_TOOL_LOOKUP_NAME_GUIDANCE = 'MCP full wire name from the host PreToolUse hook (e.g. mcp__mongodb__list_collections). External mcp__* names are gated via POST /guard/evaluate; built-in transcodes-guard MCP skips the hook (handler backstop only).';
 // The `/transcodes` umbrella command body lives in the generated
