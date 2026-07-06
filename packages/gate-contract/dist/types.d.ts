@@ -137,7 +137,7 @@ export type WaitStepupResult = {
 };
 /**
  * Step-up state inspection snapshot (Guard v3). Mirrors stepup-core's
- * `inspector.ts`. The client holds only the per-prompt grouping sid and the
+ * `inspector.ts`. The client holds only the per-prompt grouping id and the
  * per-coordinate browser latches — all step-up *status* lives in the backend.
  */
 export interface LatchInspection {
@@ -152,7 +152,7 @@ export interface StepupStateInspection {
     cache_dir: string;
     now_ms: number;
     ttl_ms: number;
-    prompt_sid: string | null;
+    prompt_group: string | null;
     latches: LatchInspection[];
 }
 /**

@@ -88,9 +88,9 @@ export {
   type WaitStepupResult,
 } from './session.js';
 export {
-  peekPromptSid,
-  resolvePromptSid,
-  rotatePromptSid,
+  peekPromptGroup,
+  resolvePromptGroup,
+  rotatePromptGroup,
 } from './sid.js';
 export {
   clearTokenFile,

@@ -18,7 +18,7 @@ import { cursorAdapter } from '@transcodes-guard/hook-adapters';
 async function main(): Promise<void> {
   const backend = getGateBackend();
   backend.sweepLatches();
-  backend.rotatePromptSid();
+  backend.rotatePromptGroup();
   const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
   if (tokenNotice) {
     process.stdout.write(cursorAdapter.emitSessionStartContext(tokenNotice));

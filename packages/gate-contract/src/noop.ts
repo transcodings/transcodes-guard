@@ -30,7 +30,7 @@ export const denyByDefaultBackend: GateBackend = {
   async evaluatePreToolUse() {
     return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
   },
-  rotatePromptSid() {},
+  rotatePromptGroup() {},
   sweepLatches() {},
   hasToken() {
     return false;

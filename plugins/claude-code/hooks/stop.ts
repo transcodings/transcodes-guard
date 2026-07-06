@@ -10,7 +10,7 @@ import {
   incrementLatchRemindedCount,
   listLatches,
   MAX_STOP_REMINDERS,
-  peekPromptSid,
+  peekPromptGroup,
   readLatchRecord,
   sweepLatches,
 } from '@transcodes-guard/stepup-core';
@@ -26,9 +26,9 @@ async function main(): Promise<void> {
 
   sweepLatches();
 
-  const promptSid = peekPromptSid();
-  const pending = promptSid
-    ? listLatches().find((l) => !l.expired && l.group === promptSid)
+  const promptGroup = peekPromptGroup();
+  const pending = promptGroup
+    ? listLatches().find((l) => !l.expired && l.group === promptGroup)
     : undefined;
   const rec =
     pending && readLatchRecord(pending.group, pending.resource, pending.action);

@@ -8,9 +8,9 @@
  *   step-up.{group}.{resource}.{action}.json
  *
  * JSON shape:
- *   { group, resource, action, sid?, createdAt, remindedCount? }
- *   - `group` — per-prompt grouping id (`s_…`, from resolvePromptSid)
- *   - `sid`   — backend MFA session (`tc_stepup_…`)
+ *   { group, resource, action, sid, createdAt, remindedCount? }
+ *   - `group` — per-prompt grouping id (`s_…`, from resolvePromptGroup)
+ *   - `sid`   — backend MFA session (`tc_stepup_…`), required for poll/evaluate reuse
  *
  * Its sole job is to answer "did a sibling tool call in THIS prompt already
  * open a browser tab for this exact (group, resource, action)?" so N concurrent
@@ -30,7 +30,7 @@ type LatchRecord = {
   resource: string;
   action: string;
   /** Backend MFA session id (`tc_stepup_…`). */
-  sid?: string;
+  sid: string;
   createdAt: number;
   /** Stop-hook reminders emitted for this in-flight latch (cap in stop-reminder.ts). */
   remindedCount?: number;
@@ -77,11 +77,16 @@ function parseLatchRecord(
       rmSync(file, { force: true });
       return null;
     }
+    const sid = parsed.sid?.trim();
+    if (!sid) {
+      rmSync(file, { force: true });
+      return null;
+    }
     return {
       group,
       resource: parsed.resource,
       action: parsed.action,
-      sid: parsed.sid?.trim() || undefined,
+      sid,
       createdAt: parsed.createdAt,
       remindedCount:
         typeof parsed.remindedCount === 'number' &&
@@ -120,20 +125,24 @@ export function hasLatch(
   return readLatchRecord(group, resource, action, now) !== null;
 }
 
-/** Best-effort claim. Overwrites unconditionally; never throws. */
+/** Best-effort claim. Overwrites unconditionally; never throws. Requires `sid`. */
 export function writeLatch(
   group: string,
   resource: string,
   action: string,
-  sid?: string,
+  sid: string,
   now: number = Date.now(),
   remindedCount?: number,
 ): void {
+  const trimmed = sid.trim();
+  if (!trimmed) {
+    return;
+  }
   const record: LatchRecord = {
     group,
     resource,
     action,
-    sid: sid?.trim() || undefined,
+    sid: trimmed,
     createdAt: now,
     remindedCount:
       typeof remindedCount === 'number' &&
@@ -246,6 +255,36 @@ export function listLatches(now: number = Date.now()): LatchInspection[] {
   return out;
 }
 
+/**
+ * When this prompt has exactly one latch file, read its sid via the path
+ * `step-up.{group}.{resource}.{action}.json` (coordinates from the file body).
+ */
+export function readSinglePendingLatchSid(
+  group: string,
+  now: number = Date.now(),
+): string | undefined {
+  const needle = group.trim();
+  if (!needle) return undefined;
+  let names: string[];
+  try {
+    names = readdirSync(cacheDir());
+  } catch {
+    return undefined;
+  }
+  let rec: LatchRecordWithCoordinate | null = null;
+  for (const name of names) {
+    if (!name.startsWith(LATCH_PREFIX) || !name.endsWith(LATCH_SUFFIX)) {
+      continue;
+    }
+    const parsed = parseLatchRecord(path.join(cacheDir(), name), now);
+    if (!parsed || parsed.group !== needle) continue;
+    if (rec) return undefined;
+    rec = parsed;
+  }
+  if (!rec) return undefined;
+  return rec.sid;
+}
+
 /** Bump the Stop reminder counter on a live latch. Never throws. */
 export function incrementLatchRemindedCount(
   group: string,
@@ -264,9 +303,7 @@ export function incrementLatchRemindedCount(
 export function formatStopReminderMessage(
   latch: LatchRecordWithCoordinate,
 ): string {
-  const sessionSid =
-    latch.sid?.trim() ||
-    '(use the tc_stepup_ sid from the PreToolUse deny message)';
+  const sessionSid = latch.sid;
   return [
     'transcodes-guard: a step-up MFA session is still PENDING. The tool',
     'call it gated was NOT executed. Resume the loop or report to the',

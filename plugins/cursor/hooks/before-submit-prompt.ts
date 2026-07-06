@@ -27,7 +27,7 @@ function main(): void {
     emitContinue();
   }
   getGateBackend().sweepLatches();
-  getGateBackend().rotatePromptSid();
+  getGateBackend().rotatePromptGroup();
   emitContinue();
 }
 

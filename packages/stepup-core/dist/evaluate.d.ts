@@ -116,7 +116,7 @@ export type GateDecision = {
  *
  * Side effects performed here (all crash-safe / never throw into the caller):
  *  - `POST /v1/guard/evaluate` (via `evaluateAction`).
- *  - resolve/mint the per-prompt grouping sid (`resolvePromptSid`).
+ *  - resolve/mint the per-prompt grouping id (`resolvePromptGroup`).
  *  - on a step-up challenge: open the browser once per coordinate + write the
  *    latch. The stdout deny is emitted by the caller AFTER this returns, so a
  *    latch write cannot suppress the deny — and the latch write already swallows

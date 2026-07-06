@@ -3,8 +3,8 @@ export type StepupStateInspection = {
     cache_dir: string;
     now_ms: number;
     ttl_ms: number;
-    /** Current per-prompt grouping sid (null when none minted / expired). */
-    prompt_sid: string | null;
+    /** Current per-prompt grouping id (null when none minted / expired). */
+    prompt_group: string | null;
     /** In-flight browser/poll latches, one per (group, resource, action). */
     latches: LatchInspection[];
 };

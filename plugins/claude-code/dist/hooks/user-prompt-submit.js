@@ -4,7 +4,7 @@ import {
 } from "../chunk-7X2GUVN6.js";
 import {
   getGateBackend
-} from "../chunk-2JUXOWB4.js";
+} from "../chunk-BLSUTCTF.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";
@@ -17,7 +17,7 @@ function main() {
   }
   const backend = getGateBackend();
   backend.sweepLatches();
-  backend.rotatePromptSid();
+  backend.rotatePromptGroup();
   process.exit(0);
 }
 try {

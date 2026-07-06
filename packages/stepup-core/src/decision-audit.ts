@@ -2,7 +2,7 @@
  * Gate decision audit — fire-and-forget visibility (Phase 3 v2 Unit H, H2).
  *
  * Guard v3: step-up *success* is audited by the backend itself on finalize (it
- * owns the grouped cache + WebAuthn result), so the client no longer reports a
+ * owns the step-up session + WebAuthn result), so the client no longer reports a
  * local "verified" outcome. The one MFA outcome still worth reporting from the
  * client is a step-up session explicitly refused by the backend
  * (`block-stepup-create-failed` w/ `reason === 'create-failed'`), reported to

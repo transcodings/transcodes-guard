@@ -28,9 +28,15 @@ import {
 } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
 import { openBrowser } from './gate.js';
-import { clearLatch, hasLatch, readLatchRecord, writeLatch } from './latch.js';
+import {
+  clearLatch,
+  hasLatch,
+  readLatchRecord,
+  readSinglePendingLatchSid,
+  writeLatch,
+} from './latch.js';
 import { evaluateAction } from './rbac-check.js';
-import { resolvePromptSid } from './sid.js';
+import { resolvePromptGroup } from './sid.js';
 import { resolveToken } from './token-store.js';
 
 export interface ToolCallInput {
@@ -263,7 +269,7 @@ function classifyToolCall(input: ToolCallInput): Classified | null {
  *
  * Side effects performed here (all crash-safe / never throw into the caller):
  *  - `POST /v1/guard/evaluate` (via `evaluateAction`).
- *  - resolve/mint the per-prompt grouping sid (`resolvePromptSid`).
+ *  - resolve/mint the per-prompt grouping id (`resolvePromptGroup`).
  *  - on a step-up challenge: open the browser once per coordinate + write the
  *    latch. The stdout deny is emitted by the caller AFTER this returns, so a
  *    latch write cannot suppress the deny — and the latch write already swallows
@@ -294,10 +300,10 @@ export async function evaluatePreToolUse(
     return { kind: GATE_DECISION_KIND.BLOCK_NO_TOKEN, block };
   }
 
-  const sid = resolvePromptSid();
+  const group = resolvePromptGroup();
+  const sid = readSinglePendingLatchSid(group);
 
-  // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) grouped
-  // step-up keyed on sid. Fail-closed on any error → permission 2.
+  // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) step-up.
   let verdict = null;
   try {
     verdict = await evaluateAction(loadStepupConfig(), {
@@ -305,6 +311,7 @@ export async function evaluatePreToolUse(
       toolName: wireToolName(input),
       cwd: input.cwd,
       provider: currentHostProvider(),
+      group,
       sid,
     });
   } catch {
@@ -319,7 +326,7 @@ export async function evaluatePreToolUse(
   if (permission === 0) {
     // Hard RBAC deny — never a challenge, so any stale latch for this
     // coordinate is orphaned; clear it.
-    clearLatch(sid, resource, action);
+    clearLatch(group, resource, action);
     return {
       kind: GATE_DECISION_KIND.BLOCK_BY_POLICY,
       block,
@@ -329,10 +336,8 @@ export async function evaluatePreToolUse(
     };
   }
   if (permission === 1) {
-    // Allowed — either the role permits it outright, or a grouped step-up for
-    // this coordinate was already verified (backend grant). Self-heal: drop the
-    // latch so a later distinct challenge in this prompt can relaunch.
-    clearLatch(sid, resource, action);
+    // Allowed — role permits outright, or step-up session already verified.
+    clearLatch(group, resource, action);
     return {
       kind: GATE_DECISION_KIND.PROCEED_BY_POLICY,
       block,
@@ -342,7 +347,7 @@ export async function evaluatePreToolUse(
     };
   }
 
-  // Level 2 — the backend created (or reused) the grouped session.
+  // Level 2 — backend created or reused the step-up session.
   if (!verdict?.sid || !verdict.url) {
     return {
       kind: GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED,
@@ -354,7 +359,7 @@ export async function evaluatePreToolUse(
 
   // ── Terminal: rejected — stop immediately (no poll loop, no retry nag) ───
   if (verdict.status === 'rejected') {
-    clearLatch(sid, resource, action);
+    clearLatch(group, resource, action);
     return {
       kind: GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED,
       block,
@@ -367,15 +372,15 @@ export async function evaluatePreToolUse(
   // ── Self-heal: stale latch when backend says NOT an in-flight pending ───
   //
   // pending + verified are "continue work" paths (poll or retry). Only drop a
-  // latch when the backend is starting fresh (exist:false → prior cache gone /
-  // not-found) so a new browser tab can open.
+  // latch when the backend is starting fresh (exist:false → session gone) so a
+  // new browser tab can open.
   const reused = verdict.exist === true;
   const pending =
     verdict.status === 'pending' ||
     verdict.status === null ||
     verdict.status === undefined;
-  if (hasLatch(sid, resource, action) && !(reused && pending)) {
-    clearLatch(sid, resource, action);
+  if (hasLatch(group, resource, action) && !(reused && pending)) {
+    clearLatch(group, resource, action);
   }
 
   // pending → open browser once, write latch, tell agent to poll.
@@ -385,16 +390,13 @@ export async function evaluatePreToolUse(
     browserLaunched = true;
   }
   if (pending) {
-    // Reused-pending rewrite must carry over createdAt/remindedCount — resetting
-    // them would extend the latch TTL and restart the Stop-reminder cap on
-    // every retry of the same in-flight challenge.
-    const prior = readLatchRecord(sid, resource, action);
+    const prior = readLatchRecord(group, resource, action);
     writeLatch(
-      sid,
+      group,
       resource,
       action,
-      verdict.sid ?? prior?.sid,
-      prior?.createdAt,
+      verdict.sid,
+      prior?.createdAt ?? Date.now(),
       prior?.remindedCount,
     );
   }

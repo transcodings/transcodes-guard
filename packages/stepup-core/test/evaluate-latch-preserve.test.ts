@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { readLatchRecord, writeLatch } from '../src/latch.js';
-import { rotatePromptSid } from '../src/sid.js';
+import { rotatePromptGroup } from '../src/sid.js';
 
 function fakeMemberJwt(): string {
   const b64 = (o: unknown) =>
@@ -24,6 +24,30 @@ function fakeMemberJwt(): string {
     aud: 'transcodes-mcp',
     exp: Math.floor(Date.now() / 1000) + 3600,
   })}.x`;
+}
+
+function freshPendingVerdict(sid: string) {
+  return {
+    logId: 'x',
+    success: true,
+    statusCode: 201,
+    error: null,
+    payload: [
+      {
+        permission: 2,
+        resource: 'gmail',
+        action: 'read',
+        reasoning: '',
+        summary: 'Read gmail messages',
+        provider: 'cursor',
+        sid,
+        url: `https://auth.example/?sid=${sid}`,
+        expires_at: new Date(Date.now() + 600_000).toISOString(),
+        exist: false,
+        status: 'pending',
+      },
+    ],
+  };
 }
 
 function reusedPendingVerdict() {
@@ -93,11 +117,41 @@ describe('reused-pending latch rewrite', () => {
     rmSync(home, { recursive: true, force: true });
   });
 
+  it('writes latch sid on first pending challenge', async () => {
+    server.close();
+    server = createServer((_req, res) => {
+      res.statusCode = 200;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify(freshPendingVerdict('tc_stepup_fresh')));
+    });
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    assert.ok(address && typeof address === 'object');
+    process.env.TRANSCODES_BACKEND_URL = `http://127.0.0.1:${address.port}`;
+
+    const { evaluatePreToolUse } = await import('../src/evaluate.js');
+    const group = rotatePromptGroup();
+
+    const decision = await evaluatePreToolUse({
+      toolName: 'Bash',
+      toolInput: { command: 'curl gmail' },
+      cwd: '/tmp',
+    });
+
+    assert.equal(decision.kind, 'block-stepup-challenged');
+    if (decision.kind !== 'block-stepup-challenged') return;
+    assert.equal(decision.sid, 'tc_stepup_fresh');
+
+    const rec = readLatchRecord(group, 'gmail', 'read');
+    assert.ok(rec);
+    assert.equal(rec.sid, 'tc_stepup_fresh');
+  });
+
   it('keeps remindedCount and createdAt on a reused-pending verdict', async () => {
     const { evaluatePreToolUse } = await import('../src/evaluate.js');
-    const sid = rotatePromptSid();
+    const group = rotatePromptGroup();
     const createdAt = Date.now() - 60_000;
-    writeLatch(sid, 'system', 'create', 'tc_stepup_reused', createdAt, 2);
+    writeLatch(group, 'system', 'create', 'tc_stepup_reused', createdAt, 2);
 
     const decision = await evaluatePreToolUse({
       toolName: 'Bash',
@@ -106,7 +160,7 @@ describe('reused-pending latch rewrite', () => {
     });
 
     assert.equal(decision.kind, 'block-stepup-challenged');
-    const rec = readLatchRecord(sid, 'system', 'create');
+    const rec = readLatchRecord(group, 'system', 'create');
     assert.ok(rec);
     assert.equal(rec.remindedCount, 2);
     assert.equal(rec.createdAt, createdAt);

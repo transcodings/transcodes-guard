@@ -3,7 +3,7 @@
  *
  * Guard v3 removed all on-disk verified/pending records. The PreToolUse hook
  * path no longer needs them: a verified challenge is granted by the backend
- * guard cache on the next `POST /guard/evaluate` (permission → allow). But the
+ * step-up session on the next `POST /guard/evaluate` (permission → allow). But the
  * built-in transcodes-guard MCP tools (member/rbac/passcode ops) are gated by
  * `execProtectedTool`, a handler backstop that runs INSIDE the long-lived MCP
  * server process — the same process that runs `create_stepup_session` and the

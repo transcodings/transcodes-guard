@@ -23,7 +23,7 @@ import {
   pollStepupSession,
   pollStepupSessionWait,
   resolveToken,
-  rotatePromptSid,
+  rotatePromptGroup,
   sendGateDecisionAudit,
   sweepLatches,
 } from '@transcodes-guard/stepup-core';
@@ -45,8 +45,8 @@ import {
 export const transcodesGateBackend: GateBackend = {
   // hook path — direct bindings
   evaluatePreToolUse,
-  rotatePromptSid: () => {
-    rotatePromptSid();
+  rotatePromptGroup: () => {
+    rotatePromptGroup();
   },
   sweepLatches,
   hasToken: () => Boolean(resolveToken().token),

@@ -178,7 +178,7 @@ describe('evaluateAction', () => {
       },
       cwd: '/tmp',
       provider: 'cursor',
-      sid: 's_group1',
+      group: 's_group1',
     });
 
     assert.deepEqual(verdict, {
@@ -216,7 +216,7 @@ describe('evaluateAction', () => {
 
     const verdict = await evaluateAction(config(), {
       payload: { command: 'mkdir temp5' },
-      sid: 's_group1',
+      group: 's_group1',
     });
 
     assert.ok(verdict);

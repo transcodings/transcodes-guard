@@ -21,8 +21,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CreatedStepupSession, CreateStepupArgs, GateDecision, PollStepupResult, StepupStateInspection, ToolCallInput, WaitStepupResult } from './types.js';
 export interface GateBackend {
     evaluatePreToolUse(input: ToolCallInput): Promise<GateDecision>;
-    /** Mint a fresh per-prompt grouping sid (prompt-submit / session-start). */
-    rotatePromptSid(): void;
+    /** Mint a fresh per-prompt grouping id (prompt-submit / session-start). */
+    rotatePromptGroup(): void;
     /** Reap expired browser/poll latches (Stop-hook housekeeping). */
     sweepLatches(now?: number): void;
     /** Whether a Transcodes token is resolvable (session-start no-token notice). */

@@ -25,7 +25,7 @@ import { loadStepupConfig } from './config.js';
 import { openBrowser } from './gate.js';
 import { clearLatch, hasLatch, readLatchRecord, writeLatch } from './latch.js';
 import { evaluateAction } from './rbac-check.js';
-import { resolvePromptSid } from './sid.js';
+import { resolvePromptGroup } from './sid.js';
 import { resolveToken } from './token-store.js';
 /**
  * Runtime + type-level kind constants for `GateDecision`. Source of truth for
@@ -160,7 +160,7 @@ function classifyToolCall(input) {
  *
  * Side effects performed here (all crash-safe / never throw into the caller):
  *  - `POST /v1/guard/evaluate` (via `evaluateAction`).
- *  - resolve/mint the per-prompt grouping sid (`resolvePromptSid`).
+ *  - resolve/mint the per-prompt grouping id (`resolvePromptGroup`).
  *  - on a step-up challenge: open the browser once per coordinate + write the
  *    latch. The stdout deny is emitted by the caller AFTER this returns, so a
  *    latch write cannot suppress the deny — and the latch write already swallows
@@ -188,9 +188,9 @@ export async function evaluatePreToolUse(input) {
     if (!resolveToken().token) {
         return { kind: GATE_DECISION_KIND.BLOCK_NO_TOKEN, block };
     }
-    const sid = resolvePromptSid();
+    const group = resolvePromptGroup();
     // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) grouped
-    // step-up keyed on sid. Fail-closed on any error → permission 2.
+    // step-up keyed on group. Fail-closed on any error → permission 2.
     let verdict = null;
     try {
         verdict = await evaluateAction(loadStepupConfig(), {
@@ -198,7 +198,7 @@ export async function evaluatePreToolUse(input) {
             toolName: wireToolName(input),
             cwd: input.cwd,
             provider: currentHostProvider(),
-            sid,
+            group,
         });
     }
     catch {
@@ -211,7 +211,7 @@ export async function evaluatePreToolUse(input) {
     if (permission === 0) {
         // Hard RBAC deny — never a challenge, so any stale latch for this
         // coordinate is orphaned; clear it.
-        clearLatch(sid, resource, action);
+        clearLatch(group, resource, action);
         return {
             kind: GATE_DECISION_KIND.BLOCK_BY_POLICY,
             block,
@@ -224,7 +224,7 @@ export async function evaluatePreToolUse(input) {
         // Allowed — either the role permits it outright, or a grouped step-up for
         // this coordinate was already verified (backend grant). Self-heal: drop the
         // latch so a later distinct challenge in this prompt can relaunch.
-        clearLatch(sid, resource, action);
+        clearLatch(group, resource, action);
         return {
             kind: GATE_DECISION_KIND.PROCEED_BY_POLICY,
             block,
@@ -244,7 +244,7 @@ export async function evaluatePreToolUse(input) {
     }
     // ── Terminal: rejected — stop immediately (no poll loop, no retry nag) ───
     if (verdict.status === 'rejected') {
-        clearLatch(sid, resource, action);
+        clearLatch(group, resource, action);
         return {
             kind: GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED,
             block,
@@ -262,8 +262,8 @@ export async function evaluatePreToolUse(input) {
     const pending = verdict.status === 'pending' ||
         verdict.status === null ||
         verdict.status === undefined;
-    if (hasLatch(sid, resource, action) && !(reused && pending)) {
-        clearLatch(sid, resource, action);
+    if (hasLatch(group, resource, action) && !(reused && pending)) {
+        clearLatch(group, resource, action);
     }
     // pending → open browser once, write latch, tell agent to poll.
     let browserLaunched = false;
@@ -275,8 +275,8 @@ export async function evaluatePreToolUse(input) {
         // Reused-pending rewrite must carry over createdAt/remindedCount — resetting
         // them would extend the latch TTL and restart the Stop-reminder cap on
         // every retry of the same in-flight challenge.
-        const prior = readLatchRecord(sid, resource, action);
-        writeLatch(sid, resource, action, verdict.sid ?? prior?.sid, prior?.createdAt, prior?.remindedCount);
+        const prior = readLatchRecord(group, resource, action);
+        writeLatch(group, resource, action, verdict.sid ?? prior?.sid, prior?.createdAt, prior?.remindedCount);
     }
     return {
         kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,

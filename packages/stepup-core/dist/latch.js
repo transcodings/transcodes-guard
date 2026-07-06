@@ -9,7 +9,7 @@
  *
  * JSON shape:
  *   { group, resource, action, sid?, createdAt, remindedCount? }
- *   - `group` — per-prompt grouping id (`s_…`, from resolvePromptSid)
+ *   - `group` — per-prompt grouping id (`s_…`, from resolvePromptGroup)
  *   - `sid`   — backend MFA session (`tc_stepup_…`)
  *
  * Its sole job is to answer "did a sibling tool call in THIS prompt already

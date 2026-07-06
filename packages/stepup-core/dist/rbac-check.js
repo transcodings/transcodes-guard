@@ -33,7 +33,7 @@ export async function evaluateAction(config, body) {
             tool_name: body.toolName,
             cwd: body.cwd,
             provider: body.provider,
-            sid: body.sid,
+            group: body.group,
         },
     });
     if (!env.ok)

@@ -26,7 +26,7 @@ async function main(): Promise<void> {
   const backend = getGateBackend();
   backend.sweepLatches();
   // New session → fresh grouping window for step-up dedup.
-  backend.rotatePromptSid();
+  backend.rotatePromptGroup();
 
   const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
   const versionLine = `transcodes-guard v${PLUGIN_VERSION}`;

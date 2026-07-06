@@ -51,6 +51,6 @@ export declare function evaluateAction(config: StepupConfig, body: {
     cwd?: string;
     provider?: GuardProvider;
     /** Client-minted per-prompt grouping id (Guard v3). */
-    sid?: string;
+    group?: string;
 }): Promise<GuardVerdict | null>;
 export declare function checkRbacPermission(config: StepupConfig, resource: string, action: string): Promise<RbacLevel | null>;

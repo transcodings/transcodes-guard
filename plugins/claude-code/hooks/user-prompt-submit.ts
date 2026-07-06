@@ -23,7 +23,7 @@ function main(): void {
   }
   const backend = getGateBackend();
   backend.sweepLatches();
-  backend.rotatePromptSid();
+  backend.rotatePromptGroup();
   process.exit(0);
 }
 
