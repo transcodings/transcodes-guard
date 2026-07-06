@@ -67,6 +67,7 @@ export {
   type LatchRecordWithCoordinate,
   listLatches,
   readLatchRecord,
+  readSinglePendingLatchSid,
   sweepLatches,
   writeLatch,
 } from './latch.js';

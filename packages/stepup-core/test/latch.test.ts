@@ -9,6 +9,7 @@ import {
   incrementLatchRemindedCount,
   listLatches,
   readLatchRecord,
+  readSinglePendingLatchSid,
   writeLatch,
 } from '../src/latch.js';
 import { peekPromptGroup, rotatePromptGroup } from '../src/sid.js';
@@ -93,5 +94,24 @@ describe('latch TTL + stop reminder cap', () => {
     );
     assert.ok(rec);
     assert.equal(rec.remindedCount, MAX_STOP_REMINDERS);
+  });
+
+  it('readSinglePendingLatchSid returns newest sid when multiple latches share a group', () => {
+    const group = 's_multi';
+    const t1 = Date.now() - 30_000;
+    const t2 = Date.now() - 10_000;
+    writeLatch(group, 'gmail', 'read', 'tc_stepup_old', t1);
+    writeLatch(group, 'gmail', 'send', 'tc_stepup_new', t2);
+
+    assert.equal(readSinglePendingLatchSid(group), 'tc_stepup_new');
+  });
+
+  it('readSinglePendingLatchSid ignores latches from other groups', () => {
+    const group = 's_mine';
+    writeLatch(group, 'shell', 'execute', 'tc_stepup_mine');
+    writeLatch('s_other', 'shell', 'execute', 'tc_stepup_other');
+
+    assert.equal(readSinglePendingLatchSid(group), 'tc_stepup_mine');
+    assert.equal(readSinglePendingLatchSid('s_other'), 'tc_stepup_other');
   });
 });

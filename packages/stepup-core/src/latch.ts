@@ -256,8 +256,8 @@ export function listLatches(now: number = Date.now()): LatchInspection[] {
 }
 
 /**
- * When this prompt has exactly one latch file, read its sid via the path
- * `step-up.{group}.{resource}.{action}.json` (coordinates from the file body).
+ * Pending latch sid for evaluate reuse. Prefer the sole latch for this group;
+ * when several coordinates were challenged in one prompt, reuse the newest.
  */
 export function readSinglePendingLatchSid(
   group: string,
@@ -278,11 +278,11 @@ export function readSinglePendingLatchSid(
     }
     const parsed = parseLatchRecord(path.join(cacheDir(), name), now);
     if (!parsed || parsed.group !== needle) continue;
-    if (rec) return undefined;
-    rec = parsed;
+    if (!rec || parsed.createdAt > rec.createdAt) {
+      rec = parsed;
+    }
   }
-  if (!rec) return undefined;
-  return rec.sid;
+  return rec?.sid;
 }
 
 /** Bump the Stop reminder counter on a live latch. Never throws. */

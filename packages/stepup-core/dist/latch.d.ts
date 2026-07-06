@@ -34,8 +34,8 @@ export type LatchInspection = {
 /** Read-only snapshot of every latch on disk (for the inspect tool). */
 export declare function listLatches(now?: number): LatchInspection[];
 /**
- * When this prompt has exactly one latch file, read its sid via the path
- * `step-up.{group}.{resource}.{action}.json` (coordinates from the file body).
+ * Pending latch sid for evaluate reuse. Prefer the sole latch for this group;
+ * when several coordinates were challenged in one prompt, reuse the newest.
  */
 export declare function readSinglePendingLatchSid(group: string, now?: number): string | undefined;
 /** Bump the Stop reminder counter on a live latch. Never throws. */
