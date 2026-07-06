@@ -1,6 +1,6 @@
 /**
  * Runtime + type-level kind constants for `GateDecision`. Source of truth
- * for the discriminated union below. Mirrored in `stepup-core/src/evaluate.ts`
+ * for the discriminated union below. Mirrored in `core/src/stepup/evaluate.ts`
  * (import firewall — the two copies must stay in lockstep; the `gate-backend`
  * drift alarm catches a missed sync).
  */

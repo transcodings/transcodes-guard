@@ -66,7 +66,7 @@ transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출�
 
 ## 도구 matcher 범위
 
-PreToolUse hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실행(`run_command`) **및** MCP 도구 호출(`mcp_*`)을 게이트합니다. `call_mcp_tool` arm은 Antigravity가 범용 래퍼로 dispatch하는 lazy-loaded MCP 호출을 잡아냅니다 — 어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑해 tool-rule이 여전히 매칭되도록 합니다. 파일 편집 도구(`write_to_file`, `replace_file_content`, `multi_replace_file_content`)는 게이트되지 **않습니다**. 범위를 넓히려면 `hooks.json`의 matcher 정규식을 확장하고 `packages/danger-patterns/`에 해당 tool-rule을 등록하세요.
+PreToolUse hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실행(`run_command`) **및** MCP 도구 호출(`mcp_*`)을 게이트합니다. `call_mcp_tool` arm은 Antigravity가 범용 래퍼로 dispatch하는 lazy-loaded MCP 호출을 잡아냅니다 — 어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑해 tool-rule이 여전히 매칭되도록 합니다. 파일 편집 도구(`write_to_file`, `replace_file_content`, `multi_replace_file_content`)는 게이트되지 **않습니다**. 범위를 넓히려면 `hooks.json`의 matcher 정규식을 확장하고 `packages/core/src/patterns/`에 해당 tool-rule을 등록하세요.
 
 ## AI 에이전트를 위한 안내
 

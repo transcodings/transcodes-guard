@@ -1,6 +1,6 @@
 /**
  * Tool-rule registry — MCP-call counterpart of the Bash pattern registry in
- * danger-patterns.ts. Both live in @transcodes-guard/core/patterns and
+ * core/patterns.ts. Both live in @transcodes-guard/core/patterns and
  * share the RBAC coordinate vocabulary from rbac.ts.
  *
  * Phase 3 v2: rules mirror the backend guard bundle wire shape (`id`, `type`,

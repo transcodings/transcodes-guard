@@ -2,14 +2,14 @@
  * Shared wire types for the step-up gate DI boundary.
  *
  * These mirror the structural shapes defined inside the private packages
- * (`@transcodes-guard/core/stepup`, `.../danger-patterns`). TypeScript is
+ * (`@transcodes-guard/core/stepup`, `.../core/patterns`). TypeScript is
  * structural, so the private adapter (`@transcodes-guard/gate-backend`)
  * satisfies `GateBackend` by assigning the real functions directly — the
  * `transcodesGateBackend: GateBackend` annotation makes the compiler enforce
  * that these shapes stay in sync. If a private shape drifts, the adapter build
  * fails loudly.
  *
- * The public side (hooks + mcp-server-core) imports only these types, never the
+ * The public side (hooks + core/server) imports only these types, never the
  * private packages, so it type-checks and builds standalone.
  */
 import type { MergedPattern, RbacAction } from '../patterns/index.js';
@@ -34,7 +34,7 @@ export interface BlockResult {
     stepupResource: string;
     stepupAction: RbacAction;
 }
-/** The `ok: false` half of stepup-core's evaluate.ts `StepupFailure`. */
+/** The `ok: false` half of core/stepup's evaluate.ts `StepupFailure`. */
 export type StepupFailure = {
     ok: false;
     reason: 'no-token' | 'create-failed' | 'error';
@@ -44,7 +44,7 @@ export type StepupFailure = {
 export type RbacLevel = 0 | 1 | 2;
 /**
  * Runtime + type-level kind constants for `GateDecision`. Source of truth
- * for the discriminated union below. Mirrored in `stepup-core/src/evaluate.ts`
+ * for the discriminated union below. Mirrored in `core/src/stepup/evaluate.ts`
  * (import firewall — the two copies must stay in lockstep; the `gate-backend`
  * drift alarm catches a missed sync).
  */
@@ -136,7 +136,7 @@ export type WaitStepupResult = {
     attempts: number;
 };
 /**
- * Step-up state inspection snapshot (Guard v3). Mirrors stepup-core's
+ * Step-up state inspection snapshot (Guard v3). Mirrors core/stepup's
  * `inspector.ts`. The client holds only the per-prompt grouping id and the
  * per-coordinate browser latches — all step-up *status* lives in the backend.
  */
@@ -156,7 +156,7 @@ export interface StepupStateInspection {
     latches: LatchInspection[];
 }
 /**
- * Outcome of a forced policy-bundle refresh. Mirrors stepup-core's
+ * Outcome of a forced policy-bundle refresh. Mirrors core/stepup's
  * `PolicyBundleRefreshOutcome` plus `'skipped'` (no resolvable token):
  *  - `fresh` / `refreshed` — cache now holds the latest bundle.
  *  - `not-modified` — backend confirmed the cache is already current.
@@ -164,7 +164,7 @@ export interface StepupStateInspection {
  *  - `skipped` — no token configured, nothing to refresh.
  */
 export type PolicyBundleRefreshOutcome = 'fresh' | 'refreshed' | 'not-modified' | 'failed' | 'skipped';
-/** Tool-rule registry types. Mirror danger-patterns tool-rules.ts (schema v2). */
+/** Tool-rule registry types. Mirror core/patterns tool-rules.ts (schema v2). */
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
 export type GuardProvider = 'claude' | 'codex' | 'cursor' | 'antigravity' | 'web';
 export type ToolRuleSource = 'system' | 'bundle';

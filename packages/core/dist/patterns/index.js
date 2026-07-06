@@ -2,7 +2,7 @@
  * Public surface of @transcodes-guard/core/patterns.
  *
  * One danger-rule registry, two parallel matchers:
- * - Bash danger-pattern registry (danger-patterns.ts): regex matchers against
+ * - Bash danger-pattern registry (core/patterns.ts): regex matchers against
  *   Bash command strings.
  * - MCP tool-rule registry (tool-rules.ts): toolName ↔ stepup policy mappings.
  * Both share the RBAC coordinate vocabulary (action/resource) from rbac.ts.

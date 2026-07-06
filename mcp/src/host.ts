@@ -5,7 +5,7 @@
  * legacy host-agnostic paths under ~/.transcodes/state/.
  *
  * Must be imported BEFORE any module that calls dataDir() / cacheDir() or
- * registers the backend (mcp-server-core / gate-contract). See
+ * registers the backend (core/server / core/contract). See
  * plugins/claude-code/host.ts for the full source-order rationale.
  */
 process.env.TRANSCODES_GUARD_HOST = 'mcp';

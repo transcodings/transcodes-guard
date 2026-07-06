@@ -11,7 +11,7 @@
  *
  * Cursor's stdin already uses snake_case (`tool_name`, `tool_input`, `cwd`),
  * matching Claude Code, so parsing delegates to claudeCodeAdapter through
- * cursorAdapter. The classifier in stepup-core accepts `Shell` (Cursor) in
+ * cursorAdapter. The classifier in core/stepup accepts `Shell` (Cursor) in
  * addition to `Bash` / `run_command`.
  */
 import '../host.js';

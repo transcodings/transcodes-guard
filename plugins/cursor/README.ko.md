@@ -107,7 +107,7 @@ Cursor의 hook 계약은 어댑터가 캡슐화하는 두 가지 면에서 Claud
 1. **평면형(flat) PreToolUse 출력** — `hookSpecificOutput.permissionDecision` 대신 `{ permission, user_message?, agent_message?, updated_input? }`를 씁니다.
 2. **Stop이 `followup_message` 사용** — Claude Code의 `{ decision: "block", reason }`과 의미는 같고 키 이름만 다릅니다.
 
-둘 다 게이트 로직에는 영향을 주지 않으며, 전부 `packages/hook-adapters/src/cursor.ts`에 있습니다.
+둘 다 게이트 로직에는 영향을 주지 않으며, 전부 `packages/core/src/hosts/cursor.ts`에 있습니다.
 
 ## 호스트 간 상태 공유
 

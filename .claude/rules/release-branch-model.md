@@ -28,4 +28,4 @@ paths:
 - **Antigravity install is plugin-scoped**: writes only `~/.gemini/config/plugins/transcodes-guard/` — no user-level hook/MCP merge needed; other Antigravity plugins are untouched.
 - **Cursor `install.mjs` is merge-aware**: it **upserts only transcodes-guard hook entries** in `~/.cursor/hooks.json` (other hooks preserved), and **upserts only `mcpServers.transcodes-guard`** in an existing `~/.cursor/mcp.json`.
 - **Only Claude Code ships an HTTP transport** (`src/http.ts`, Streamable HTTP `/mcp`). codex/antigravity/cursor are stdio-only and must not gain an http entry.
-- **Only claude-code benefits from a host-scoped data dir.** codex/antigravity/cursor `host.ts` deliberately do *not* set a `$CLAUDE_PLUGIN_DATA` equivalent — those hosts have none, so `plugin-paths` falls back to the consolidated host-agnostic path (see [[policy-and-state]]).
+- **Only claude-code benefits from a host-scoped data dir.** codex/antigravity/cursor `host.ts` deliberately do *not* set a `$CLAUDE_PLUGIN_DATA` equivalent — those hosts have none, so `core/paths` falls back to the consolidated host-agnostic path (see [[policy-and-state]]).

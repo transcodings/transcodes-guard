@@ -55,7 +55,7 @@ npm publish --dry-run
 ```
 npm notice 📦  @bigstrider/transcodes-mcp@<version>
 npm notice README.md
-npm notice dist/stdio.js      ← 번들된 단일 파일 (mcp-server-core + gate-backend 내장)
+npm notice dist/stdio.js      ← 번들된 단일 파일 (core/server + gate-backend 내장)
 npm notice package.json
 npm notice total files: 3
 ```

@@ -1,7 +1,7 @@
 /**
  * Deny-by-default backend used when no real backend has been injected.
  *
- * Purpose: let the public side (mcp-server-core + hooks) type-check and build
+ * Purpose: let the public side (core/server + hooks) type-check and build
  * standalone — with the private packages absent — by giving `getGateBackend()`
  * a non-null fallback. This is NOT a shipped artifact: every real plugin/CLI
  * bundle calls `setGateBackend(transcodesGateBackend)` at bootstrap, so this

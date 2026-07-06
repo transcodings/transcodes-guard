@@ -1,5 +1,5 @@
 /**
- * Shared RBAC coordinate types for danger-patterns and tool-rules.
+ * Shared RBAC coordinate types for core/patterns and tool-rules.
  *
  * Every rule (Bash pattern or MCP tool-rule) carries a step-up coordinate that
  * maps onto the Transcodes RBAC model: a `resource` key (e.g. "system") and a

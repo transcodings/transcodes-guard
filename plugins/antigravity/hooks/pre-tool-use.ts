@@ -7,7 +7,7 @@
  * emitted from here are NOT compatible with Claude Code's hook validator:
  * stdin is `toolCall.name/args` (camelCase, nested), stdout is top-level
  * `{ decision, reason }` instead of `hookSpecificOutput.permissionDecision`.
- * See packages/hook-adapters/src/antigravity.ts for the schema rationale.
+ * See packages/core/src/hosts/antigravity.ts for the schema rationale.
  *
  * Tool matcher: `.*` — every agent tool (shell, MCP, file edits) reaches the gate.
  */

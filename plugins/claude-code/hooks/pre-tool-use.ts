@@ -5,7 +5,7 @@
  * All real logic (regex match, git ls-files semantic check, MCP tool-rule
  * lookup, backend RBAC evaluate, grouped step-up session create/reuse, and the
  * crash-safe browser launch + per-coordinate latch write) lives in
- * `evaluatePreToolUse` in stepup-core. This file:
+ * `evaluatePreToolUse` in core/stepup. This file:
  *   1. Parses stdin via the Claude Code adapter.
  *   2. Calls evaluatePreToolUse to produce a host-agnostic GateDecision.
  *   3. Renders the decision into Claude Code wire format via the adapter +

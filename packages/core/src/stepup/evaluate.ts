@@ -74,7 +74,7 @@ export type StepupFailure = {
 /**
  * Runtime + type-level kind constants for `GateDecision`. Source of truth for
  * the discriminated union below and every `switch`/comparison across the
- * codebase. Mirrored in `gate-contract/src/types.ts` (import firewall — the two
+ * codebase. Mirrored in `core/src/contract/types.ts` (import firewall — the two
  * copies must stay in lockstep; the `gate-backend` drift alarm catches a missed
  * sync).
  */

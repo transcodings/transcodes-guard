@@ -1,7 +1,7 @@
 /**
  * Public DI contract for the transcodes-guard step-up gate.
  *
- * Consumed by mcp-server-core and every plugin hook so the public side builds
+ * Consumed by core/server and every plugin hook so the public side builds
  * without importing `@transcodes-guard/*`. The real backend is injected
  * at runtime via setGateBackend().
  */

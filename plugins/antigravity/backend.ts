@@ -2,7 +2,7 @@
  * Gate backend bootstrap.
  *
  * Imported right after host.js by every hook + transport entry. Registers the
- * concrete backend so getGateBackend() (in mcp-server-core + the hooks)
+ * concrete backend so getGateBackend() (in core/server + the hooks)
  * resolves to the real implementation. tsup's noExternal inlines the private
  * adapter into each entry bundle.
  */

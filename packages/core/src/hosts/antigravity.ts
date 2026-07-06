@@ -83,7 +83,7 @@ function readStringArray(v: unknown): string[] | undefined {
 
 /**
  * Move `args.CommandLine` to `args.command` so the host-neutral classifier
- * in stepup-core finds the shell command without host branching. Other
+ * in core/stepup finds the shell command without host branching. Other
  * `run_command` args (Cwd, WaitMsBeforeAsync, …) pass through unchanged.
  * Defensive: if `args.command` is already a string the input is returned
  * untouched (covers a future schema convergence with Claude Code/Codex).

@@ -9,7 +9,7 @@
  *
  * The real implementation lives in `@transcodes-guard/gate-backend` and
  * is registered via `setGateBackend()` at plugin bootstrap. The public side
- * (mcp-server-core + hooks) only ever calls `getGateBackend()`.
+ * (core/server + hooks) only ever calls `getGateBackend()`.
  *
  * Config-less by design: methods like `createStepupSession(args)` and
  * `assertRbacCoordinate(resource, action)` load the StepupConfig internally so

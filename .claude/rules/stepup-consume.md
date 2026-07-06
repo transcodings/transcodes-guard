@@ -1,7 +1,7 @@
 ---
 description: How the single-shot verified step-up record is keyed, stored, consumed, and re-validated. Wiring any of this wrong silently breaks single-shot or double-consumes.
 paths:
-  - "packages/stepup-core/**"
+  - "packages/core/src/stepup/**"
 ---
 
 # Step-up verified-record lifecycle
@@ -13,9 +13,9 @@ The verified record is single-use. Three independent things decide its fate: **w
 The `consume_in_hook` boolean in the `POST /guard/evaluate` verdict (not the tool type, not the local rule registry) drives `decision.consumeHere` (F5). It travels challenge → pending record (`consumeInHook`) → fast-path claim; a pending record without the field (legacy) defaults to hook-consume (`true`). The backend keys it on the wire name: built-in transcodes-guard MCP → `false`, everything else → `true`. So:
 
 - **Bash + external `mcp__*`** (the only hook-gated calls) → `consume_in_hook = true` → hook-consumed via the **FP-keyed** file.
-- **Built-in transcodes-guard MCP** → skips the hook entirely; consumed by the tool handler. `execProtectedTool()` (`transcodes-mcp-tools/src/stepup-helper.ts`) reads the GLOBAL verified record, runs the per-tool callback with the sid, and consumes it in `finally`. The sid reaches the backend as the `X-Step-Up-Session-Id` header, attached via `RequestInput.stepUpSid` in `client.ts`.
+- **Built-in transcodes-guard MCP** → skips the hook entirely; consumed by the tool handler. `execProtectedTool()` (`gate-backend/src/mcp-tools/stepup-helper.ts`) reads the GLOBAL verified record, runs the per-tool callback with the sid, and consumes it in `finally`. The sid reaches the backend as the `X-Step-Up-Session-Id` header, attached via `RequestInput.stepUpSid` in `client.ts`.
 
-(`mcpConsumesInHook(rule)` in danger-patterns keeps the old rule-source default for the local registry, but the hook path no longer consults it.)
+(`mcpConsumesInHook(rule)` in core/patterns keeps the old rule-source default for the local registry, but the hook path no longer consults it.)
 
 Get `consumeHere`/`fp` wrong and you silently break single-shot or double-consume.
 

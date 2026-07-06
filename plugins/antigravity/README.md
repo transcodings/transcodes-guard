@@ -66,7 +66,7 @@ Without a token, the hook still **denies** danger commands but cannot start a st
 
 ## Tool matcher scope
 
-The PreToolUse hook matcher is `run_command|mcp_.*|call_mcp_tool`, so it gates shell execution (`run_command`) **and** MCP tool calls (`mcp_*`). The `call_mcp_tool` arm catches lazy-loaded MCP calls that Antigravity dispatches through a generic wrapper — the adapter unwraps the real tool name from `args.ToolName` so tool-rules still match. File-edit tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) are **not** gated. To extend coverage, widen the matcher regex in `hooks.json` and register the matching tool rules in `packages/danger-patterns/`.
+The PreToolUse hook matcher is `run_command|mcp_.*|call_mcp_tool`, so it gates shell execution (`run_command`) **and** MCP tool calls (`mcp_*`). The `call_mcp_tool` arm catches lazy-loaded MCP calls that Antigravity dispatches through a generic wrapper — the adapter unwraps the real tool name from `args.ToolName` so tool-rules still match. File-edit tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) are **not** gated. To extend coverage, widen the matcher regex in `hooks.json` and register the matching tool rules in `packages/core/src/patterns/`.
 
 ## Slash command: `/transcodes`
 

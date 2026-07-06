@@ -6,7 +6,7 @@
  * here are stable across hosts because the agent-facing protocol
  * instructions don't depend on which CLI ran the hook.
  *
- * These live in gate-contract (public) — they are pure text formatters over
+ * These live in core/contract (public) — they are pure text formatters over
  * the `GateDecision` shape, carry no backend coupling, and let every host hook
  * render decisions without importing private code.
  */

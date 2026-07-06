@@ -4,7 +4,7 @@
  * The single seam between public and private. At plugin bootstrap, each
  * plugin's `backend.ts` calls `setGateBackend(transcodesGateBackend)` before
  * any hook or transport entry runs its logic. Every public consumer
- * (mcp-server-core, hooks) reads via `getGateBackend()`.
+ * (core/server, hooks) reads via `getGateBackend()`.
  */
 import type { GateBackend } from './backend.js';
 import { denyByDefaultBackend } from './noop.js';

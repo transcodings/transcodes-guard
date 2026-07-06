@@ -7,11 +7,11 @@ Commands live in `package.json` scripts (`build:plugin`, `dev:*`, `check`, `type
 ## Must
 
 - **`dist/` is a committed artifact, but you don't have to rebuild it on feature branches.** Bundles run from a git clone with no `node_modules`, and freshness is guaranteed at release (`release.yml` rebuilds + commits on the Release PR). Mid-cycle stale `dist/` on `dev` is harmless — hosts install from a release tag. Rebuild (`npm run build:plugin`) only when you want to verify locally. → [.claude/rules/build-and-entries.md](.claude/rules/build-and-entries.md)
-- **Add MCP capabilities only in `createServer()`** (`packages/mcp-server-core/src/server.ts`); plugin `src/*.ts` are thin transport wrappers. → [.claude/rules/mcp-and-hosts.md](.claude/rules/mcp-and-hosts.md)
-- **Keep all gate/evaluate/message-formatting logic in `packages/stepup-core/`.** Host divergence lives only in `packages/hook-adapters/`. → [.claude/rules/gate-security-model.md](.claude/rules/gate-security-model.md), [.claude/rules/mcp-and-hosts.md](.claude/rules/mcp-and-hosts.md)
+- **Add MCP capabilities only in `createServer()`** (`packages/core/src/server/server.ts`); plugin `src/*.ts` are thin transport wrappers. → [.claude/rules/mcp-and-hosts.md](.claude/rules/mcp-and-hosts.md)
+- **Keep all gate/evaluate/message-formatting logic in `packages/core/src/stepup/`.** Host divergence lives only in `packages/core/src/hosts/`. → [.claude/rules/gate-security-model.md](.claude/rules/gate-security-model.md), [.claude/rules/mcp-and-hosts.md](.claude/rules/mcp-and-hosts.md)
 - **Reach backend-coupled code only through `getGateBackend()`** (`@transcodes-guard/core/contract`), never by importing `gate-backend`. → [.claude/rules/boundary-and-seams.md](.claude/rules/boundary-and-seams.md)
 - **Resolve persist/cache paths only via `@transcodes-guard/core/paths`** (`dataDir()`/`cacheDir()`). `~/.transcodes/` is owned by the CLI; plugin state lives in `~/.transcodes/state/`. → [.claude/rules/policy-and-state.md](.claude/rules/policy-and-state.md)
-- **New backend MCP tools** go in `packages/transcodes-mcp-tools/` (wired via `GateBackend.registerBackendTools()`); **new tool-rule policy** goes in `packages/danger-patterns/src/data/tool-rules.json`. → [.claude/rules/policy-and-state.md](.claude/rules/policy-and-state.md)
+- **New backend MCP tools** go in `packages/gate-backend/src/mcp-tools/` (wired via `GateBackend.registerBackendTools()`); **new tool-rule policy** goes in `packages/core/src/patterns/data/tool-rules.json`. → [.claude/rules/policy-and-state.md](.claude/rules/policy-and-state.md)
 - **The step-up enable/disable is asymmetric**: enabling is safe for an agent, disabling requires a human (the human-only control plane is the `transcodes` CLI). → [.claude/rules/gate-security-model.md](.claude/rules/gate-security-model.md)
 
 ## Never
@@ -25,16 +25,19 @@ Commands live in `package.json` scripts (`build:plugin`, `dev:*`, `check`, `type
 
 `packages/*/src/` (host-agnostic libraries + backend-coupled logic) + `plugins/*/hooks/` (host-thin entries) are the source of truth; every `dist/` is a committed build artifact — never hand-edit it. The package and plugin lists are in the workspace globs of `package.json`; what each one does is documented in the rule file that governs it. The `transcodes` CLI (`cli/`, `@bigstrider/transcodes-cli`) is the human's control plane and owns the shared `~/.transcodes/` directory.
 
-The eight `packages/*` are not eight loose domains — they sit in **four layers**, and the layer boundaries are enforced by the build (biome import firewall, `private:true` publish gate), not by convention. Read a package's role from its layer, not its name:
+There are exactly **two** `packages/*`, and the boundary between them is the one the build actually enforces (biome import firewall, `private:true` publish gate). Everything else is a directory, not a package:
 
-| Layer | Packages | What it is |
+| Package | Subpath / dir | What it is |
 |---|---|---|
-| **Public DI contract** | `gate-contract` | The interface the public side (hooks + `mcp-server-core`) compiles against. Backend injected at runtime via `setGateBackend()`. |
-| **Private backend** | `gate-backend`, `transcodes-mcp-tools` | The concrete `GateBackend` (`gate-backend` composes the others) + the Transcodes-API MCP tools it registers. Reachable only across the seam (`getGateBackend()`); importing `gate-backend` directly is a biome error. |
-| **Host-agnostic core** | `stepup-core`, `mcp-server-core`, `danger-patterns` | The gate logic, the `createServer()` MCP surface, and the shared danger-pattern/tool-rule registry. No host or backend coupling. |
-| **Host adapters** | `hook-adapters`, `plugin-paths` | Per-host stdin/stdout wire formats and per-host path resolution — the only place host divergence lives. |
+| **`@transcodes-guard/core`** (public) | `contract/` | The DI interface the public side (hooks + `server/`) compiles against. Backend injected at runtime via `setGateBackend()`. Import as `@transcodes-guard/core/contract`. |
+| | `stepup/` | The gate/evaluate logic. (`@transcodes-guard/core/stepup`) |
+| | `server/` | The single `createServer()` MCP surface. (`@transcodes-guard/core/server`) |
+| | `patterns/` | Shared danger-pattern/tool-rule registry + system rule JSON. (`@transcodes-guard/core/patterns`) |
+| | `hosts/` | Per-host stdin/stdout wire adapters — the only place host divergence lives. (`@transcodes-guard/core/hosts`) |
+| | `paths/` | Per-host state-path resolution (`dataDir()`/`cacheDir()`). (`@transcodes-guard/core/paths`) |
+| **`@transcodes-guard/gate-backend`** (private) | `src/` + `src/mcp-tools/` | The concrete `GateBackend` + the Transcodes-API MCP tools it registers. Reachable only across the seam (`getGateBackend()`); importing `gate-backend` directly is a biome error. Separate package because the firewall needs a bannable import spec and `build:cdn` bundles it alone. |
 
-The `gate-contract` ↔ `gate-backend` split is the firewall's whole reason to exist (see [[boundary-and-seams]]) and must never be merged; the count is load-bearing, not incidental.
+The public-core ↔ `gate-backend` split is the firewall's whole reason to exist (see [[boundary-and-seams]]) and must never be merged. Directory boundaries inside `core/src/` are convention (reviewed, not build-enforced) — keep cross-domain imports pointed at each domain's `index.js` barrel.
 
 ## Rules index
 
