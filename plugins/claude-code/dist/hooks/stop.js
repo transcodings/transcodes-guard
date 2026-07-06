@@ -10,7 +10,7 @@ import {
   peekPromptGroup,
   readLatchRecord,
   sweepLatches
-} from "../chunk-BLSUTCTF.js";
+} from "../chunk-36L5DIRO.js";
 
 // hooks/stop.ts
 async function main() {
