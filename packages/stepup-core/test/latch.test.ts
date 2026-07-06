@@ -96,14 +96,19 @@ describe('latch TTL + stop reminder cap', () => {
     assert.equal(rec.remindedCount, MAX_STOP_REMINDERS);
   });
 
-  it('readSinglePendingLatchSid returns newest sid when multiple latches share a group', () => {
-    const group = 's_multi';
-    const t1 = Date.now() - 30_000;
-    const t2 = Date.now() - 10_000;
-    writeLatch(group, 'gmail', 'read', 'tc_stepup_old', t1);
-    writeLatch(group, 'gmail', 'send', 'tc_stepup_new', t2);
+  it('readSinglePendingLatchSid returns sid when exactly one latch exists', () => {
+    const group = 's_single';
+    writeLatch(group, 'gmail', 'read', 'tc_stepup_only');
 
-    assert.equal(readSinglePendingLatchSid(group), 'tc_stepup_new');
+    assert.equal(readSinglePendingLatchSid(group), 'tc_stepup_only');
+  });
+
+  it('readSinglePendingLatchSid returns undefined when multiple latches share a group', () => {
+    const group = 's_multi';
+    writeLatch(group, 'gmail', 'read', 'tc_stepup_a');
+    writeLatch(group, 'gmail', 'send', 'tc_stepup_b');
+
+    assert.equal(readSinglePendingLatchSid(group), undefined);
   });
 
   it('readSinglePendingLatchSid ignores latches from other groups', () => {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.43.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.42.1...transcodes-guard-v0.43.0) (2026-07-06)
+
+### Bug Fixes
+
+* **stepup:** omit latch sid hint when multiple coordinates share a group; backend resolves reuse per (group, resource, action)
+
 ## [0.42.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.42.0...transcodes-guard-v0.42.1) (2026-07-06)
 
 

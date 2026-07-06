@@ -197,8 +197,8 @@ export function listLatches(now = Date.now()) {
     return out;
 }
 /**
- * Pending latch sid for evaluate reuse. Prefer the sole latch for this group;
- * when several coordinates were challenged in one prompt, reuse the newest.
+ * Pending latch sid for evaluate reuse when this prompt has exactly one
+ * in-flight latch; otherwise omit sid and let the backend resolve by group.
  */
 export function readSinglePendingLatchSid(group, now = Date.now()) {
     const needle = group.trim();
@@ -219,9 +219,9 @@ export function readSinglePendingLatchSid(group, now = Date.now()) {
         const parsed = parseLatchRecord(path.join(cacheDir(), name), now);
         if (!parsed || parsed.group !== needle)
             continue;
-        if (!rec || parsed.createdAt > rec.createdAt) {
-            rec = parsed;
-        }
+        if (rec)
+            return undefined;
+        rec = parsed;
     }
     return rec?.sid;
 }
