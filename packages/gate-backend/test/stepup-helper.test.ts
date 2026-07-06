@@ -8,14 +8,14 @@ import { after, afterEach, before, describe, it } from 'node:test';
 import {
   loadMergedToolRules,
   type MergedToolRule,
-} from '@transcodes-guard/danger-patterns';
+} from '@transcodes-guard/core/patterns';
 import {
   claimStepupVerified,
   clearTokenFile,
   hasStepupVerified,
   markStepupVerified,
   writeTokenToFile,
-} from '@transcodes-guard/stepup-core';
+} from '@transcodes-guard/core/stepup';
 import {
   execProtectedTool,
   resolveProtectedToolRule,

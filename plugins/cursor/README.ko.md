@@ -6,7 +6,7 @@
 
 Cursor용 위험 셸 인터셉터(`beforeShellExecution` / `beforeMCPExecution`) + 감사 MCP 서버.
 
-Claude Code / Codex / Antigravity 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`)을 공유하며, Cursor에 특화된 부분은 hook 어댑터(`cursorAdapter`)뿐입니다. `dist/`가 커밋되어 있어 설치 시 빌드가 필요 없습니다.
+Claude Code / Codex / Antigravity 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`)을 공유하며, Cursor에 특화된 부분은 hook 어댑터(`cursorAdapter`)뿐입니다. `dist/`가 커밋되어 있어 설치 시 빌드가 필요 없습니다.
 
 ## 사전 요구사항
 

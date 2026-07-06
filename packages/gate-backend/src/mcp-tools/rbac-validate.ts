@@ -11,8 +11,8 @@
  * validation), so a rule can never be saved against an unverifiable resource.
  */
 
-import { isRbacAction, RBAC_ACTIONS } from '@transcodes-guard/danger-patterns';
-import type { StepupConfig } from '@transcodes-guard/stepup-core';
+import { isRbacAction, RBAC_ACTIONS } from '@transcodes-guard/core/patterns';
+import type { StepupConfig } from '@transcodes-guard/core/stepup';
 import { req } from './transcodes-client.js';
 
 export class RbacCoordinateError extends Error {}

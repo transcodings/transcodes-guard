@@ -6,7 +6,7 @@
 
 Risky-shell interceptor (`beforeShellExecution` / `beforeMCPExecution`) and audit MCP server for Cursor.
 
-Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`). `dist/` is committed — no build step at install time.
+Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`). `dist/` is committed — no build step at install time.
 
 ## Prerequisites
 

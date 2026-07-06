@@ -15,14 +15,14 @@ import {
   ruleAppliesToHost,
   TRANSCODES_GUARD_TOOL_PREFIX,
   toolNameMatchesRule,
-} from '@transcodes-guard/danger-patterns';
+} from '@transcodes-guard/core/patterns';
 import {
   checkRbacPermission,
   claimStepupVerified,
   loadStepupConfig,
   type RbacLevel,
   type StepupConfig,
-} from '@transcodes-guard/stepup-core';
+} from '@transcodes-guard/core/stepup';
 
 const RBAC_TTL_MS = 5 * 60_000;
 const rbacCache = new Map<string, { level: RbacLevel; exp: number }>();

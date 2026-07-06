@@ -6,7 +6,7 @@
 
 Google Antigravity 2.0용 위험 셸 인터셉터(`PreToolUse` hook) + 감사 MCP 서버. 데스크톱 앱(Antigravity 2.0)과 `agy` CLI를 지원합니다.
 
-Claude Code 및 Codex 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`)을 공유합니다. Antigravity에 특화된 부분은 Antigravity의 PreToolUse / PreInvocation / Stop 와이어 포맷(최상위 `decision`, 중첩된 `toolCall.name`/`toolCall.args` stdin, `hookSpecificOutput` 래퍼 없음)을 구사하는 네이티브 hook 어댑터(`antigravityAdapter`)입니다. codex 플러그인의 claudeCodeAdapter 위임 패턴은 여기에 **적용되지 않습니다**.
+Claude Code 및 Codex 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`)을 공유합니다. Antigravity에 특화된 부분은 Antigravity의 PreToolUse / PreInvocation / Stop 와이어 포맷(최상위 `decision`, 중첩된 `toolCall.name`/`toolCall.args` stdin, `hookSpecificOutput` 래퍼 없음)을 구사하는 네이티브 hook 어댑터(`antigravityAdapter`)입니다. codex 플러그인의 claudeCodeAdapter 위임 패턴은 여기에 **적용되지 않습니다**.
 
 ## 사전 요구사항
 

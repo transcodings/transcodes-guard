@@ -31,8 +31,8 @@ import {
   formatStepupRejectedSystemMessage,
   GATE_DECISION_KIND,
   getGateBackend,
-} from '@transcodes-guard/gate-contract';
-import { cursorAdapter } from '@transcodes-guard/hook-adapters';
+} from '@transcodes-guard/core/contract';
+import { cursorAdapter } from '@transcodes-guard/core/hosts';
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, 'utf8');

@@ -10,7 +10,7 @@
  * can't be reached or parsed, creation is rejected (the caller chose hard
  * validation), so a rule can never be saved against an unverifiable resource.
  */
-import type { StepupConfig } from '@transcodes-guard/stepup-core';
+import type { StepupConfig } from '@transcodes-guard/core/stepup';
 export declare class RbacCoordinateError extends Error {
 }
 /** Pull resource keys out of the (loosely-typed) get_resources body. */

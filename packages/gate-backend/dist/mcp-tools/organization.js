@@ -1,4 +1,4 @@
-import { loadStepupConfig } from '@transcodes-guard/stepup-core';
+import { loadStepupConfig } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
 import { blockedResult, req } from './transcodes-client.js';
 const MSG_PLATFORM_CONSOLE = 'User creation must be done in the Transcodes console. This MCP tool does not call the API.';

@@ -101,10 +101,10 @@ jobs:
           exit $MISSING
 
       # ─────────────────────────────────────────────────────────
-      # Unit tests (node:test via tsx). Currently stepup-core only —
+      # Unit tests (node:test via tsx). core (stepup) + gate-backend (mcp-tools) —
       # decision-audit + rbac-check (Guard v3 evaluate contract).
-      - name: stepup-core unit tests
-        run: npm test -w @transcodes-guard/stepup-core
+      - name: core unit tests
+        run: npm test -w @transcodes-guard/core -w @transcodes-guard/gate-backend
 
       # ─────────────────────────────────────────────────────────
       # Claude Code plugin smoke tests (6 scenarios).
@@ -214,7 +214,7 @@ jobs:
 
       # ─────────────────────────────────────────────────────────
       # Codex CLI plugin smoke tests (3 scenarios — minimum coverage that
-      # proves wire-format parity. Codex's hooks share the same stepup-core
+      # proves wire-format parity. Codex's hooks share the same core/stepup
       # evaluate function, so we focus on adapter correctness rather than
       # repeating every scenario from the claude-code suite.)
       # ─────────────────────────────────────────────────────────

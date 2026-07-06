@@ -12,7 +12,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   loadStepupConfig,
   openConsoleSession,
-} from '@transcodes-guard/stepup-core';
+} from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
 import { req } from './transcodes-client.js';
 

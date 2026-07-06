@@ -9,7 +9,7 @@
  * `claimStepupVerified()`. Same long-lived MCP server process, so the mark →
  * claim handoff never crosses a process boundary.
  */
-import { type MergedToolRule } from '@transcodes-guard/danger-patterns';
+import { type MergedToolRule } from '@transcodes-guard/core/patterns';
 export declare function resolveProtectedToolRule(toolName: string, rules?: MergedToolRule[]): MergedToolRule | undefined;
 export declare function execProtectedTool(toolName: string, run: (sid: string | undefined) => Promise<string>): Promise<{
     isError: boolean;

@@ -1,9 +1,9 @@
 /**
  * Side-effect-only module — claims this plugin's host identity for
- * @transcodes-guard/plugin-paths. Every hook entry and transport entry
+ * @transcodes-guard/core/paths. Every hook entry and transport entry
  * in this plugin must import this file BEFORE any module that calls
- * dataDir() / cacheDir() (in practice: before @transcodes-guard/hook-adapters
- * and @transcodes-guard/stepup-core / mcp-server-core).
+ * dataDir() / cacheDir() (in practice: before @transcodes-guard/core/hosts
+ * and @transcodes-guard/core/stepup / mcp-server-core).
  *
  * Why a separate file: hook-adapters' barrel re-exports all four adapters,
  * so setting TRANSCODES_GUARD_HOST inside an adapter file causes

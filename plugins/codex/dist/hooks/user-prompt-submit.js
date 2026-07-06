@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import {
   codexAdapter
-} from "../chunk-DRZMA5IG.js";
+} from "../chunk-WUTG3JB2.js";
 import {
   getGateBackend
-} from "../chunk-UGALOJN4.js";
+} from "../chunk-4V74R4AU.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";

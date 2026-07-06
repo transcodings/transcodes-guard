@@ -2,7 +2,7 @@
  * Platform user MCP tools.
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { loadStepupConfig } from '@transcodes-guard/stepup-core';
+import { loadStepupConfig } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
 import { blockedResult, req } from './transcodes-client.js';
 

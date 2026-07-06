@@ -10,7 +10,7 @@
  * can't be reached or parsed, creation is rejected (the caller chose hard
  * validation), so a rule can never be saved against an unverifiable resource.
  */
-import { isRbacAction, RBAC_ACTIONS } from '@transcodes-guard/danger-patterns';
+import { isRbacAction, RBAC_ACTIONS } from '@transcodes-guard/core/patterns';
 import { req } from './transcodes-client.js';
 export class RbacCoordinateError extends Error {
 }

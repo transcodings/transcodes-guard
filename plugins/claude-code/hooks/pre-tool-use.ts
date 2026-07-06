@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Claude Code PreToolUse hook — thin entrypoint over @transcodes-guard/stepup-core.
+ * Claude Code PreToolUse hook — thin entrypoint over @transcodes-guard/core/stepup.
  *
  * All real logic (regex match, git ls-files semantic check, MCP tool-rule
  * lookup, backend RBAC evaluate, grouped step-up session create/reuse, and the
@@ -31,8 +31,8 @@ import {
   formatStepupRejectedSystemMessage,
   GATE_DECISION_KIND,
   getGateBackend,
-} from '@transcodes-guard/gate-contract';
-import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
+} from '@transcodes-guard/core/contract';
+import { claudeCodeAdapter } from '@transcodes-guard/core/hosts';
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, 'utf8');

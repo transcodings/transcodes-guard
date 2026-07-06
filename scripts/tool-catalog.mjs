@@ -5,7 +5,7 @@
  *   - scripts/router-body.mjs → TOOL CATALOG section in /transcodes command files
  *   - scripts/generate-router-files.mjs → cli/src/tool-catalog.generated.ts
  *
- * When adding/removing a registerTool() or registerResource() in mcp-server-core or
+ * When adding/removing a registerTool() or registerResource() in core (src/server) or
  * gate-backend's src/mcp-tools, update this file and run `node scripts/generate-router-files.mjs`.
  */
 

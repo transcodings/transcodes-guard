@@ -9,8 +9,8 @@
  * `claimStepupVerified()`. Same long-lived MCP server process, so the mark →
  * claim handoff never crosses a process boundary.
  */
-import { loadMergedToolRules, ruleAppliesToHost, TRANSCODES_GUARD_TOOL_PREFIX, toolNameMatchesRule, } from '@transcodes-guard/danger-patterns';
-import { checkRbacPermission, claimStepupVerified, loadStepupConfig, } from '@transcodes-guard/stepup-core';
+import { loadMergedToolRules, ruleAppliesToHost, TRANSCODES_GUARD_TOOL_PREFIX, toolNameMatchesRule, } from '@transcodes-guard/core/patterns';
+import { checkRbacPermission, claimStepupVerified, loadStepupConfig, } from '@transcodes-guard/core/stepup';
 const RBAC_TTL_MS = 5 * 60_000;
 const rbacCache = new Map();
 // 동일 멤버/리소스/액션 조합의 RBAC 판정을 짧게 캐시해 반복 호출 비용을 줄인다.

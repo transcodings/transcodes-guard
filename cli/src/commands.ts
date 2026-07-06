@@ -3,7 +3,7 @@
  * dashboard CLI Commands tab (`dashboard.ts`) both read from here.
  */
 
-import { transcodesConfigFile } from '@transcodes-guard/stepup-core';
+import { transcodesConfigFile } from '@transcodes-guard/core/stepup';
 
 export type CliCommandSpec = {
   /** Invocation as shown to users (includes the `transcodes` prefix). */

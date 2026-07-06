@@ -12,7 +12,7 @@
  * side. Error classes are wrapped in `is*Error` predicates for the same reason.
  */
 
-import type { GateBackend } from '@transcodes-guard/gate-contract';
+import type { GateBackend } from '@transcodes-guard/core/contract';
 import {
   clearLatchBySid,
   createStepupSession,
@@ -26,7 +26,7 @@ import {
   rotatePromptGroup,
   sendGateDecisionAudit,
   sweepLatches,
-} from '@transcodes-guard/stepup-core';
+} from '@transcodes-guard/core/stepup';
 import {
   assertRbacCoordinate,
   RbacCoordinateError,

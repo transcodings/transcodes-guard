@@ -1,4 +1,4 @@
-import { loadStepupConfig } from '@transcodes-guard/stepup-core';
+import { loadStepupConfig } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
 import { blockedResult, req } from './transcodes-client.js';
 const DEFAULT_CDN_BASE_URL = 'https://cdn.transcodes.link';

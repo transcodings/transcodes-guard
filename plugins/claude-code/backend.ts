@@ -7,7 +7,7 @@
  * adapter into each entry bundle.
  */
 
+import { setGateBackend } from '@transcodes-guard/core/contract';
 import { transcodesGateBackend } from '@transcodes-guard/gate-backend';
-import { setGateBackend } from '@transcodes-guard/gate-contract';
 
 setGateBackend(transcodesGateBackend);

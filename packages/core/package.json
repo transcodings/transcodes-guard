@@ -1,0 +1,54 @@
+{
+  "name": "@transcodes-guard/core",
+  "version": "0.44.0",
+  "description": "Host-agnostic public core of transcodes-guard — the former gate-contract (contract/), stepup-core (stepup/), mcp-server-core (server/), danger-patterns (patterns/), hook-adapters (hosts/) and plugin-paths (paths/) packages, consolidated into one workspace package with per-domain subpath exports. The backend stays behind getGateBackend(); only @transcodes-guard/gate-backend remains a separate package (import-firewalled, separate CDN bundle unit).",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./contract": {
+      "import": "./dist/contract/index.js",
+      "types": "./dist/contract/index.d.ts"
+    },
+    "./stepup": {
+      "import": "./dist/stepup/index.js",
+      "types": "./dist/stepup/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server/server.js",
+      "types": "./dist/server/server.d.ts"
+    },
+    "./patterns": {
+      "import": "./dist/patterns/index.js",
+      "types": "./dist/patterns/index.d.ts"
+    },
+    "./hosts": {
+      "import": "./dist/hosts/index.js",
+      "types": "./dist/hosts/index.d.ts"
+    },
+    "./paths": {
+      "import": "./dist/paths/index.js",
+      "types": "./dist/paths/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && mkdir -p dist/patterns/data && cp src/patterns/data/*.json dist/patterns/data/",
+    "type-check": "tsc --noEmit -p tsconfig.test.json",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "FSL-1.1-ALv2"
+}

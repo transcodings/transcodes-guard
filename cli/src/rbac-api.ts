@@ -6,7 +6,7 @@ import {
   loadStepupConfig,
   request,
   type StepupConfig,
-} from '@transcodes-guard/stepup-core';
+} from '@transcodes-guard/core/stepup';
 
 export type PermissionLevel = 0 | 1 | 2;
 export type CrudAction = 'create' | 'read' | 'update' | 'delete';

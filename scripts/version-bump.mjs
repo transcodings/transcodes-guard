@@ -1,7 +1,7 @@
 /**
  * Bump version across all files that must stay in sync:
  *   package.json (root)
- *   packages/mcp-server-core/package.json
+ *   packages/core/package.json
  *   plugins/*\/package.json  (4 plugins)
  *   plugins/*\/.claude-plugin/plugin.json  (Claude Code manifest)
  *   .release-please-manifest.json
@@ -42,7 +42,7 @@ const next = bumpSemver(current, arg);
 
 const targets = [
   "package.json",
-  "packages/mcp-server-core/package.json",
+  "packages/core/package.json",
   "plugins/claude-code/package.json",
   "plugins/claude-code/.claude-plugin/plugin.json",
   "plugins/codex/package.json",

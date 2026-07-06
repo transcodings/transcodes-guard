@@ -4,7 +4,7 @@
 
 Risky-shell interceptor (`PreToolUse` hook) and step-up MFA audit MCP server for OpenAI Codex CLI.
 
-Shares the same step-up MFA gate logic as the Claude Code plugin (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Codex-specific surface is the hook adapter and the plugin manifest.
+Shares the same step-up MFA gate logic as the Claude Code plugin (`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`); the only Codex-specific surface is the hook adapter and the plugin manifest.
 
 ## Prerequisites
 

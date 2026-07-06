@@ -4,12 +4,12 @@ import '../backend.js';
 /**
  * MCP stdio entrypoint for the Codex CLI plugin.
  *
- * Imports the host-agnostic createServer from @transcodes-guard/mcp-server-core
+ * Imports the host-agnostic createServer from @transcodes-guard/core/server
  * (same binary the Claude Code plugin uses) and connects it to a StdioServerTransport
  * for Codex's mcp_servers process model.
  */
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { createServer } from '@transcodes-guard/mcp-server-core';
+import { createServer } from '@transcodes-guard/core/server';
 
 async function main(): Promise<void> {
   const server = createServer();

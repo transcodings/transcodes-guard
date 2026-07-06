@@ -8,7 +8,7 @@
  * self-contained (no node_modules at runtime).
  */
 
+import { setGateBackend } from '@transcodes-guard/core/contract';
 import { transcodesGateBackend } from '@transcodes-guard/gate-backend';
-import { setGateBackend } from '@transcodes-guard/gate-contract';
 
 setGateBackend(transcodesGateBackend);

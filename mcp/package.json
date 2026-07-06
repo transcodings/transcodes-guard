@@ -17,12 +17,11 @@
   },
   "devDependencies": {
     "@transcodes-guard/gate-backend": "*",
-    "@transcodes-guard/gate-contract": "*",
-    "@transcodes-guard/mcp-server-core": "*",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@types/node": "^22.0.0",
     "tsup": "^8.0.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "@transcodes-guard/core": "*"
   },
   "engines": {
     "node": ">=20"

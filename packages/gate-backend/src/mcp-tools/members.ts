@@ -9,7 +9,7 @@
  * via `withStepupVerifiedSid` so the backend can validate.
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { loadStepupConfig } from '@transcodes-guard/stepup-core';
+import { loadStepupConfig } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
 import { execProtectedTool } from './stepup-helper.js';
 import { req } from './transcodes-client.js';

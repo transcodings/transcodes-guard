@@ -1,4 +1,4 @@
-import { loadStepupConfig, openConsoleSession, } from '@transcodes-guard/stepup-core';
+import { loadStepupConfig, openConsoleSession, } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
 import { req } from './transcodes-client.js';
 const INSTRUCTIONS_URL = 'https://transcodes.io/instructions';

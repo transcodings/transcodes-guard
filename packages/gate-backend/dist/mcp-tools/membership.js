@@ -1,4 +1,4 @@
-import { loadStepupConfig } from '@transcodes-guard/stepup-core';
+import { loadStepupConfig } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
 import { req } from './transcodes-client.js';
 const textResult = (text, isError = false) => ({

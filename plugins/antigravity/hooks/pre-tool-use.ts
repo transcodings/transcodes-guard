@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Antigravity 2.0 PreToolUse hook — thin entrypoint over @transcodes-guard/stepup-core.
+ * Antigravity 2.0 PreToolUse hook — thin entrypoint over @transcodes-guard/core/stepup.
  *
  * Unlike the Codex entry (which delegates to claudeCodeAdapter), this one
  * uses antigravityAdapter — a fully native wire-format adapter. The bytes
@@ -28,8 +28,8 @@ import {
   formatStepupRejectedSystemMessage,
   GATE_DECISION_KIND,
   getGateBackend,
-} from '@transcodes-guard/gate-contract';
-import { antigravityAdapter } from '@transcodes-guard/hook-adapters';
+} from '@transcodes-guard/core/contract';
+import { antigravityAdapter } from '@transcodes-guard/core/hosts';
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, 'utf8');

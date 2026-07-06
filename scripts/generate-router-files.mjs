@@ -2,7 +2,7 @@
  * Codegen for the `/transcodes` umbrella command.
  *
  * Reads the single source of truth (scripts/router-body.mjs) and regenerates:
- *   - packages/mcp-server-core/src/router-body.ts  (runtime body, committed .ts
+ *   - packages/core/src/server/router-body.ts  (runtime body, committed .ts
  *     consumed by server.ts — same generated-source pattern as build-info.ts)
  *   - the four per-host command/skill markdown files (claude-code / cursor /
  *     antigravity / codex)
@@ -40,7 +40,7 @@ export const TRANSCODES_ROUTER_BODY =
 
 // [relativePath, expectedContent]
 const targets = [
-  ['packages/mcp-server-core/src/router-body.ts', routerBodyTs],
+  ['packages/core/src/server/router-body.ts', routerBodyTs],
   ...HOSTS.map((host) => [host.out, renderHost(host)]),
 ];
 
