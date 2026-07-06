@@ -31,8 +31,8 @@ export type GuardVerdict = {
     expires_at: string | null;
     /**
      * Guard v3 grouping (from evaluate, sourced from step-up-session SSOT):
-     *   exist  — a sibling already created this coordinate's step-up sid.
-     *   status — live session status (poll the same sid via GET .../session/:sid).
+     *   exist  — evaluate reused an existing `step-up-session:{sid}`.
+     *   status — live session status (poll via GET .../session/:sid).
      */
     exist: boolean;
     status: GuardStepUpStatus | null;
@@ -50,7 +50,9 @@ export declare function evaluateAction(config: StepupConfig, body: {
     toolName?: string;
     cwd?: string;
     provider?: GuardProvider;
-    /** Client-minted per-prompt grouping id (Guard v3). */
+    /** Client-minted per-prompt grouping id (`s_…`). */
     group?: string;
+    /** `tc_stepup_…` from the local latch file — same field used for poll. */
+    sid?: string;
 }): Promise<GuardVerdict | null>;
 export declare function checkRbacPermission(config: StepupConfig, resource: string, action: string): Promise<RbacLevel | null>;

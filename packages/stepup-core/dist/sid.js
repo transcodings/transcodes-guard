@@ -1,12 +1,11 @@
 /**
  * Per-prompt grouping id ("group") — client-minted, backend-grouped.
  *
- * Guard v3 grouping: the backend keys a cache entry at
- * `guard:step-up:{group}:{resource}:{action}` → `tc_stepup_` sid. Status
- * always lives on the step-up session; poll with existing
- * `GET .../step-up/session/:sid`.
- * Repeated tool calls in one prompt share the group, so the backend dedupes
- * them onto a single MFA challenge (and a verified challenge grants siblings).
+ * Guard v3 grouping: evaluate sends the latch `sid` (`tc_stepup_…`); the backend
+ * reuses `step-up-session:{sid}` when it still matches
+ * `(group, resource, action)`. Poll with `GET .../step-up/session/:sid`.
+ * Repeated tool calls in one prompt share the group; the latch file carries
+ * the sid so siblings converge on one MFA challenge.
  *
  * It is NOT the `tc_stepup_` session sid (that is backend-minted per action and
  * lives in the auth URL) — the two never overlap.

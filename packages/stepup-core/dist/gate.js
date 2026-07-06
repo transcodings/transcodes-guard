@@ -2,15 +2,15 @@
  * Browser launcher for the step-up flow.
  *
  * Guard v3 removed the local browser-lock file and command fingerprinting:
- * dedup is now driven by the backend's grouped step-up cache (`exist` flag on
- * `POST /guard/evaluate`) plus a local per-coordinate latch (`latch.ts`). All
+ * dedup is driven by the latch `sid` (`step-up-session` SSOT) plus the local
+ * per-coordinate latch file (`latch.ts`). All that remains here is the OS-level
  * that remains here is the OS-level "open this URL" primitive; the gate decides
  * whether to call it.
  *
  * Polling is intentionally NOT performed here — the hook process emits a deny
  * JSON and exits 0 so the agent drives the wait via `poll_stepup_session_wait`
- * and retries the same tool call. On retry the backend cache reports the
- * challenge verified and the gate allows (permission → allow).
+ * and retries the same tool call. On retry the backend reports the session
+ * verified and the gate allows (permission → allow).
  */
 import { spawn } from 'node:child_process';
 /** Best-effort open of a URL in the user's default browser. Never throws. */

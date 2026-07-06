@@ -34,6 +34,7 @@ export async function evaluateAction(config, body) {
             cwd: body.cwd,
             provider: body.provider,
             group: body.group,
+            sid: body.sid,
         },
     });
     if (!env.ok)

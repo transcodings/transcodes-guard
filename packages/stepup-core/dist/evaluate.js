@@ -23,7 +23,7 @@
 import { currentHostProvider, DEFAULT_RBAC_RESOURCE, isTranscodesGuardWireToolName, } from '@transcodes-guard/danger-patterns';
 import { loadStepupConfig } from './config.js';
 import { openBrowser } from './gate.js';
-import { clearLatch, hasLatch, readLatchRecord, writeLatch } from './latch.js';
+import { clearLatch, hasLatch, readLatchRecord, readSinglePendingLatchSid, writeLatch, } from './latch.js';
 import { evaluateAction } from './rbac-check.js';
 import { resolvePromptGroup } from './sid.js';
 import { resolveToken } from './token-store.js';
@@ -189,8 +189,8 @@ export async function evaluatePreToolUse(input) {
         return { kind: GATE_DECISION_KIND.BLOCK_NO_TOKEN, block };
     }
     const group = resolvePromptGroup();
-    // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) grouped
-    // step-up keyed on group. Fail-closed on any error → permission 2.
+    const sid = readSinglePendingLatchSid(group);
+    // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) step-up.
     let verdict = null;
     try {
         verdict = await evaluateAction(loadStepupConfig(), {
@@ -199,6 +199,7 @@ export async function evaluatePreToolUse(input) {
             cwd: input.cwd,
             provider: currentHostProvider(),
             group,
+            sid,
         });
     }
     catch {
@@ -221,9 +222,7 @@ export async function evaluatePreToolUse(input) {
         };
     }
     if (permission === 1) {
-        // Allowed — either the role permits it outright, or a grouped step-up for
-        // this coordinate was already verified (backend grant). Self-heal: drop the
-        // latch so a later distinct challenge in this prompt can relaunch.
+        // Allowed — role permits outright, or step-up session already verified.
         clearLatch(group, resource, action);
         return {
             kind: GATE_DECISION_KIND.PROCEED_BY_POLICY,
@@ -233,7 +232,7 @@ export async function evaluatePreToolUse(input) {
             reasoning: backendReasoning,
         };
     }
-    // Level 2 — the backend created (or reused) the grouped session.
+    // Level 2 — backend created or reused the step-up session.
     if (!verdict?.sid || !verdict.url) {
         return {
             kind: GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED,
@@ -256,8 +255,8 @@ export async function evaluatePreToolUse(input) {
     // ── Self-heal: stale latch when backend says NOT an in-flight pending ───
     //
     // pending + verified are "continue work" paths (poll or retry). Only drop a
-    // latch when the backend is starting fresh (exist:false → prior cache gone /
-    // not-found) so a new browser tab can open.
+    // latch when the backend is starting fresh (exist:false → session gone) so a
+    // new browser tab can open.
     const reused = verdict.exist === true;
     const pending = verdict.status === 'pending' ||
         verdict.status === null ||
@@ -272,11 +271,8 @@ export async function evaluatePreToolUse(input) {
         browserLaunched = true;
     }
     if (pending) {
-        // Reused-pending rewrite must carry over createdAt/remindedCount — resetting
-        // them would extend the latch TTL and restart the Stop-reminder cap on
-        // every retry of the same in-flight challenge.
         const prior = readLatchRecord(group, resource, action);
-        writeLatch(group, resource, action, verdict.sid ?? prior?.sid, prior?.createdAt, prior?.remindedCount);
+        writeLatch(group, resource, action, verdict.sid, prior?.createdAt ?? Date.now(), prior?.remindedCount);
     }
     return {
         kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,
