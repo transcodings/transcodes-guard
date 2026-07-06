@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { extractResourceKeys } from '../src/rbac-validate.js';
+import { extractResourceKeys } from '../src/mcp-tools/rbac-validate.js';
 
 describe('extractResourceKeys', () => {
   it('reads keys from NestJS payload array', () => {

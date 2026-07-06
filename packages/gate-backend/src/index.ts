@@ -40,7 +40,7 @@ import {
   registerPasscodeTools,
   registerProjectTools,
   registerRbacTools,
-} from '@transcodes-guard/transcodes-mcp-tools';
+} from './mcp-tools/index.js';
 
 export const transcodesGateBackend: GateBackend = {
   // hook path — direct bindings

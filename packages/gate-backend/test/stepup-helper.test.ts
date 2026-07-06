@@ -19,7 +19,7 @@ import {
 import {
   execProtectedTool,
   resolveProtectedToolRule,
-} from '../src/stepup-helper.js';
+} from '../src/mcp-tools/stepup-helper.js';
 
 process.env.HOME = mkdtempSync(path.join(os.tmpdir(), 'guard-mcp-tools-'));
 

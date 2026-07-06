@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import {
   checkProjectAssets,
   checkRelatedOriginRegistration,
-} from '../src/project.js';
+} from '../src/mcp-tools/project.js';
 
 // 최소 Response mock으로 asset probe 결과만 표현한다.
 function response(status: number) {
