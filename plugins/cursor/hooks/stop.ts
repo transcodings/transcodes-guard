@@ -28,15 +28,15 @@ async function main(): Promise<void> {
 
   const promptSid = peekPromptSid();
   const pending = promptSid
-    ? listLatches().find((l) => !l.expired && l.sid === promptSid)
+    ? listLatches().find((l) => !l.expired && l.group === promptSid)
     : undefined;
   const rec =
-    pending && readLatchRecord(pending.sid, pending.resource, pending.action);
+    pending && readLatchRecord(pending.group, pending.resource, pending.action);
   if (rec && (rec.remindedCount ?? 0) < MAX_STOP_REMINDERS) {
     process.stdout.write(
       cursorAdapter.emitStop(formatStopReminderMessage(rec)),
     );
-    incrementLatchRemindedCount(rec.sid, rec.resource, rec.action);
+    incrementLatchRemindedCount(rec.group, rec.resource, rec.action);
   }
 
   process.exit(0);

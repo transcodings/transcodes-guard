@@ -21,7 +21,7 @@ export type StepupStateInspection = {
   ttl_ms: number;
   /** Current per-prompt grouping sid (null when none minted / expired). */
   prompt_sid: string | null;
-  /** In-flight browser/poll latches, one per (sid, resource, action). */
+  /** In-flight browser/poll latches, one per (group, resource, action). */
   latches: LatchInspection[];
 };
 

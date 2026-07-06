@@ -2,27 +2,19 @@
  * Browser/poll dedup latch — the client's only local step-up state.
  *
  * Guard v3 keeps all step-up *status* on the backend step-up session (SSOT).
- * Poll: `GET /auth/temp-session/step-up/session/{authSid}`. The client keeps
- * only a per-coordinate latch file:
+ * Poll: `GET /auth/temp-session/step-up/session/{sid}`. The client keeps only a
+ * per-coordinate latch file:
  *
- *   step-up.{sid}.{resource}.{action}.json
+ *   step-up.{group}.{resource}.{action}.json
+ *
+ * JSON shape:
+ *   { group, resource, action, sid?, createdAt, remindedCount? }
+ *   - `group` — per-prompt grouping id (`s_…`, from resolvePromptSid)
+ *   - `sid`   — backend MFA session (`tc_stepup_…`)
  *
  * Its sole job is to answer "did a sibling tool call in THIS prompt already
- * open a browser tab for this exact (sid, resource, action)?" so N concurrent
- * PreToolUse hooks converge on one MFA tab instead of N. Presence = a challenge
- * is already in flight; the hook that finds a latch denies with "poll the
- * existing session" and does NOT reopen the browser.
- *
- * Crash-safe by construction (spec §2): every write is `writeFileSync` with
- * swallowed errors and every delete is `rmSync({ force: true })`, so a torn
- * write, a missing file, or a lock collision never throws into the gate.
- *
- * Two layers reap a stale latch (host killed the hook before it could clear
- * one): `sweepLatches()` in the Stop hook drops any latch older than the TTL,
- * and the next `evaluatePreToolUse` for the same coordinate reconciles it
- * against the backend (SSOT) — a fresh session (exist:false) or a non-pending
- * status (verified/rejected) clears the latch immediately, so it can never
- * wedge the agent into a "keep authenticating" loop.
+ * open a browser tab for this exact (group, resource, action)?" so N concurrent
+ * PreToolUse hooks converge on one MFA tab instead of N.
  */
 import { readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -30,16 +22,14 @@ import { cacheDir } from '@transcodes-guard/plugin-paths';
 import { STEPUP_TTL_MS } from './config.js';
 const LATCH_PREFIX = 'step-up.';
 const LATCH_SUFFIX = '.json';
-/** Collapse anything outside `[A-Za-z0-9_-]` so the coordinate is a safe
- * single filename segment (resource/action are short slugs in practice). */
 function slug(part) {
     return part.replace(/[^a-zA-Z0-9_-]/g, '_') || '_';
 }
-function latchName(sid, resource, action) {
-    return `${LATCH_PREFIX}${slug(sid)}.${slug(resource)}.${slug(action)}${LATCH_SUFFIX}`;
+function latchName(group, resource, action) {
+    return `${LATCH_PREFIX}${slug(group)}.${slug(resource)}.${slug(action)}${LATCH_SUFFIX}`;
 }
-function latchPath(sid, resource, action) {
-    return path.join(cacheDir(), latchName(sid, resource, action));
+function latchPath(group, resource, action) {
+    return path.join(cacheDir(), latchName(group, resource, action));
 }
 function parseLatchRecord(file, now) {
     let raw;
@@ -51,8 +41,9 @@ function parseLatchRecord(file, now) {
     }
     try {
         const parsed = JSON.parse(raw);
+        const group = parsed?.group?.trim();
         if (!parsed ||
-            typeof parsed.sid !== 'string' ||
+            !group ||
             typeof parsed.resource !== 'string' ||
             typeof parsed.action !== 'string' ||
             typeof parsed.createdAt !== 'number') {
@@ -64,10 +55,10 @@ function parseLatchRecord(file, now) {
             return null;
         }
         return {
-            sid: parsed.sid,
+            group,
             resource: parsed.resource,
             action: parsed.action,
-            authSid: parsed.authSid?.trim() || undefined,
+            sid: parsed.sid?.trim() || undefined,
             createdAt: parsed.createdAt,
             remindedCount: typeof parsed.remindedCount === 'number' &&
                 Number.isInteger(parsed.remindedCount) &&
@@ -87,20 +78,20 @@ function parseLatchRecord(file, now) {
     }
 }
 /** Read a latch when present and non-expired; reaps stale/corrupt files. */
-export function readLatchRecord(sid, resource, action, now = Date.now()) {
-    return parseLatchRecord(latchPath(sid, resource, action), now);
+export function readLatchRecord(group, resource, action, now = Date.now()) {
+    return parseLatchRecord(latchPath(group, resource, action), now);
 }
 /** True when a challenge for this coordinate is already in flight this prompt. */
-export function hasLatch(sid, resource, action, now = Date.now()) {
-    return readLatchRecord(sid, resource, action, now) !== null;
+export function hasLatch(group, resource, action, now = Date.now()) {
+    return readLatchRecord(group, resource, action, now) !== null;
 }
 /** Best-effort claim. Overwrites unconditionally; never throws. */
-export function writeLatch(sid, resource, action, authSid, now = Date.now(), remindedCount) {
+export function writeLatch(group, resource, action, sid, now = Date.now(), remindedCount) {
     const record = {
-        sid,
+        group,
         resource,
         action,
-        authSid: authSid?.trim() || undefined,
+        sid: sid?.trim() || undefined,
         createdAt: now,
         remindedCount: typeof remindedCount === 'number' &&
             Number.isInteger(remindedCount) &&
@@ -109,7 +100,7 @@ export function writeLatch(sid, resource, action, authSid, now = Date.now(), rem
             : undefined,
     };
     try {
-        writeFileSync(latchPath(sid, resource, action), JSON.stringify(record), {
+        writeFileSync(latchPath(group, resource, action), JSON.stringify(record), {
             mode: 0o600,
         });
     }
@@ -118,20 +109,20 @@ export function writeLatch(sid, resource, action, authSid, now = Date.now(), rem
     }
 }
 /** Best-effort release (poll terminal / self-heal). Never throws. */
-export function clearLatch(sid, resource, action) {
+export function clearLatch(group, resource, action) {
     try {
-        rmSync(latchPath(sid, resource, action), { force: true });
+        rmSync(latchPath(group, resource, action), { force: true });
     }
     catch {
         // best-effort
     }
 }
 /**
- * Drop the latch tied to a backend auth session (poll terminal: rejected /
+ * Drop the latch tied to a backend step-up session (poll terminal: rejected /
  * not-found). Scans the cache dir — best-effort, never throws.
  */
-export function clearLatchByAuthSid(authSid) {
-    const needle = authSid?.trim();
+export function clearLatchBySid(sessionSid) {
+    const needle = sessionSid?.trim();
     if (!needle)
         return;
     let names;
@@ -148,7 +139,7 @@ export function clearLatchByAuthSid(authSid) {
         const file = path.join(cacheDir(), name);
         try {
             const parsed = JSON.parse(readFileSync(file, 'utf8'));
-            if (parsed?.authSid === needle) {
+            if (parsed?.sid?.trim() === needle) {
                 rmSync(file, { force: true });
             }
         }
@@ -173,15 +164,16 @@ export function listLatches(now = Date.now()) {
         }
         try {
             const parsed = JSON.parse(readFileSync(path.join(cacheDir(), name), 'utf8'));
+            const group = parsed?.group?.trim();
             if (!parsed ||
-                typeof parsed.sid !== 'string' ||
+                !group ||
                 typeof parsed.resource !== 'string' ||
                 typeof parsed.action !== 'string' ||
                 typeof parsed.createdAt !== 'number') {
                 continue;
             }
             out.push({
-                sid: parsed.sid,
+                group,
                 resource: parsed.resource,
                 action: parsed.action,
                 created_at_ms: parsed.createdAt,
@@ -196,36 +188,32 @@ export function listLatches(now = Date.now()) {
     return out;
 }
 /** Bump the Stop reminder counter on a live latch. Never throws. */
-export function incrementLatchRemindedCount(sid, resource, action, now = Date.now()) {
-    const rec = readLatchRecord(sid, resource, action, now);
+export function incrementLatchRemindedCount(group, resource, action, now = Date.now()) {
+    const rec = readLatchRecord(group, resource, action, now);
     if (!rec)
         return null;
     const next = (rec.remindedCount ?? 0) + 1;
-    writeLatch(sid, resource, action, rec.authSid, rec.createdAt, next);
+    writeLatch(group, resource, action, rec.sid, rec.createdAt, next);
     return next;
 }
 /** Stop-hook reminder copy (cap enforced by the caller). */
 export function formatStopReminderMessage(latch) {
-    const authSid = latch.authSid?.trim() ||
+    const sessionSid = latch.sid?.trim() ||
         '(use the tc_stepup_ sid from the PreToolUse deny message)';
     return [
         'transcodes-guard: a step-up MFA session is still PENDING. The tool',
         'call it gated was NOT executed. Resume the loop or report to the',
         'user that authentication is still required.',
         '',
-        `Session sid     : ${authSid}`,
+        `Session sid     : ${sessionSid}`,
         `Coordinate      : ${latch.resource}:${latch.action}`,
         '',
         'Next action:',
-        `  - Call MCP tool \`tc_poll_stepup_session_wait\` with sid="${authSid}".`,
+        `  - Call MCP tool \`tc_poll_stepup_session_wait\` with sid="${sessionSid}".`,
         '  - On `outcome: "verified"` retry the exact original tool call.',
     ].join('\n');
 }
-/**
- * Reap expired latch files (Stop-hook housekeeping). A latch older than the
- * step-up TTL is orphaned — the hook that wrote it was killed before it could
- * clear it. Best-effort: an unreadable cache dir is a silent no-op.
- */
+/** Reap expired latch files (Stop-hook housekeeping). */
 export function sweepLatches(now = Date.now()) {
     let names;
     try {

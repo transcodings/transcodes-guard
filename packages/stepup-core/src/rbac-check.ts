@@ -39,8 +39,8 @@ export type GuardVerdict = {
   expires_at: string | null;
   /**
    * Guard v3 grouping (from evaluate, sourced from step-up-session SSOT):
-   *   exist  — a sibling already created this coordinate's authSid.
-   *   status — live session status (poll the same authSid via GET .../session/:sid).
+   *   exist  — a sibling already created this coordinate's step-up sid.
+   *   status — live session status (poll the same sid via GET .../session/:sid).
    */
   exist: boolean;
   status: GuardStepUpStatus | null;

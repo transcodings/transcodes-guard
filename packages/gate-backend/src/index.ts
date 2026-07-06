@@ -14,7 +14,7 @@
 
 import type { GateBackend } from '@transcodes-guard/gate-contract';
 import {
-  clearLatchByAuthSid,
+  clearLatchBySid,
   createStepupSession,
   evaluatePreToolUse,
   inspectStepupState,
@@ -59,7 +59,7 @@ export const transcodesGateBackend: GateBackend = {
     pollStepupSessionWait(loadStepupConfig(), sid, options),
   inspectStepupState,
   markStepupVerified,
-  clearLatchByAuthSid,
+  clearLatchBySid,
 
   // server path: RBAC coordinate — config loaded internally, error wrapped
   assertRbacCoordinate: (resource, action) =>

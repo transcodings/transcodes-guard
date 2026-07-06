@@ -18,7 +18,7 @@ export { evaluatePreToolUse, GATE_DECISION_KIND, } from './evaluate.js';
 export { openBrowser } from './gate.js';
 export { inspectStepupState, } from './inspector.js';
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
-export { clearLatch, clearLatchByAuthSid, formatStopReminderMessage, hasLatch, incrementLatchRemindedCount, listLatches, readLatchRecord, sweepLatches, writeLatch, } from './latch.js';
+export { clearLatch, clearLatchBySid, formatStopReminderMessage, hasLatch, incrementLatchRemindedCount, listLatches, readLatchRecord, sweepLatches, writeLatch, } from './latch.js';
 export { checkRbacPermission, } from './rbac-check.js';
 export { createConsoleBrowserSession, createStepupSession, pollStepupSession, pollStepupSessionWait, } from './session.js';
 export { peekPromptSid, resolvePromptSid, rotatePromptSid, } from './sid.js';

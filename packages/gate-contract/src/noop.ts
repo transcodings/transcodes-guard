@@ -51,7 +51,7 @@ export const denyByDefaultBackend: GateBackend = {
     return notInstalled();
   },
   markStepupVerified() {},
-  clearLatchByAuthSid() {},
+  clearLatchBySid() {},
   assertRbacCoordinate() {
     return notInstalled();
   },

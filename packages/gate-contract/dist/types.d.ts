@@ -141,7 +141,7 @@ export type WaitStepupResult = {
  * per-coordinate browser latches — all step-up *status* lives in the backend.
  */
 export interface LatchInspection {
-    sid: string;
+    group: string;
     resource: string;
     action: string;
     created_at_ms: number;

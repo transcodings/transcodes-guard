@@ -10,7 +10,7 @@ import {
   peekPromptSid,
   readLatchRecord,
   sweepLatches
-} from "../chunk-QNNTHJT5.js";
+} from "../chunk-57FHDVNT.js";
 
 // hooks/stop.ts
 async function main() {
@@ -21,13 +21,13 @@ async function main() {
   }
   sweepLatches();
   const promptSid = peekPromptSid();
-  const pending = promptSid ? listLatches().find((l) => !l.expired && l.sid === promptSid) : void 0;
-  const rec = pending && readLatchRecord(pending.sid, pending.resource, pending.action);
+  const pending = promptSid ? listLatches().find((l) => !l.expired && l.group === promptSid) : void 0;
+  const rec = pending && readLatchRecord(pending.group, pending.resource, pending.action);
   if (rec && (rec.remindedCount ?? 0) < MAX_STOP_REMINDERS) {
     process.stdout.write(
       cursorAdapter.emitStop(formatStopReminderMessage(rec))
     );
-    incrementLatchRemindedCount(rec.sid, rec.resource, rec.action);
+    incrementLatchRemindedCount(rec.group, rec.resource, rec.action);
   }
   process.exit(0);
 }

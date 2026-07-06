@@ -46,7 +46,7 @@ export interface GateBackend {
      */
     markStepupVerified(sid: string): void;
     /** Drop the latch for a terminal poll (rejected / not-found). */
-    clearLatchByAuthSid(authSid: string): void;
+    clearLatchBySid(sid: string): void;
     assertRbacCoordinate(resource: string, action: string): Promise<void>;
     isRbacCoordinateError(e: unknown): e is Error;
     registerBackendTools(server: McpServer): void;

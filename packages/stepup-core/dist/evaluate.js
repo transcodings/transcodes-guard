@@ -276,7 +276,7 @@ export async function evaluatePreToolUse(input) {
         // them would extend the latch TTL and restart the Stop-reminder cap on
         // every retry of the same in-flight challenge.
         const prior = readLatchRecord(sid, resource, action);
-        writeLatch(sid, resource, action, verdict.sid ?? prior?.authSid, prior?.createdAt, prior?.remindedCount);
+        writeLatch(sid, resource, action, verdict.sid ?? prior?.sid, prior?.createdAt, prior?.remindedCount);
     }
     return {
         kind: GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED,

@@ -11,7 +11,7 @@
  * load the StepupConfig here so the config type never escapes to the public
  * side. Error classes are wrapped in `is*Error` predicates for the same reason.
  */
-import { clearLatchByAuthSid, createStepupSession, evaluatePreToolUse, inspectStepupState, loadStepupConfig, markStepupVerified, pollStepupSession, pollStepupSessionWait, resolveToken, rotatePromptSid, sendGateDecisionAudit, sweepLatches, } from '@transcodes-guard/stepup-core';
+import { clearLatchBySid, createStepupSession, evaluatePreToolUse, inspectStepupState, loadStepupConfig, markStepupVerified, pollStepupSession, pollStepupSessionWait, resolveToken, rotatePromptSid, sendGateDecisionAudit, sweepLatches, } from '@transcodes-guard/stepup-core';
 import { assertRbacCoordinate, RbacCoordinateError, registerAuditTools, registerAuthDeviceTools, registerJwkTools, registerMembershipTools, registerMemberTools, registerMetaTools, registerOrganizationTools, registerPasscodeTools, registerProjectTools, registerRbacTools, } from '@transcodes-guard/transcodes-mcp-tools';
 export const transcodesGateBackend = {
     // hook path — direct bindings
@@ -28,7 +28,7 @@ export const transcodesGateBackend = {
     pollStepupSessionWait: (sid, options) => pollStepupSessionWait(loadStepupConfig(), sid, options),
     inspectStepupState,
     markStepupVerified,
-    clearLatchByAuthSid,
+    clearLatchBySid,
     // server path: RBAC coordinate — config loaded internally, error wrapped
     assertRbacCoordinate: (resource, action) => assertRbacCoordinate(loadStepupConfig(), resource, action),
     isRbacCoordinateError: (e) => e instanceof RbacCoordinateError,

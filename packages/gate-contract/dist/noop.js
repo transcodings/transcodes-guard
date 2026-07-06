@@ -28,7 +28,7 @@ export const denyByDefaultBackend = {
         return notInstalled();
     },
     markStepupVerified() { },
-    clearLatchByAuthSid() { },
+    clearLatchBySid() { },
     assertRbacCoordinate() {
         return notInstalled();
     },

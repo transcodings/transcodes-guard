@@ -47,26 +47,26 @@ describe('latch TTL + stop reminder cap', () => {
     for (let i = 0; i < MAX_STOP_REMINDERS; i++) {
       const promptSid = peekPromptSid();
       const pending = listLatches().find(
-        (l) => promptSid && !l.expired && l.sid === promptSid,
+        (l) => promptSid && !l.expired && l.group === promptSid,
       );
       assert.ok(pending);
       const rec = readLatchRecord(
-        pending.sid,
+        pending.group,
         pending.resource,
         pending.action,
       );
       assert.ok(rec);
       assert.ok((rec.remindedCount ?? 0) < MAX_STOP_REMINDERS);
-      incrementLatchRemindedCount(rec.sid, rec.resource, rec.action);
+      incrementLatchRemindedCount(rec.group, rec.resource, rec.action);
     }
 
     const promptSid = peekPromptSid();
     const pending = listLatches().find(
-      (l) => promptSid && !l.expired && l.sid === promptSid,
+      (l) => promptSid && !l.expired && l.group === promptSid,
     );
     assert.ok(pending);
     const rec = readLatchRecord(
-      pending.sid,
+      pending.group,
       pending.resource,
       pending.action,
     );

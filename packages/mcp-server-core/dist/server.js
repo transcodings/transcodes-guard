@@ -147,7 +147,7 @@ export function createServer(backend = getGateBackend()) {
         }
         else if (result.status === 'rejected' ||
             result.status === 'not_found') {
-            backend.clearLatchByAuthSid(sid);
+            backend.clearLatchBySid(sid);
         }
         return {
             content: [
@@ -205,7 +205,7 @@ export function createServer(backend = getGateBackend()) {
         }
         else if (result.outcome === 'rejected' ||
             result.outcome === 'not_found') {
-            backend.clearLatchByAuthSid(sid);
+            backend.clearLatchBySid(sid);
         }
         return {
             content: [

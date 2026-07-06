@@ -393,7 +393,7 @@ export async function evaluatePreToolUse(
       sid,
       resource,
       action,
-      verdict.sid ?? prior?.authSid,
+      verdict.sid ?? prior?.sid,
       prior?.createdAt,
       prior?.remindedCount,
     );

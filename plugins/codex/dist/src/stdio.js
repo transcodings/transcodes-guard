@@ -12,7 +12,7 @@ import {
   isTranscodesGuardWireToolName,
   loadMergedToolRules,
   objectType
-} from "../chunk-GVAKINA2.js";
+} from "../chunk-LDK3QK7Q.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17154,7 +17154,7 @@ function createServer(backend = getGateBackend()) {
     if (result.status === "verified") {
       backend.markStepupVerified(sid);
     } else if (result.status === "rejected" || result.status === "not_found") {
-      backend.clearLatchByAuthSid(sid);
+      backend.clearLatchBySid(sid);
     }
     return {
       content: [
@@ -17186,7 +17186,7 @@ function createServer(backend = getGateBackend()) {
     if (result.outcome === "verified") {
       backend.markStepupVerified(sid);
     } else if (result.outcome === "rejected" || result.outcome === "not_found") {
-      backend.clearLatchByAuthSid(sid);
+      backend.clearLatchBySid(sid);
     }
     return {
       content: [

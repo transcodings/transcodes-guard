@@ -1,6 +1,6 @@
 /**
  * Regression: a reused-pending /guard/evaluate verdict re-writes the latch
- * (to refresh authSid) but must carry over the prior createdAt/remindedCount.
+ * (to refresh sid) but must carry over the prior createdAt/remindedCount.
  * Resetting them extends the latch TTL and restarts the Stop-reminder cap on
  * every retry of the same in-flight challenge.
  */
@@ -110,6 +110,6 @@ describe('reused-pending latch rewrite', () => {
     assert.ok(rec);
     assert.equal(rec.remindedCount, 2);
     assert.equal(rec.createdAt, createdAt);
-    assert.equal(rec.authSid, 'tc_stepup_reused');
+    assert.equal(rec.sid, 'tc_stepup_reused');
   });
 });

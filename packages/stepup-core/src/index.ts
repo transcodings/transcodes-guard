@@ -59,7 +59,7 @@ export {
 } from './jwt.js';
 export {
   clearLatch,
-  clearLatchByAuthSid,
+  clearLatchBySid,
   formatStopReminderMessage,
   hasLatch,
   incrementLatchRemindedCount,

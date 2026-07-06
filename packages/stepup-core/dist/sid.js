@@ -2,13 +2,13 @@
  * Per-prompt grouping id ("sid") — client-minted, backend-grouped.
  *
  * Guard v3 grouping: the backend keys a pointer at
- * `guard:step-up:{sid}:{resource}:{action}` → `tc_stepup_` authSid. Status
+ * `guard:step-up:{group}:{resource}:{action}` → `tc_stepup_` sid. Status
  * always lives on the step-up session; poll with existing
- * `GET .../step-up/session/:authSid`.
+ * `GET .../step-up/session/:sid`.
  * Repeated tool calls in one prompt share the sid, so the backend dedupes them
  * onto a single MFA challenge (and a verified challenge grants the siblings).
  *
- * It is NOT the `tc_stepup_` auth token (that is backend-minted per action and
+ * It is NOT the `tc_stepup_` session sid (that is backend-minted per action and
  * lives in the auth URL) — the two never overlap.
  *
  * Persisted at `~/.transcodes/state/grouping-session.json`.

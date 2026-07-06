@@ -204,7 +204,7 @@ export function createServer(
         result.status === 'rejected' ||
         result.status === 'not_found'
       ) {
-        backend.clearLatchByAuthSid(sid);
+        backend.clearLatchBySid(sid);
       }
       return {
         content: [
@@ -273,7 +273,7 @@ export function createServer(
         result.outcome === 'rejected' ||
         result.outcome === 'not_found'
       ) {
-        backend.clearLatchByAuthSid(sid);
+        backend.clearLatchBySid(sid);
       }
       return {
         content: [
