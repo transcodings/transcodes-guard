@@ -72,13 +72,13 @@ export function formatNoTokenSystemMessage(block) {
         'member detail page (https://app.transcodes.io). Non-interactive: `transcodes set <token>\n' +
         '-l <label>`. Then retry. Do not have the user paste the token into this chat.');
 }
-export function formatRbacDeniedReason(decision) {
+export function formatBlockByPolicyReason(decision) {
     return appendBackendReasoning(`Blocked by transcodes-guard: ${decision.block.reason}. ` +
         `Your RBAC role denies this action (resource="${decision.resource}", action="${decision.action}") — ` +
         'step-up MFA cannot grant it. Report this to the user; do not retry. ' +
         'An admin must grant the permission in the Transcodes console (RBAC → Roles).', decision.reasoning);
 }
-export function formatRbacDeniedSystemMessage(decision) {
+export function formatBlockByPolicySystemMessage(decision) {
     return appendBackendReasoning([
         formatBlockedSummary(decision.block),
         '',
@@ -88,7 +88,7 @@ export function formatRbacDeniedSystemMessage(decision) {
         'then retry. Do not retry until the permission is granted.',
     ].join('\n'), decision.reasoning);
 }
-export function formatStepupFailureDetail(decision) {
+export function formatStepupCreateFailedDetail(decision) {
     const { failure } = decision;
     return failure.reason === 'no-token'
         ? 'No Transcodes token found — step-up MFA gate is unavailable. Install the CLI (`npm install -g @bigstrider/transcodes-cli`), run `transcodes` to open the dashboard, and paste a token from the Transcodes console (https://app.transcodes.io member detail page). Non-interactive: `transcodes set <token> -l <label>`.'
@@ -96,19 +96,19 @@ export function formatStepupFailureDetail(decision) {
             ? `Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ''}.`
             : `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ''}.`;
 }
-export function formatStepupFailureReason(decision) {
-    return (`Bash blocked by transcodes-guard: ${decision.block.reason}. ${formatStepupFailureDetail(decision)} ` +
+export function formatStepupCreateFailedReason(decision) {
+    return (`Bash blocked by transcodes-guard: ${decision.block.reason}. ${formatStepupCreateFailedDetail(decision)} ` +
         'Report the failure to the user; do not retry until step-up is available.');
 }
-export function formatStepupFailureSystemMessage(decision) {
-    return appendBackendReasoning(`${formatBlockedSummary(decision.block)}\n\n${formatStepupFailureDetail(decision)}`, decision.reasoning);
+export function formatStepupCreateFailedSystemMessage(decision) {
+    return appendBackendReasoning(`${formatBlockedSummary(decision.block)}\n\n${formatStepupCreateFailedDetail(decision)}`, decision.reasoning);
 }
-export function formatStepupPendingReason(decision) {
+export function formatStepupChallengedReason(decision) {
     return (`Step-up MFA pending. sid=${decision.sid}. Open ${decision.browserUrl}, ` +
         'complete WebAuthn, then call MCP tool `tc_poll_stepup_session_wait` ' +
         `with sid="${decision.sid}" and retry the same Bash command.`);
 }
-export function formatStepupPendingSystemMessage(decision) {
+export function formatStepupChallengedSystemMessage(decision) {
     const launchLine = decision.browserLaunched
         ? 'A browser tab has been opened automatically:'
         : 'A concurrent hook process already opened a tab — reuse it:';
@@ -215,11 +215,11 @@ export function formatStderrTag(decision) {
         case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
             return `transcodes-guard: BLOCKED (no token) — ${decision.block.command}`;
         case GATE_DECISION_KIND.BLOCK_BY_POLICY:
-            return `transcodes-guard: BLOCKED (rbac-denied ${decision.resource}/${decision.action}) — ${decision.block.command}`;
+            return `transcodes-guard: BLOCKED (by-policy ${decision.resource}/${decision.action}) — ${decision.block.command}`;
         case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
-            return `transcodes-guard: BLOCKED (stepup-failure) — ${decision.block.command}`;
+            return `transcodes-guard: BLOCKED (stepup-create-failed) — ${decision.block.command}`;
         case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
-            return `transcodes-guard: STEPUP-PENDING sid=${decision.sid} — ${decision.block.command}`;
+            return `transcodes-guard: STEPUP-CHALLENGED sid=${decision.sid} — ${decision.block.command}`;
         case GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED:
             return `transcodes-guard: STEPUP-REJECTED ${decision.resource}/${decision.action} — ${decision.block.command}`;
     }

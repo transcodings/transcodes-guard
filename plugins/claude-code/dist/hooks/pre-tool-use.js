@@ -4,19 +4,19 @@ import {
 } from "../chunk-2MDBVHLC.js";
 import {
   GATE_DECISION_KIND,
+  formatBlockByPolicyReason,
+  formatBlockByPolicySystemMessage,
   formatNoTokenReason,
   formatNoTokenSystemMessage,
-  formatRbacDeniedReason,
-  formatRbacDeniedSystemMessage,
   formatStderrTag,
-  formatStepupFailureReason,
-  formatStepupFailureSystemMessage,
-  formatStepupPendingReason,
-  formatStepupPendingSystemMessage,
+  formatStepupChallengedReason,
+  formatStepupChallengedSystemMessage,
+  formatStepupCreateFailedReason,
+  formatStepupCreateFailedSystemMessage,
   formatStepupRejectedReason,
   formatStepupRejectedSystemMessage,
   getGateBackend
-} from "../chunk-TMCND7X6.js";
+} from "../chunk-FJ77IKOU.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
@@ -45,8 +45,8 @@ async function main() {
       process.stdout.write(
         claudeCodeAdapter.emitPreToolUse({
           kind: "deny",
-          reason: formatRbacDeniedReason(decision),
-          systemMessage: formatRbacDeniedSystemMessage(decision)
+          reason: formatBlockByPolicyReason(decision),
+          systemMessage: formatBlockByPolicySystemMessage(decision)
         })
       );
       process.stderr.write(`${formatStderrTag(decision)}
@@ -57,8 +57,8 @@ async function main() {
       process.stdout.write(
         claudeCodeAdapter.emitPreToolUse({
           kind: "deny",
-          reason: formatStepupFailureReason(decision),
-          systemMessage: formatStepupFailureSystemMessage(decision)
+          reason: formatStepupCreateFailedReason(decision),
+          systemMessage: formatStepupCreateFailedSystemMessage(decision)
         })
       );
       process.stderr.write(`${formatStderrTag(decision)}
@@ -69,8 +69,8 @@ async function main() {
       process.stdout.write(
         claudeCodeAdapter.emitPreToolUse({
           kind: "deny",
-          reason: formatStepupPendingReason(decision),
-          systemMessage: formatStepupPendingSystemMessage(decision)
+          reason: formatStepupChallengedReason(decision),
+          systemMessage: formatStepupChallengedSystemMessage(decision)
         })
       );
       process.stderr.write(`${formatStderrTag(decision)}
