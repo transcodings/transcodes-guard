@@ -16,7 +16,7 @@ Commands live in `package.json` scripts (`build:plugin`, `dev:*`, `check`, `type
 
 ## Never
 
-- **Import `@transcodes-guard/gate-backend` outside `plugins/*/backend.ts`** — biome fails the build. → [.claude/rules/boundary-and-seams.md](.claude/rules/boundary-and-seams.md)
+- **Import `@transcodes-guard/gate-backend` outside the seams (`plugins/*/backend.ts`, `mcp/src/backend.ts`)** — biome + the CI firewall backstop fail the build. → [.claude/rules/boundary-and-seams.md](.claude/rules/boundary-and-seams.md)
 - **Drop `"private": true` from any `packages/*/package.json`** — the publish-surface CI gate fails the build (only `plugins/*` and `cli` publish). → [.claude/rules/release-branch-model.md](.claude/rules/release-branch-model.md)
 - **`exit 2` from a hook** — a deny travels in the JSON body with `exit(0)` on every host. → [.claude/rules/mcp-and-hosts.md](.claude/rules/mcp-and-hosts.md)
 - **Duplicate the MCP server or the gate per plugin.** One `createServer()`, one gate, host-specific adapters only.
@@ -34,7 +34,7 @@ There are exactly **two** `packages/*`, and the boundary between them is the one
 | | `server/` | The single `createServer()` MCP surface. (`@transcodes-guard/core/server`) |
 | | `patterns/` | Shared danger-pattern/tool-rule registry + system rule JSON. (`@transcodes-guard/core/patterns`) |
 | | `hosts/` | Per-host stdin/stdout wire adapters — the only place host divergence lives. (`@transcodes-guard/core/hosts`) |
-| | `paths/` | Per-host state-path resolution (`dataDir()`/`cacheDir()`). (`@transcodes-guard/core/paths`) |
+| | `paths/` | Host-agnostic state-path resolution (`dataDir()`/`cacheDir()` — every host resolves to `~/.transcodes/state/`). (`@transcodes-guard/core/paths`) |
 | **`@transcodes-guard/gate-backend`** (private) | `src/` + `src/mcp-tools/` | The concrete `GateBackend` + the Transcodes-API MCP tools it registers. Reachable only across the seam (`getGateBackend()`); importing `gate-backend` directly is a biome error. Separate package because the firewall needs a bannable import spec and `build:cdn` bundles it alone. |
 
 The public-core ↔ `gate-backend` split is the firewall's whole reason to exist (see [[boundary-and-seams]]) and must never be merged. Directory boundaries inside `core/src/` are convention (reviewed, not build-enforced) — keep cross-domain imports pointed at each domain's `index.js` barrel.

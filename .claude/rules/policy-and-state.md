@@ -20,7 +20,7 @@ paths:
 
 ## State ownership (`core/src/paths`)
 
-> Path resolution is fully centralized here. Never join `os.homedir()` or hardcode `~/.claude/...` anywhere outside this directory.
+> Path resolution is fully centralized here. Never join `os.homedir()` or hardcode `~/.claude/...` anywhere outside this directory — with two deliberate exceptions: `core/src/stepup/token-store.ts` reads the CLI-owned `~/.transcodes/config.json` directly (read-only, documented in its header), and the standalone `plugins/*/install.mjs` scripts resolve host config dirs (they run from a bare clone with no workspace imports).
 
 - **All plugin-managed local state resolves to one fixed path: `~/.transcodes/state/`, regardless of host.** `dataDir()` and `cacheDir()` are currently **identical** (both return `stateDir()`). `detectHost()` and `CLAUDE_PLUGIN_DATA` no longer affect path resolution — they survive only as migration-source / host-identity. *(This supersedes any older description of `CLAUDE_PLUGIN_DATA` isolation or a `~/.claude` fallback.)*
 - **`~/.transcodes/` is owned by the external CLI** (`@bigstrider/transcodes-cli`): `config.json` (token + enable flag, dir `0700` / file `0600`) is CLI-written; hooks/MCP only **read** it. Plugin files go one level down in `~/.transcodes/state/` (via `dataDir()`/`cacheDir()`) and must never land in the `~/.transcodes/` root.

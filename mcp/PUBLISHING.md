@@ -29,7 +29,7 @@ CLI와 달리 **mcp는 플러그인 4종과 같은 버전 트레인**입니다 �
 ## 1. 빌드 정합성 확인 (루트에서)
 
 ```bash
-npm run type-check -w @bigstrider/transcodes-mcp
+npx tsc --noEmit -p mcp/tsconfig.json  # mcp/ is not a workspace — -w does not resolve it
 ```
 
 `dist/`는 gitignore 대상(번들 산출물)이라 커밋되지 않습니다. publish 시 `prepublishOnly`가 자동 빌드합니다.

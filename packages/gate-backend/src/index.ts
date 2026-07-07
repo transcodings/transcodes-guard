@@ -1,7 +1,7 @@
 /**
  * The concrete GateBackend.
  *
- * Binds the three private packages to the public `GateBackend` interface. The
+ * Binds `core/stepup` + the local `src/mcp-tools/` to the public `GateBackend` interface. The
  * `transcodesGateBackend: GateBackend` annotation makes the TypeScript compiler
  * enforce that the private function signatures structurally match the contract
  * — if a private shape drifts from core/contract's mirrored types, THIS build
