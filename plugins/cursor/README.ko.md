@@ -26,8 +26,9 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 
 1. `~/.cursor/plugins/local/transcodes-guard`에 플러그인 복사
 2. hook/MCP 설정의 `${CURSOR_PLUGIN_ROOT}`를 절대 경로로 치환
-3. `~/.cursor/hooks.json`에 transcodes-guard hook만 merge(다른 hook 유지)
+3. `~/.cursor/hooks.json`에 transcodes-guard hook만 merge(다른 hook 유지; 스크립트 경로로 매칭되는 기존 transcodes-guard 항목은 교체)
 4. `~/.cursor/mcp.json`의 `transcodes-guard` 항목만 upsert(다른 MCP 서버는 유지)
+5. 설정 파일이 있으면 게이트 친화적 Cursor CLI 설정 적용 — 글로벌: `~/.cursor/cli-config.json`; `--local`: `<cwd>/.cursor/cli.json` ([CLI Agent 설정](#cli-agent-설정) 참고)
 
 같은 한 줄을 재실행하면 업데이트됩니다.
 
@@ -56,7 +57,21 @@ transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출�
 
 ### CLI Agent 설정
 
-`~/.cursor/cli-config.json`에 `"approvalMode": "unrestricted"`(Run Everything)이거나 Shell/MCP가 `permissions.allow`에 미리 등록돼 있으면, Cursor가 `beforeShellExecution` / `beforeMCPExecution` **없이** 도구를 실행할 수 있습니다. 게이트를 타게 하려면 `"approvalMode": "allowlist"`로 바꾸고 allowlist에서 해당 항목을 제거하세요.
+다음 경우 Cursor가 `beforeShellExecution` / `beforeMCPExecution` **없이** 도구를 실행할 수 있습니다:
+
+- `"approvalMode": "unrestricted"` (Run Everything)
+- `permissions.allow`에 Shell/MCP가 미리 등록된 경우
+
+**`install.mjs`가 자동 적용** (설정 파일이 이미 있을 때):
+
+| 설정 | 동작 |
+|---|---|
+| `approvalMode: "unrestricted"` | `"allowlist"`로 변경 |
+| broad allow 항목 | `Shell(*)`, `Shell(**)`, `Mcp(*)`, `Mcp(*:*)` 제거 |
+
+**자동 제거 안 함:** `Shell(ls)` 같은 좁은 allow 항목 — 해당 명령은 여전히 hook을 우회합니다. 인스톨러가 남은 Shell/Mcp allow 개수를 경고로 출력하므로, 게이트를 타게 하려면 직접 삭제하세요.
+
+설정 파일 경로: `~/.cursor/cli-config.json` (글로벌) 또는 `.cursor/cli.json` (`--local`).
 
 ## 플러그인이 하는 일
 
@@ -64,8 +79,8 @@ transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출�
 |---|---|
 | `beforeShellExecution` | Shell 명령에 대해 2단계 검사(정규식 패턴 + `rm -rf`에 대한 `git ls-files` 의미 검사). 일치 시 `{ permission: "deny", user_message, agent_message }`로 차단하고 스텝업 MFA를 시작합니다. |
 | `beforeMCPExecution` | MCP 도구 호출에 대한 정확 일치 tool-rule(시스템 + 정책 번들). `beforeShellExecution`과 동일한 hook 바이너리가 처리하며, classifier는 `Bash` / `run_command`와 함께 `Shell` 도구명을 허용합니다. |
-| `sessionStart` | 이전 세션에서 넘어온 carry-over 스텝업 상태를 `additional_context`로 노출합니다. |
-| `beforeSubmitPrompt` | 사용자의 "인증 완료" 프롬프트(`완료` / `done` / …)를 감지합니다. Cursor는 이 이벤트에 `additional_context` 채널이 없으므로, hook이 `consumeVerified` + `clearPending`를 부수 효과로 수행하고 `{ continue: true }`를 내보냅니다. |
+| `sessionStart` | latch 정리, 프롬프트 그룹 sid 회전, MCP 토큰이 없으면 `{ additional_context }`로 안내. |
+| `beforeSubmitPrompt` | 사용자 제출마다 프롬프트 그룹 sid 회전. Cursor는 `additional_context` 채널 없음 — `{ continue: true }`만 출력. 스텝업 상태는 백엔드 SSOT; 프롬프트 확인 대신 `tc_poll_stepup_session_wait` 사용. |
 | `stop` | `followup_message`로 매달린 스텝업 세션을 모델에 상기시키고, 고아 verified/pending 레코드를 조용히 회수합니다. |
 
 게이트 hook 2종(`beforeShellExecution` / `beforeMCPExecution`)은 `failClosed: true`로 선언됩니다. Cursor의 기본값은 fail-open이라 hook이 크래시·타임아웃하거나 잘못된 JSON을 내면 명령이 그대로 통과합니다. 그래서 게이트는 hook 자체가 실패하면 명령을 명시적으로 차단하며, 이는 보안에 민감한 hook에 대한 Cursor 권장사항과 일치합니다. 수명주기 hook(`sessionStart` / `beforeSubmitPrompt` / `stop`)은 차단이 아닌 관찰 역할이므로, 실패가 정상 작업을 가로막지 않도록 fail-open을 유지합니다.
@@ -94,7 +109,7 @@ MCP 서버 자체(`mcp.json`에 `transcodes-guard`로 등록)는 다른 플러�
 2. 즉시 MCP 도구 **`tc_poll_stepup_session_wait`**를 제공된 `sid`로 호출합니다. verified 되거나 60초 타임아웃까지 블록됩니다.
 3. **`outcome: "verified"`**면 **원래 차단된 명령**을 재시도합니다. **`outcome: "timeout"`**이면 WebAuthn 완료 여부와 **재시도할지** 사용자에게 묻고, yes일 때만 wait 도구를 다시 호출합니다. **`outcome: "rejected"`**, **`not_found`**, 또는 사용자 **stop/cancel**이면 즉시 중단 — 사용자가 명시적으로 요청하기 전까지 재시도하지 마세요. 취소 후 auth 탭 재오픈·재폴링 금지(security fatigue).
 
-차단된 명령이 실행됐다고 가정하지 마세요. 대체 명령을 임의로 만들지 마세요. 항상 대기 중 `sid`에서 이어가세요. `tc_inspect_stepup_state`로 읽기 전용 스냅샷을 확인하세요. 참고: Cursor에서는 `beforeSubmitPrompt`에 컨텍스트 채널이 없어 사용자의 "완료" 메시지가 조용히 처리되므로, 프롬프트 측 확인을 기대하기보다 `tc_poll_stepup_session_wait` 루프에 의존하세요.
+차단된 명령이 실행됐다고 가정하지 마세요. 대체 명령을 임의로 만들지 마세요. 항상 대기 중 `sid`에서 이어가세요. `tc_inspect_stepup_state`로 읽기 전용 스냅샷을 확인하세요. Cursor에서는 `beforeSubmitPrompt`에 컨텍스트 채널이 없고 스텝업 완료를 ack하지 않으므로, 사용자 "완료" 메시지가 아니라 `tc_poll_stepup_session_wait`에 의존하세요.
 
 ## 활성화 / 비활성화
 
@@ -102,28 +117,42 @@ MCP 서버 자체(`mcp.json`에 `transcodes-guard`로 등록)는 다른 플러�
 
 ## Claude Code 대비 와이어 포맷 차이
 
-Cursor의 hook 계약은 어댑터가 캡슐화하는 두 가지 면에서 Claude Code와 다릅니다:
+Cursor hook 계약은 어댑터가 캡슐화합니다(`packages/core/src/hosts/cursor.ts`):
 
-1. **평면형(flat) PreToolUse 출력** — `hookSpecificOutput.permissionDecision` 대신 `{ permission, user_message?, agent_message?, updated_input? }`를 씁니다.
-2. **Stop이 `followup_message` 사용** — Claude Code의 `{ decision: "block", reason }`과 의미는 같고 키 이름만 다릅니다.
+1. **평면형(flat) PreToolUse 출력** — `beforeShellExecution` / `beforeMCPExecution`이 공유하는 `dist/hooks/pre-tool-use.js`가 stdout에 `{ permission: "allow"|"deny", user_message?, agent_message?, updated_input? }`를 쓰고 `exit 0`. Claude Code의 `hookSpecificOutput.permissionDecision`이나 exit code `2`가 아님.
+2. **Stop이 `followup_message` 사용** — Claude Code의 `{ decision: "block", reason }`과 의미는 같고 키 이름만 다름.
+3. **이벤트명 vs 스크립트 파일명** — Cursor 이벤트는 camelCase(`beforeSubmitPrompt`, `sessionStart`); 스크립트는 kebab-case. Claude Code의 `user-prompt-submit` 명명과 다름.
 
-둘 다 게이트 로직에는 영향을 주지 않으며, 전부 `packages/core/src/hosts/cursor.ts`에 있습니다.
+| Cursor hook 이벤트 | 스크립트 (`dist/hooks/`) |
+|---|---|
+| `beforeShellExecution`, `beforeMCPExecution` | `pre-tool-use.js` |
+| `sessionStart` | `session-start.js` |
+| `beforeSubmitPrompt` | `before-submit-prompt.js` |
+| `stop` | `stop.js` |
+
+템플릿: `.cursor/hooks.json`. `install.mjs`가 `${CURSOR_PLUGIN_ROOT}`를 설치 경로로 치환.
 
 ## 호스트 간 상태 공유
 
 로컬 스텝업 상태는 `~/.transcodes/state/` 아래에 있으며, **모든 transcodes-guard 플러그인이 공유**합니다 — Claude Code에서 verified 된 스텝업이 Cursor로, 그리고 그 반대로도 이어집니다. 같은 순간에 verified 레코드를 두고 벌어지는 경쟁은 알려진 한계입니다(백엔드의 sid-replay 보호가 권위 있는 백스톱).
 
-## 알려진 한계 / 미검증 항목
+## 알려진 한계
 
-다음 항목은 출시 전 실제 Cursor 빌드로 검증되지 않았습니다. 환경에서 다른 형태가 드러나면 이슈를 등록하세요:
+**게이트 커버리지**
 
-1. **정확한 `tool_name` 값** — Cursor 문서는 matcher 이름(`Shell`, MCP 도구 접두사)은 문서화하지만 실제 stdin `tool_name` 문자열은 문서화하지 않습니다. classifier는 안전을 위해 `Shell`, `Bash`, `run_command`를 허용합니다.
-2. **`beforeMCPExecution` 페이로드 형태** — Cursor가 MCP 호출에 내보내는 실제 stdin `tool_name` 문자열은 느슨하게만 문서화돼 있습니다. 엄격한 tool-rule을 작성하기 전에 실제 이벤트 페이로드로 확인하세요.
-3. **`stop.followup_message` UX** — Cursor가 리마인더를 모델에 보이게 렌더링하지 않으면, `hooks/stop.ts`를 편집해 `cursorAdapter.emitStop` 호출을 건너뛰어 조용한 회수로 전환하세요.
+- `beforeShellExecution`과 `beforeMCPExecution`만 게이트됩니다. 내장 file-edit 등 다른 이벤트는 가로채지 않습니다.
+- Cloud Agent는 [사전 요구사항](#사전-요구사항)에 적힌 lifecycle hook을 실행하지 않습니다.
+- 좁은 `permissions.allow` Shell/Mcp 항목은 `install.mjs` 실행 후에도 hook을 우회합니다.
+
+**실제 Cursor e2e (빌드가 다르면 이슈 등록)**
+
+1. **stdin `tool_name` 정확한 값** — 문서는 matcher(`Shell`, MCP 접두사)만 느슨하게 기술. classifier는 `Shell`, `Bash`, `run_command`를 방어적으로 허용.
+2. **`beforeMCPExecution` 페이로드 형태** — 엄격한 tool-rule 작성 전 실제 MCP hook 페이로드 캡처 권장.
+3. **`stop.followup_message` UX** — 리마인더가 모델에 보이지 않으면 `hooks/stop.ts`에서 `cursorAdapter.emitStop`을 건너뛰어 조용한 회수만 수행.
 
 ## 문제 해결
 
-- **hook이 발동하지 않음.** `~/.cursor/hooks.json` 존재 여부 확인(`install.mjs` 실행). Settings → Hooks에서 transcodes-guard trust 확인. `approvalMode`가 `unrestricted`가 아닌지, allowlist에 도구가 등록돼 있지 않은지 확인. **로컬 IDE Agent**로 테스트(Cloud Agent 아님). `node`가 Cursor `PATH`에 있는지 확인.
+- **hook이 발동하지 않음.** `install.mjs` 실행(`~/.cursor/hooks.json` merge + `cli-config.json` 자동 수정). Settings → Hooks → transcodes-guard trust. `~/.cursor/cli-config.json` 재확인: 인스톨러가 `allowlist`와 broad allow는 처리하지만 좁은 Shell/Mcp allow는 남을 수 있음. **로컬 IDE Agent**로 테스트(Cloud Agent 아님). `node`가 Cursor `PATH`에 있는지 확인.
 - **`permission: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — CLI 설치(`npm install -g @bigstrider/transcodes-cli`) 후 `transcodes`로 토큰 저장(또는 `transcodes set <token> -l <label>`).
 - **MCP 도구 호출이 멈춤.** `~/.cursor/mcp.json`에 `transcodes-guard`가 있고 `~/.cursor/plugins/local/transcodes-guard/dist/src/stdio.js`가 존재하는지 확인. Cursor는 MCP 실패를 Output 패널에 기록합니다.
 

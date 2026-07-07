@@ -26,8 +26,9 @@ The installer:
 
 1. Copies the plugin into `~/.cursor/plugins/local/transcodes-guard`
 2. Rewrites `${CURSOR_PLUGIN_ROOT}` in hook/MCP configs to absolute paths
-3. Registers `~/.cursor/hooks.json` — **merges** transcodes-guard hook entries only (other hooks preserved)
+3. Registers `~/.cursor/hooks.json` — **merges** transcodes-guard hook entries only (other hooks preserved; stale transcodes-guard entries matched by script path are replaced)
 4. Upserts `mcpServers.transcodes-guard` in `~/.cursor/mcp.json` (other MCP servers preserved)
+5. Applies gate-friendly Cursor CLI settings when the config file exists — global: `~/.cursor/cli-config.json`; `--local`: `<cwd>/.cursor/cli.json` (see [CLI Agent settings](#cli-agent-settings))
 
 Re-run the same one-liner to update in place.
 
@@ -56,7 +57,21 @@ If neither is set, the hook still **denies** danger commands but cannot start a 
 
 ### CLI Agent settings
 
-If `~/.cursor/cli-config.json` has `"approvalMode": "unrestricted"` (Run Everything) or Shell/MCP tools pre-listed under `permissions.allow`, Cursor may execute those tools **without** calling `beforeShellExecution` / `beforeMCPExecution`. Switch to `"approvalMode": "allowlist"` and remove allowlist entries you want the gate to intercept.
+Cursor may execute tools **without** calling `beforeShellExecution` / `beforeMCPExecution` when:
+
+- `"approvalMode": "unrestricted"` (Run Everything), or
+- Shell/MCP entries under `permissions.allow` pre-approve matching commands.
+
+**`install.mjs` auto-applies** (when the config file already exists):
+
+| Setting | Action |
+|---|---|
+| `approvalMode: "unrestricted"` | Set to `"allowlist"` |
+| Broad allow entries | Remove `Shell(*)`, `Shell(**)`, `Mcp(*)`, `Mcp(*:*)` |
+
+**Not auto-removed:** narrow entries such as `Shell(ls)` — they still bypass hooks for those commands. The installer prints a warning listing any remaining Shell/Mcp allow entries; delete ones you want the gate to intercept.
+
+Config file path: `~/.cursor/cli-config.json` (global install) or `.cursor/cli.json` (`--local`).
 
 ## What the plugin does
 
@@ -64,8 +79,8 @@ If `~/.cursor/cli-config.json` has `"approvalMode": "unrestricted"` (Run Everyth
 |---|---|
 | `beforeShellExecution` | Two-layer check on Shell commands (regex patterns + `git ls-files` semantic on `rm -rf`). Denies with `{ permission: "deny", user_message, agent_message }` and triggers step-up MFA when matched. |
 | `beforeMCPExecution` | Exact-match tool-rules (system + policy-bundle) against MCP tool calls. Served by the same hook binary as `beforeShellExecution`; the classifier accepts the `Shell` tool name alongside `Bash` / `run_command`. |
-| `sessionStart` | Surfaces carry-over step-up state from a prior session via `additional_context`. |
-| `beforeSubmitPrompt` | Detects user "auth done" prompts (`완료` / `done` / …). Cursor has no `additional_context` channel for this event, so the hook performs `consumeVerified` + `clearPending` as side effects and emits `{ continue: true }`. |
+| `sessionStart` | Sweeps latches, rotates the per-prompt grouping sid, and emits `{ additional_context }` when no MCP token is configured. |
+| `beforeSubmitPrompt` | Rotates the per-prompt grouping sid on each user submit. Cursor has no `additional_context` channel — output is `{ continue: true }` only. Step-up status is backend SSOT; use `tc_poll_stepup_session_wait`, not prompt-side ack. |
 | `stop` | Reminds the model of dangling step-up sessions via `followup_message`; silently reaps orphan verified/pending records. |
 
 The two gate hooks (`beforeShellExecution` / `beforeMCPExecution`) are declared `failClosed: true`. Cursor's default is fail-open — a hook crash, timeout, or invalid JSON would let the action through — so the gate explicitly blocks the action when the hook itself fails, matching Cursor's recommendation for security-critical hooks. The lifecycle hooks (`sessionStart` / `beforeSubmitPrompt` / `stop`) stay fail-open: they observe rather than block, so a failure must never interrupt normal work.
@@ -94,7 +109,7 @@ When a `beforeShellExecution` / `beforeMCPExecution` hook denies with a reason m
 2. Immediately call the MCP tool **`tc_poll_stepup_session_wait`** with the provided `sid`. It blocks until verified or a 60s timeout.
 3. On **`outcome: "verified"`**, retry the **original blocked command** — the hook detects the verified state locally and allows it. On **`outcome: "timeout"`**, ask the user to complete WebAuthn **and whether to retry**; only call the wait tool again if they say yes. On **`outcome: "rejected"`**, **`not_found`**, or user **stop/cancel**, stop immediately — do not retry until the user explicitly asks. Do not reopen auth tabs or re-poll after cancel (security fatigue).
 
-Never assume the blocked command ran. Never invent an alternative. Always resume from the pending `sid`. Use `tc_inspect_stepup_state` for a read-only snapshot. Note: on Cursor, `beforeSubmitPrompt` has no context channel, so a user "done" message is handled silently — rely on the `tc_poll_stepup_session_wait` loop rather than expecting a prompt-side acknowledgement.
+Never assume the blocked command ran. Never invent an alternative. Always resume from the pending `sid`. Use `tc_inspect_stepup_state` for a read-only snapshot. On Cursor, `beforeSubmitPrompt` has no context channel and does not ack step-up completion — rely on `tc_poll_stepup_session_wait`, not a user "done" message.
 
 ## Enabling / disabling
 
@@ -102,28 +117,42 @@ There is no runtime kill-switch. To turn protection off, disable or uninstall th
 
 ## Wire-format quirks vs Claude Code
 
-Cursor's hook contract differs from Claude Code in two ways the adapter encapsulates:
+Cursor's hook contract differs from Claude Code in ways the adapter encapsulates (`packages/core/src/hosts/cursor.ts`):
 
-1. **Flat PreToolUse output** — `{ permission, user_message?, agent_message?, updated_input? }` instead of `hookSpecificOutput.permissionDecision`.
+1. **Flat PreToolUse output** — `beforeShellExecution` / `beforeMCPExecution` share `dist/hooks/pre-tool-use.js`, which writes `{ permission: "allow"|"deny", user_message?, agent_message?, updated_input? }` to stdout and exits `0`. Not Claude Code's `hookSpecificOutput.permissionDecision` and not exit code `2`.
 2. **Stop uses `followup_message`** — same semantic as Claude Code's `{ decision: "block", reason }`, different key name.
+3. **Event names vs script filenames** — Cursor events use camelCase (`beforeSubmitPrompt`, `sessionStart`); hook scripts use kebab-case files. This is not Claude Code's `user-prompt-submit` naming.
 
-Neither affects gate logic; both live entirely in `packages/core/src/hosts/cursor.ts`.
+| Cursor hook event | Script (`dist/hooks/`) |
+|---|---|
+| `beforeShellExecution`, `beforeMCPExecution` | `pre-tool-use.js` |
+| `sessionStart` | `session-start.js` |
+| `beforeSubmitPrompt` | `before-submit-prompt.js` |
+| `stop` | `stop.js` |
+
+Template: `.cursor/hooks.json`. `install.mjs` replaces `${CURSOR_PLUGIN_ROOT}` with the installed plugin path.
 
 ## Cross-host state sharing
 
 Local step-up state lives under `~/.transcodes/state/` and is **shared across all transcodes-guard plugins** — a step-up verified in Claude Code carries over to Cursor and vice versa. The same-second race on a verified record is a known limitation (the Transcodes backend's sid-replay protection is the authoritative backstop).
 
-## Known limits / unverified slots
+## Known limits
 
-These items were not validated against a live Cursor build before release. File an issue if your environment exposes a different shape:
+**Gate coverage**
 
-1. **Exact `tool_name` values** — Cursor docs document the matcher names (`Shell`, MCP tool prefix) but not the literal stdin `tool_name` strings. The classifier accepts `Shell`, `Bash`, `run_command` to be safe.
-2. **`beforeMCPExecution` payload shape** — the literal stdin `tool_name` strings Cursor emits for MCP calls are documented loosely; verify against a live event payload before authoring tight tool-rules.
-3. **`stop.followup_message` UX** — if Cursor doesn't render the reminder visibly to the model, switch the hook to silent reap by editing `hooks/stop.ts` to skip the `cursorAdapter.emitStop` call.
+- Only `beforeShellExecution` and `beforeMCPExecution` are gated. Built-in file-edit and other tools outside those events are not intercepted.
+- Cloud Agents do not run the lifecycle hooks listed in [Prerequisites](#prerequisites).
+- Narrow `permissions.allow` Shell/Mcp entries still bypass hooks even after `install.mjs` runs.
+
+**Live Cursor e2e (file an issue if your build differs)**
+
+1. **Exact stdin `tool_name` strings** — docs name matchers (`Shell`, MCP prefixes) loosely. The classifier accepts `Shell`, `Bash`, `run_command` defensively.
+2. **`beforeMCPExecution` payload shape** — capture a live MCP hook payload before authoring tight tool-rules.
+3. **`stop.followup_message` UX** — if reminders are invisible to the model, edit `hooks/stop.ts` to skip `cursorAdapter.emitStop` for silent reap only.
 
 ## Troubleshooting
 
-- **Hook doesn't fire.** Confirm `~/.cursor/hooks.json` exists (run `install.mjs`). Open Settings → Hooks and trust transcodes-guard. Check `approvalMode` is not `unrestricted` and target tools are not on the allowlist. Test with the **local IDE Agent**, not Cloud Agent. Ensure `node` is in Cursor's `PATH`.
+- **Hook doesn't fire.** Run `install.mjs` (creates/merges `~/.cursor/hooks.json` and fixes `cli-config.json` when present). Settings → Hooks → trust transcodes-guard. Re-check `~/.cursor/cli-config.json`: installer sets `allowlist` and removes broad allows, but narrow Shell/Mcp allows still bypass hooks. Test with the **local IDE Agent**, not Cloud Agent. Ensure `node` is in Cursor's `PATH`.
 - **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`).
 - **MCP tool calls hang.** Check `~/.cursor/mcp.json` includes `transcodes-guard` and `~/.cursor/plugins/local/transcodes-guard/dist/src/stdio.js` exists. Cursor logs MCP failures to the Output panel.
 
