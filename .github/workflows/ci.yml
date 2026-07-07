@@ -139,27 +139,27 @@ jobs:
         run: npx tsc --noEmit -p mcp/tsconfig.json
 
       # ─────────────────────────────────────────────────────────
-      # Claude Code plugin smoke tests (6 scenarios).
+      # Claude Code plugin smoke tests (8 scenarios, Guard v3 semantics).
+      # The CI runner has NO Transcodes token and NO reachable backend, so the
+      # states a smoke can reach are: no-token fail-closed deny, hook-skip
+      # (built-in transcodes-guard MCP), backend-unreachable fail-closed deny,
+      # and the token-free latch/Stop paths. Allow (permission 1) and challenge
+      # (permission 2 + sid/url) need a mock /guard/evaluate — deliberately out
+      # of scope here (PRD smoke-suite-v3-respec P2).
       # All inputs are static JSON literals; no GitHub event injection
       # surface exists in this job.
       # ─────────────────────────────────────────────────────────
 
-      - name: claude-code · regex block (rm -rf /)
+      - name: claude-code · no-token fail-closed deny (Bash)
         run: |
           set -e
+          # v3 has no local danger regex: EVERY Bash command is classified into
+          # the gate, and with no token the gate fails closed (BLOCK_NO_TOKEN).
           OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
             | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for danger command"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Deny JSON missing"; exit 1; }
-
-      - name: claude-code · safe command passes (ls)
-        run: |
-          set -e
-          OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"ls"},"cwd":"'"$PWD"'"}' \
-            | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
-          echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow safe command"; exit 1; }
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for no-token Bash"; exit 1; }
+          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::No-token deny JSON missing"; exit 1; }
 
       - name: claude-code · canonical transcodes-guard MCP name skips hook (poll wait)
         run: |
@@ -177,12 +177,9 @@ jobs:
           set -e
           # Guard v3: built-in transcodes-guard MCP wire names are classified out
           # of the hook (evaluate.ts → isTranscodesGuardWireToolName). The handler
-          # (execProtectedTool) is the backstop, so the hook must pass with no
-          # permissionDecision — even for a protected tool like retire_member — and
-          # must NOT touch any verified record (that is the handler's to consume).
-          mkdir -p "$HOME/.transcodes/state"
-          NOW=$(node -e 'console.log(Date.now())')
-          echo "{\"sid\":\"ci-test-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
+          # (execProtectedTool + in-memory verified set) is the backstop, so the
+          # hook must pass with no permissionDecision — even for a protected tool
+          # like retire_member. No on-disk state is involved (v3).
           OUT=$(echo '{"tool_name":"tc_retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
             | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
@@ -190,8 +187,6 @@ jobs:
           if echo "$OUT" | grep -q '"permissionDecision"'; then
             echo "::error::Built-in transcodes-guard MCP must skip the hook, but a permissionDecision was emitted"; exit 1
           fi
-          test -f "$HOME/.transcodes/state/stepup-verified.json" || { echo "::error::Hook consumed the verified record; built-in MCP must defer consume to the handler"; exit 1; }
-          rm -f "$HOME/.transcodes/state/stepup-verified.json" "$HOME/.transcodes/state/stepup-pending.json"
 
       - name: claude-code · unprotected MCP tool passes (get_member)
         run: |
@@ -204,28 +199,69 @@ jobs:
             echo "::error::Unexpected permissionDecision output for unprotected MCP tool"; exit 1
           fi
 
-      - name: claude-code · Stop hook reaps orphan verified+pending(verified) silently
+      # Stop hook v3 contract (plugins/*/hooks/stop.ts + core/stepup latch.ts):
+      # ① sweepLatches() reaps expired/corrupt step-up.*.json latch files,
+      # ② a live latch in the CURRENT prompt group (grouping-session.json)
+      #    below MAX_STOP_REMINDERS(3) emits a {decision:"block"} reminder and
+      #    increments remindedCount, ③ otherwise silent exit 0.
+      # Fixture invariant: the latch `group` MUST equal grouping-session.json's
+      # `group`, or the reminder never fires (peekPromptGroup filter).
+
+      - name: claude-code · Stop reaps expired latch silently (S1)
         run: |
           set -e
           mkdir -p "$HOME/.transcodes/state"
           NOW=$(node -e 'console.log(Date.now())')
-          EXP=$(node -e 'console.log(new Date(Date.now() + 300000).toISOString())')
-          echo "{\"sid\":\"orphan-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
-          cat > "$HOME/.transcodes/state/stepup-pending.json" <<JSON
-          {"sid":"orphan-sid","command":"ci-orphan-test","reason":"orphan test","browserUrl":"http://localhost/x","createdAt":$NOW,"expiresAt":"$EXP","status":"verified"}
-          JSON
+          OLD=$(node -e 'console.log(Date.now() - 11 * 60 * 1000)')
+          printf '{"group":"s_ci","createdAt":%s}' "$NOW" > "$HOME/.transcodes/state/grouping-session.json"
+          printf '{"group":"s_ci","resource":"project","action":"update","sid":"tc_stepup_ci_s1","createdAt":%s}' "$OLD" \
+            > "$HOME/.transcodes/state/step-up.s_ci.project.update.json"
+          OUT=$(printf '' | node plugins/claude-code/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Stop hook did not exit 0"; exit 1; }
+          if echo "$OUT" | grep -q '"decision"'; then
+            echo "::error::Stop hook emitted a reminder for an EXPIRED latch"; exit 1
+          fi
+          if [ -f "$HOME/.transcodes/state/step-up.s_ci.project.update.json" ]; then
+            echo "::error::Stop hook did not reap the expired latch"; exit 1
+          fi
+          rm -f "$HOME/.transcodes/state/grouping-session.json"
+
+      - name: claude-code · Stop reminds on live latch and increments count (S2)
+        run: |
+          set -e
+          mkdir -p "$HOME/.transcodes/state"
+          NOW=$(node -e 'console.log(Date.now())')
+          printf '{"group":"s_ci","createdAt":%s}' "$NOW" > "$HOME/.transcodes/state/grouping-session.json"
+          printf '{"group":"s_ci","resource":"project","action":"update","sid":"tc_stepup_ci_s2","createdAt":%s}' "$NOW" \
+            > "$HOME/.transcodes/state/step-up.s_ci.project.update.json"
+          OUT=$(printf '' | node plugins/claude-code/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
+          echo "$OUT"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Stop hook did not exit 0"; exit 1; }
+          echo "$OUT" | grep -q '"decision":"block"' || { echo "::error::Stop hook missed the live-latch reminder"; exit 1; }
+          echo "$OUT" | grep -q 'tc_stepup_ci_s2' || { echo "::error::Reminder does not carry the latch sid"; exit 1; }
+          COUNT=$(node -p "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.transcodes/state/step-up.s_ci.project.update.json', 'utf8')).remindedCount")
+          [ "$COUNT" = "1" ] || { echo "::error::remindedCount expected 1, got $COUNT"; exit 1; }
+          rm -f "$HOME/.transcodes/state/step-up.s_ci.project.update.json" "$HOME/.transcodes/state/grouping-session.json"
+
+      - name: claude-code · Stop stays silent past reminder cap (S3)
+        run: |
+          set -e
+          mkdir -p "$HOME/.transcodes/state"
+          NOW=$(node -e 'console.log(Date.now())')
+          printf '{"group":"s_ci","createdAt":%s}' "$NOW" > "$HOME/.transcodes/state/grouping-session.json"
+          printf '{"group":"s_ci","resource":"project","action":"update","sid":"tc_stepup_ci_s3","createdAt":%s,"remindedCount":3}' "$NOW" \
+            > "$HOME/.transcodes/state/step-up.s_ci.project.update.json"
           OUT=$(printf '' | node plugins/claude-code/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Stop hook did not exit 0"; exit 1; }
           if echo "$OUT" | grep -q '"decision":"block"'; then
-            echo "::error::Stop hook emitted false reminder for orphan verified+pending"; exit 1
+            echo "::error::Stop hook reminded past the MAX_STOP_REMINDERS cap"; exit 1
           fi
-          if [ -f "$HOME/.transcodes/state/stepup-verified.json" ]; then
-            echo "::error::Stop hook did not reap orphan verified.json"; exit 1
+          if [ ! -f "$HOME/.transcodes/state/step-up.s_ci.project.update.json" ]; then
+            echo "::error::Live latch was unexpectedly reaped"; exit 1
           fi
-          if [ -f "$HOME/.transcodes/state/stepup-pending.json" ]; then
-            echo "::error::Stop hook did not reap orphan pending.json"; exit 1
-          fi
+          rm -f "$HOME/.transcodes/state/step-up.s_ci.project.update.json" "$HOME/.transcodes/state/grouping-session.json"
 
       - name: claude-code · external MCP + backend unreachable → fail-closed deny
         run: |
@@ -242,7 +278,7 @@ jobs:
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for unreachable-backend case"; exit 1; }
           echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::External MCP did not fail closed when backend was unreachable"; exit 1; }
-          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state/stepup-pending.json"
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state"/step-up.*.json "$HOME/.transcodes/state/grouping-session.json"
 
       # ─────────────────────────────────────────────────────────
       # Codex CLI plugin smoke tests (3 scenarios — minimum coverage that
@@ -251,42 +287,36 @@ jobs:
       # repeating every scenario from the claude-code suite.)
       # ─────────────────────────────────────────────────────────
 
-      - name: codex · PreToolUse regex deny (rm -rf /)
+      - name: codex · no-token fail-closed deny (Bash)
         run: |
           set -e
           OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
             | node plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex hook did not exit 0 for danger command"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Codex deny JSON missing"; exit 1; }
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex hook did not exit 0 for no-token Bash"; exit 1; }
+          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Codex no-token deny JSON missing"; exit 1; }
 
-      - name: codex · PreToolUse verified-record → explicit allow
-        env:
-          # F2: the token-less recheck now fails closed; smokes opt back in.
-          TRANSCODES_GUARD_TEST_TRUST: '1'
+      - name: codex · backend unreachable → fail-closed deny (external MCP)
         run: |
           set -e
+          # With a token present but /guard/evaluate unreachable, the verdict is
+          # null → permission 2 → BLOCK_STEPUP_CREATE_FAILED deny (fail-closed).
+          # Distinct from the no-token path: exercises the token parse + evaluate
+          # round-trip + the CREATE_FAILED deny formatting through the codex adapter.
           mkdir -p "$HOME/.transcodes/state"
-          NOW=$(node -e 'console.log(Date.now())')
-          # Bash consumes in the hook → verified record is CONTENT-ADDRESSED by
-          # the command fingerprint (fp = sha256("<command>").slice(0,16)).
-          FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'rm -rf /tmp/x')
-          echo "{\"sid\":\"codex-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
-          OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"},"cwd":"'"$PWD"'"}' \
-            | node plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+          TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
+          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          OUT=$(echo '{"tool_name":"mcp__external_server__delete_thing","tool_input":{"id":"x"}}' \
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex hook did not exit 0 with verified record"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"allow"' || { echo "::error::Codex explicit allow JSON missing despite verified record"; exit 1; }
-          if [ -f "$HOME/.transcodes/state/stepup-verified.$FP.json" ]; then
-            echo "::error::Codex Bash fast-path did NOT consume fp-keyed verified record"; exit 1
-          fi
-          rm -f "$HOME/.transcodes/state/stepup-pending.json"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex hook did not exit 0 for unreachable-backend case"; exit 1; }
+          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Codex did not fail closed when backend was unreachable"; exit 1; }
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state"/step-up.*.json "$HOME/.transcodes/state/grouping-session.json"
 
       - name: codex · Stop hook clean state
         run: |
           set -e
-          rm -f "$HOME/.transcodes/state/stepup-verified.json"
-          rm -f "$HOME/.transcodes/state/stepup-pending.json"
+          rm -f "$HOME/.transcodes/state"/step-up.*.json "$HOME/.transcodes/state/grouping-session.json"
           OUT=$(printf '' | node plugins/codex/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex Stop hook did not exit 0"; exit 1; }
@@ -304,45 +334,37 @@ jobs:
       # pending manual binary validation before public release.)
       # ─────────────────────────────────────────────────────────
 
-      - name: antigravity · PreToolUse regex deny (rm -rf /)
+      - name: antigravity · no-token fail-closed deny (run_command)
         run: |
           set -e
           OUT=$(echo '{"toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /","Cwd":"'"$PWD"'"}},"stepIdx":0,"conversationId":"ag-ci","workspacePaths":["'"$PWD"'"]}' \
             | node plugins/antigravity/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity hook did not exit 0 for danger command"; exit 1; }
-          echo "$OUT" | grep -q '"decision":"deny"' || { echo "::error::Antigravity deny JSON missing (expected top-level decision, not hookSpecificOutput)"; exit 1; }
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity hook did not exit 0 for no-token run_command"; exit 1; }
+          echo "$OUT" | grep -q '"decision":"deny"' || { echo "::error::Antigravity no-token deny JSON missing (expected top-level decision, not hookSpecificOutput)"; exit 1; }
           if echo "$OUT" | grep -q '"hookSpecificOutput"'; then
             echo "::error::Antigravity hook wrongly emitted hookSpecificOutput wrapper (Claude Code wire format leaked)"; exit 1
           fi
 
-      - name: antigravity · PreToolUse verified-record → explicit allow
-        env:
-          # F2: the token-less recheck now fails closed; smokes opt back in.
-          TRANSCODES_GUARD_TEST_TRUST: '1'
+      - name: antigravity · backend unreachable → fail-closed deny (run_command)
         run: |
           set -e
+          # Token present + /guard/evaluate unreachable → BLOCK_STEPUP_CREATE_FAILED
+          # deny through the antigravity adapter (top-level decision wire format).
           mkdir -p "$HOME/.transcodes/state"
-          NOW=$(node -e 'console.log(Date.now())')
-          # run_command maps to the Bash kind; the adapter rewrites CommandLine
-          # → command, so fp = sha256("<command>").slice(0,16).
-          FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'rm -rf /tmp/x')
-          echo "{\"sid\":\"ag-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
+          TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
+          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /tmp/x","Cwd":"'"$PWD"'"}},"stepIdx":0,"conversationId":"ag-ci","workspacePaths":["'"$PWD"'"]}' \
-            | node plugins/antigravity/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/antigravity/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity hook did not exit 0 with verified record"; exit 1; }
-          echo "$OUT" | grep -q '"decision":"allow"' || { echo "::error::Antigravity explicit allow JSON missing despite verified record"; exit 1; }
-          if [ -f "$HOME/.transcodes/state/stepup-verified.$FP.json" ]; then
-            echo "::error::Antigravity run_command fast-path did NOT consume fp-keyed verified record"; exit 1
-          fi
-          rm -f "$HOME/.transcodes/state/stepup-pending.json"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity hook did not exit 0 for unreachable-backend case"; exit 1; }
+          echo "$OUT" | grep -q '"decision":"deny"' || { echo "::error::Antigravity did not fail closed when backend was unreachable"; exit 1; }
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state"/step-up.*.json "$HOME/.transcodes/state/grouping-session.json"
 
       - name: antigravity · Stop hook clean state
         run: |
           set -e
-          rm -f "$HOME/.transcodes/state/stepup-verified.json"
-          rm -f "$HOME/.transcodes/state/stepup-pending.json"
+          rm -f "$HOME/.transcodes/state"/step-up.*.json "$HOME/.transcodes/state/grouping-session.json"
           OUT=$(printf '' | node plugins/antigravity/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity Stop hook did not exit 0"; exit 1; }
@@ -358,7 +380,10 @@ jobs:
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0"; exit 1; }
           echo "$OUT" | grep -q '"injectSteps"' || { echo "::error::Antigravity PreInvocation missed primer injectSteps on invocationNum=1"; exit 1; }
-          echo "$OUT" | grep -q 'step-up MFA protocol primer' || { echo "::error::Antigravity PreInvocation primer content missing"; exit 1; }
+          # Match the stable primer heading ("transcodes-guard step-up MFA
+          # protocol:") — the old 'protocol primer' wording drifted while this
+          # step was hidden behind the Stop-smoke failure (skipped on dev).
+          echo "$OUT" | grep -q 'step-up MFA protocol' || { echo "::error::Antigravity PreInvocation primer content missing"; exit 1; }
 
       - name: antigravity · PreInvocation invocationNum=5 no primer
         run: |
@@ -376,18 +401,18 @@ jobs:
       # `{permission, user_message, agent_message}` (no hookSpecificOutput
       # wrapper) and Stop uses `followup_message` instead of `decision:
       # "block"`. beforeSubmitPrompt has no additional_context channel so
-      # the test verifies the side-effect path (consume verified + clear
-      # pending) and the always-`{ continue: true }` output.)
+      # the test verifies its v3 side effect (prompt-group rotation) and
+      # the always-`{ continue: true }` output.)
       # ─────────────────────────────────────────────────────────
 
-      - name: cursor · beforeShellExecution regex deny (rm -rf /)
+      - name: cursor · no-token fail-closed deny (Shell)
         run: |
           set -e
           OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
             | node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not exit 0 for danger command"; exit 1; }
-          echo "$OUT" | grep -q '"permission":"deny"' || { echo "::error::Cursor flat deny JSON missing"; exit 1; }
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not exit 0 for no-token Shell"; exit 1; }
+          echo "$OUT" | grep -q '"permission":"deny"' || { echo "::error::Cursor flat no-token deny JSON missing"; exit 1; }
           if echo "$OUT" | grep -q '"hookSpecificOutput"'; then
             echo "::error::Cursor hook wrongly emitted hookSpecificOutput wrapper (Claude Code wire format leaked)"; exit 1
           fi
@@ -401,44 +426,27 @@ jobs:
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor native stdin hook did not exit 0"; exit 1; }
           echo "$OUT" | grep -q '"permission":"deny"' || { echo "::error::Cursor native stdin should reach gate (deny), not bypass"; exit 1; }
 
-      - name: cursor · beforeShellExecution safe command passes (ls)
+      - name: cursor · backend unreachable → fail-closed deny (Shell)
         run: |
           set -e
-          OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"ls"},"cwd":"'"$PWD"'"}' \
-            | node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
-          echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not allow safe command"; exit 1; }
-
-      - name: cursor · beforeShellExecution verified-record → explicit allow
-        env:
-          # F2: the token-less recheck now fails closed; smokes opt back in.
-          TRANSCODES_GUARD_TEST_TRUST: '1'
-        run: |
-          set -e
+          # Token present + /guard/evaluate unreachable → BLOCK_STEPUP_CREATE_FAILED
+          # deny through the cursor adapter (flat permission wire format).
           mkdir -p "$HOME/.transcodes/state"
-          NOW=$(node -e 'console.log(Date.now())')
-          # Shell maps to the Bash kind → fp = sha256("<command>").slice(0,16).
-          FP=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("hex").slice(0,16))' 'rm -rf /tmp/x')
-          echo "{\"sid\":\"cursor-ci-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.$FP.json"
+          TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
+          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"rm -rf /tmp/x"},"cwd":"'"$PWD"'"}' \
-            | node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not exit 0 with verified record"; exit 1; }
-          echo "$OUT" | grep -q '"permission":"allow"' || { echo "::error::Cursor explicit allow JSON missing despite verified record"; exit 1; }
-          if [ -f "$HOME/.transcodes/state/stepup-verified.$FP.json" ]; then
-            echo "::error::Cursor Shell fast-path did NOT consume fp-keyed verified record"; exit 1
-          fi
-          rm -f "$HOME/.transcodes/state/stepup-pending.json"
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not exit 0 for unreachable-backend case"; exit 1; }
+          echo "$OUT" | grep -q '"permission":"deny"' || { echo "::error::Cursor did not fail closed when backend was unreachable"; exit 1; }
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state"/step-up.*.json "$HOME/.transcodes/state/grouping-session.json"
 
-      - name: cursor · sessionStart with pending → additional_context
+      - name: cursor · sessionStart no-token notice → additional_context
         run: |
           set -e
-          mkdir -p "$HOME/.transcodes/state"
-          NOW=$(node -e 'console.log(Date.now())')
-          EXP=$(node -e 'console.log(new Date(Date.now() + 300000).toISOString())')
-          cat > "$HOME/.transcodes/state/stepup-pending.json" <<JSON
-          {"sid":"cursor-ss-test","command":"rm -rf /","reason":"ci test","browserUrl":"http://x","createdAt":$NOW,"expiresAt":"$EXP","status":"pending"}
-          JSON
+          # v3 sessionStart reads no on-disk step-up state; with no token it
+          # emits the install notice via the flat additional_context channel.
+          rm -f "$HOME/.transcodes/config.json"
           OUT=$(printf '' | node plugins/cursor/dist/hooks/session-start.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor sessionStart hook did not exit 0"; exit 1; }
@@ -446,13 +454,12 @@ jobs:
           if echo "$OUT" | grep -q '"hookSpecificOutput"'; then
             echo "::error::Cursor sessionStart wrongly emitted hookSpecificOutput wrapper"; exit 1
           fi
-          rm -f "$HOME/.transcodes/state/stepup-pending.json"
+          rm -f "$HOME/.transcodes/state/grouping-session.json"
 
       - name: cursor · Stop hook clean state
         run: |
           set -e
-          rm -f "$HOME/.transcodes/state/stepup-verified.json"
-          rm -f "$HOME/.transcodes/state/stepup-pending.json"
+          rm -f "$HOME/.transcodes/state"/step-up.*.json "$HOME/.transcodes/state/grouping-session.json"
           OUT=$(printf '' | node plugins/cursor/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor Stop hook did not exit 0"; exit 1; }
@@ -460,22 +467,19 @@ jobs:
             echo "::error::Cursor Stop hook unexpectedly emitted followup_message on clean state"; exit 1
           fi
 
-      - name: cursor · beforeSubmitPrompt 'done' consumes verified
+      - name: cursor · beforeSubmitPrompt rotates the prompt group
         run: |
           set -e
+          # v3: each user prompt opens a fresh grouping window. The hook's only
+          # side effect is rotatePromptGroup(); output is always {continue:true}.
           mkdir -p "$HOME/.transcodes/state"
           NOW=$(node -e 'console.log(Date.now())')
-          EXP=$(node -e 'console.log(new Date(Date.now() + 300000).toISOString())')
-          echo "{\"sid\":\"cursor-bsp-sid\",\"verifiedAt\":$NOW}" > "$HOME/.transcodes/state/stepup-verified.json"
-          cat > "$HOME/.transcodes/state/stepup-pending.json" <<JSON
-          {"sid":"cursor-bsp-sid","command":"rm","reason":"r","browserUrl":"http://x","createdAt":$NOW,"expiresAt":"$EXP","status":"verified"}
-          JSON
+          printf '{"group":"s_before","createdAt":%s}' "$NOW" > "$HOME/.transcodes/state/grouping-session.json"
           OUT=$(echo '{"prompt":"인증 완료"}' \
             | node plugins/cursor/dist/hooks/before-submit-prompt.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor beforeSubmitPrompt did not exit 0"; exit 1; }
           echo "$OUT" | grep -q '"continue":true' || { echo "::error::Cursor beforeSubmitPrompt missed continue:true"; exit 1; }
-          if [ -f "$HOME/.transcodes/state/stepup-verified.json" ]; then
-            echo "::error::Cursor beforeSubmitPrompt 'done' did NOT consume verified record"; exit 1
-          fi
-          rm -f "$HOME/.transcodes/state/stepup-pending.json"
+          GROUP=$(node -p "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.transcodes/state/grouping-session.json', 'utf8')).group")
+          [ "$GROUP" != "s_before" ] || { echo "::error::beforeSubmitPrompt did not rotate the prompt group"; exit 1; }
+          rm -f "$HOME/.transcodes/state/grouping-session.json"
