@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.44.2...transcodes-guard-v0.44.3) (2026-07-07)
+
+
+### Code Refactoring
+
+* **messages:** 포맷터·stderr 라벨을 현대 GateDecision kind에 정렬 ([#181](https://github.com/transcodings/transcodes-guard/issues/181)) ([3d88343](https://github.com/transcodings/transcodes-guard/commit/3d883434459489484af9544a88532e32fe516f50))
+
 ## [0.44.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.44.1...transcodes-guard-v0.44.2) (2026-07-07)
 
 
