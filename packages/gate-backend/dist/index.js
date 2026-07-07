@@ -2,10 +2,11 @@
  * The concrete GateBackend.
  *
  * Binds `core/stepup` + the local `src/mcp-tools/` to the public `GateBackend` interface. The
- * `transcodesGateBackend: GateBackend` annotation makes the TypeScript compiler
- * enforce that the private function signatures structurally match the contract
- * — if a private shape drifts from core/contract's mirrored types, THIS build
- * fails, which is the intended drift alarm.
+ * `transcodesGateBackend: GateBackend` annotation is an ordinary
+ * implements-the-contract type check: if a function signature here drifts from
+ * the interface, THIS build fails. (It used to double as the "mirrored
+ * contract" drift alarm; the hand-mirrored types were retired after the #175
+ * consolidation — contract re-exports the domain declarations directly.)
  *
  * Config-less contract methods (createStepupSession, assertRbacCoordinate, ...)
  * load the StepupConfig here so the config type never escapes to the public
