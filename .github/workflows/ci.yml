@@ -380,7 +380,10 @@ jobs:
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0"; exit 1; }
           echo "$OUT" | grep -q '"injectSteps"' || { echo "::error::Antigravity PreInvocation missed primer injectSteps on invocationNum=1"; exit 1; }
-          echo "$OUT" | grep -q 'step-up MFA protocol primer' || { echo "::error::Antigravity PreInvocation primer content missing"; exit 1; }
+          # Match the stable primer heading ("transcodes-guard step-up MFA
+          # protocol:") — the old 'protocol primer' wording drifted while this
+          # step was hidden behind the Stop-smoke failure (skipped on dev).
+          echo "$OUT" | grep -q 'step-up MFA protocol' || { echo "::error::Antigravity PreInvocation primer content missing"; exit 1; }
 
       - name: antigravity · PreInvocation invocationNum=5 no primer
         run: |
