@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.44.1...transcodes-guard-v0.44.2) (2026-07-07)
+
+
+### Code Refactoring
+
+* 미러 타입 제거 — contract를 선언에서 재수출로 ([#179](https://github.com/transcodings/transcodes-guard/issues/179)) ([4c3c139](https://github.com/transcodings/transcodes-guard/commit/4c3c1394509c15ff8d97552080c3666299891f60))
+
 ## [0.44.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.44.0...transcodes-guard-v0.44.1) (2026-07-07)
 
 
