@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.45.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.44.3...transcodes-guard-v0.45.0) (2026-07-07)
+
+
+### Features
+
+* **install:** auto-apply gate-friendly CLI settings on Cursor and An… ([c001891](https://github.com/transcodings/transcodes-guard/commit/c001891e5b266125d1fdb3b2f252c910c3f89174))
+* **install:** auto-apply gate-friendly CLI settings on Cursor and Antigravity ([6712585](https://github.com/transcodings/transcodes-guard/commit/67125851e610236b26779b0137438a966cb1e80c))
+
 ## [0.44.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.44.2...transcodes-guard-v0.44.3) (2026-07-07)
 
 
