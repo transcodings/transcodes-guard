@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import {
   claudeCodeAdapter
-} from "../chunk-VGLNVTHM.js";
+} from "../chunk-2MDBVHLC.js";
 import {
   getGateBackend
-} from "../chunk-TTKIXEDH.js";
+} from "../chunk-PJCRI6YJ.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";
