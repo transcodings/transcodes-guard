@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.44.0...transcodes-guard-v0.44.1) (2026-07-07)
+
+
+### Code Refactoring
+
+* packages/ 통폐합 (8 → 2) — 강제 가능한 경계만 패키지로 ([#175](https://github.com/transcodings/transcodes-guard/issues/175)) ([fc52e4d](https://github.com/transcodings/transcodes-guard/commit/fc52e4d77032f7c340559ef2c0a178af2de52a43))
+
 ## [0.44.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.43.0...transcodes-guard-v0.44.0) (2026-07-06)
 
 
