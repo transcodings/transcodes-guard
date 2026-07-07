@@ -24,25 +24,25 @@ export declare function formatNoTokenSessionNotice(): string;
 export declare function formatBlockedSummary(block: BlockResult): string;
 export declare function formatNoTokenReason(block: BlockResult): string;
 export declare function formatNoTokenSystemMessage(block: BlockResult): string;
-export declare function formatRbacDeniedReason(decision: Extract<GateDecision, {
+export declare function formatBlockByPolicyReason(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY;
 }>): string;
-export declare function formatRbacDeniedSystemMessage(decision: Extract<GateDecision, {
+export declare function formatBlockByPolicySystemMessage(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY;
 }>): string;
-export declare function formatStepupFailureDetail(decision: Extract<GateDecision, {
+export declare function formatStepupCreateFailedDetail(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
 }>): string;
-export declare function formatStepupFailureReason(decision: Extract<GateDecision, {
+export declare function formatStepupCreateFailedReason(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
 }>): string;
-export declare function formatStepupFailureSystemMessage(decision: Extract<GateDecision, {
+export declare function formatStepupCreateFailedSystemMessage(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
 }>): string;
-export declare function formatStepupPendingReason(decision: Extract<GateDecision, {
+export declare function formatStepupChallengedReason(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
 }>): string;
-export declare function formatStepupPendingSystemMessage(decision: Extract<GateDecision, {
+export declare function formatStepupChallengedSystemMessage(decision: Extract<GateDecision, {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
 }>): string;
 export declare function formatStepupRejectedReason(decision: Extract<GateDecision, {
