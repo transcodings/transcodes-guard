@@ -124,7 +124,7 @@ export async function execProtectedTool(
         content: [
           {
             type: 'text',
-            text: `transcodes-guard: BLOCKED (rbac-denied ${rule.resource}/${rule.action}) — ${toolName}`,
+            text: `transcodes-guard: BLOCKED (by-policy ${rule.resource}/${rule.action}) — ${toolName}`,
           },
         ],
       };

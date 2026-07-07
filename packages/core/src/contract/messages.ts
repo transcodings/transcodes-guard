@@ -87,7 +87,7 @@ export function formatNoTokenSystemMessage(block: BlockResult): string {
   );
 }
 
-export function formatRbacDeniedReason(
+export function formatBlockByPolicyReason(
   decision: Extract<
     GateDecision,
     { kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY }
@@ -102,7 +102,7 @@ export function formatRbacDeniedReason(
   );
 }
 
-export function formatRbacDeniedSystemMessage(
+export function formatBlockByPolicySystemMessage(
   decision: Extract<
     GateDecision,
     { kind: typeof GATE_DECISION_KIND.BLOCK_BY_POLICY }
@@ -121,7 +121,7 @@ export function formatRbacDeniedSystemMessage(
   );
 }
 
-export function formatStepupFailureDetail(
+export function formatStepupCreateFailedDetail(
   decision: Extract<
     GateDecision,
     { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED }
@@ -139,7 +139,7 @@ export function formatStepupFailureDetail(
         }.`;
 }
 
-export function formatStepupFailureReason(
+export function formatStepupCreateFailedReason(
   decision: Extract<
     GateDecision,
     { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED }
@@ -148,26 +148,26 @@ export function formatStepupFailureReason(
   return (
     `Bash blocked by transcodes-guard: ${
       decision.block.reason
-    }. ${formatStepupFailureDetail(decision)} ` +
+    }. ${formatStepupCreateFailedDetail(decision)} ` +
     'Report the failure to the user; do not retry until step-up is available.'
   );
 }
 
-export function formatStepupFailureSystemMessage(
+export function formatStepupCreateFailedSystemMessage(
   decision: Extract<
     GateDecision,
     { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED }
   >,
 ): string {
   return appendBackendReasoning(
-    `${formatBlockedSummary(decision.block)}\n\n${formatStepupFailureDetail(
+    `${formatBlockedSummary(decision.block)}\n\n${formatStepupCreateFailedDetail(
       decision,
     )}`,
     decision.reasoning,
   );
 }
 
-export function formatStepupPendingReason(
+export function formatStepupChallengedReason(
   decision: Extract<
     GateDecision,
     { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED }
@@ -180,7 +180,7 @@ export function formatStepupPendingReason(
   );
 }
 
-export function formatStepupPendingSystemMessage(
+export function formatStepupChallengedSystemMessage(
   decision: Extract<
     GateDecision,
     { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED }
@@ -315,11 +315,11 @@ export function formatStderrTag(decision: GateDecision): string {
     case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
       return `transcodes-guard: BLOCKED (no token) — ${decision.block.command}`;
     case GATE_DECISION_KIND.BLOCK_BY_POLICY:
-      return `transcodes-guard: BLOCKED (rbac-denied ${decision.resource}/${decision.action}) — ${decision.block.command}`;
+      return `transcodes-guard: BLOCKED (by-policy ${decision.resource}/${decision.action}) — ${decision.block.command}`;
     case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
-      return `transcodes-guard: BLOCKED (stepup-failure) — ${decision.block.command}`;
+      return `transcodes-guard: BLOCKED (stepup-create-failed) — ${decision.block.command}`;
     case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
-      return `transcodes-guard: STEPUP-PENDING sid=${decision.sid} — ${decision.block.command}`;
+      return `transcodes-guard: STEPUP-CHALLENGED sid=${decision.sid} — ${decision.block.command}`;
     case GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED:
       return `transcodes-guard: STEPUP-REJECTED ${decision.resource}/${decision.action} — ${decision.block.command}`;
   }
