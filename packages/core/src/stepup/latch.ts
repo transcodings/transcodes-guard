@@ -33,7 +33,7 @@ type LatchRecord = {
   sid: string;
   createdAt: number;
   /** Stop-hook reminders emitted for this in-flight latch (cap in stop-reminder.ts). */
-  remindedCount?: number;
+  remindedCount?: number | undefined;
 };
 
 export type LatchRecordWithCoordinate = LatchRecord;

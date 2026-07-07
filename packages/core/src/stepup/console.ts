@@ -18,7 +18,7 @@ export type ConsoleSessionResult =
       ok: true;
       sid: string;
       browserUrl: string;
-      expiresAt?: string;
+      expiresAt?: string | undefined;
       launched: boolean;
     }
   | {

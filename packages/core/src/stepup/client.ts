@@ -93,7 +93,7 @@ export async function request(
     const response = await fetch(url, {
       method: input.method,
       headers,
-      body,
+      body: body ?? null,
       signal: controller.signal,
     });
     let data: unknown;

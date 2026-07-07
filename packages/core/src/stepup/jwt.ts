@@ -17,11 +17,11 @@ export type MemberTokenClaims = {
   organizationId: string;
   projectId: string;
   memberId: string;
-  aud?: readonly string[];
+  aud?: readonly string[] | undefined;
   exp: number;
-  iss?: string;
-  jti?: string;
-  iat?: number;
+  iss?: string | undefined;
+  jti?: string | undefined;
+  iat?: number | undefined;
 };
 
 export type ParsedMemberToken = {

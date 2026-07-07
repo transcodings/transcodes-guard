@@ -10,9 +10,9 @@ import type { StepupConfig } from './config.js';
 export type CreateStepupArgs = {
     /** One short sentence describing what the user is confirming. */
     summary: string;
-    action?: string;
-    resource?: string;
-    member_id?: string;
+    action?: string | undefined;
+    resource?: string | undefined;
+    member_id?: string | undefined;
     /** @deprecated Use `summary`. Kept for callers that still pass `comment`. */
     comment?: string;
 };
@@ -22,16 +22,16 @@ export type CreateConsoleSessionArgs = {
 export type CreatedStepupSession = {
     envelope: Envelope;
     /** Parsed when the backend envelope shape matches; undefined otherwise. */
-    sid?: string;
-    browserUrl?: string;
-    expiresAt?: string;
+    sid?: string | undefined;
+    browserUrl?: string | undefined;
+    expiresAt?: string | undefined;
     /** Session mode the backend assigned (stepup/console/signin). */
-    mode?: string;
+    mode?: string | undefined;
 };
 export type PollStepupResult = {
     envelope: Envelope;
     /** pending | verified | rejected | not_found (session expired / missing). */
-    status?: string;
+    status?: string | undefined;
 };
 /** MCP / hook step-up — POST .../step-up/session (mode fixed server-side). */
 export declare function createStepupSession(config: StepupConfig, args: CreateStepupArgs): Promise<CreatedStepupSession>;

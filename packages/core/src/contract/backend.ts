@@ -49,7 +49,10 @@ export interface GateBackend {
   pollStepupSession(sid: string): Promise<PollStepupResult>;
   pollStepupSessionWait(
     sid: string,
-    options?: { maxWaitMs?: number; intervalMs?: number },
+    options?: {
+      maxWaitMs?: number | undefined;
+      intervalMs?: number | undefined;
+    },
   ): Promise<WaitStepupResult>;
   inspectStepupState(): StepupStateInspection;
   /** Record a backend-verified sid in the server's in-memory verified set so the

@@ -30,7 +30,7 @@ export interface BlockResult {
     details?: string[];
     command: string;
     /** Wire tool name (`Bash`, `mcp__…`). Feeds decision audit metadata. */
-    toolName?: string;
+    toolName?: string | undefined;
     /** Id of the matched pattern/tool-rule. Feeds the decision audit (H2). */
     ruleId: string;
     stepupResource: string;
@@ -68,7 +68,7 @@ export type GateDecision = {
     resource: string;
     action: string;
     /** Backend `/guard/evaluate` classification + matrix explanation. */
-    reasoning?: string;
+    reasoning?: string | undefined;
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_NO_TOKEN;
     block: BlockResult;
@@ -77,12 +77,12 @@ export type GateDecision = {
     block: BlockResult;
     resource: string;
     action: string;
-    reasoning?: string;
+    reasoning?: string | undefined;
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
     block: BlockResult;
     failure: StepupFailure;
-    reasoning?: string;
+    reasoning?: string | undefined;
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
     block: BlockResult;
@@ -93,13 +93,13 @@ export type GateDecision = {
     /** Classified coordinate (also the local latch key). */
     resource: string;
     action: string;
-    reasoning?: string;
+    reasoning?: string | undefined;
 } | {
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED;
     block: BlockResult;
     resource: string;
     action: string;
-    reasoning?: string;
+    reasoning?: string | undefined;
 };
 /** Backend HTTP envelope. Mirrors client.ts `Envelope`. */
 export type Envelope = {
@@ -110,24 +110,24 @@ export type Envelope = {
 /** Args for creating a step-up session. Mirrors session.ts `CreateStepupArgs`. */
 export type CreateStepupArgs = {
     summary: string;
-    action?: string;
-    resource?: string;
-    member_id?: string;
+    action?: string | undefined;
+    resource?: string | undefined;
+    member_id?: string | undefined;
     /** @deprecated Use `summary`. */
     comment?: string;
 };
 /** Mirrors session.ts `CreatedStepupSession`. */
 export type CreatedStepupSession = {
     envelope: Envelope;
-    sid?: string;
-    browserUrl?: string;
-    expiresAt?: string;
-    mode?: string;
+    sid?: string | undefined;
+    browserUrl?: string | undefined;
+    expiresAt?: string | undefined;
+    mode?: string | undefined;
 };
 /** Mirrors session.ts `PollStepupResult`. */
 export type PollStepupResult = {
     envelope: Envelope;
-    status?: string;
+    status?: string | undefined;
 };
 /** Mirrors session.ts `WaitStepupResult`. */
 export type WaitStepupResult = {

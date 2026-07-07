@@ -47,12 +47,12 @@ export type GuardVerdict = {
 export declare function evaluateAction(config: StepupConfig, body: {
     payload: unknown;
     /** Wire tool name resolved from the host hook shape (plugin-side). */
-    toolName?: string;
-    cwd?: string;
-    provider?: GuardProvider;
+    toolName?: string | undefined;
+    cwd?: string | undefined;
+    provider?: GuardProvider | undefined;
     /** Client-minted per-prompt grouping id (`s_…`). */
-    group?: string;
+    group?: string | undefined;
     /** `tc_stepup_…` from the local latch file — same field used for poll. */
-    sid?: string;
+    sid?: string | undefined;
 }): Promise<GuardVerdict | null>;
 export declare function checkRbacPermission(config: StepupConfig, resource: string, action: string): Promise<RbacLevel | null>;

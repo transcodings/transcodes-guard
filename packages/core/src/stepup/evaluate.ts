@@ -56,7 +56,7 @@ export interface BlockResult {
   /** Command / tool-call summary used in stderr logs. */
   command: string;
   /** Wire tool name (`Bash`, `mcp__…`). Feeds decision audit metadata. */
-  toolName?: string;
+  toolName?: string | undefined;
   /** Synthetic audit id. Feeds decision audit (H2). */
   ruleId: string;
   /** RBAC placeholder until `/guard/evaluate` returns the classified coordinate. */
@@ -97,7 +97,7 @@ export type GateDecision =
       resource: string;
       action: string;
       /** Backend `/guard/evaluate` classification + matrix explanation. */
-      reasoning?: string;
+      reasoning?: string | undefined;
     }
   | { kind: typeof GATE_DECISION_KIND.BLOCK_NO_TOKEN; block: BlockResult }
   | {
@@ -107,13 +107,13 @@ export type GateDecision =
       block: BlockResult;
       resource: string;
       action: string;
-      reasoning?: string;
+      reasoning?: string | undefined;
     }
   | {
       kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED;
       block: BlockResult;
       failure: StepupFailure;
-      reasoning?: string;
+      reasoning?: string | undefined;
     }
   | {
       kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED;
@@ -125,7 +125,7 @@ export type GateDecision =
       /** Classified coordinate (also the local latch key). */
       resource: string;
       action: string;
-      reasoning?: string;
+      reasoning?: string | undefined;
     }
   | {
       /** Terminal: grouped challenge was rejected — stop polling, do not retry. */
@@ -133,7 +133,7 @@ export type GateDecision =
       block: BlockResult;
       resource: string;
       action: string;
-      reasoning?: string;
+      reasoning?: string | undefined;
     };
 
 const GUARD_EVALUATE_RULE_ID = 'guard-evaluate';

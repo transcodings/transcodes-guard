@@ -15,16 +15,16 @@ export interface PreToolUseInput {
     rawPayload?: unknown;
     cwd: string;
     /** Optional, host-dependent. Present in Claude Code and Codex. */
-    sessionId?: string;
+    sessionId?: string | undefined;
     /** Optional, host-dependent invocation id (Codex `tool_use_id`). */
-    toolUseId?: string;
+    toolUseId?: string | undefined;
     /** Echo of the hook event name when the host includes it. */
-    hookEventName?: string;
+    hookEventName?: string | undefined;
 }
 /** Parsed UserPromptSubmit stdin. */
 export interface UserPromptSubmitInput {
     prompt: string;
-    hookEventName?: string;
+    hookEventName?: string | undefined;
 }
 /**
  * Parsed PreInvocation stdin — Antigravity-only.
@@ -38,10 +38,10 @@ export interface UserPromptSubmitInput {
 export interface PreInvocationInput {
     invocationNum: number;
     initialNumSteps: number;
-    conversationId?: string;
-    transcriptPath?: string;
-    workspacePaths?: string[];
-    artifactDirectoryPath?: string;
+    conversationId?: string | undefined;
+    transcriptPath?: string | undefined;
+    workspacePaths?: string[] | undefined;
+    artifactDirectoryPath?: string | undefined;
 }
 /**
  * Antigravity PreInvocation / PostInvocation `injectSteps` element shape.
