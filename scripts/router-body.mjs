@@ -1,7 +1,7 @@
 /**
  * Canonical source of truth for the `/transcodes` umbrella command body.
  *
- * The runtime MCP prompt (packages/mcp-server-core/src/server.ts) and the four
+ * The runtime MCP prompt (packages/core/src/server/server.ts) and the four
  * per-host command/skill markdown files are ALL derived from the constants
  * here — there is no hand-mirroring. Edit the menu once, run
  * `node scripts/generate-router-files.mjs` (it runs automatically via
@@ -69,7 +69,7 @@ const WORKFLOW_MENU = [
   '   - Mutating (confirm first): `passcode_create`, `jwk_backup`.',
 ];
 
-// Keep in sync with formatStepupProtocolPrimer() in packages/gate-contract/src/messages.ts
+// Keep in sync with formatStepupProtocolPrimer() in packages/core/src/contract/messages.ts
 export const STEPUP_PROTOCOL_SECTION = [
   '',
   '## Step-up MFA protocol (PreToolUse deny)',

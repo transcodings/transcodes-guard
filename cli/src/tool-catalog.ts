@@ -3,10 +3,10 @@
  * Used only by the transcodes CLI dashboard.
  *
  * SYNC: this is a hand-maintained mirror of the registerTool() calls in
- * @transcodes-guard/mcp-server-core (server.ts + transcodes-mcp-tools'
+ * @transcodes-guard/core/server (server.ts + gate-backend src/mcp-tools'
  * register*Tools). It lives here because the CLI is its sole consumer, but
  * it is NOT auto-derived — when a tool is added/changed/removed in
- * mcp-server-core, update this catalog in the same change or the dashboard
+ * core/server, update this catalog in the same change or the dashboard
  * drifts.
  */
 export type AdminToolAccess = 'api' | 'console-only' | 'gate';

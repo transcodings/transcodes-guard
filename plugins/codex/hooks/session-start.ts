@@ -13,8 +13,8 @@ import '../backend.js';
 import {
   formatNoTokenSessionNotice,
   getGateBackend,
-} from '@transcodes-guard/gate-contract';
-import { codexAdapter } from '@transcodes-guard/hook-adapters';
+} from '@transcodes-guard/core/contract';
+import { codexAdapter } from '@transcodes-guard/core/hosts';
 
 async function main(): Promise<void> {
   const backend = getGateBackend();

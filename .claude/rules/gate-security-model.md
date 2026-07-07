@@ -1,8 +1,8 @@
 ---
 description: The asymmetric fail policy, fail-closed RBAC, and the no-side-effects-before-stdout contract that make up the gate's security posture.
 paths:
-  - 'packages/stepup-core/**'
-  - 'packages/transcodes-mcp-tools/src/stepup-helper.ts'
+  - 'packages/core/src/stepup/**'
+  - 'packages/gate-backend/src/mcp-tools/stepup-helper.ts'
 ---
 
 # Gate security model
@@ -11,7 +11,7 @@ These are security guarantees disguised as ordinary control flow. The _position_
 
 ## Asymmetric fail policy (the whole model)
 
-In `evaluatePreToolUse` (`stepup-core/src/evaluate.ts`):
+In `evaluatePreToolUse` (`core/src/stepup/evaluate.ts`):
 
 - **Before** classify (stdin parse only) → **fail-open**: return `{kind:'proceed-ungated'}`. A crash here must never block a safe command.
 - **After** classify (every bash command or external **MCP** `mcp__*` wire name) → **fail-safe** via `POST /guard/evaluate`. Backend unreachable → permission 2 (step-up). A crash after classify must never silently allow a risky command.

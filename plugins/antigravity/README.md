@@ -6,7 +6,7 @@
 
 Risky-shell interceptor (`PreToolUse` hook) and audit MCP server for Google Antigravity 2.0. Supports the desktop app (Antigravity 2.0) and the `agy` CLI.
 
-Shares the same step-up MFA gate logic as the Claude Code and Codex plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the Antigravity-specific surface is a native hook adapter (`antigravityAdapter`) that speaks Antigravity's PreToolUse / PreInvocation / Stop wire format (top-level `decision`, nested `toolCall.name`/`toolCall.args` stdin, no `hookSpecificOutput` wrapper). The codex plugin's claudeCodeAdapter delegation pattern does **not** apply here.
+Shares the same step-up MFA gate logic as the Claude Code and Codex plugins (`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`); the Antigravity-specific surface is a native hook adapter (`antigravityAdapter`) that speaks Antigravity's PreToolUse / PreInvocation / Stop wire format (top-level `decision`, nested `toolCall.name`/`toolCall.args` stdin, no `hookSpecificOutput` wrapper). The codex plugin's claudeCodeAdapter delegation pattern does **not** apply here.
 
 ## Prerequisites
 
@@ -66,7 +66,7 @@ Without a token, the hook still **denies** danger commands but cannot start a st
 
 ## Tool matcher scope
 
-The PreToolUse hook matcher is `run_command|mcp_.*|call_mcp_tool`, so it gates shell execution (`run_command`) **and** MCP tool calls (`mcp_*`). The `call_mcp_tool` arm catches lazy-loaded MCP calls that Antigravity dispatches through a generic wrapper — the adapter unwraps the real tool name from `args.ToolName` so tool-rules still match. File-edit tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) are **not** gated. To extend coverage, widen the matcher regex in `hooks.json` and register the matching tool rules in `packages/danger-patterns/`.
+The PreToolUse hook matcher is `run_command|mcp_.*|call_mcp_tool`, so it gates shell execution (`run_command`) **and** MCP tool calls (`mcp_*`). The `call_mcp_tool` arm catches lazy-loaded MCP calls that Antigravity dispatches through a generic wrapper — the adapter unwraps the real tool name from `args.ToolName` so tool-rules still match. File-edit tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) are **not** gated. To extend coverage, widen the matcher regex in `hooks.json` and register the matching tool rules in `packages/core/src/patterns/`.
 
 ## Slash command: `/transcodes`
 

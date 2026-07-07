@@ -2,7 +2,7 @@
 import '../host.js';
 import '../backend.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { createServer } from '@transcodes-guard/mcp-server-core';
+import { createServer } from '@transcodes-guard/core/server';
 
 async function main(): Promise<void> {
   const server = createServer();

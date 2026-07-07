@@ -14,8 +14,8 @@ import {
   formatNoTokenSessionNotice,
   formatStepupProtocolPrimer,
   getGateBackend,
-} from '@transcodes-guard/gate-contract';
-import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
+} from '@transcodes-guard/core/contract';
+import { claudeCodeAdapter } from '@transcodes-guard/core/hosts';
 import { PLUGIN_VERSION } from '../src/version.js';
 
 const PROTOCOL_PRIMER = formatStepupProtocolPrimer();

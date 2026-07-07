@@ -1,33 +1,29 @@
 {
   "name": "@transcodes-guard/gate-backend",
   "version": "0.1.0",
-  "description": "Private GateBackend implementation — binds stepup-core + transcodes-mcp-tools + danger-patterns into the public @transcodes-guard/gate-contract DI interface. Injected via setGateBackend() at plugin bootstrap (phase 1: bundled; phase 2: CDN-loaded).",
+  "description": "Private GateBackend implementation — binds core/stepup + core/patterns + the Transcodes-backend MCP tools (src/mcp-tools/) into the public @transcodes-guard/core/contract DI interface. Injected via setGateBackend() at plugin bootstrap (phase 1: bundled; phase 2: CDN-loaded).",
   "private": true,
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "tsc",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit -p tsconfig.test.json",
+    "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@transcodes-guard/gate-contract": "*",
-    "@transcodes-guard/stepup-core": "*",
-    "@transcodes-guard/transcodes-mcp-tools": "*",
-    "@transcodes-guard/danger-patterns": "*",
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0",
+    "@transcodes-guard/core": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.5.0"
   },
   "engines": {

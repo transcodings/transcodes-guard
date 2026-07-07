@@ -4,7 +4,7 @@
  */
 import '../host.js';
 import '../backend.js';
-import { cursorAdapter } from '@transcodes-guard/hook-adapters';
+import { cursorAdapter } from '@transcodes-guard/core/hosts';
 import {
   formatStopReminderMessage,
   incrementLatchRemindedCount,
@@ -13,7 +13,7 @@ import {
   peekPromptGroup,
   readLatchRecord,
   sweepLatches,
-} from '@transcodes-guard/stepup-core';
+} from '@transcodes-guard/core/stepup';
 
 async function main(): Promise<void> {
   try {

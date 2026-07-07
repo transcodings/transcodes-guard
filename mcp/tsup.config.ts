@@ -10,7 +10,7 @@ import { defineConfig } from 'tsup';
 //
 // host.ts is NOT a separate entry — it is a side-effect module imported first
 // by stdio.ts and gets bundled in, preserving the `import './host.js'`
-// source-order guarantee (TRANSCODES_GUARD_HOST set before mcp-server-core).
+// source-order guarantee (TRANSCODES_GUARD_HOST set before core/server).
 export default defineConfig({
   entry: ['src/stdio.ts'],
   format: ['esm'],

@@ -22,11 +22,11 @@ import {
   formatNoTokenSessionNotice,
   formatStepupProtocolPrimer,
   getGateBackend,
-} from '@transcodes-guard/gate-contract';
+} from '@transcodes-guard/core/contract';
 import {
   antigravityAdapter,
   type InjectStep,
-} from '@transcodes-guard/hook-adapters';
+} from '@transcodes-guard/core/hosts';
 
 function primerMessage(): string {
   return formatStepupProtocolPrimer();

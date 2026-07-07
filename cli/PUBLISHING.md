@@ -79,7 +79,7 @@ npm publish --dry-run
 npm notice 📦  @bigstrider/transcodes-cli@<version>
 npm notice Tarball Contents
 npm notice 1.7kB README.md
-npm notice 7.2kB dist/index.js      ← 번들된 단일 파일 (stepup-core 등 내장)
+npm notice 7.2kB dist/index.js      ← 번들된 단일 파일 (core/stepup 등 내장)
 npm notice 662B package.json
 npm notice total files: 3
 ```

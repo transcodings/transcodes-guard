@@ -17,8 +17,8 @@ paths:
 
 ## Version train (CLI excluded)
 
-- Plugin/marketplace versions are **one synchronized train**: release-please bumps root `package.json` and fans out to `extra-files` — all **4** plugins' `package.json` plus the **3** host plugin manifests that exist (`claude-code/.claude-plugin/plugin.json`, `codex/.codex-plugin/plugin.json`, `antigravity/plugin.json`). **Cursor has no plugin manifest** — only its `package.json` is in the train.
-- The **CLI is not in this train**. `@bigstrider/transcodes-cli` bumps independently and ships to npm separately. It keeps the `@bigstrider` scope (not the `@transcodes-guard` rename) and is the **sole** npm-published unit.
+- Plugin/marketplace versions are **one synchronized train**: release-please bumps root `package.json` and fans out to `extra-files` — all **4** plugins' `package.json`, all **4** host plugin manifests (`claude-code/.claude-plugin/plugin.json`, `codex/.codex-plugin/plugin.json`, `antigravity/plugin.json`, `cursor/.cursor-plugin/plugin.json`), plus `mcp/package.json` (the standalone MCP package rides the train but publishes manually).
+- The **CLI is not in this train**. `@bigstrider/transcodes-cli` bumps independently and ships to npm separately. It keeps the `@bigstrider` scope (not the `@transcodes-guard` rename) and is today the **sole** npm-published unit (`@bigstrider/transcodes-mcp` is version-trained and publishable but not yet released — note it sits outside the `packages/*` privacy gate).
 - Every `packages/*` member must keep `"private": true` — CI iterates all of `packages/*` and fails if any lacks it. Only `plugins/*` and `cli` are published; the common deploy unit for plugins is **this git repo made public**, not per-plugin npm packages.
 - Every published plugin declares an **optional** peerDependency on `@bigstrider/transcodes-cli` (`>=0.5.0 <0.6.0`, `peerDependenciesMeta.optional`). The range is pinned to the CLI's current minor — because the CLI bumps **outside** this train, a CLI minor bump that leaves the range stale makes `npm ci` ERESOLVE-fail on the next release PR's lockfile rebuild. Move all four plugins' peer range with the CLI minor.
 
@@ -28,4 +28,4 @@ paths:
 - **Antigravity install is plugin-scoped**: writes only `~/.gemini/config/plugins/transcodes-guard/` — no user-level hook/MCP merge needed; other Antigravity plugins are untouched.
 - **Cursor `install.mjs` is merge-aware**: it **upserts only transcodes-guard hook entries** in `~/.cursor/hooks.json` (other hooks preserved), and **upserts only `mcpServers.transcodes-guard`** in an existing `~/.cursor/mcp.json`.
 - **Only Claude Code ships an HTTP transport** (`src/http.ts`, Streamable HTTP `/mcp`). codex/antigravity/cursor are stdio-only and must not gain an http entry.
-- **Only claude-code benefits from a host-scoped data dir.** codex/antigravity/cursor `host.ts` deliberately do *not* set a `$CLAUDE_PLUGIN_DATA` equivalent — those hosts have none, so `plugin-paths` falls back to the consolidated host-agnostic path (see [[policy-and-state]]).
+- **No host gets a host-scoped data dir.** `core/paths` resolves every host to the same `~/.transcodes/state/`; `$CLAUDE_PLUGIN_DATA` survives only as a legacy *migration source*, and codex/antigravity/cursor `host.ts` deliberately do *not* set an equivalent (see [[policy-and-state]]).

@@ -27,7 +27,7 @@ import {
   setTokenLabel,
   transcodesConfigFile,
   writeTokenToFile,
-} from '@transcodes-guard/stepup-core';
+} from '@transcodes-guard/core/stepup';
 import { LOGO_DATA_URI } from './logo.js';
 import { fetchRbacSnapshot, loadRbacConfig } from './rbac-api.js';
 import { CLI_VERSION } from './version.js';

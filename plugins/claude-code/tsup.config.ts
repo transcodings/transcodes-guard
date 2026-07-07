@@ -14,7 +14,7 @@ import { defineConfig } from 'tsup';
 // .mcp.json / hooks.json / bin point at. host.ts is NOT an entry — it is a
 // side-effect module imported first by every entry and gets bundled in, keeping
 // the `import "../host.js"` source-order guarantee (TRANSCODES_GUARD_HOST set
-// before hook-adapters' barrel evaluates).
+// before core/hosts' barrel evaluates).
 //
 // No `banner` shebang: esbuild preserves the `#!/usr/bin/env node` already on
 // each executable entry source, so shared chunks (splitting) stay shebang-free.

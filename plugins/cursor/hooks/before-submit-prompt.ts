@@ -11,8 +11,8 @@
 import '../host.js';
 import '../backend.js';
 import { readFileSync } from 'node:fs';
-import { getGateBackend } from '@transcodes-guard/gate-contract';
-import { cursorAdapter } from '@transcodes-guard/hook-adapters';
+import { getGateBackend } from '@transcodes-guard/core/contract';
+import { cursorAdapter } from '@transcodes-guard/core/hosts';
 
 function emitContinue(): never {
   process.stdout.write(JSON.stringify({ continue: true }));

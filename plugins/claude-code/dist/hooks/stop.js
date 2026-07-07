@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   claudeCodeAdapter
-} from "../chunk-7X2GUVN6.js";
+} from "../chunk-VGLNVTHM.js";
 import {
   MAX_STOP_REMINDERS,
   formatStopReminderMessage,
@@ -10,7 +10,7 @@ import {
   peekPromptGroup,
   readLatchRecord,
   sweepLatches
-} from "../chunk-FIXKJRIJ.js";
+} from "../chunk-TTKIXEDH.js";
 
 // hooks/stop.ts
 async function main() {

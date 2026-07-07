@@ -6,7 +6,7 @@
 
 Risky-shell interceptor (`beforeShellExecution` / `beforeMCPExecution`) and audit MCP server for Cursor.
 
-Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`). `dist/` is committed — no build step at install time.
+Shares the same step-up MFA gate logic as the Claude Code / Codex / Antigravity plugins (`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`); the only Cursor-specific surface is the hook adapter (`cursorAdapter`). `dist/` is committed — no build step at install time.
 
 ## Prerequisites
 
@@ -107,7 +107,7 @@ Cursor's hook contract differs from Claude Code in two ways the adapter encapsul
 1. **Flat PreToolUse output** — `{ permission, user_message?, agent_message?, updated_input? }` instead of `hookSpecificOutput.permissionDecision`.
 2. **Stop uses `followup_message`** — same semantic as Claude Code's `{ decision: "block", reason }`, different key name.
 
-Neither affects gate logic; both live entirely in `packages/hook-adapters/src/cursor.ts`.
+Neither affects gate logic; both live entirely in `packages/core/src/hosts/cursor.ts`.
 
 ## Cross-host state sharing
 

@@ -4,7 +4,7 @@
 
 Claude Code용 위험 셸 인터셉터(`PreToolUse` hook) + 스텝업 MFA 감사 MCP 서버.
 
-에이전트가 위험한 Bash 명령(또는 보호된 MCP 도구 호출)을 실행하려는 순간, `PreToolUse` hook이 이를 가로채 명령 실행 **전에** Transcodes 백엔드를 상대로 WebAuthn 스텝업을 강제합니다. 공유 게이트 로직은 `@transcodes-guard/stepup-core` + `@transcodes-guard/mcp-server-core`에 있으며, Claude Code에 특화된 부분은 hook 어댑터와 플러그인 매니페스트뿐입니다.
+에이전트가 위험한 Bash 명령(또는 보호된 MCP 도구 호출)을 실행하려는 순간, `PreToolUse` hook이 이를 가로채 명령 실행 **전에** Transcodes 백엔드를 상대로 WebAuthn 스텝업을 강제합니다. 공유 게이트 로직은 `@transcodes-guard/core/stepup` + `@transcodes-guard/core/server`에 있으며, Claude Code에 특화된 부분은 hook 어댑터와 플러그인 매니페스트뿐입니다.
 
 ## 사전 요구사항
 

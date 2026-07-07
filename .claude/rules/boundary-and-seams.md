@@ -8,13 +8,13 @@ The single hardest-to-infer constraint in this repo: the concrete gate backend i
 
 ## The import firewall
 
-- `@transcodes-guard/gate-backend` may be imported **only** by the backend seams: `plugins/*/backend.ts` and `mcp/src/backend.ts` (the standalone npm MCP server is its own host, so it bootstraps the backend the same way a plugin does). Every other importer is a biome `noRestrictedImports` **error** — `biome check` runs without `--write` in CI, so any violation fails the build. The seam files are the sole `overrides` exemption (`biome.json`).
-- Everything else reaches the backend through `getGateBackend()` (from `@transcodes-guard/gate-contract`). When no backend is registered it returns `denyByDefaultBackend` (`gate-contract/src/noop.ts`): its **hook** methods no-op/pass, but its **server-call** methods *throw* `gate backend not installed`. This is deliberate — a backend-less build type-checks and is provably never shipped as functional.
+- `@transcodes-guard/gate-backend` may be imported **only** by the backend seams: `plugins/*/backend.ts` and `mcp/src/backend.ts` (the standalone npm MCP server is its own host, so it bootstraps the backend the same way a plugin does). Every other importer is a biome `noRestrictedImports` **error** — `biome check` runs without `--write` in CI, so any violation fails the build. biome matches only the literal specifier, so a CI grep step ("Firewall backstop" in `ci.yml`) additionally denies subpath/relative imports (`…/gate-backend/…`) outside the seams. The seam files are the sole `overrides` exemption (`biome.json`).
+- Everything else reaches the backend through `getGateBackend()` (from `@transcodes-guard/core/contract`). When no backend is registered it returns `denyByDefaultBackend` (`core/src/contract/noop.ts`): its **hook** methods no-op/pass, but its **server-call** methods *throw* `gate backend not installed`. This is deliberate — a backend-less build type-checks and is provably never shipped as functional.
 
 ## The mirrored-contract drift alarm
 
-- `gate-contract/src/types.ts` **re-declares** (mirrors) the backend's structural shapes by hand rather than importing them — the import firewall is about not pulling in `gate-backend`, not about avoiding every cross-package type. (It does import a couple of pure value-vocabulary types like `MergedPattern`/`RbacAction` from `danger-patterns`.) Do **not** "fix" the mirrored shapes by importing the backend's versions across the seam — the duplication is intentional.
-- The drift detector is the `transcodesGateBackend: GateBackend` annotation in `gate-backend/src/index.ts`. TypeScript structural typing makes *that* package fail to build if a private shape drifts from the mirrored contract. Editing one side without the other is the intended alarm. Keep both sides in sync by hand.
+- `core/src/contract/types.ts` **re-declares** (mirrors) the backend's structural shapes by hand rather than importing them — the import firewall is about not pulling in `gate-backend`, not about avoiding every cross-domain type. (It does import a couple of pure value-vocabulary types like `MergedPattern`/`RbacAction` from `../patterns/`.) Do **not** "fix" the mirrored shapes by importing the backend's versions mid-cycle — keep them for now. The duplication is **transitional**: removing it (importing the shapes directly, now that both sides live in `core`) is a planned follow-up that must also revise this rule (see the `contract/types.ts` header).
+- The drift detector is the `transcodesGateBackend: GateBackend` annotation in `packages/gate-backend/src/index.ts`. TypeScript structural typing makes *that* package fail to build if a private shape drifts from the mirrored contract. Editing one side without the other is the intended alarm. Keep both sides in sync by hand.
 
 ## Config-less interface
 
@@ -29,4 +29,4 @@ import '../host.js';     // claims TRANSCODES_GUARD_HOST as a side effect
 import '../backend.js';  // calls setGateBackend() so getGateBackend() resolves real
 ```
 
-Why the order matters: the `hook-adapters` barrel re-exports all four adapters, so whichever module sets `TRANSCODES_GUARD_HOST` last would clobber the others — `host.ts` must win first. Adapter files themselves must **never** set `TRANSCODES_GUARD_HOST`; host identity is claimed only by each plugin's `host.ts`.
+Why the order matters: the `core/hosts` barrel re-exports all four adapters, so whichever module sets `TRANSCODES_GUARD_HOST` last would clobber the others — `host.ts` must win first. Adapter files themselves must **never** set `TRANSCODES_GUARD_HOST`; host identity is claimed only by each plugin's `host.ts`.

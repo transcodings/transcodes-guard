@@ -6,7 +6,7 @@
 
 Cursor용 위험 셸 인터셉터(`beforeShellExecution` / `beforeMCPExecution`) + 감사 MCP 서버.
 
-Claude Code / Codex / Antigravity 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`)을 공유하며, Cursor에 특화된 부분은 hook 어댑터(`cursorAdapter`)뿐입니다. `dist/`가 커밋되어 있어 설치 시 빌드가 필요 없습니다.
+Claude Code / Codex / Antigravity 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`)을 공유하며, Cursor에 특화된 부분은 hook 어댑터(`cursorAdapter`)뿐입니다. `dist/`가 커밋되어 있어 설치 시 빌드가 필요 없습니다.
 
 ## 사전 요구사항
 
@@ -107,7 +107,7 @@ Cursor의 hook 계약은 어댑터가 캡슐화하는 두 가지 면에서 Claud
 1. **평면형(flat) PreToolUse 출력** — `hookSpecificOutput.permissionDecision` 대신 `{ permission, user_message?, agent_message?, updated_input? }`를 씁니다.
 2. **Stop이 `followup_message` 사용** — Claude Code의 `{ decision: "block", reason }`과 의미는 같고 키 이름만 다릅니다.
 
-둘 다 게이트 로직에는 영향을 주지 않으며, 전부 `packages/hook-adapters/src/cursor.ts`에 있습니다.
+둘 다 게이트 로직에는 영향을 주지 않으며, 전부 `packages/core/src/hosts/cursor.ts`에 있습니다.
 
 ## 호스트 간 상태 공유
 

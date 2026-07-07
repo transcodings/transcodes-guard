@@ -11,8 +11,8 @@
 import '../host.js';
 import '../backend.js';
 import { readFileSync } from 'node:fs';
-import { getGateBackend } from '@transcodes-guard/gate-contract';
-import { claudeCodeAdapter } from '@transcodes-guard/hook-adapters';
+import { getGateBackend } from '@transcodes-guard/core/contract';
+import { claudeCodeAdapter } from '@transcodes-guard/core/hosts';
 
 function main(): void {
   const raw = readFileSync(0, 'utf8');

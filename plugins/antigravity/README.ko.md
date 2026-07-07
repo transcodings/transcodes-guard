@@ -6,7 +6,7 @@
 
 Google Antigravity 2.0용 위험 셸 인터셉터(`PreToolUse` hook) + 감사 MCP 서버. 데스크톱 앱(Antigravity 2.0)과 `agy` CLI를 지원합니다.
 
-Claude Code 및 Codex 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/stepup-core`, `@transcodes-guard/mcp-server-core`)을 공유합니다. Antigravity에 특화된 부분은 Antigravity의 PreToolUse / PreInvocation / Stop 와이어 포맷(최상위 `decision`, 중첩된 `toolCall.name`/`toolCall.args` stdin, `hookSpecificOutput` 래퍼 없음)을 구사하는 네이티브 hook 어댑터(`antigravityAdapter`)입니다. codex 플러그인의 claudeCodeAdapter 위임 패턴은 여기에 **적용되지 않습니다**.
+Claude Code 및 Codex 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`)을 공유합니다. Antigravity에 특화된 부분은 Antigravity의 PreToolUse / PreInvocation / Stop 와이어 포맷(최상위 `decision`, 중첩된 `toolCall.name`/`toolCall.args` stdin, `hookSpecificOutput` 래퍼 없음)을 구사하는 네이티브 hook 어댑터(`antigravityAdapter`)입니다. codex 플러그인의 claudeCodeAdapter 위임 패턴은 여기에 **적용되지 않습니다**.
 
 ## 사전 요구사항
 
@@ -66,7 +66,7 @@ transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출�
 
 ## 도구 matcher 범위
 
-PreToolUse hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실행(`run_command`) **및** MCP 도구 호출(`mcp_*`)을 게이트합니다. `call_mcp_tool` arm은 Antigravity가 범용 래퍼로 dispatch하는 lazy-loaded MCP 호출을 잡아냅니다 — 어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑해 tool-rule이 여전히 매칭되도록 합니다. 파일 편집 도구(`write_to_file`, `replace_file_content`, `multi_replace_file_content`)는 게이트되지 **않습니다**. 범위를 넓히려면 `hooks.json`의 matcher 정규식을 확장하고 `packages/danger-patterns/`에 해당 tool-rule을 등록하세요.
+PreToolUse hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실행(`run_command`) **및** MCP 도구 호출(`mcp_*`)을 게이트합니다. `call_mcp_tool` arm은 Antigravity가 범용 래퍼로 dispatch하는 lazy-loaded MCP 호출을 잡아냅니다 — 어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑해 tool-rule이 여전히 매칭되도록 합니다. 파일 편집 도구(`write_to_file`, `replace_file_content`, `multi_replace_file_content`)는 게이트되지 **않습니다**. 범위를 넓히려면 `hooks.json`의 matcher 정규식을 확장하고 `packages/core/src/patterns/`에 해당 tool-rule을 등록하세요.
 
 ## AI 에이전트를 위한 안내
 

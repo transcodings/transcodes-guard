@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Codex CLI PreToolUse hook — thin entrypoint over @transcodes-guard/stepup-core.
+ * Codex CLI PreToolUse hook — thin entrypoint over @transcodes-guard/core/stepup.
  *
  * Mirrors plugins/claude-code/hooks/pre-tool-use.ts; the
  * only divergence is the adapter (codexAdapter). Codex's wire format
@@ -26,8 +26,8 @@ import {
   formatStepupRejectedSystemMessage,
   GATE_DECISION_KIND,
   getGateBackend,
-} from '@transcodes-guard/gate-contract';
-import { codexAdapter } from '@transcodes-guard/hook-adapters';
+} from '@transcodes-guard/core/contract';
+import { codexAdapter } from '@transcodes-guard/core/hosts';
 
 async function main(): Promise<void> {
   const raw = readFileSync(0, 'utf8');
