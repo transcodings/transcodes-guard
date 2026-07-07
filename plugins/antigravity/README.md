@@ -29,7 +29,11 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 
 The installer copies into `~/.gemini/config/plugins/transcodes-guard` (shared by desktop and `agy` CLI) and rewrites `__PLUGIN_DIR__` in `hooks.json` / `mcp_config.json` to absolute paths. Re-run the same one-liner to update in place. Only the `transcodes-guard` plugin directory is touched — other plugins under `~/.gemini/config/plugins/` are preserved. Does **not** wipe `~/.transcodes/` (token, step-up state, policy cache).
 
-> **Do not use** `agy plugin install https://github.com/transcodings/transcodes-guard` — it installs multiple host plugins from this monorepo and skips path rewriting.
+On global install, when `~/.gemini/antigravity-cli/settings.json` already exists, the installer also sets gate-friendly **agy CLI** preferences (`toolPermission` → `request-review`, removes broad `command(*)` / `mcp(*)` / `unsandboxed(*)` allow entries). See [CLI vs Desktop settings](#cli-vs-desktop-settings).
+
+> **Do not use** `agy plugin install https://github.com/transcodings/transcodes-guard` — it registers **both** Antigravity and Claude Code adapters in `import_manifest.json` (wire-format mismatch). `install.mjs` removes duplicate `source: "claude-code"` rows only; it does not synthesize new manifest entries.
+
+If **`agy plugin list` still shows transcodes-guard twice** (`antigravity` + `claude-code`), re-run the one-liner above. If the duplicate persists, run `agy plugin uninstall transcodes-guard` and install again.
 
 **Contributors / workspace-only:** clone the repo and run `node plugins/antigravity/install.mjs --local`.
 
@@ -45,6 +49,19 @@ transcodes   # opens the local dashboard — URL is printed in the terminal (def
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
 
 Without a token, the hook still **denies** danger commands but cannot start a step-up session — Antigravity will surface a reason telling you to provide a token.
+
+### CLI vs Desktop settings
+
+Antigravity has **two separate permission surfaces**. `install.mjs` auto-fixes only the **agy CLI** JSON file when it already exists.
+
+| Surface | Location | What install.mjs does |
+|---|---|---|
+| **agy CLI** | `~/.gemini/antigravity-cli/settings.json` | When present: `toolPermission: "always-proceed"` → `"request-review"`; removes `command(*)`, `mcp(*)`, `unsandboxed(*)` from `permissions.allow`; warns on remaining `command`/`mcp`/`unsandboxed` allows and on `proceed-in-sandbox`. |
+| **Desktop app** | Settings → Advanced → Terminal (UI) | **Not modified.** Terminal Command Auto Execution (Off / Auto / **Turbo**) and Allow/Deny lists live in the desktop UI — no stable on-disk path in this repo yet. Avoid **Turbo** unless your Deny list is tight. |
+
+**Not fixable by install:** `agy --dangerously-skip-permissions` (session flag — do not use with transcodes-guard). PreToolUse hooks are wired in the plugin bundle (`hooks.json` matcher); file-edit tools outside the matcher stay ungated until you widen the matcher.
+
+Edit CLI settings interactively with `/config` or `/permissions` inside `agy`. Official docs: [CLI settings](https://antigravity.google/docs/cli/settings), [permissions](https://antigravity.google/docs/cli/permissions).
 
 ## What the plugin does
 
@@ -104,5 +121,16 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 
 ## Known limits
 
+- **CLI vs desktop** — `install.mjs` adjusts `~/.gemini/antigravity-cli/settings.json` only. Desktop Turbo/Allow list is manual. Whether `always-proceed` / Turbo skips **PreToolUse** hooks (not just UI prompts) is not fully e2e-validated in this repo.
 - **Subagent state sharing** is best-effort. A subagent's PreToolUse hook may receive a distinct `conversationId`; the shared state file is still the arbitration point, with backend sid-replay as backstop.
 - **Stop hook UX** with `decision: "continue"` (which prevents turn termination — the verb is inverted relative to Claude Code's `decision: "block"`) is pending broader e2e validation.
+
+## Troubleshooting
+
+- **Hook doesn't fire (agy CLI).** Re-run `install.mjs`. Check `~/.gemini/antigravity-cli/settings.json` — installer sets `request-review` and removes broad allows when the file exists. Do not use `--dangerously-skip-permissions`. Confirm `node` is in `PATH`.
+- **Hook doesn't fire (desktop).** Confirm plugin exists under `~/.gemini/config/plugins/transcodes-guard/`. Review Settings → Advanced → Terminal — Turbo auto-runs most commands. Matcher only covers `run_command|mcp_.*|call_mcp_tool`.
+- **`decision: deny` but no step-up URL.** No Transcodes token — install CLI and run `transcodes` (or `transcodes set <token> -l <label>`).
+
+## License
+
+FSL-1.1-ALv2 (see the repository root).

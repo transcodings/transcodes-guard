@@ -29,7 +29,11 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 
 `~/.gemini/config/plugins/transcodes-guard`에 복사하고 `hooks.json` / `mcp_config.json`의 `__PLUGIN_DIR__`를 절대 경로로 치환합니다. 같은 한 줄을 재실행하면 in-place 업데이트됩니다. `transcodes-guard` 플러그인 디렉터리만 건드리며 `~/.gemini/config/plugins/`의 다른 플러그인은 유지됩니다. `~/.transcodes/`(토큰·step-up 상태·policy cache)는 **지우지 않습니다**.
 
-> **`agy plugin install https://github.com/transcodings/transcodes-guard` 사용 금지** — 모노레포에서 여러 호스트 플러그인을 함께 설치하고 경로 치환을 건너뜁니다.
+글로벌 설치 시 `~/.gemini/antigravity-cli/settings.json`이 이미 있으면, 인스톨러가 **agy CLI** 게이트 친화 설정도 적용합니다(`toolPermission` → `request-review`, broad `command(*)` / `mcp(*)` / `unsandboxed(*)` allow 제거). [CLI vs Desktop 설정](#cli-vs-desktop-설정) 참고.
+
+> **`agy plugin install https://github.com/transcodings/transcodes-guard` 사용 금지** — 모노레포에서 Antigravity + Claude Code 어댑터를 **둘 다** `import_manifest.json`에 등록합니다(와이어 포맷 불일치). `install.mjs`는 `source: "claude-code"` 중복 등록만 제거합니다(manifest에 새 항목을 만들지 않음).
+
+**`agy plugin list`에 transcodes-guard가 2개** (`antigravity` + `claude-code`)면 예전 `agy plugin install` 흔적입니다. 위 한 줄 설치(`install.mjs`)를 재실행하세요. 그래도 남으면 `agy plugin uninstall transcodes-guard` 후 다시 설치하세요.
 
 **기여자 / 워크스페이스 전용:** 저장소 클론 후 `node plugins/antigravity/install.mjs --local`.
 
@@ -45,6 +49,19 @@ transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출�
 비대화형 대안(같은 저장소): `transcodes set <token> -l <label>`.
 
 토큰이 없으면 hook은 여전히 위험 명령을 **차단**하지만 스텝업 세션을 시작할 수 없습니다 — Antigravity가 토큰을 제공하라는 사유를 표시합니다.
+
+### CLI vs Desktop 설정
+
+Antigravity 권한은 **CLI와 데스크톱이 분리**돼 있습니다. `install.mjs`가 자동 수정하는 것은 **agy CLI JSON**뿐이며, 파일이 이미 있을 때만 적용됩니다.
+
+| 표면 | 위치 | install.mjs 동작 |
+|---|---|---|
+| **agy CLI** | `~/.gemini/antigravity-cli/settings.json` | `toolPermission: "always-proceed"` → `"request-review"`; `permissions.allow`에서 `command(*)`, `mcp(*)`, `unsandboxed(*)` 제거; 남은 `command`/`mcp`/`unsandboxed` allow 및 `proceed-in-sandbox`는 경고 |
+| **데스크톱 앱** | Settings → Advanced → Terminal (UI) | **수정 안 함.** Terminal Command Auto Execution(Off / Auto / **Turbo**)과 Allow/Deny list는 UI 전용 — 이 repo에 안정적인 on-disk 경로 미확인. Deny list 없이 **Turbo** 사용 금지 |
+
+**install로 막을 수 없음:** `agy --dangerously-skip-permissions`(세션 플래그). PreToolUse hook은 플러그인 `hooks.json` matcher로 연결됨; matcher 밖 file-edit 도구는 matcher 확장 전까지 미게이트.
+
+CLI 설정은 `agy` 안에서 `/config` 또는 `/permissions`. 공식 문서: [CLI settings](https://antigravity.google/docs/cli/settings), [permissions](https://antigravity.google/docs/cli/permissions).
 
 ## 플러그인이 하는 일
 
@@ -92,8 +109,15 @@ PreToolUse hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실�
 
 ## 알려진 한계
 
+- **CLI vs desktop** — `install.mjs`는 `~/.gemini/antigravity-cli/settings.json`만 조정합니다. Desktop Turbo/Allow list는 수동. `always-proceed` / Turbo가 UI만 건너뛰는지 PreToolUse hook까지 스킵하는지는 이 repo에서 e2e 미완.
 - **서브에이전트 상태 공유**는 최선 노력(best-effort)입니다. 서브에이전트의 PreToolUse hook은 별개의 `conversationId`를 받을 수 있으며, 공유 상태 파일이 여전히 조정 지점이고 백엔드 sid-replay가 백스톱입니다.
 - **Stop hook UX** — `decision: "continue"`(턴 종료를 막음 — Claude Code의 `decision: "block"`과 동사가 반대)는 더 넓은 e2e 검증이 진행 중입니다.
+
+## 문제 해결
+
+- **hook이 발동하지 않음 (agy CLI).** `install.mjs` 재실행. `~/.gemini/antigravity-cli/settings.json` 확인 — 파일이 있으면 인스톨러가 `request-review`와 broad allow를 처리. `--dangerously-skip-permissions` 사용 금지. `node`가 `PATH`에 있는지 확인.
+- **hook이 발동하지 않음 (desktop).** `~/.gemini/config/plugins/transcodes-guard/` 존재 확인. Settings → Advanced → Terminal — Turbo는 대부분 명령 자동 실행. matcher는 `run_command|mcp_.*|call_mcp_tool`만 커버.
+- **`decision: deny`인데 스텝업 URL 없음.** Transcodes 토큰 없음 — CLI 설치 후 `transcodes`(또는 `transcodes set <token> -l <label>`).
 
 ## 라이선스
 
