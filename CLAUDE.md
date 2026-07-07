@@ -41,7 +41,7 @@ The public-core ↔ `gate-backend` split is the firewall's whole reason to exist
 
 ## Rules index
 
-- **[boundary-and-seams](.claude/rules/boundary-and-seams.md)** — the gate-backend import firewall, the mirrored-contract drift alarm, the load-bearing entry import order (always-on)
+- **[boundary-and-seams](.claude/rules/boundary-and-seams.md)** — the gate-backend import firewall, the contract re-export surface, the load-bearing entry import order (always-on)
 - **[gate-security-model](.claude/rules/gate-security-model.md)** — asymmetric fail policy, fail-closed RBAC, no-side-effects-before-stdout, bundle integrity
 - **[stepup-consume](.claude/rules/stepup-consume.md)** — single-shot verified-record lifecycle: who consumes, which store file, when to trust
 - **[mcp-and-hosts](.claude/rules/mcp-and-hosts.md)** — capability registration, non-dry-run MCP tools, per-host wire-format divergence
