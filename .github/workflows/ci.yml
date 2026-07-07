@@ -80,6 +80,30 @@ jobs:
         run: npx biome check --reporter=github
 
       # ─────────────────────────────────────────────────────────
+      # Firewall backstop for what biome cannot express.
+      # noRestrictedImports matches only the literal specifier
+      # "@transcodes-guard/gate-backend" — a deep subpath or a relative path
+      # (../../gate-backend/src/…) passes biome clean. This grep denies any
+      # import specifier that reaches into gate-backend from outside the
+      # sanctioned seams (plugins/*/backend.ts, mcp/src/backend.ts) and the
+      # package's own sources.
+      - name: Firewall backstop — no gate-backend imports outside the seams
+        run: |
+          HITS=$(git grep -nE "from ['\"]([^'\"]*/)?gate-backend(/[^'\"]*)?['\"]" -- \
+            ':!packages/gate-backend' \
+            ':!plugins/*/backend.ts' \
+            ':!mcp/src/backend.ts' \
+            ':!*dist/*' \
+            ':!package-lock.json' \
+            ':!*.md' || true)
+          if [ -n "$HITS" ]; then
+            echo "::error::gate-backend import outside the sanctioned seams:"
+            echo "$HITS"
+            exit 1
+          fi
+          echo "OK: no out-of-seam gate-backend imports"
+
+      # ─────────────────────────────────────────────────────────
       # Public-mirror surface gate.
       # Asserts each packages/* member keeps "private": true so nothing in
       # packages/ can leak out as a separate npm tarball (only plugins/* and
@@ -105,6 +129,14 @@ jobs:
       # gate-backend mcp-tools suites.
       - name: core unit tests
         run: npm test -w @transcodes-guard/core -w @transcodes-guard/gate-backend
+
+      # ─────────────────────────────────────────────────────────
+      # mcp/ is not a workspace (standalone npm package published manually),
+      # so turbo/npm -w never type-checks it. Check it explicitly here —
+      # its deps resolve via the root node_modules workspace symlinks and
+      # the workspace dist/ built by build:plugin above.
+      - name: mcp standalone package type-check
+        run: npx tsc --noEmit -p mcp/tsconfig.json
 
       # ─────────────────────────────────────────────────────────
       # Claude Code plugin smoke tests (6 scenarios).
