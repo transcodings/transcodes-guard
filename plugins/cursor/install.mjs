@@ -3,8 +3,9 @@
  * Cursor IDE plugin installer.
  *
  * Replaces the plugin directory with the committed bundle (dist/, configs),
- * rewrites ${CURSOR_PLUGIN_ROOT} to absolute paths, and registers user-level
- * ~/.cursor/hooks.json and mcp.json (merge-aware — only transcodes-guard entries
+ * moves it into place, then rewrites ${CURSOR_PLUGIN_ROOT} at the final install
+ * path (rename-before-rewrite — staging paths are never baked in), and registers
+ * user-level ~/.cursor/hooks.json and mcp.json (merge-aware — only transcodes-guard
  * are upserted; other user hooks / MCP servers are preserved).
  *
  * Re-run for in-place updates — stale files from a prior partial copy are removed
@@ -35,6 +36,30 @@ const __dirname = path.dirname(__filename);
 const PLACEHOLDER = '${CURSOR_PLUGIN_ROOT}';
 
 const filesToCopy = ['.cursor-plugin', '.cursor', 'dist', 'mcp.json'];
+/** Every committed config that bakes plugin-root paths at install time. */
+const PLACEHOLDER_CONFIGS = ['.cursor/hooks.json', 'mcp.json'];
+const STAGING_DIR_PATTERN = /\.transcodes-guard-cursor-install-/;
+/** Bundled artifacts — not install-time placeholder configs. */
+const PLACEHOLDER_SCAN_SKIP_DIRS = new Set(['dist', 'node_modules']);
+
+function toPosixRel(rootDir, filePath) {
+  return path.relative(rootDir, filePath).split(path.sep).join('/');
+}
+
+function collectJsonFilesRecursive(dir, rootDir, out = []) {
+  for (const entry of fs.readdirSync(dir)) {
+    const entryPath = path.join(dir, entry);
+    const stat = fs.lstatSync(entryPath);
+    if (stat.isDirectory()) {
+      if (PLACEHOLDER_SCAN_SKIP_DIRS.has(entry)) continue;
+      collectJsonFilesRecursive(entryPath, rootDir, out);
+      continue;
+    }
+    if (!entry.endsWith('.json')) continue;
+    out.push({ rel: toPosixRel(rootDir, entryPath), abs: entryPath });
+  }
+  return out;
+}
 
 function resolveHome(filepath) {
   if (filepath.startsWith('~/') || filepath === '~') {
@@ -70,6 +95,29 @@ function validateInstallSources(sourceDir) {
   process.exit(1);
 }
 
+function assertSourcePlaceholderCoverage(sourceDir) {
+  const listed = new Set(PLACEHOLDER_CONFIGS);
+
+  for (const rel of PLACEHOLDER_CONFIGS) {
+    const configPath = path.join(sourceDir, rel);
+    if (!fs.existsSync(configPath)) {
+      throw new Error(`Expected placeholder config missing in bundle: ${rel}`);
+    }
+    if (!fs.readFileSync(configPath, 'utf8').includes(PLACEHOLDER)) {
+      throw new Error(`${rel} is missing ${PLACEHOLDER} — config format changed.`);
+    }
+  }
+
+  for (const { rel, abs } of collectJsonFilesRecursive(sourceDir, sourceDir)) {
+    const content = fs.readFileSync(abs, 'utf8');
+    if (content.includes(PLACEHOLDER) && !listed.has(rel)) {
+      throw new Error(
+        `Found ${PLACEHOLDER} in ${rel} but it is not listed in PLACEHOLDER_CONFIGS — update install.mjs.`,
+      );
+    }
+  }
+}
+
 function assertSafeInstallTarget(targetDir, sourceRoot) {
   if (fs.existsSync(targetDir)) {
     const stat = fs.lstatSync(targetDir);
@@ -98,11 +146,11 @@ function assertSafeInstallTarget(targetDir, sourceRoot) {
   }
 }
 
-function rewritePluginRoot(configPath, pluginDir) {
+function rewritePluginRoot(configPath, targetDir) {
   if (!fs.existsSync(configPath)) {
-    throw new Error(`Expected config missing after copy: ${configPath}`);
+    throw new Error(`Expected config missing after install: ${configPath}`);
   }
-  const pluginRoot = toPosix(path.resolve(pluginDir));
+  const pluginRoot = toPosix(path.resolve(targetDir));
   const content = fs.readFileSync(configPath, 'utf8');
   if (!content.includes(PLACEHOLDER)) {
     throw new Error(
@@ -114,7 +162,48 @@ function rewritePluginRoot(configPath, pluginDir) {
     content.split(PLACEHOLDER).join(pluginRoot),
     'utf8',
   );
-  console.log(`- Path rewrite completed in: ${configPath}`);
+  console.log(
+    `- Baked ${PLACEHOLDER} → ${pluginRoot} in ${path.relative(targetDir, configPath) || path.basename(configPath)}`,
+  );
+}
+
+function rewriteAllPluginConfigs(targetDir) {
+  for (const rel of PLACEHOLDER_CONFIGS) {
+    rewritePluginRoot(path.join(targetDir, rel), targetDir);
+  }
+}
+
+function assertInstalledPluginPaths(targetDir) {
+  const pluginRoot = toPosix(path.resolve(targetDir));
+
+  for (const rel of PLACEHOLDER_CONFIGS) {
+    const configPath = path.join(targetDir, rel);
+    const content = fs.readFileSync(configPath, 'utf8');
+    if (content.includes(PLACEHOLDER)) {
+      throw new Error(`${rel} still contains ${PLACEHOLDER} after install.`);
+    }
+    if (STAGING_DIR_PATTERN.test(content)) {
+      throw new Error(`${rel} still references a staging install directory.`);
+    }
+    if (!content.includes(pluginRoot)) {
+      throw new Error(`${rel} does not reference the installed plugin root.`);
+    }
+  }
+
+  const stdioPath = path.join(targetDir, 'dist/src/stdio.js');
+  if (!fs.existsSync(stdioPath)) {
+    throw new Error(`MCP entry missing after install: ${stdioPath}`);
+  }
+
+  const mcpConfig = JSON.parse(fs.readFileSync(path.join(targetDir, 'mcp.json'), 'utf8'));
+  const stdioArg = mcpConfig.mcpServers?.['transcodes-guard']?.args?.[0];
+  if (typeof stdioArg !== 'string' || !stdioArg.startsWith(pluginRoot)) {
+    throw new Error(
+      `mcp.json must point stdio.js under ${pluginRoot} (got ${stdioArg ?? 'missing'}).`,
+    );
+  }
+
+  console.log(`- Verified MCP stdio entry: ${stdioArg}`);
 }
 
 function renderTemplate(templatePath, pluginDir) {
@@ -314,6 +403,7 @@ function registerCursorConfig(pluginDir, cursorHome) {
 function installPluginBundle(targetDir, sourceDir) {
   const sourceRoot = fs.realpathSync(sourceDir);
   validateInstallSources(sourceDir);
+  assertSourcePlaceholderCoverage(sourceDir);
   assertSafeInstallTarget(targetDir, sourceRoot);
 
   fs.mkdirSync(path.dirname(targetDir), { recursive: true });
@@ -328,17 +418,23 @@ function installPluginBundle(targetDir, sourceDir) {
       fs.cpSync(srcPath, destPath, { recursive: true, force: true });
     }
 
-    rewritePluginRoot(path.join(stagingDir, '.cursor/hooks.json'), stagingDir);
-    rewritePluginRoot(path.join(stagingDir, 'mcp.json'), stagingDir);
-
     if (fs.existsSync(targetDir)) {
       fs.rmSync(targetDir, { recursive: true, force: true });
       console.log(`- Removed stale ${targetDir}/ before install`);
     }
 
+    // Rename first, then rewrite at the final location (staging paths never baked in).
     fs.renameSync(stagingDir, targetDir);
+    rewriteAllPluginConfigs(targetDir);
+    assertInstalledPluginPaths(targetDir);
   } catch (error) {
-    fs.rmSync(stagingDir, { recursive: true, force: true });
+    if (fs.existsSync(stagingDir)) {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+    }
+    if (fs.existsSync(targetDir)) {
+      fs.rmSync(targetDir, { recursive: true, force: true });
+      console.error(`- Rolled back incomplete install at ${targetDir}/`);
+    }
     console.error('');
     console.error('Error: Cursor plugin bundle installation failed.');
     if (error instanceof Error) {

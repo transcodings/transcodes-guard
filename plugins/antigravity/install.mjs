@@ -3,10 +3,10 @@
  * Google Antigravity plugin installer.
  *
  * Replaces the entire plugin directory with the committed bundle (dist/, configs,
- * rules, skills) and rewrites __PLUGIN_DIR__ in hooks.json / mcp_config.json to
- * absolute paths. Antigravity has no plugin-root env var, so paths must be baked
- * in at install time. Re-run for in-place updates — stale files from a prior
- * `agy plugin install` are removed automatically.
+ * rules, skills), moves it into place, then rewrites __PLUGIN_DIR__ in every
+ * placeholder config at the final install path (rename-before-rewrite — staging
+ * paths are never baked in). Antigravity has no plugin-root env var, so paths
+ * must be injected at install time. Re-run for in-place updates.
  *
  * Installs only to ~/.gemini/config/plugins/transcodes-guard (or --local workspace
  * copy). Does NOT register user-level hook/MCP files — other Antigravity plugins
@@ -49,6 +49,36 @@ const filesToCopy = [
 const PLUGIN_NAME = 'transcodes-guard';
 /** Only remove entries we know `agy plugin install` adds for the wrong host adapter. */
 const STALE_IMPORT_SOURCES = new Set(['claude-code']);
+
+const PLACEHOLDER = '__PLUGIN_DIR__';
+/** Every committed config that bakes plugin-root paths at install time. */
+const PLACEHOLDER_CONFIGS = ['hooks.json', 'mcp_config.json'];
+const STAGING_DIR_PATTERN = /\.transcodes-guard-install-/;
+/** Bundled artifacts — not install-time placeholder configs. */
+const PLACEHOLDER_SCAN_SKIP_DIRS = new Set(['dist', 'node_modules']);
+
+function toPosix(dir) {
+  return dir.split(path.sep).join('/');
+}
+
+function toPosixRel(rootDir, filePath) {
+  return toPosix(path.relative(rootDir, filePath));
+}
+
+function collectJsonFilesRecursive(dir, rootDir, out = []) {
+  for (const entry of fs.readdirSync(dir)) {
+    const entryPath = path.join(dir, entry);
+    const stat = fs.lstatSync(entryPath);
+    if (stat.isDirectory()) {
+      if (PLACEHOLDER_SCAN_SKIP_DIRS.has(entry)) continue;
+      collectJsonFilesRecursive(entryPath, rootDir, out);
+      continue;
+    }
+    if (!entry.endsWith('.json')) continue;
+    out.push({ rel: toPosixRel(rootDir, entryPath), abs: entryPath });
+  }
+  return out;
+}
 
 /** Fine-grained allow tokens that auto-approve without review (antigravity.google/docs/cli/permissions). */
 const BROAD_GATE_BYPASS_ALLOW = [
@@ -178,6 +208,29 @@ function validateInstallSources(sourceDir) {
   process.exit(1);
 }
 
+function assertSourcePlaceholderCoverage(sourceDir) {
+  const listed = new Set(PLACEHOLDER_CONFIGS);
+
+  for (const rel of PLACEHOLDER_CONFIGS) {
+    const configPath = path.join(sourceDir, rel);
+    if (!fs.existsSync(configPath)) {
+      throw new Error(`Expected placeholder config missing in bundle: ${rel}`);
+    }
+    if (!fs.readFileSync(configPath, 'utf8').includes(PLACEHOLDER)) {
+      throw new Error(`${rel} is missing ${PLACEHOLDER} — config format changed.`);
+    }
+  }
+
+  for (const { rel, abs } of collectJsonFilesRecursive(sourceDir, sourceDir)) {
+    const content = fs.readFileSync(abs, 'utf8');
+    if (content.includes(PLACEHOLDER) && !listed.has(rel)) {
+      throw new Error(
+        `Found ${PLACEHOLDER} in ${rel} but it is not listed in PLACEHOLDER_CONFIGS — update install.mjs.`,
+      );
+    }
+  }
+}
+
 function assertSafeInstallTarget(targetDir, sourceRoot) {
   if (fs.existsSync(targetDir)) {
     const stat = fs.lstatSync(targetDir);
@@ -208,21 +261,64 @@ function assertSafeInstallTarget(targetDir, sourceRoot) {
 
 function rewritePluginDir(configPath, targetDir) {
   if (!fs.existsSync(configPath)) {
-    throw new Error(`Expected config missing after copy: ${configPath}`);
+    throw new Error(`Expected config missing after install: ${configPath}`);
   }
-  const pluginDir = targetDir.split(path.sep).join('/');
+  const pluginDir = toPosix(path.resolve(targetDir));
   const content = fs.readFileSync(configPath, 'utf8');
-  if (!content.includes('__PLUGIN_DIR__')) {
+  if (!content.includes(PLACEHOLDER)) {
     throw new Error(
-      `__PLUGIN_DIR__ placeholder not found in ${configPath} — config format changed; update install.mjs.`,
+      `${PLACEHOLDER} placeholder not found in ${configPath} — config format changed; update install.mjs.`,
     );
   }
   fs.writeFileSync(
     configPath,
-    content.split('__PLUGIN_DIR__').join(pluginDir),
+    content.split(PLACEHOLDER).join(pluginDir),
     'utf8',
   );
-  console.log(`- Path rewrite completed in: ${configPath}`);
+  console.log(
+    `- Baked ${PLACEHOLDER} → ${pluginDir} in ${path.relative(targetDir, configPath) || path.basename(configPath)}`,
+  );
+}
+
+function rewriteAllPluginConfigs(targetDir) {
+  for (const rel of PLACEHOLDER_CONFIGS) {
+    rewritePluginDir(path.join(targetDir, rel), targetDir);
+  }
+}
+
+function assertInstalledPluginPaths(targetDir) {
+  const pluginRoot = toPosix(path.resolve(targetDir));
+
+  for (const rel of PLACEHOLDER_CONFIGS) {
+    const configPath = path.join(targetDir, rel);
+    const content = fs.readFileSync(configPath, 'utf8');
+    if (content.includes(PLACEHOLDER)) {
+      throw new Error(`${rel} still contains ${PLACEHOLDER} after install.`);
+    }
+    if (STAGING_DIR_PATTERN.test(content)) {
+      throw new Error(`${rel} still references a staging install directory.`);
+    }
+    if (!content.includes(pluginRoot)) {
+      throw new Error(`${rel} does not reference the installed plugin root.`);
+    }
+  }
+
+  const stdioPath = path.join(targetDir, 'dist/src/stdio.js');
+  if (!fs.existsSync(stdioPath)) {
+    throw new Error(`MCP entry missing after install: ${stdioPath}`);
+  }
+
+  const mcpConfig = JSON.parse(
+    fs.readFileSync(path.join(targetDir, 'mcp_config.json'), 'utf8'),
+  );
+  const stdioArg = mcpConfig.mcpServers?.[PLUGIN_NAME]?.args?.[0];
+  if (typeof stdioArg !== 'string' || !stdioArg.startsWith(pluginRoot)) {
+    throw new Error(
+      `mcp_config.json must point stdio.js under ${pluginRoot} (got ${stdioArg ?? 'missing'}).`,
+    );
+  }
+
+  console.log(`- Verified MCP stdio entry: ${stdioArg}`);
 }
 
 function isStaleTranscodesGuardImport(entry) {
@@ -263,6 +359,7 @@ function sanitizeImportManifest() {
 function installToTarget(targetDir, sourceDir) {
   const sourceRoot = fs.realpathSync(sourceDir);
   validateInstallSources(sourceDir);
+  assertSourcePlaceholderCoverage(sourceDir);
   assertSafeInstallTarget(targetDir, sourceRoot);
 
   fs.mkdirSync(path.dirname(targetDir), { recursive: true });
@@ -277,17 +374,23 @@ function installToTarget(targetDir, sourceDir) {
       fs.cpSync(srcPath, destPath, { recursive: true, force: true });
     }
 
-    rewritePluginDir(path.join(stagingDir, 'hooks.json'), stagingDir);
-    rewritePluginDir(path.join(stagingDir, 'mcp_config.json'), stagingDir);
-
     if (fs.existsSync(targetDir)) {
       fs.rmSync(targetDir, { recursive: true, force: true });
       console.log(`- Removed stale ${targetDir}/ before install`);
     }
 
+    // Rename first, then rewrite at the final location (staging paths never baked in).
     fs.renameSync(stagingDir, targetDir);
+    rewriteAllPluginConfigs(targetDir);
+    assertInstalledPluginPaths(targetDir);
   } catch (error) {
-    fs.rmSync(stagingDir, { recursive: true, force: true });
+    if (fs.existsSync(stagingDir)) {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+    }
+    if (fs.existsSync(targetDir)) {
+      fs.rmSync(targetDir, { recursive: true, force: true });
+      console.error(`- Rolled back incomplete install at ${targetDir}/`);
+    }
     console.error('');
     console.error('Error: Antigravity plugin installation failed.');
     if (error instanceof Error) {

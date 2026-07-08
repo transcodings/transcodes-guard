@@ -1,6 +1,6 @@
 {
   "name": "@transcodes-guard/core",
-  "version": "0.44.0",
+  "version": "0.46.0",
   "description": "Host-agnostic public core of transcodes-guard — contract/ (DI contract), stepup/ (gate logic), server/ (createServer MCP surface), patterns/ (danger-pattern/tool-rule registry), hosts/ (per-host wire adapters), paths/ (state paths), consolidated into one workspace package with per-domain subpath exports. The backend stays behind getGateBackend(); only @transcodes-guard/gate-backend remains a separate package (import-firewalled, separate CDN bundle unit).",
   "private": true,
   "type": "module",

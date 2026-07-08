@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.45.0...transcodes-guard-v0.46.0) (2026-07-08)
+
+
+### Bug Fixes
+
+* **install:** harden Cursor/Antigravity install.mjs with rename-before-rewrite, rollback, and recursive placeholder coverage
+
 ## [0.45.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.44.3...transcodes-guard-v0.45.0) (2026-07-07)
 
 
