@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.47.0...transcodes-guard-v0.48.0) (2026-07-08)
+
+
+### Features
+
+* **codex:** bare allow를 무출력으로 방어 + 오류 주석 정정 (WS3 C1) ([#183](https://github.com/transcodings/transcodes-guard/issues/183)) ([0d2a01f](https://github.com/transcodings/transcodes-guard/commit/0d2a01f1550d403f8d651f6aec4e36997f4693bf))
+
 ## [0.47.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.46.0...transcodes-guard-v0.47.0) (2026-07-08)
 
 
