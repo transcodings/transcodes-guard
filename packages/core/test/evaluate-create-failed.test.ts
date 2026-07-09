@@ -13,26 +13,16 @@
  * not be started." with no cause. Fail-closed is unchanged: all deny.
  */
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { createServer } from 'node:http';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { formatStepupCreateFailedReason } from '../src/contract/messages.js';
 import { rotatePromptGroup } from '../src/stepup/sid.js';
-
-function fakeMemberJwt(): string {
-  const b64 = (o: unknown) =>
-    Buffer.from(JSON.stringify(o)).toString('base64url');
-  return `${b64({ alg: 'none', typ: 'JWT' })}.${b64({
-    oid: 'org-test',
-    pid: 'proj-test',
-    mid: 'member-test',
-    aud: 'transcodes-mcp',
-    exp: Math.floor(Date.now() / 1000) + 3600,
-  })}.x`;
-}
+import {
+  makeHomeSandbox,
+  startJsonBackend,
+  startUnreachableBackend,
+} from './helpers/evaluate-harness.js';
 
 const EXTERNAL_MCP_CALL = {
   toolName: 'mcp__external__create_resource',
@@ -66,16 +56,9 @@ describe('external MCP step-up deny diagnosability (#189)', () => {
   const origUrl = process.env.TRANSCODES_BACKEND_URL;
 
   before(async () => {
-    server = createServer((_req, res) => {
-      const { status, body } = respond();
-      res.statusCode = status;
-      res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify(body));
-    });
-    await new Promise<void>((resolve) => server.listen(0, resolve));
-    const address = server.address();
-    assert.ok(address && typeof address === 'object');
-    process.env.TRANSCODES_BACKEND_URL = `http://127.0.0.1:${address.port}`;
+    const backend = await startJsonBackend(() => respond());
+    server = backend.server;
+    process.env.TRANSCODES_BACKEND_URL = backend.url;
   });
 
   after(() => {
@@ -88,14 +71,7 @@ describe('external MCP step-up deny diagnosability (#189)', () => {
   });
 
   beforeEach(() => {
-    home = mkdtempSync(path.join(tmpdir(), 'evaluate-189-'));
-    process.env.HOME = home;
-    const dir = path.join(home, '.transcodes');
-    mkdirSync(path.join(dir, 'state'), { recursive: true });
-    writeFileSync(
-      path.join(dir, 'config.json'),
-      JSON.stringify({ token: fakeMemberJwt() }),
-    );
+    home = makeHomeSandbox('evaluate-189-');
     rotatePromptGroup();
   });
 
@@ -142,7 +118,9 @@ describe('external MCP step-up deny diagnosability (#189)', () => {
 
     assert.equal(decision.kind, 'block-stepup-create-failed');
     if (decision.kind !== 'block-stepup-create-failed') return;
-    assert.equal(decision.failure.reason, 'error');
+    // Backend-side failure keeps the audited 'create-failed' reason
+    // (decisionAuditEventOf records only this reason).
+    assert.equal(decision.failure.reason, 'create-failed');
     assert.ok(decision.failure.detail?.includes('HTTP 404'));
     assert.ok(decision.failure.detail?.includes('member not found'));
     assert.ok(decision.failure.detail?.includes('logId=01JZLOG404'));
@@ -172,14 +150,9 @@ describe('external MCP step-up deny diagnosability (#189)', () => {
   });
 
   it('(d) unreachable backend says so in the deny detail', async () => {
-    const dead = createServer(() => {});
-    await new Promise<void>((resolve) => dead.listen(0, resolve));
-    const address = dead.address();
-    assert.ok(address && typeof address === 'object');
-    const deadUrl = `http://127.0.0.1:${address.port}`;
-    await new Promise<void>((resolve) => dead.close(() => resolve()));
+    const dead = await startUnreachableBackend();
     const prevUrl = process.env.TRANSCODES_BACKEND_URL;
-    process.env.TRANSCODES_BACKEND_URL = deadUrl;
+    process.env.TRANSCODES_BACKEND_URL = dead.url;
 
     try {
       const { evaluatePreToolUse } = await import('../src/stepup/evaluate.js');
@@ -187,10 +160,11 @@ describe('external MCP step-up deny diagnosability (#189)', () => {
 
       assert.equal(decision.kind, 'block-stepup-create-failed');
       if (decision.kind !== 'block-stepup-create-failed') return;
-      assert.equal(decision.failure.reason, 'error');
+      assert.equal(decision.failure.reason, 'create-failed');
       assert.ok(decision.failure.detail?.includes('backend unreachable'));
     } finally {
       process.env.TRANSCODES_BACKEND_URL = prevUrl;
+      await new Promise<void>((resolve) => dead.server.close(() => resolve()));
     }
   });
 });

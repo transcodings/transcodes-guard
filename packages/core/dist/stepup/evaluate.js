@@ -17,8 +17,9 @@
  *    exits 0 with no JSON.
  *  - After classify, no token → `block-no-token` (fail-closed).
  *  - After classify, backend unreachable / unparseable → permission 2
- *    (step-up); a null verdict without a session becomes
- *    `block-stepup-create-failed`.
+ *    (step-up); a failed evaluate without a session becomes
+ *    `block-stepup-create-failed`, carrying the HTTP status / backend error
+ *    text in `failure.detail` so the deny is diagnosable (issue #189).
  */
 import { currentHostProvider, DEFAULT_RBAC_RESOURCE, isTranscodesGuardWireToolName, } from '../patterns/index.js';
 import { loadStepupConfig } from './config.js';
@@ -190,9 +191,16 @@ export async function evaluatePreToolUse(input) {
     const group = resolvePromptGroup();
     const sid = readSinglePendingLatchSid(group);
     // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) step-up.
+    // On failure `verdict` stays null (fail-closed → permission 2) and
+    // `failureDetail` records WHY, so the deny message is diagnosable (#189).
+    // Reason vocabulary matches console.ts: backend-side failure (refusal,
+    // unreachable, malformed) → 'create-failed' (decision-audited), local
+    // client throw → 'error' (excluded from the decision audit).
     let verdict = null;
+    let failureDetail;
+    let failureReason = 'create-failed';
     try {
-        verdict = await evaluateAction(loadStepupConfig(), {
+        const result = await evaluateAction(loadStepupConfig(), {
             payload: resolvePayload(input),
             toolName: wireToolName(input),
             cwd: input.cwd,
@@ -200,9 +208,22 @@ export async function evaluatePreToolUse(input) {
             group,
             sid,
         });
+        if (result.ok) {
+            verdict = result.verdict;
+        }
+        else {
+            failureDetail =
+                result.kind === 'network'
+                    ? `backend unreachable${result.message ? `: ${result.message}` : ' (network/timeout)'}`
+                    : result.kind === 'http'
+                        ? `backend evaluate failed: HTTP ${result.status}${result.message ? ` — ${result.message}` : ''}`
+                        : 'malformed backend response';
+        }
     }
-    catch {
+    catch (err) {
         verdict = null;
+        failureReason = 'error';
+        failureDetail = `unexpected client error: ${err instanceof Error ? err.message : String(err)}`;
     }
     const permission = verdict?.permission ?? 2;
     const resource = verdict?.resource ?? block.stepupResource;
@@ -233,10 +254,18 @@ export async function evaluatePreToolUse(input) {
     }
     // Level 2 — backend created or reused the step-up session.
     if (!verdict?.sid || !verdict.url) {
+        // Two distinct failures share this deny: the evaluate call itself failed
+        // (failureDetail set — environment/backend problem), or a 2xx verdict came
+        // back without a session (backend anomaly). Name which one it was.
         return {
             kind: GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED,
             block,
-            failure: { ok: false, reason: 'create-failed' },
+            failure: {
+                ok: false,
+                reason: failureReason,
+                detail: failureDetail ??
+                    'backend returned permission=2 without a session (sid/url missing)',
+            },
             reasoning: backendReasoning,
         };
     }

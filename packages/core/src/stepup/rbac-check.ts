@@ -63,6 +63,24 @@ export type GuardEvaluateResult =
   | { ok: true; verdict: GuardVerdict }
   | GuardEvaluateFailure;
 
+/**
+ * The extracted text flows into the agent-facing deny message, and a hostile
+ * or misbehaving intermediary (captive portal, corporate proxy) controls the
+ * non-2xx body — so bound it: strip control characters and cap the length.
+ */
+const FAILURE_MESSAGE_MAX_LENGTH = 240;
+function sanitizeFailureText(text: string): string {
+  let flat = '';
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    flat += code < 32 || code === 127 ? ' ' : ch;
+  }
+  flat = flat.replace(/ {2,}/g, ' ').trim();
+  return flat.length > FAILURE_MESSAGE_MAX_LENGTH
+    ? `${flat.slice(0, FAILURE_MESSAGE_MAX_LENGTH)}…`
+    : flat;
+}
+
 /** Pull human-readable failure text out of the backend error envelope. */
 function extractFailureMessage(data: unknown): string | undefined {
   if (!data || typeof data !== 'object') return undefined;
@@ -78,8 +96,11 @@ function extractFailureMessage(data: unknown): string | undefined {
           ? o.error.trim()
           : undefined;
   const logId = typeof o.logId === 'string' && o.logId ? o.logId : undefined;
-  if (text && logId) return `${text}; logId=${logId}`;
-  return text ?? (logId ? `logId=${logId}` : undefined);
+  const combined =
+    text && logId
+      ? `${text}; logId=${logId}`
+      : (text ?? (logId ? `logId=${logId}` : undefined));
+  return combined ? sanitizeFailureText(combined) : undefined;
 }
 
 /**
