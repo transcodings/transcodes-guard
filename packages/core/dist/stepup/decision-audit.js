@@ -56,9 +56,10 @@ function legacySeverity(_decision) {
 export function decisionAuditEventOf(decision) {
     switch (decision.kind) {
         case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
-            // Narrow: only the backend explicit refusal is audited. The `no-token`
-            // race (semantically `block-no-token`) and the `error` (local config
-            // load failure, not a backend refusal) are excluded.
+            // Narrow: only the backend-side create failure (explicit refusal,
+            // unreachable, malformed — reason 'create-failed') is audited. The
+            // `no-token` race (semantically `block-no-token`) and the `error`
+            // (local client throw, not a backend-side failure) are excluded.
             if (decision.failure.reason !== 'create-failed')
                 return null;
             return {

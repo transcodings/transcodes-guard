@@ -13,6 +13,7 @@ import { createServer } from 'node:http';
 import { after, before, describe, it } from 'node:test';
 import type { StepupConfig } from '../src/stepup/config.js';
 import { checkRbacPermission, evaluateAction } from '../src/stepup/rbac-check.js';
+import { startUnreachableBackend } from './helpers/evaluate-harness.js';
 
 describe('checkRbacPermission', () => {
   let server: Server;
@@ -336,26 +337,26 @@ describe('evaluateAction', () => {
   });
 
   it('reports network failure with status 0 when the backend is unreachable (#189)', async () => {
-    // Point at a closed port — fetch rejects (ECONNREFUSED) → envelope status 0.
-    const dead = createServer(() => {});
-    await new Promise<void>((resolve) => dead.listen(0, resolve));
-    const address = dead.address();
-    assert.ok(address && typeof address === 'object');
-    const deadUrl = `http://127.0.0.1:${address.port}`;
-    await new Promise<void>((resolve) => dead.close(() => resolve()));
+    // A live listener that destroys every connection — fetch rejects
+    // (ECONNRESET) → envelope status 0, without the close-then-reuse port race.
+    const dead = await startUnreachableBackend();
 
-    const result = await evaluateAction(
-      {
-        ...config(),
-        backendUrl: deadUrl,
-        apiBaseV1: `${deadUrl}/v1`,
-      },
-      { payload: { command: 'ls' } },
-    );
+    try {
+      const result = await evaluateAction(
+        {
+          ...config(),
+          backendUrl: dead.url,
+          apiBaseV1: `${dead.url}/v1`,
+        },
+        { payload: { command: 'ls' } },
+      );
 
-    assert.ok(!result.ok);
-    assert.equal(result.kind, 'network');
-    assert.equal(result.status, 0);
-    assert.ok(result.message);
+      assert.ok(!result.ok);
+      assert.equal(result.kind, 'network');
+      assert.equal(result.status, 0);
+      assert.ok(result.message);
+    } finally {
+      await new Promise<void>((resolve) => dead.server.close(() => resolve()));
+    }
   });
 });

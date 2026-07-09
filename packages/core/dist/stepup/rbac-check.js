@@ -39,6 +39,43 @@ function extractFailureMessage(data) {
     return text ?? (logId ? `logId=${logId}` : undefined);
 }
 /**
+ * The extracted text flows into the agent-facing deny message, and a hostile
+ * or misbehaving intermediary (captive portal, corporate proxy) controls the
+ * non-2xx body — so bound it: strip control characters and cap the length.
+ */
+const FAILURE_MESSAGE_MAX_LENGTH = 240;
+function sanitizeFailureText(text) {
+    let flat = '';
+    for (const ch of text) {
+        const code = ch.codePointAt(0) ?? 0;
+        flat += code < 32 || code === 127 ? ' ' : ch;
+    }
+    flat = flat.replace(/ {2,}/g, ' ').trim();
+    return flat.length > FAILURE_MESSAGE_MAX_LENGTH
+        ? `${flat.slice(0, FAILURE_MESSAGE_MAX_LENGTH)}…`
+        : flat;
+}
+/** Pull human-readable failure text out of the backend error envelope. */
+function extractFailureMessage(data) {
+    if (!data || typeof data !== 'object')
+        return undefined;
+    const o = data;
+    const text = typeof o.message === 'string' && o.message.trim()
+        ? o.message.trim()
+        : Array.isArray(o.message) &&
+            o.message.length > 0 &&
+            o.message.every((m) => typeof m === 'string')
+            ? o.message.join('; ')
+            : typeof o.error === 'string' && o.error.trim()
+                ? o.error.trim()
+                : undefined;
+    const logId = typeof o.logId === 'string' && o.logId ? o.logId : undefined;
+    const combined = text && logId
+        ? `${text}; logId=${logId}`
+        : (text ?? (logId ? `logId=${logId}` : undefined));
+    return combined ? sanitizeFailureText(combined) : undefined;
+}
+/**
  * POST /v1/guard/evaluate — one round-trip: backend classifies the raw hook
  * payload, applies the matrix, and (for level 2) creates or reuses the grouped
  * step-up session keyed on `sid`. Every tool call (except built-in

@@ -193,8 +193,12 @@ export async function evaluatePreToolUse(input) {
     // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) step-up.
     // On failure `verdict` stays null (fail-closed → permission 2) and
     // `failureDetail` records WHY, so the deny message is diagnosable (#189).
+    // Reason vocabulary matches console.ts: backend-side failure (refusal,
+    // unreachable, malformed) → 'create-failed' (decision-audited), local
+    // client throw → 'error' (excluded from the decision audit).
     let verdict = null;
     let failureDetail;
+    let failureReason = 'create-failed';
     try {
         const result = await evaluateAction(loadStepupConfig(), {
             payload: resolvePayload(input),
@@ -216,9 +220,10 @@ export async function evaluatePreToolUse(input) {
                         : 'malformed backend response';
         }
     }
-    catch {
+    catch (err) {
         verdict = null;
-        failureDetail = 'unexpected client error';
+        failureReason = 'error';
+        failureDetail = `unexpected client error: ${err instanceof Error ? err.message : String(err)}`;
     }
     const permission = verdict?.permission ?? 2;
     const resource = verdict?.resource ?? block.stepupResource;
@@ -255,13 +260,12 @@ export async function evaluatePreToolUse(input) {
         return {
             kind: GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED,
             block,
-            failure: failureDetail
-                ? { ok: false, reason: 'error', detail: failureDetail }
-                : {
-                    ok: false,
-                    reason: 'create-failed',
-                    detail: 'backend returned permission=2 without a session (sid/url missing)',
-                },
+            failure: {
+                ok: false,
+                reason: failureReason,
+                detail: failureDetail ??
+                    'backend returned permission=2 without a session (sid/url missing)',
+            },
             reasoning: backendReasoning,
         };
     }
