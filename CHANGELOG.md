@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.49.1...transcodes-guard-v0.49.2) (2026-07-09)
+
+
+### Bug Fixes
+
+* **core:** [#190](https://github.com/transcodings/transcodes-guard/issues/190) 리뷰 후속 — create-failed 감사 어휘 복원 + deny detail 정제 ([#192](https://github.com/transcodings/transcodes-guard/issues/192)) ([e02ef3b](https://github.com/transcodings/transcodes-guard/commit/e02ef3be8802812268a85433164f5314cdf084dd))
+
 ## [0.49.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.49.0...transcodes-guard-v0.49.1) (2026-07-09)
 
 
