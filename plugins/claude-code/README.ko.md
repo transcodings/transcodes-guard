@@ -2,9 +2,9 @@
 
 [English](./README.md) | **한국어**
 
-Claude Code용 위험 셸 인터셉터(`PreToolUse` hook) + 스텝업 MFA 감사 MCP 서버.
+Claude Code용 위험 셸 인터셉터(`PreToolUse`) + 스텝업 MFA 감사 MCP 서버.
 
-에이전트가 위험한 Bash 명령(또는 보호된 MCP 도구 호출)을 실행하려는 순간, `PreToolUse` hook이 이를 가로채 명령 실행 **전에** Transcodes 백엔드를 상대로 WebAuthn 스텝업을 강제합니다. 공유 게이트 로직은 `@transcodes-guard/core/stepup` + `@transcodes-guard/core/server`에 있으며, Claude Code에 특화된 부분은 hook 어댑터와 플러그인 매니페스트뿐입니다.
+에이전트가 위험한 Bash 명령(또는 보호된 MCP 도구 호출)을 실행하려는 순간, `PreToolUse`가 이를 가로채 명령 실행 **전에** Transcodes 백엔드를 상대로 WebAuthn 스텝업을 강제합니다. 공유 게이트 로직은 `@transcodes-guard/core/stepup` + `@transcodes-guard/core/server`에 있으며, Claude Code에 특화된 부분은 hook 어댑터와 플러그인 매니페스트뿐입니다.
 
 ## 사전 요구사항
 
@@ -40,7 +40,7 @@ transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출�
 
 | 구성 요소 | 동작 |
 |---|---|
-| `PreToolUse` hook (matcher `Bash\|mcp__.*`) | Bash에 대해 2단계 검사(정규식 위험 패턴 + `rm -rf`에 대한 `git ls-files` 의미 검사) + MCP 호출에 대한 정확 일치 tool-rule. 일치 시 차단하고 스텝업 MFA 흐름을 시작합니다. |
+| `PreToolUse` (matcher `Bash\|mcp__.*`) | Bash에 대해 2단계 검사(정규식 위험 패턴 + `rm -rf`에 대한 `git ls-files` 의미 검사) + MCP 호출에 대한 정확 일치 tool-rule. 일치 시 차단하고 스텝업 MFA 흐름을 시작합니다. |
 | MCP 서버 (`transcodes-guard`) | **진단 / 시뮬레이션** 도구(`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), **스텝업 수명주기** 도구(`create_stepup_session`, `poll_stepup_session_wait`), **Transcodes 관리** 도구(멤버 / 조직 / RBAC / 멤버십 / passcode / auth-device / 감사 / 프로젝트 관리). |
 | `SessionStart` hook | 스텝업 프로토콜 primer(에이전트가 차단에 어떻게 대응할지 알도록)와, 재시작을 넘겨 살아남은 스텝업 세션이 있으면 그 carry-over 알림을 주입합니다. 순수 추가 컨텍스트일 뿐 — 절대 차단하지 않습니다. |
 | `UserPromptSubmit` hook | 사용자의 "인증 완료" 프롬프트(`"완료"`, `"done"`, …)를 감지하고 대기 중인 `sid`를 노출해 에이전트가 폴링을 재개하게 합니다. |
@@ -57,7 +57,7 @@ Claude Code는 **두 가지** 트랜스포트를 모두 제공하는 유일한 �
 
 오픈 소스: [transcodes-guard](https://github.com/transcodings/transcodes-guard)
 
-`PreToolUse` 차단이 **Step-up MFA**를 언급하는 사유와 함께 발생하면, 그 명령은 **차단되어 실행되지 않았습니다**. Claude Code는 이 프로토콜을 `SessionStart`에서 자동 주입합니다. wait tool 호출 전까지 사용자 확인을 기다리지 말고 루프를 결정적으로 진행하세요:
+스텝업 차단이 **Step-up MFA**를 언급하는 사유와 함께 발생하면, 그 명령은 **차단되어 실행되지 않았습니다**. Claude Code는 이 프로토콜을 `SessionStart`에서 자동 주입합니다. wait tool 호출 전까지 사용자 확인을 기다리지 말고 루프를 결정적으로 진행하세요:
 
 1. 자동으로 열린 브라우저 탭에서 WebAuthn을 완료하라고 사용자에게 한 줄로 알립니다(탭이 열리지 않았으면 차단 메시지의 URL 사용).
 2. 즉시 MCP 도구 **`tc_poll_stepup_session_wait`**를 제공된 `sid`로 호출합니다. verified 되거나 60초 타임아웃까지 블록됩니다.

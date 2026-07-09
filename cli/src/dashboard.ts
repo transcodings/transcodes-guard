@@ -12,6 +12,7 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
+import { TRANSCODES_GUARD_REPO_URL } from '@transcodes-guard/core/contract';
 import {
   clearTokenFile,
   fetchMemberProfile,
@@ -28,6 +29,7 @@ import {
   transcodesConfigFile,
   writeTokenToFile,
 } from '@transcodes-guard/core/stepup';
+import { renderCliCommandsHtml } from './commands.js';
 import { LOGO_DATA_URI } from './logo.js';
 import { fetchRbacSnapshot, loadRbacConfig } from './rbac-api.js';
 import { CLI_VERSION } from './version.js';
@@ -36,7 +38,7 @@ const DEFAULT_PORT = 3847;
 const HOST = '127.0.0.1';
 /** Temporary Mux playback id for the Guideline onboarding video. */
 const GUIDELINE_MUX_PLAYBACK_ID =
-  'kGqw1lDd4stSZmYsswFuw02EeFnCtBwgGj6HCJxIb4Vc';
+  '01Q02da00mR6xobESjn2KHOz31eGX3OUS01xoc025RKQxsR4';
 
 type TokenEntry = {
   /** Short fingerprint — used as the client-side id so full JWTs need not be
@@ -1095,6 +1097,32 @@ function dashboardHtml(): string {
       padding: 2px 8px;
       font-weight: 600;
     }
+    .guide-step-opensource {
+      margin: 10px 0 0;
+    }
+    .guide-opensource-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--text-sm);
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+    .guide-opensource-link:hover .guide-opensource-accent {
+      text-decoration: underline;
+    }
+    .guide-opensource-icon {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      color: var(--ink);
+    }
+    .guide-opensource-accent {
+      color: var(--accent);
+      font-weight: 600;
+    }
     .guide-step-desc-row {
       display: flex;
       align-items: center;
@@ -1254,6 +1282,7 @@ function dashboardHtml(): string {
       <button type="button" class="tab active" data-tab="guideline">Guideline</button>
       <button type="button" class="tab" data-tab="tokens">Tokens</button>
       <button type="button" class="tab" data-tab="rbac">RBAC</button>
+      <button type="button" class="tab" data-tab="cli">CLI Commands</button>
     </div>
 
     <div class="panel active" id="panel-guideline">
@@ -1339,13 +1368,19 @@ function dashboardHtml(): string {
         </section>
 
         <section class="guide-group guide-group--agent">
-          <p class="guide-group-label">LLM Agent or Admin Back Office</p>
+          <a class="guide-group-label" href="${TRANSCODES_GUARD_REPO_URL}" target="_blank" rel="noopener noreferrer">LLM Agent or Admin Back Office<span class="guide-group-link-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span></a>
           <ol class="guide-steps">
             <li class="guide-step">
               <span class="guide-step-num">8</span>
               <div class="guide-step-body">
                 <p class="guide-step-title">Add the transcodes-guard plugin</p>
-                <p class="guide-step-desc">Install the transcodes-guard plugin on Claude, Codex, Cursor (beta), and Antigravity (beta)</p>
+                <p class="guide-step-desc">Install the transcodes-guard plugin on Claude, Codex, Cursor (beta), and Antigravity (beta). For more plugins info, visit the repository</p>
+                <p class="guide-step-opensource">
+                  <a class="guide-opensource-link" href="${TRANSCODES_GUARD_REPO_URL}" target="_blank" rel="noopener noreferrer" aria-label="transcodes-guard on GitHub">
+                    <svg class="guide-opensource-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                    We support Open Source, <span class="guide-opensource-accent">More Info</span>
+                  </a>
+                </p>
               </div>
             </li>
             <li class="guide-step">
@@ -1393,6 +1428,15 @@ function dashboardHtml(): string {
         <button type="button" class="btn-danger" id="reset-all">Reset all</button>
       </div>
       <p class="hint">Saved to <code>{{HOME_DIR}}/.transcodes/config.json</code><br />Press Ctrl+C in the terminal to stop</p>
+    </div>
+
+    <div class="panel" id="panel-cli">
+      <p class="section-title">CLI Commands</p>
+      <p class="section-sub">Run these from your terminal — the dashboard wraps the same actions</p>
+      <div class="cmd-list">
+        ${renderCliCommandsHtml()}
+      </div>
+      <p class="hint">Token file: <code>{{HOME_DIR}}/.transcodes/config.json</code></p>
     </div>
 
     <div class="panel" id="panel-rbac">

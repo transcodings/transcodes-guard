@@ -119,7 +119,7 @@ There is no runtime kill-switch. To turn protection off, disable or uninstall th
 
 Cursor's hook contract differs from Claude Code in ways the adapter encapsulates (`packages/core/src/hosts/cursor.ts`):
 
-1. **Flat PreToolUse output** — `beforeShellExecution` / `beforeMCPExecution` share `dist/hooks/pre-tool-use.js`, which writes `{ permission: "allow"|"deny", user_message?, agent_message?, updated_input? }` to stdout and exits `0`. Not Claude Code's `hookSpecificOutput.permissionDecision` and not exit code `2`.
+1. **Flat gate output** — `beforeShellExecution` / `beforeMCPExecution` share `dist/hooks/pre-tool-use.js`, which writes `{ permission: "allow"|"deny", user_message?, agent_message?, updated_input? }` to stdout and exits `0`. Not Claude Code's `hookSpecificOutput.permissionDecision` and not exit code `2`.
 2. **Stop uses `followup_message`** — same semantic as Claude Code's `{ decision: "block", reason }`, different key name.
 3. **Event names vs script filenames** — Cursor events use camelCase (`beforeSubmitPrompt`, `sessionStart`); hook scripts use kebab-case files. This is not Claude Code's `user-prompt-submit` naming.
 

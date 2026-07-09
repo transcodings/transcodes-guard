@@ -4,9 +4,9 @@
 
 > ⚠️ **베타** — Antigravity 플러그인은 아직 베타 버전이라 크래시나 버그가 발생할 수 있고, 설치 방법과 API가 바뀔 수 있습니다. 안정적인 사용에는 정식 지원 호스트인 **Claude Code** 또는 **Codex** 플러그인을 권장합니다.
 
-Google Antigravity 2.0용 위험 셸 인터셉터(`PreToolUse` hook) + 감사 MCP 서버. 데스크톱 앱(Antigravity 2.0)과 `agy` CLI를 지원합니다.
+Google Antigravity 2.0용 위험 셸 인터셉터(게이트 hook) + 감사 MCP 서버. 데스크톱 앱(Antigravity 2.0)과 `agy` CLI를 지원합니다.
 
-Claude Code 및 Codex 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`)을 공유합니다. Antigravity에 특화된 부분은 Antigravity의 PreToolUse / PreInvocation / Stop 와이어 포맷(최상위 `decision`, 중첩된 `toolCall.name`/`toolCall.args` stdin, `hookSpecificOutput` 래퍼 없음)을 구사하는 네이티브 hook 어댑터(`antigravityAdapter`)입니다. codex 플러그인의 claudeCodeAdapter 위임 패턴은 여기에 **적용되지 않습니다**.
+Claude Code 및 Codex 플러그인과 동일한 스텝업 MFA 게이트 로직(`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`)을 공유합니다. Antigravity에 특화된 부분은 Antigravity의 게이트 / PreInvocation / Stop 와이어 포맷(최상위 `decision`, 중첩된 `toolCall.name`/`toolCall.args` stdin, `hookSpecificOutput` 래퍼 없음)을 구사하는 네이티브 hook 어댑터(`antigravityAdapter`)입니다. codex 플러그인의 claudeCodeAdapter 위임 패턴은 여기에 **적용되지 않습니다**.
 
 ## 사전 요구사항
 
@@ -59,7 +59,7 @@ Antigravity 권한은 **CLI와 데스크톱이 분리**돼 있습니다. `instal
 | **agy CLI** | `~/.gemini/antigravity-cli/settings.json` | `toolPermission: "always-proceed"` → `"request-review"`; `permissions.allow`에서 `command(*)`, `mcp(*)`, `unsandboxed(*)` 제거; 남은 `command`/`mcp`/`unsandboxed` allow 및 `proceed-in-sandbox`는 경고 |
 | **데스크톱 앱** | Settings → Advanced → Terminal (UI) | **수정 안 함.** Terminal Command Auto Execution(Off / Auto / **Turbo**)과 Allow/Deny list는 UI 전용 — 이 repo에 안정적인 on-disk 경로 미확인. Deny list 없이 **Turbo** 사용 금지 |
 
-**install로 막을 수 없음:** `agy --dangerously-skip-permissions`(세션 플래그). PreToolUse hook은 플러그인 `hooks.json` matcher로 연결됨; matcher 밖 file-edit 도구는 matcher 확장 전까지 미게이트.
+**install로 막을 수 없음:** `agy --dangerously-skip-permissions`(세션 플래그). 게이트 hook은 플러그인 `hooks.json` matcher로 연결됨; matcher 밖 file-edit 도구는 matcher 확장 전까지 미게이트.
 
 CLI 설정은 `agy` 안에서 `/config` 또는 `/permissions`. 공식 문서: [CLI settings](https://antigravity.google/docs/cli/settings), [permissions](https://antigravity.google/docs/cli/permissions).
 
@@ -67,7 +67,7 @@ CLI 설정은 `agy` 안에서 `/config` 또는 `/permissions`. 공식 문서: [C
 
 | 구성 요소 | 동작 |
 |---|---|
-| `PreToolUse` hook (matcher: `run_command\|mcp_.*\|call_mcp_tool`) | 셸 명령에 대해 2단계 검사(정규식 패턴 + `rm -rf`에 대한 `git ls-files` 의미 검사) + MCP 호출에 대한 정확 일치 tool-rule. 일치 시 차단하고 스텝업 MFA 흐름을 시작합니다. |
+| 게이트 hook (matcher: `run_command\|mcp_.*\|call_mcp_tool`) | 셸 명령에 대해 2단계 검사(정규식 패턴 + `rm -rf`에 대한 `git ls-files` 의미 검사) + MCP 호출에 대한 정확 일치 tool-rule. 일치 시 차단하고 스텝업 MFA 흐름을 시작합니다. |
 | MCP 서버 (`transcodes-guard`) | **진단 / 시뮬레이션** 도구(`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), **스텝업 수명주기** 도구(`create_stepup_session`, `poll_stepup_session_wait`), **Transcodes 관리** 도구(멤버 / 조직 / RBAC / 멤버십 / passcode / auth-device / 감사 / 프로젝트 관리). |
 | `PreInvocation` hook | 두 가지 역할을 합니다(Antigravity에는 SessionStart / UserPromptSubmit이 없음). `invocationNum=1`일 때 정적 스텝업 MFA primer + carry-over 대기 상태를 주입합니다. 모든 invocation에서 `transcript.jsonl`의 가장 최근 사용자 메시지를 tail 하여 완료 패턴과 일치하면 대기 중인 `sid`를 노출해 에이전트가 폴링하게 합니다. |
 | `Stop` hook | `{ decision: "continue", reason }`로 리마인더를 주입해 매달린 스텝업 루프를 정리합니다(Antigravity는 reason을 시스템 메시지로 삼아 실행 루프에 재진입). 상태가 깨끗하면 고아 verified/pending 레코드를 조용히 회수합니다. |
@@ -83,13 +83,13 @@ CLI 설정은 `agy` 안에서 `/config` 또는 `/permissions`. 공식 문서: [C
 
 ## 도구 matcher 범위
 
-PreToolUse hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실행(`run_command`) **및** MCP 도구 호출(`mcp_*`)을 게이트합니다. `call_mcp_tool` arm은 Antigravity가 범용 래퍼로 dispatch하는 lazy-loaded MCP 호출을 잡아냅니다 — 어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑해 tool-rule이 여전히 매칭되도록 합니다. 파일 편집 도구(`write_to_file`, `replace_file_content`, `multi_replace_file_content`)는 게이트되지 **않습니다**. 범위를 넓히려면 `hooks.json`의 matcher 정규식을 확장하고 `packages/core/src/patterns/`에 해당 tool-rule을 등록하세요.
+hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실행(`run_command`) **및** MCP 도구 호출(`mcp_*`)을 게이트합니다. `call_mcp_tool` arm은 Antigravity가 범용 래퍼로 dispatch하는 lazy-loaded MCP 호출을 잡아냅니다 — 어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑해 tool-rule이 여전히 매칭되도록 합니다. 파일 편집 도구(`write_to_file`, `replace_file_content`, `multi_replace_file_content`)는 게이트되지 **않습니다**. 범위를 넓히려면 `hooks.json`의 matcher 정규식을 확장하고 `packages/core/src/patterns/`에 해당 tool-rule을 등록하세요.
 
 ## AI 에이전트를 위한 안내
 
 오픈 소스: [transcodes-guard](https://github.com/transcodings/transcodes-guard)
 
-`PreToolUse` 차단 시 에이전트가 따라야 할 스텝업 응답 프로토콜은 [`rules/STEPUP.md`](./rules/STEPUP.md)에 있으며, Antigravity가 에이전트 작업 컨텍스트에 자동 로드합니다(모든 플러그인의 `rules/` 디렉터리를 스캔). 런타임 루프의 단일 진실 공급원이므로 그곳에서 확인하세요.
+스텝업 차단 시 에이전트가 따라야 할 스텝업 응답 프로토콜은 [`rules/STEPUP.md`](./rules/STEPUP.md)에 있으며, Antigravity가 에이전트 작업 컨텍스트에 자동 로드합니다(모든 플러그인의 `rules/` 디렉터리를 스캔). 런타임 루프의 단일 진실 공급원이므로 그곳에서 확인하세요.
 
 ## 활성화 / 비활성화
 
@@ -109,8 +109,8 @@ PreToolUse hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실�
 
 ## 알려진 한계
 
-- **CLI vs desktop** — `install.mjs`는 `~/.gemini/antigravity-cli/settings.json`만 조정합니다. Desktop Turbo/Allow list는 수동. `always-proceed` / Turbo가 UI만 건너뛰는지 PreToolUse hook까지 스킵하는지는 이 repo에서 e2e 미완.
-- **서브에이전트 상태 공유**는 최선 노력(best-effort)입니다. 서브에이전트의 PreToolUse hook은 별개의 `conversationId`를 받을 수 있으며, 공유 상태 파일이 여전히 조정 지점이고 백엔드 sid-replay가 백스톱입니다.
+- **CLI vs desktop** — `install.mjs`는 `~/.gemini/antigravity-cli/settings.json`만 조정합니다. Desktop Turbo/Allow list는 수동. `always-proceed` / Turbo가 UI만 건너뛰는지 게이트 hook까지 스킵하는지는 이 repo에서 e2e 미완.
+- **서브에이전트 상태 공유**는 최선 노력(best-effort)입니다. 서브에이전트의 게이트 hook은 별개의 `conversationId`를 받을 수 있으며, 공유 상태 파일이 여전히 조정 지점이고 백엔드 sid-replay가 백스톱입니다.
 - **Stop hook UX** — `decision: "continue"`(턴 종료를 막음 — Claude Code의 `decision: "block"`과 동사가 반대)는 더 넓은 e2e 검증이 진행 중입니다.
 
 ## 문제 해결

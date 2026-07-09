@@ -2,7 +2,7 @@
 
 **English** | [한국어](./README.ko.md)
 
-Risky-shell interceptor (`PreToolUse` hook) and step-up MFA audit MCP server for OpenAI Codex CLI.
+Risky-shell interceptor (`PreToolUse`) and step-up MFA audit MCP server for OpenAI Codex CLI.
 
 Shares the same step-up MFA gate logic as the Claude Code plugin (`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`); the only Codex-specific surface is the hook adapter and the plugin manifest.
 
@@ -44,7 +44,7 @@ Without a token, the hook still **denies** danger commands but cannot start a st
 
 | Component | Behaviour |
 |---|---|
-| `PreToolUse` hook | Two-layer check on Bash (regex patterns + `git ls-files` semantic on `rm -rf`) plus exact-match tool-rules on MCP calls. Denies and triggers a step-up MFA flow when matched. |
+| `PreToolUse` | Two-layer check on Bash (regex patterns + `git ls-files` semantic on `rm -rf`) plus exact-match tool-rules on MCP calls. Denies and triggers a step-up MFA flow when matched. |
 | MCP server (`transcodes-guard`) | **Diagnostic / simulation** tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`); **step-up lifecycle** tools (`create_stepup_session`, `poll_stepup_session_wait`); **Transcodes admin** tools (member / organization / RBAC / membership / passcode / auth-device / audit / project management). |
 | `SessionStart` hook | Injects a carry-over notice if a step-up session survived a session boundary. Static protocol primer lives in [`AGENTS.md`](./AGENTS.md). |
 | `UserPromptSubmit` hook | Detects user "auth done" prompts (`"완료"`, `"done"`, …) and surfaces the pending `sid` so the agent can poll. |
@@ -68,7 +68,7 @@ It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_use
 
 Open source: [transcodes-guard](https://github.com/transcodings/transcodes-guard)
 
-The step-up response protocol the agent must follow on a `PreToolUse` deny lives in [`AGENTS.md`](./AGENTS.md), which Codex auto-loads into the agent's context every turn. Read it there — it is the single source of truth for the runtime loop.
+The step-up response protocol the agent must follow on a step-up deny lives in [`AGENTS.md`](./AGENTS.md), which Codex auto-loads into the agent's context every turn. Read it there — it is the single source of truth for the runtime loop.
 
 ## Enabling / disabling
 

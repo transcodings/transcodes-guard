@@ -2,9 +2,9 @@
 
 **English** | [한국어](./README.ko.md)
 
-Risky-shell interceptor (`PreToolUse` hook) and step-up MFA audit MCP server for Claude Code.
+Risky-shell interceptor (`PreToolUse`) and step-up MFA audit MCP server for Claude Code.
 
-When the agent is about to run a risky Bash command (or a protected MCP tool call), the `PreToolUse` hook intercepts it and forces a WebAuthn step-up against the Transcodes backend **before** the command runs. The shared gate logic lives in `@transcodes-guard/core/stepup` + `@transcodes-guard/core/server`; the only Claude-Code-specific surface is the hook adapter and the plugin manifest.
+When the agent is about to run a risky Bash command (or a protected MCP tool call), `PreToolUse` intercepts it and forces a WebAuthn step-up against the Transcodes backend **before** the command runs. The shared gate logic lives in `@transcodes-guard/core/stepup` + `@transcodes-guard/core/server`; the only Claude-Code-specific surface is the hook adapter and the plugin manifest.
 
 ## Prerequisites
 
@@ -40,7 +40,7 @@ Without a token, the hook still **denies** danger commands but cannot start a st
 
 | Component | Behaviour |
 |---|---|
-| `PreToolUse` hook (matcher `Bash\|mcp__.*`) | Two-layer check on Bash (regex danger patterns + a `git ls-files` semantic check on `rm -rf`) plus exact-match tool-rules on MCP calls. Denies and starts a step-up MFA flow when matched. |
+| `PreToolUse` (matcher `Bash\|mcp__.*`) | Two-layer check on Bash (regex danger patterns + a `git ls-files` semantic check on `rm -rf`) plus exact-match tool-rules on MCP calls. Denies and starts a step-up MFA flow when matched. |
 | MCP server (`transcodes-guard`) | **Diagnostic / simulation** tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`); **step-up lifecycle** tools (`create_stepup_session`, `poll_stepup_session_wait`); **Transcodes admin** tools (member / organization / RBAC / membership / passcode / auth-device / audit / project management). |
 | `SessionStart` hook | Injects the step-up protocol primer (so the agent knows how to react to a deny) plus a carry-over notice if a step-up session survived a restart. Pure additive context — never blocks. |
 | `UserPromptSubmit` hook | Detects user "auth done" prompts (`"완료"`, `"done"`, …) and surfaces the pending `sid` so the agent can resume polling. |
@@ -69,7 +69,7 @@ Claude Code is the only host that ships **both** transports:
 
 Open source: [transcodes-guard](https://github.com/transcodings/transcodes-guard)
 
-When a `PreToolUse` deny fires with a reason mentioning **Step-up MFA**, the command was **blocked and did NOT run**. Claude Code auto-injects this protocol at `SessionStart`; drive the loop deterministically — do not wait for user confirmation before calling the wait tool:
+When a step-up deny fires with a reason mentioning **Step-up MFA**, the command was **blocked and did NOT run**. Claude Code auto-injects this protocol at `SessionStart`; drive the loop deterministically — do not wait for user confirmation before calling the wait tool:
 
 1. Tell the user (one short line) to complete WebAuthn in the auto-opened browser tab (use the URL from the deny message if it did not open).
 2. Immediately call the MCP tool **`tc_poll_stepup_session_wait`** with the provided `sid`. It blocks until verified or a 60s timeout — one call replaces manual polling. (The single-shot `tc_poll_stepup_session` is for diagnostics only.)

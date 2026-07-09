@@ -4,9 +4,9 @@
 
 > ⚠️ **Beta** — the Antigravity plugin is still in beta and may crash or misbehave; the install flow and APIs may change. For production use, prefer the **Claude Code** or **Codex** plugins, the stable supported hosts.
 
-Risky-shell interceptor (`PreToolUse` hook) and audit MCP server for Google Antigravity 2.0. Supports the desktop app (Antigravity 2.0) and the `agy` CLI.
+Risky-shell interceptor (gate hook) and audit MCP server for Google Antigravity 2.0. Supports the desktop app (Antigravity 2.0) and the `agy` CLI.
 
-Shares the same step-up MFA gate logic as the Claude Code and Codex plugins (`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`); the Antigravity-specific surface is a native hook adapter (`antigravityAdapter`) that speaks Antigravity's PreToolUse / PreInvocation / Stop wire format (top-level `decision`, nested `toolCall.name`/`toolCall.args` stdin, no `hookSpecificOutput` wrapper). The codex plugin's claudeCodeAdapter delegation pattern does **not** apply here.
+Shares the same step-up MFA gate logic as the Claude Code and Codex plugins (`@transcodes-guard/core/stepup`, `@transcodes-guard/core/server`); the Antigravity-specific surface is a native hook adapter (`antigravityAdapter`) that speaks Antigravity's gate / PreInvocation / Stop wire format (top-level `decision`, nested `toolCall.name`/`toolCall.args` stdin, no `hookSpecificOutput` wrapper). The codex plugin's claudeCodeAdapter delegation pattern does **not** apply here.
 
 ## Prerequisites
 
@@ -59,7 +59,7 @@ Antigravity has **two separate permission surfaces**. `install.mjs` auto-fixes o
 | **agy CLI** | `~/.gemini/antigravity-cli/settings.json` | When present: `toolPermission: "always-proceed"` → `"request-review"`; removes `command(*)`, `mcp(*)`, `unsandboxed(*)` from `permissions.allow`; warns on remaining `command`/`mcp`/`unsandboxed` allows and on `proceed-in-sandbox`. |
 | **Desktop app** | Settings → Advanced → Terminal (UI) | **Not modified.** Terminal Command Auto Execution (Off / Auto / **Turbo**) and Allow/Deny lists live in the desktop UI — no stable on-disk path in this repo yet. Avoid **Turbo** unless your Deny list is tight. |
 
-**Not fixable by install:** `agy --dangerously-skip-permissions` (session flag — do not use with transcodes-guard). PreToolUse hooks are wired in the plugin bundle (`hooks.json` matcher); file-edit tools outside the matcher stay ungated until you widen the matcher.
+**Not fixable by install:** `agy --dangerously-skip-permissions` (session flag — do not use with transcodes-guard). Gate hooks are wired in the plugin bundle (`hooks.json` matcher); file-edit tools outside the matcher stay ungated until you widen the matcher.
 
 Edit CLI settings interactively with `/config` or `/permissions` inside `agy`. Official docs: [CLI settings](https://antigravity.google/docs/cli/settings), [permissions](https://antigravity.google/docs/cli/permissions).
 
@@ -67,7 +67,7 @@ Edit CLI settings interactively with `/config` or `/permissions` inside `agy`. O
 
 | Component | Behaviour |
 |---|---|
-| `PreToolUse` hook (matcher: `run_command\|mcp_.*\|call_mcp_tool`) | Two-layer check on shell commands (regex patterns + `git ls-files` semantic on `rm -rf`) plus exact-match tool-rules on MCP calls. Denies and triggers a step-up MFA flow when matched. |
+| Gate hook (matcher: `run_command\|mcp_.*\|call_mcp_tool`) | Two-layer check on shell commands (regex patterns + `git ls-files` semantic on `rm -rf`) plus exact-match tool-rules on MCP calls. Denies and triggers a step-up MFA flow when matched. |
 | MCP server (`transcodes-guard`) | **Diagnostic / simulation** tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`); **step-up lifecycle** tools (`create_stepup_session`, `poll_stepup_session_wait`); **Transcodes admin** tools (member / organization / RBAC / membership / passcode / auth-device / audit / project management). |
 | `PreInvocation` hook | Plays two roles (Antigravity has no SessionStart / UserPromptSubmit). On `invocationNum=1` injects a static step-up MFA primer + any carry-over pending state. On any invocation, tails `transcript.jsonl` for the most recent user message and, if it matches the completion pattern, surfaces the pending `sid` so the agent can poll. |
 | `Stop` hook | Catches dangling step-up loops by injecting a reminder via `{ decision: "continue", reason }` (Antigravity re-enters the execution loop with the reason as a system message). Silently reaps orphan verified/pending records when state is clean. |
@@ -83,7 +83,7 @@ Edit CLI settings interactively with `/config` or `/permissions` inside `agy`. O
 
 ## Tool matcher scope
 
-The PreToolUse hook matcher is `run_command|mcp_.*|call_mcp_tool`, so it gates shell execution (`run_command`) **and** MCP tool calls (`mcp_*`). The `call_mcp_tool` arm catches lazy-loaded MCP calls that Antigravity dispatches through a generic wrapper — the adapter unwraps the real tool name from `args.ToolName` so tool-rules still match. File-edit tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) are **not** gated. To extend coverage, widen the matcher regex in `hooks.json` and register the matching tool rules in `packages/core/src/patterns/`.
+The hook matcher is `run_command|mcp_.*|call_mcp_tool`, so it gates shell execution (`run_command`) **and** MCP tool calls (`mcp_*`). The `call_mcp_tool` arm catches lazy-loaded MCP calls that Antigravity dispatches through a generic wrapper — the adapter unwraps the real tool name from `args.ToolName` so tool-rules still match. File-edit tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) are **not** gated. To extend coverage, widen the matcher regex in `hooks.json` and register the matching tool rules in `packages/core/src/patterns/`.
 
 ## Slash command: `/transcodes`
 
@@ -101,7 +101,7 @@ The installer copies the plugin's `skills/` directory into place; Antigravity au
 
 Open source: [transcodes-guard](https://github.com/transcodings/transcodes-guard)
 
-The step-up response protocol the agent must follow on a `PreToolUse` deny lives in [`rules/STEPUP.md`](./rules/STEPUP.md), which Antigravity auto-loads into the agent's working context (it scans every plugin's `rules/` directory). Read it there — it is the single source of truth for the runtime loop.
+The step-up response protocol the agent must follow on a step-up deny lives in [`rules/STEPUP.md`](./rules/STEPUP.md), which Antigravity auto-loads into the agent's working context (it scans every plugin's `rules/` directory). Read it there — it is the single source of truth for the runtime loop.
 
 ## Enabling / disabling
 
@@ -121,8 +121,8 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 
 ## Known limits
 
-- **CLI vs desktop** — `install.mjs` adjusts `~/.gemini/antigravity-cli/settings.json` only. Desktop Turbo/Allow list is manual. Whether `always-proceed` / Turbo skips **PreToolUse** hooks (not just UI prompts) is not fully e2e-validated in this repo.
-- **Subagent state sharing** is best-effort. A subagent's PreToolUse hook may receive a distinct `conversationId`; the shared state file is still the arbitration point, with backend sid-replay as backstop.
+- **CLI vs desktop** — `install.mjs` adjusts `~/.gemini/antigravity-cli/settings.json` only. Desktop Turbo/Allow list is manual. Whether `always-proceed` / Turbo skips **gate** hooks (not just UI prompts) is not fully e2e-validated in this repo.
+- **Subagent state sharing** is best-effort. A subagent's gate hook may receive a distinct `conversationId`; the shared state file is still the arbitration point, with backend sid-replay as backstop.
 - **Stop hook UX** with `decision: "continue"` (which prevents turn termination — the verb is inverted relative to Claude Code's `decision: "block"`) is pending broader e2e validation.
 
 ## Troubleshooting

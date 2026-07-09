@@ -119,7 +119,7 @@ MCP 서버 자체(`mcp.json`에 `transcodes-guard`로 등록)는 다른 플러�
 
 Cursor hook 계약은 어댑터가 캡슐화합니다(`packages/core/src/hosts/cursor.ts`):
 
-1. **평면형(flat) PreToolUse 출력** — `beforeShellExecution` / `beforeMCPExecution`이 공유하는 `dist/hooks/pre-tool-use.js`가 stdout에 `{ permission: "allow"|"deny", user_message?, agent_message?, updated_input? }`를 쓰고 `exit 0`. Claude Code의 `hookSpecificOutput.permissionDecision`이나 exit code `2`가 아님.
+1. **평면형(flat) 게이트 출력** — `beforeShellExecution` / `beforeMCPExecution`이 공유하는 `dist/hooks/pre-tool-use.js`가 stdout에 `{ permission: "allow"|"deny", user_message?, agent_message?, updated_input? }`를 쓰고 `exit 0`. Claude Code의 `hookSpecificOutput.permissionDecision`이나 exit code `2`가 아님.
 2. **Stop이 `followup_message` 사용** — Claude Code의 `{ decision: "block", reason }`과 의미는 같고 키 이름만 다름.
 3. **이벤트명 vs 스크립트 파일명** — Cursor 이벤트는 camelCase(`beforeSubmitPrompt`, `sessionStart`); 스크립트는 kebab-case. Claude Code의 `user-prompt-submit` 명명과 다름.
 

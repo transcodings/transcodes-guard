@@ -4,7 +4,7 @@
 
 ## Intro
 
-`transcodes-guard` is a PreToolUse-hook + MCP-server gate that intercepts risky shell commands (and protected MCP tool calls) from AI coding agents _right before execution_ and forces a Transcodes Step-up MFA (WebAuthn) challenge against the Transcodes backend. Only verified commands run.
+`transcodes-guard` is a host-hook + MCP-server gate that intercepts risky shell commands (and protected MCP tool calls) from AI coding agents _right before execution_ and forces a Transcodes Step-up MFA (WebAuthn) challenge against the Transcodes backend. Only verified commands run.
 
 It is one git repo with one shared core (npm workspaces) and four host plugins — Claude Code, Codex, Cursor, and Antigravity — each installed via its native mechanism. **Claude Code and Codex are stable and supported; Cursor and Antigravity are still in beta** (may crash or misbehave). The plugins are not distributed via npm; only the `transcodes` CLI is. The repo, product, and plugins are all named `transcodes-guard`.
 
@@ -120,7 +120,7 @@ Example:
 >
 > **Contributors / workspace-only install:** clone the repo and run `node plugins/antigravity/install.mjs --local` (copies into `<cwd>/.agents/plugins/transcodes-guard`).
 
-> Note: Antigravity's PreToolUse matcher is `run_command|mcp_.*|call_mcp_tool`, gating shell execution **and** MCP tool calls — including lazy-loaded calls that Antigravity routes through a generic `call_mcp_tool` wrapper (the adapter unwraps the real tool name from `args.ToolName`). File-edit tools (`write_to_file`, …) are not gated.
+> Note: Antigravity's hook matcher is `run_command|mcp_.*|call_mcp_tool`, gating shell execution **and** MCP tool calls — including lazy-loaded calls that Antigravity routes through a generic `call_mcp_tool` wrapper (the adapter unwraps the real tool name from `args.ToolName`). File-edit tools (`write_to_file`, …) are not gated.
 
 ### Cursor (Beta)
 
@@ -190,7 +190,7 @@ The member token is stored at `~/.transcodes/config.json`; the hooks and the MCP
 The core gate. The flow:
 
 1. An agent tries a Bash command (or a protected MCP tool call).
-2. The PreToolUse hook detects a danger pattern (regex + an `rm -rf` git-tracked semantic check) or a protected tool → it DENIES and surfaces a WebAuthn step-up URL.
+2. The gate hook detects a danger pattern (regex + an `rm -rf` git-tracked semantic check) or a protected tool → it DENIES and surfaces a WebAuthn step-up URL.
 3. The user completes WebAuthn in the browser → the agent confirms via the MCP tool `poll_stepup_session_wait` (a server-side long-poll).
 4. With a verified record, **re-running the same command** passes the hook. It is single-shot — the next danger command challenges again.
 
