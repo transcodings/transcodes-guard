@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.49.0...transcodes-guard-v0.49.1) (2026-07-09)
+
+
+### Bug Fixes
+
+* **core:** step-up deny에 evaluate 실패 원인 전파 ([#189](https://github.com/transcodings/transcodes-guard/issues/189) 클라이언트 수정) ([#190](https://github.com/transcodings/transcodes-guard/issues/190)) ([7133fc9](https://github.com/transcodings/transcodes-guard/commit/7133fc9aa4b58626a2992d6a96d7deb3c3d348dc))
+
 ## [0.49.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.48.0...transcodes-guard-v0.49.0) (2026-07-09)
 
 

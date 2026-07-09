@@ -17,8 +17,9 @@
  *    exits 0 with no JSON.
  *  - After classify, no token → `block-no-token` (fail-closed).
  *  - After classify, backend unreachable / unparseable → permission 2
- *    (step-up); a null verdict without a session becomes
- *    `block-stepup-create-failed`.
+ *    (step-up); a failed evaluate without a session becomes
+ *    `block-stepup-create-failed`, carrying the HTTP status / backend error
+ *    text in `failure.detail` so the deny is diagnosable (issue #189).
  */
 import { type RbacAction } from '../patterns/index.js';
 export interface ToolCallInput {
