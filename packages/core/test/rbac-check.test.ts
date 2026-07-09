@@ -171,7 +171,7 @@ describe('evaluateAction', () => {
         },
       ]);
 
-    const verdict = await evaluateAction(config(), {
+    const result = await evaluateAction(config(), {
       payload: {
         tool_name: 'Bash',
         tool_input: { command: 'mkdir temp4' },
@@ -181,7 +181,8 @@ describe('evaluateAction', () => {
       group: 's_group1',
     });
 
-    assert.deepEqual(verdict, {
+    assert.ok(result.ok);
+    assert.deepEqual(result.verdict, {
       permission: 2,
       resource: 'system',
       action: 'create',
@@ -214,15 +215,15 @@ describe('evaluateAction', () => {
         },
       ]);
 
-    const verdict = await evaluateAction(config(), {
+    const result = await evaluateAction(config(), {
       payload: { command: 'mkdir temp5' },
       group: 's_group1',
     });
 
-    assert.ok(verdict);
-    assert.equal(verdict.exist, true);
-    assert.equal(verdict.status, 'pending');
-    assert.equal(verdict.sid, 'tc_stepup_reused');
+    assert.ok(result.ok);
+    assert.equal(result.verdict.exist, true);
+    assert.equal(result.verdict.status, 'pending');
+    assert.equal(result.verdict.sid, 'tc_stepup_reused');
   });
 
   it('parses a level-1 allow verdict with no step-up fields', async () => {
@@ -238,11 +239,12 @@ describe('evaluateAction', () => {
         },
       ]);
 
-    const verdict = await evaluateAction(config(), {
+    const result = await evaluateAction(config(), {
       payload: { command: 'ls' },
     });
 
-    assert.deepEqual(verdict, {
+    assert.ok(result.ok);
+    assert.deepEqual(result.verdict, {
       permission: 1,
       resource: 'system',
       action: 'read',
@@ -263,12 +265,12 @@ describe('evaluateAction', () => {
         { permission: 1, resource: 'system', action: 'read', reasoning: '' },
       ]);
 
-    const verdict = await evaluateAction(config(), {
+    const result = await evaluateAction(config(), {
       payload: { command: 'ls' },
     });
 
-    assert.ok(verdict);
-    assert.equal(verdict.provider, null);
+    assert.ok(result.ok);
+    assert.equal(result.verdict.provider, null);
   });
 
   it('falls back to provider null on an unknown provider string', async () => {
@@ -283,15 +285,15 @@ describe('evaluateAction', () => {
         },
       ]);
 
-    const verdict = await evaluateAction(config(), {
+    const result = await evaluateAction(config(), {
       payload: { command: 'ls' },
     });
 
-    assert.ok(verdict);
-    assert.equal(verdict.provider, null);
+    assert.ok(result.ok);
+    assert.equal(result.verdict.provider, null);
   });
 
-  it('returns null when payload is missing (no envelope fallback)', async () => {
+  it('reports malformed when payload is missing (no envelope fallback)', async () => {
     respond = () => ({
       status: 200,
       body: {
@@ -302,10 +304,58 @@ describe('evaluateAction', () => {
       },
     });
 
-    const verdict = await evaluateAction(config(), {
+    const result = await evaluateAction(config(), {
       payload: { command: 'ls' },
     });
 
-    assert.equal(verdict, null);
+    assert.deepEqual(result, { ok: false, kind: 'malformed', status: 200 });
+  });
+
+  it('reports http failure with backend message and logId on non-2xx (#189)', async () => {
+    respond = () => ({
+      status: 404,
+      body: {
+        logId: '01JZLOG404',
+        success: false,
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'member not found',
+      },
+    });
+
+    const result = await evaluateAction(config(), {
+      payload: { command: 'ls' },
+    });
+
+    assert.deepEqual(result, {
+      ok: false,
+      kind: 'http',
+      status: 404,
+      message: 'member not found; logId=01JZLOG404',
+    });
+  });
+
+  it('reports network failure with status 0 when the backend is unreachable (#189)', async () => {
+    // Point at a closed port — fetch rejects (ECONNREFUSED) → envelope status 0.
+    const dead = createServer(() => {});
+    await new Promise<void>((resolve) => dead.listen(0, resolve));
+    const address = dead.address();
+    assert.ok(address && typeof address === 'object');
+    const deadUrl = `http://127.0.0.1:${address.port}`;
+    await new Promise<void>((resolve) => dead.close(() => resolve()));
+
+    const result = await evaluateAction(
+      {
+        ...config(),
+        backendUrl: deadUrl,
+        apiBaseV1: `${deadUrl}/v1`,
+      },
+      { payload: { command: 'ls' } },
+    );
+
+    assert.ok(!result.ok);
+    assert.equal(result.kind, 'network');
+    assert.equal(result.status, 0);
+    assert.ok(result.message);
   });
 });
