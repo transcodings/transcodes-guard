@@ -11,18 +11,40 @@
  *   body  { member_id, resource, action, project_id }
  *   reply { data: { payload: [ { permission: 0|1|2, resource, action } ] } }
  *
- * Returns `null` when the decision cannot be determined (network/parse
- * failure). Callers MUST fail-closed — treat `null` as step-up required (2),
- * never as allow.
+ * `checkRbacPermission` returns `null` when the decision cannot be determined
+ * (network/parse failure). `evaluateAction` instead returns a
+ * `GuardEvaluateFailure` carrying the HTTP status + backend error text, so the
+ * hook can surface WHY the gate failed (issue #189). Callers MUST fail-closed
+ * either way — treat any failure as step-up required (2), never as allow.
  */
 import { GUARD_PROVIDERS } from '../patterns/index.js';
 import { request } from './client.js';
+/** Pull human-readable failure text out of the backend error envelope. */
+function extractFailureMessage(data) {
+    if (!data || typeof data !== 'object')
+        return undefined;
+    const o = data;
+    const text = typeof o.message === 'string' && o.message.trim()
+        ? o.message.trim()
+        : Array.isArray(o.message) &&
+            o.message.length > 0 &&
+            o.message.every((m) => typeof m === 'string')
+            ? o.message.join('; ')
+            : typeof o.error === 'string' && o.error.trim()
+                ? o.error.trim()
+                : undefined;
+    const logId = typeof o.logId === 'string' && o.logId ? o.logId : undefined;
+    if (text && logId)
+        return `${text}; logId=${logId}`;
+    return text ?? (logId ? `logId=${logId}` : undefined);
+}
 /**
  * POST /v1/guard/evaluate — one round-trip: backend classifies the raw hook
  * payload, applies the matrix, and (for level 2) creates or reuses the grouped
  * step-up session keyed on `sid`. Every tool call (except built-in
- * transcodes-guard MCP) reaches this path. Returns null on any failure →
- * caller fails closed.
+ * transcodes-guard MCP) reaches this path. On any failure returns a
+ * `GuardEvaluateFailure` (never a verdict) → caller fails closed and surfaces
+ * the failure detail in the deny message.
  */
 export async function evaluateAction(config, body) {
     const env = await request(config, {
@@ -37,17 +59,28 @@ export async function evaluateAction(config, body) {
             sid: body.sid,
         },
     });
-    if (!env.ok)
-        return null;
+    if (!env.ok) {
+        return {
+            ok: false,
+            kind: env.status === 0 ? 'network' : 'http',
+            status: env.status,
+            message: extractFailureMessage(env.data),
+        };
+    }
+    const malformed = {
+        ok: false,
+        kind: 'malformed',
+        status: env.status,
+    };
     const data = env.data;
     const p = (Array.isArray(data?.payload) ? data.payload[0] : null);
     if (!p || typeof p !== 'object')
-        return null;
+        return malformed;
     const { permission, resource, action } = p;
     if (permission !== 0 && permission !== 1 && permission !== 2)
-        return null;
+        return malformed;
     if (typeof resource !== 'string' || typeof action !== 'string')
-        return null;
+        return malformed;
     const status = p.status === 'pending' || p.status === 'verified' || p.status === 'rejected'
         ? p.status
         : null;
@@ -57,17 +90,20 @@ export async function evaluateAction(config, body) {
         ? p.provider
         : null;
     return {
-        permission,
-        resource,
-        action,
-        reasoning: typeof p.reasoning === 'string' ? p.reasoning : '',
-        summary,
-        provider,
-        sid: typeof p.sid === 'string' ? p.sid : null,
-        url: typeof p.url === 'string' ? p.url : null,
-        expires_at: typeof p.expires_at === 'string' ? p.expires_at : null,
-        exist: p.exist === true,
-        status,
+        ok: true,
+        verdict: {
+            permission,
+            resource,
+            action,
+            reasoning: typeof p.reasoning === 'string' ? p.reasoning : '',
+            summary,
+            provider,
+            sid: typeof p.sid === 'string' ? p.sid : null,
+            url: typeof p.url === 'string' ? p.url : null,
+            expires_at: typeof p.expires_at === 'string' ? p.expires_at : null,
+            exist: p.exist === true,
+            status,
+        },
     };
 }
 function extractPermission(data, resource, action) {
