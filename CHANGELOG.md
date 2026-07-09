@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.48.0...transcodes-guard-v0.49.0) (2026-07-09)
+
+
+### Features
+
+* **cli:** refresh dashboard guideline video and OSS links ([04a1614](https://github.com/transcodings/transcodes-guard/commit/04a1614bae05b43a247b12ae9fcee449f6cccd89))
+
 ## [0.48.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.47.0...transcodes-guard-v0.48.0) (2026-07-08)
 
 
