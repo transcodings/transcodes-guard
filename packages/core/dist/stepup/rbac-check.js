@@ -19,6 +19,25 @@
  */
 import { GUARD_PROVIDERS } from '../patterns/index.js';
 import { request } from './client.js';
+/** Pull human-readable failure text out of the backend error envelope. */
+function extractFailureMessage(data) {
+    if (!data || typeof data !== 'object')
+        return undefined;
+    const o = data;
+    const text = typeof o.message === 'string' && o.message.trim()
+        ? o.message.trim()
+        : Array.isArray(o.message) &&
+            o.message.length > 0 &&
+            o.message.every((m) => typeof m === 'string')
+            ? o.message.join('; ')
+            : typeof o.error === 'string' && o.error.trim()
+                ? o.error.trim()
+                : undefined;
+    const logId = typeof o.logId === 'string' && o.logId ? o.logId : undefined;
+    if (text && logId)
+        return `${text}; logId=${logId}`;
+    return text ?? (logId ? `logId=${logId}` : undefined);
+}
 /**
  * The extracted text flows into the agent-facing deny message, and a hostile
  * or misbehaving intermediary (captive portal, corporate proxy) controls the
