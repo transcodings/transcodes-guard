@@ -128,7 +128,7 @@ export type GateDecision =
       reasoning?: string | undefined;
     }
   | {
-      /** Terminal: grouped challenge was rejected — stop polling, do not retry. */
+      /** Terminal: grouped challenge was rejected — skip this command; other work may continue. */
       kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED;
       block: BlockResult;
       resource: string;
@@ -389,7 +389,7 @@ export async function evaluatePreToolUse(
     };
   }
 
-  // ── Terminal: rejected — stop immediately (no poll loop, no retry nag) ───
+  // ── Terminal: rejected — end MFA for this command (skip; other work OK) ──
   if (verdict.status === 'rejected') {
     clearLatch(group, resource, action);
     return {

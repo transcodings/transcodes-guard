@@ -269,7 +269,7 @@ export async function evaluatePreToolUse(input) {
             reasoning: backendReasoning,
         };
     }
-    // ── Terminal: rejected — stop immediately (no poll loop, no retry nag) ───
+    // ── Terminal: rejected — end MFA for this command (skip; other work OK) ──
     if (verdict.status === 'rejected') {
         clearLatch(group, resource, action);
         return {

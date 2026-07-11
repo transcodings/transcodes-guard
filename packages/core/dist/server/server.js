@@ -170,11 +170,12 @@ export function createServer(backend = getGateBackend()) {
             'single-shot `tc_poll_stepup_session` — as the next action after a PreToolUse ' +
             'deny carrying a step-up sid. One call replaces the 60-iteration polling ' +
             'loop. On `outcome: "verified"` retry the original Bash command; on ' +
-            '`outcome: "timeout"` ask the user to complete WebAuthn and whether to ' +
-            'retry — only call this tool again if they say yes; on `outcome: "rejected"`, ' +
-            '`outcome: "not_found"`, or user stop/cancel stop — do NOT retry the command. ' +
-            'Do NOT ask the user to confirm completion before calling this tool — it waits ' +
-            "on the user's behalf. Outcome guidance is also in the first content block.",
+            '`outcome: "timeout"`, `outcome: "rejected"`, or `outcome: "not_found"` tell ' +
+            'the user this command did not run, skip the blocked command, and continue ' +
+            'other work — do NOT re-poll or retry the SAME command unless the user ' +
+            'explicitly asks to authenticate again. Do NOT ask the user to confirm ' +
+            'completion before calling this tool — it waits on the user\'s behalf. ' +
+            'Outcome guidance is also in the first content block.',
         inputSchema: {
             sid: z
                 .string()
@@ -204,7 +205,11 @@ export function createServer(backend = getGateBackend()) {
             backend.markStepupVerified(sid);
         }
         else if (result.outcome === 'rejected' ||
-            result.outcome === 'not_found') {
+            result.outcome === 'not_found' ||
+            result.outcome === 'timeout') {
+            // Terminal for this wait: drop latch so Stop-hook MFA reminders stop.
+            // Timeout leaves the backend session pending; a later explicit retry
+            // can still reuse it via evaluate.
             backend.clearLatchBySid(sid);
         }
         return {

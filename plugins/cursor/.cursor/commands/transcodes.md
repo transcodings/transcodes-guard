@@ -52,12 +52,11 @@ Drive the loop deterministically — **do NOT wait for user confirmation before 
 1. Tell the user (one short line) to complete WebAuthn in the opened tab (paste the URL from the deny message if it did not open).
 2. Immediately call MCP tool `tc_poll_stepup_session_wait` with the sid. It blocks until verified or 60s timeout.
 3. **verified** → retry the **same** blocked command.
-   **timeout** → ask the user to complete WebAuthn **and whether to retry**; only call the wait tool again if they say yes.
-   **rejected**, **not_found**, **stop**, or **cancel** → stop immediately; no retry or follow-up questions until the user explicitly asks.
-   Do not reopen auth tabs or re-poll after cancel (security fatigue).
+   **timeout**, **rejected**, or **not_found** → tell the user (one short line) this command did not run; **skip the blocked command**; **continue other work**.
+   Do NOT re-poll, reopen auth tabs, or retry the SAME blocked command unless the user explicitly asks to authenticate again.
+   Do not invent an alternate command that works around the blocked action.
 
-**Never** assume the blocked command ran. **Never** invent an alternative command.
-Always resume from the pending sid the hook reported.
+**Never** assume the blocked command ran. Always resume from the pending sid the hook reported when driving the wait loop.
 
 TOOL CATALOG — all 52 MCP tools + 2 resources on transcodes-guard. Match the user request to a workflow MENU item above OR to an exact tool/resource below, then call it by its exact name.
 

@@ -107,7 +107,7 @@ MCP 서버 자체(`mcp.json`에 `transcodes-guard`로 등록)는 다른 플러�
 
 1. 자동으로 열린 브라우저 탭에서 WebAuthn을 완료하라고 사용자에게 한 줄로 알립니다(탭이 열리지 않았으면 차단 메시지의 URL 사용).
 2. 즉시 MCP 도구 **`tc_poll_stepup_session_wait`**를 제공된 `sid`로 호출합니다. verified 되거나 60초 타임아웃까지 블록됩니다.
-3. **`outcome: "verified"`**면 **원래 차단된 명령**을 재시도합니다. **`outcome: "timeout"`**이면 WebAuthn 완료 여부와 **재시도할지** 사용자에게 묻고, yes일 때만 wait 도구를 다시 호출합니다. **`outcome: "rejected"`**, **`not_found`**, 또는 사용자 **stop/cancel**이면 즉시 중단 — 사용자가 명시적으로 요청하기 전까지 재시도하지 마세요. 취소 후 auth 탭 재오픈·재폴링 금지(security fatigue).
+3. **`outcome: "verified"`**면 **원래 차단된 명령**을 재시도합니다. **`outcome: "timeout"`**, **`rejected`**, 또는 **`not_found`**이면 사용자에게 한 줄로 이 명령이 실행되지 않았다고 알리고, **차단된 명령은 skip**한 뒤 **나머지 작업을 계속**하세요. 사용자가 다시 인증·재시도를 명시적으로 요청하기 전까지 같은 차단 명령을 재시도하거나 재폴링·auth 탭 재오픈을 하지 마세요. 차단된 동작을 우회하는 대체 명령을 만들지 마세요.
 
 차단된 명령이 실행됐다고 가정하지 마세요. 대체 명령을 임의로 만들지 마세요. 항상 대기 중 `sid`에서 이어가세요. `tc_inspect_stepup_state`로 읽기 전용 스냅샷을 확인하세요. Cursor에서는 `beforeSubmitPrompt`에 컨텍스트 채널이 없고 스텝업 완료를 ack하지 않으므로, 사용자 "완료" 메시지가 아니라 `tc_poll_stepup_session_wait`에 의존하세요.
 

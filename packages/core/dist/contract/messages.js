@@ -129,17 +129,17 @@ export function formatStepupChallengedSystemMessage(decision) {
         `  2. Immediately call the MCP tool \`tc_poll_stepup_session_wait\` with sid="${decision.sid}". ` +
             'It blocks until verified or 60s timeout — one call replaces the polling loop.',
         '  3. On `outcome: "verified"` retry the SAME Bash command — the hook detects the ' +
-            'verified state and allows it. On `outcome: "timeout"` ask the user to complete ' +
-            'WebAuthn and whether to retry; only call the wait tool again if they say yes. ' +
-            'On `outcome: "rejected"` or ' +
-            '`outcome: "not_found"` stop — the user declined or abandoned step-up; ' +
-            'do NOT retry the command unless they explicitly ask.',
+            'verified state and allows it. On `outcome: "timeout"`, `outcome: "rejected"`, or ' +
+            '`outcome: "not_found"`: tell the user in one short line that this command did not run; ' +
+            'skip the blocked command; continue other work. Do NOT re-poll, reopen auth tabs, or ' +
+            'retry the SAME blocked command unless the user explicitly asks to authenticate again. ' +
+            'Do NOT invent an alternate command that works around the blocked action.',
     ].join('\n'), decision.reasoning);
 }
 export function formatStepupRejectedReason(decision) {
-    return ('Step-up MFA was declined. Tell the user this command did not run. Do not ' +
-        'retry or poll unless they explicitly ask to authenticate again ' +
-        `(${decision.resource}/${decision.action}).`);
+    return ('Step-up MFA was declined. Tell the user this command did not run, skip it, ' +
+        'and continue other work. Do not retry or poll unless they explicitly ask to ' +
+        `authenticate again (${decision.resource}/${decision.action}).`);
 }
 /**
  * Static step-up loop primer for session-start / AGENTS.md / STEPUP.md / skills.
@@ -159,22 +159,22 @@ export function formatStepupProtocolPrimer() {
         '  2. Immediately call MCP tool `tc_poll_stepup_session_wait` with the sid.',
         '     It blocks until verified or 60s timeout.',
         '  3. verified → retry the SAME blocked command.',
-        '     timeout → ask the user to complete WebAuthn and whether to retry;',
-        '     only call the wait tool again if they say yes.',
-        '     rejected, not_found, stop, or cancel → stop immediately;',
-        '     no retry or follow-up questions until the user explicitly asks.',
-        '  Do not reopen auth tabs or re-poll after cancel (security fatigue).',
+        '     timeout, rejected, or not_found → tell the user (one short line) this',
+        '     command did not run; skip the blocked command; continue other work.',
+        '     Do NOT re-poll, reopen auth tabs, or retry the SAME blocked command',
+        '     unless the user explicitly asks to authenticate again.',
+        '  Do not invent an alternate command that works around the blocked action.',
         '',
-        'Never assume the blocked command ran. Never invent an alternative command.',
-        'Always resume from the pending sid the hook reported.',
+        'Never assume the blocked command ran. Always resume from the pending sid',
+        'the hook reported when driving the wait loop.',
     ].join('\n');
 }
 export function formatPollStepupSessionWaitAgentContext() {
     return [
         'verified → retry the same blocked command.',
-        'timeout → ask the user to complete WebAuthn and whether to retry; only call this tool again if they say yes.',
-        'rejected, not_found, stop, or cancel → stop immediately; no retry or follow-up questions until the user explicitly asks.',
-        'Do not reopen auth tabs or re-poll after cancel (security fatigue).',
+        'timeout, rejected, or not_found → tell the user (one short line) this command did not run; skip the blocked command; continue other work.',
+        'Do NOT re-poll, reopen auth tabs, or retry the SAME blocked command unless the user explicitly asks to authenticate again.',
+        'Do not invent an alternate command that works around the blocked action.',
     ].join('\n');
 }
 export function formatStepupRejectedSystemMessage(decision) {
@@ -187,18 +187,17 @@ export function formatStepupRejectedSystemMessage(decision) {
         '',
         'The user rejected WebAuthn for this grouped step-up challenge.',
         '',
-        'Agent — stop the step-up loop (do this now):',
+        'Agent — end the step-up loop, then continue other work:',
         '  1. Tell the user in one short line that step-up MFA was declined ' +
             'and this command did not run.',
         '  2. Do NOT call `tc_poll_stepup_session_wait` or `tc_poll_stepup_session` — ' +
-            'the challenge is terminal.',
-        '  3. Do NOT retry this command or run alternate Bash/MCP tools to work ' +
-            'around the block in this turn.',
-        '  4. Wait for the user. Only start step-up again if they explicitly ask ' +
-            'to authenticate and retry.',
+            'the challenge is terminal for this command.',
+        '  3. Skip this blocked command. Do NOT retry it or invent an alternate ' +
+            'command that works around the block.',
+        '  4. Continue other unrelated work in the plan. Only start step-up again ' +
+            'for this command if the user explicitly asks to authenticate and retry.',
         '',
-        'Protocol: rejected is terminal — do not retry commands or poll tools until ' +
-            'the user explicitly asks.',
+        'Protocol: rejected ends MFA for this command only — skip it and continue.',
         'Security fatigue: do not reopen auth tabs or nag for MFA after a decline.',
     ].join('\n'), decision.reasoning);
 }

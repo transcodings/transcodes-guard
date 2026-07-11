@@ -166,7 +166,7 @@ export async function pollStepupSession(
 export type WaitStepupResult = {
   /** Last poll's envelope — useful for diagnostics. */
   envelope: Envelope;
-  /** verified = continue work; rejected/not_found = terminal; timeout = re-poll. */
+  /** verified = continue work; rejected/not_found/timeout = skip blocked command, continue other work. */
   outcome: 'verified' | 'rejected' | 'not_found' | 'timeout';
   /** Total elapsed time in ms across all polls. */
   elapsedMs: number;

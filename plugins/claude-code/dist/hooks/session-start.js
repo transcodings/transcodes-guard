@@ -6,7 +6,7 @@ import {
   formatNoTokenSessionNotice,
   formatStepupProtocolPrimer,
   getGateBackend
-} from "../chunk-DLE5SBUJ.js";
+} from "../chunk-2SLPEH5E.js";
 
 // src/version.ts
 var PLUGIN_VERSION = "0.49.2";

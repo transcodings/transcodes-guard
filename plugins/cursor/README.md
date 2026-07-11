@@ -107,7 +107,7 @@ When a `beforeShellExecution` / `beforeMCPExecution` hook denies with a reason m
 
 1. Tell the user (one short line) to complete WebAuthn in the auto-opened browser tab (use the URL from the deny message if it did not open).
 2. Immediately call the MCP tool **`tc_poll_stepup_session_wait`** with the provided `sid`. It blocks until verified or a 60s timeout.
-3. On **`outcome: "verified"`**, retry the **original blocked command** — the hook detects the verified state locally and allows it. On **`outcome: "timeout"`**, ask the user to complete WebAuthn **and whether to retry**; only call the wait tool again if they say yes. On **`outcome: "rejected"`**, **`not_found`**, or user **stop/cancel**, stop immediately — do not retry until the user explicitly asks. Do not reopen auth tabs or re-poll after cancel (security fatigue).
+3. On **`outcome: "verified"`**, retry the **original blocked command** — the hook detects the verified state locally and allows it. On **`outcome: "timeout"`**, **`rejected`**, or **`not_found`**, tell the user (one short line) this command did not run; **skip the blocked command**; **continue other work**. Do NOT re-poll, reopen auth tabs, or retry the SAME blocked command unless the user explicitly asks to authenticate again. Do not invent an alternate command that works around the blocked action.
 
 Never assume the blocked command ran. Never invent an alternative. Always resume from the pending `sid`. Use `tc_inspect_stepup_state` for a read-only snapshot. On Cursor, `beforeSubmitPrompt` has no context channel and does not ack step-up completion — rely on `tc_poll_stepup_session_wait`, not a user "done" message.
 
