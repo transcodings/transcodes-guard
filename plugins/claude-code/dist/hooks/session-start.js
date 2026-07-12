@@ -6,10 +6,10 @@ import {
   formatNoTokenSessionNotice,
   formatStepupProtocolPrimer,
   getGateBackend
-} from "../chunk-RXUP7P3H.js";
+} from "../chunk-7SI7RF4S.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.51.0";
+var PLUGIN_VERSION = "0.52.0";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = formatStepupProtocolPrimer();
