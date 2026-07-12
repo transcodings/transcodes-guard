@@ -38,7 +38,7 @@ const DEFAULT_PORT = 3847;
 const HOST = '127.0.0.1';
 /** Temporary Mux playback id for the Guideline onboarding video. */
 const GUIDELINE_MUX_PLAYBACK_ID =
-  '01Q02da00mR6xobESjn2KHOz31eGX3OUS01xoc025RKQxsR4';
+  'h1vOCPmFDA02fGhcout01FZWD4lpKNTzLFk7vybxvrc3M';
 
 type TokenEntry = {
   /** Short fingerprint — used as the client-side id so full JWTs need not be
@@ -421,6 +421,12 @@ function dashboardHtml(): string {
       color: var(--muted);
       margin: 0 0 16px;
     }
+    .section-sub a {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .section-sub a:hover { text-decoration: underline; }
     .cli-map-row {
       display: flex;
       align-items: center;
@@ -1312,36 +1318,15 @@ function dashboardHtml(): string {
             <li class="guide-step">
               <span class="guide-step-num">1</span>
               <div class="guide-step-body">
-                <p class="guide-step-title">Create a project</p>
-                <p class="guide-step-desc">Create a new project for your app</p>
+                <p class="guide-step-title">Set up project, auth cluster &amp; member</p>
+                <p class="guide-step-desc">Create a project, add an authentication cluster for how members sign in, then invite or add a member so they can be issued an access token</p>
               </div>
             </li>
             <li class="guide-step">
               <span class="guide-step-num">2</span>
               <div class="guide-step-body">
-                <p class="guide-step-title">Create an authentication cluster</p>
-                <p class="guide-step-desc">Add an authentication cluster to define how members sign in and authenticate</p>
-              </div>
-            </li>
-            <li class="guide-step">
-              <span class="guide-step-num">3</span>
-              <div class="guide-step-body">
-                <p class="guide-step-title">Add a member</p>
-                <p class="guide-step-desc">Invite or add a member so they can be issued an access token</p>
-              </div>
-            </li>
-            <li class="guide-step">
-              <span class="guide-step-num">4</span>
-              <div class="guide-step-body">
                 <p class="guide-step-title">Issue an access token</p>
                 <p class="guide-step-desc">Open the member detail page and issue a Member Access Token (MAT) for the agent</p>
-              </div>
-            </li>
-            <li class="guide-step">
-              <span class="guide-step-num">5</span>
-              <div class="guide-step-body">
-                <p class="guide-step-title">Configure RBAC</p>
-                <p class="guide-step-desc">In Role Management, add resources (key, name, description), create roles, and set the permission matrix — 0 deny · 1 allow · 2 step-up MFA</p>
               </div>
             </li>
           </ol>
@@ -1351,17 +1336,17 @@ function dashboardHtml(): string {
           <p class="guide-group-label">This CLI panel</p>
           <ol class="guide-steps">
             <li class="guide-step">
-              <span class="guide-step-num">6</span>
+              <span class="guide-step-num">3</span>
               <div class="guide-step-body">
                 <p class="guide-step-title">Save the token</p>
                 <p class="guide-step-desc">Paste the token in the Tokens tab with a label (e.g. <code>transcodes-myapp-dev</code>) — the plugin reads it from <code>{{HOME_DIR}}/.transcodes/config.json</code></p>
               </div>
             </li>
             <li class="guide-step">
-              <span class="guide-step-num">7</span>
+              <span class="guide-step-num">4</span>
               <div class="guide-step-body">
-                <p class="guide-step-title">View RBAC (read-only)</p>
-                <p class="guide-step-desc">Open the RBAC tab to inspect resources and role permission matrices. Create, update, and delete stay in the Transcodes app — click the logo or Transcodes at the top</p>
+                <p class="guide-step-title">Configure &amp; view RBAC</p>
+                <p class="guide-step-desc">In the Transcodes app Role Management, add resources (key, name, description), create roles, and set the permission matrix — 0 deny · 1 allow · 2 step-up MFA. Then open the RBAC tab here to inspect them read-only — create, update, and delete stay in the app (logo or Transcodes at the top)</p>
               </div>
             </li>
           </ol>
@@ -1371,7 +1356,7 @@ function dashboardHtml(): string {
           <a class="guide-group-label" href="${TRANSCODES_GUARD_REPO_URL}" target="_blank" rel="noopener noreferrer">LLM Agent or Admin Back Office<span class="guide-group-link-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span></a>
           <ol class="guide-steps">
             <li class="guide-step">
-              <span class="guide-step-num">8</span>
+              <span class="guide-step-num">5</span>
               <div class="guide-step-body">
                 <p class="guide-step-title">Add the transcodes-guard plugin</p>
                 <p class="guide-step-desc">Install the transcodes-guard plugin on Claude, Codex, Cursor (beta), and Antigravity (beta). For more plugins info, visit the repository</p>
@@ -1384,10 +1369,21 @@ function dashboardHtml(): string {
               </div>
             </li>
             <li class="guide-step">
-              <span class="guide-step-num">9</span>
+              <span class="guide-step-num">6</span>
               <div class="guide-step-body">
                 <p class="guide-step-title">Prompt-driven permissions</p>
-                <p class="guide-step-desc">Once installed, Transcodes AI interprets the prompts you send using the role, resource, and action settings you configured and enforces permissions accordingly</p>
+                <p class="guide-step-desc">Once installed, when you give the agent a command, Transcodes AI interprets the prompt using the role, resource, and action settings you configured and determines the permission — deny, allow, or step-up MFA</p>
+              </div>
+            </li>
+            <li class="guide-step">
+              <span class="guide-step-num">7</span>
+              <div class="guide-step-body">
+                <p class="guide-step-title">Ask the agent for log history</p>
+                <p class="guide-step-desc">After setup, ask your installed AI agent — such as Claude, ChatGPT, or Antigravity — to pull member audit / security log history. Transcodes AI maps the prompt to the right resource and enforces RBAC</p>
+                <div class="guide-help-examples">
+                  <code class="cli-cmd">/transcodes show log history for the past 2 weeks</code>
+                  <code class="cli-cmd">/transcodes summarize member audit logs for the past 2 weeks</code>
+                </div>
               </div>
             </li>
           </ol>
@@ -1465,7 +1461,7 @@ function dashboardHtml(): string {
         <button type="button" class="tab" data-rbac="roles" role="tab">Roles</button>
       </div>
       <div class="rbac-pane active" id="rbac-pane-resources">
-        <p class="section-sub">Configure resources, roles, and permissions directly in the Transcodes app. Click the logo or Transcodes at the top.</p>
+        <p class="section-sub">Configure resources, roles, and permissions. <a href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Edit RBAC permissions</a></p>
         <div class="rbac-table-wrap">
           <table class="rbac-table" id="resources-table">
             <thead><tr><th>Resource</th><th>Description</th></tr></thead>
@@ -1474,7 +1470,7 @@ function dashboardHtml(): string {
         </div>
       </div>
       <div class="rbac-pane" id="rbac-pane-roles">
-        <p class="section-sub">Select a role to view its permission matrix</p>
+        <p class="section-sub">Select a role to view its permission matrix · <a href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Configure RBAC permissions</a></p>
         <div class="role-picker" id="role-picker"></div>
         <div id="matrix-wrap" hidden>
           <p class="list-label" id="matrix-role-label"></p>
