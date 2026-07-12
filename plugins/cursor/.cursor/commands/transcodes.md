@@ -52,7 +52,9 @@ Drive the loop deterministically — **do NOT wait for user confirmation before 
 1. Tell the user (one short line) to complete WebAuthn in the opened tab (paste the URL from the deny message if it did not open).
 2. Immediately call MCP tool `tc_poll_stepup_session_wait` with resource+action from the deny (sid optional). Waits up to ~5 min (session TTL) until verified or timeout.
 3. **verified** → retry the **same** blocked command.
-   **timeout** → decline wiped, TTL expired, or wait ended; skip this command and continue other work. Remint only if the user explicitly asks.
+   **timeout**, **rejected**, or **not_found** → tell the user (one short line) this command did not run; **skip the blocked command**; **continue other work**.
+   Do NOT re-poll, reopen auth tabs, or retry the SAME blocked command unless the user explicitly asks to authenticate again.
+   Do not invent an alternate command that works around the blocked action.
 4. If the user says **stop** / **cancel** / **skip** at any time, abort this command and continue other work — do not keep waiting.
 
 **Never** assume the blocked command ran. **Never** invent an alternative command.

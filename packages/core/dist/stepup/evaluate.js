@@ -252,7 +252,7 @@ export async function evaluatePreToolUse(input) {
             reasoning: backendReasoning,
         };
     }
-    // Reject wipes Redis — evaluate should not see status=rejected. Keep as safety.
+    // Reject normally wipes Redis; keep this terminal skip path as a safety.
     if (verdict.status === 'rejected') {
         return {
             kind: GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED,

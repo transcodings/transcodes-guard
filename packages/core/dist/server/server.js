@@ -185,11 +185,13 @@ export function createServer(backend = getGateBackend()) {
     });
     server.registerTool('tc_poll_stepup_session_wait', {
         title: 'Wait for Step-up MFA Session',
-        description: 'Block until the step-up session reaches `verified` or `timeout` ' +
+        description: 'Block until the step-up session reaches `verified`, `rejected`, `not_found`, or ' +
+            'the wait window elapses ' +
             '(default wait ~5 min, matching Redis TTL; poll every 1s). Prefer resource+action from the ' +
             'PreToolUse deny payload (coordinate poll). Optional sid still works. On verified retry ' +
-            'the original command; on timeout (decline wiped caches, TTL expired, or wait ended) ' +
-            'skip this command and continue other work — remint only if the user asks. ' +
+            'the original command; on timeout, rejected, or not_found tell the user this command ' +
+            'did not run, skip it, and continue other work. Do NOT re-poll or retry the SAME command ' +
+            'unless the user explicitly asks to authenticate again. ' +
             'If the user says stop/cancel/skip at any time, abort this command and continue other work.',
         inputSchema: {
             sid: z
@@ -244,6 +246,15 @@ export function createServer(backend = getGateBackend()) {
         });
         if (result.outcome === 'verified' && result.sid) {
             backend.markStepupVerified(result.sid);
+        }
+        else if (result.sid &&
+            (result.outcome === 'rejected' ||
+                result.outcome === 'not_found' ||
+                result.outcome === 'timeout')) {
+            // Terminal for this wait: drop latch so Stop-hook MFA reminders stop.
+            // Timeout leaves the backend session pending; a later explicit retry
+            // can still reuse it via evaluate.
+            backend.clearLatchBySid(result.sid);
         }
         return {
             content: [

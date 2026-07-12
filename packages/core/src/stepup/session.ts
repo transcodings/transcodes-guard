@@ -197,8 +197,8 @@ export async function pollStepupByCoordinate(
 export type WaitStepupResult = {
   /** Last poll's envelope — useful for diagnostics. */
   envelope: Envelope;
-  /** verified = retry command; timeout = skip (decline, TTL, or wait ended). */
-  outcome: 'verified' | 'rejected' | 'timeout';
+  /** verified = continue work; rejected/not_found/timeout = skip blocked command, continue other work. */
+  outcome: 'verified' | 'rejected' | 'not_found' | 'timeout';
   /** Total elapsed time in ms across all polls. */
   elapsedMs: number;
   /** Number of poll requests issued. */

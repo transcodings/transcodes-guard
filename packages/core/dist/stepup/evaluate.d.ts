@@ -103,7 +103,7 @@ export type GateDecision = {
     action: string;
     reasoning?: string | undefined;
 } | {
-    /** Terminal: grouped challenge was rejected — stop polling, do not retry. */
+    /** Terminal: grouped challenge was rejected — skip this command; other work may continue. */
     kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED;
     block: BlockResult;
     resource: string;

@@ -16,7 +16,7 @@ import {
   formatStepupRejectedReason,
   formatStepupRejectedSystemMessage,
   getGateBackend
-} from "../chunk-5ZKWMDQ2.js";
+} from "../chunk-RIRDUK5W.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";

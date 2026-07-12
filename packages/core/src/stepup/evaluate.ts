@@ -119,7 +119,7 @@ export type GateDecision =
       reasoning?: string | undefined;
     }
   | {
-      /** Terminal: grouped challenge was rejected — stop polling, do not retry. */
+      /** Terminal: grouped challenge was rejected — skip this command; other work may continue. */
       kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED;
       block: BlockResult;
       resource: string;
@@ -365,7 +365,7 @@ export async function evaluatePreToolUse(
     };
   }
 
-  // Reject wipes Redis — evaluate should not see status=rejected. Keep as safety.
+  // Reject normally wipes Redis; keep this terminal skip path as a safety.
   if (verdict.status === 'rejected') {
     return {
       kind: GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED,
