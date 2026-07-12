@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.52.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.51.0...transcodes-guard-v0.52.0) (2026-07-12)
+
+
+### Features
+
+* **stepup:** skip blocked command and continue after decline or timeout ([b7b099d](https://github.com/transcodings/transcodes-guard/commit/b7b099defd69016d50aed1a8bb8a323f29e1aa07))
+
+
+### Documentation
+
+* **cli:** tighten guideline quick-setup and RBAC console links ([3a64b1a](https://github.com/transcodings/transcodes-guard/commit/3a64b1ade0e6b059b21e47bff481357c9f7f4757))
+
 ## [0.51.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.50.0...transcodes-guard-v0.51.0) (2026-07-12)
 
 
