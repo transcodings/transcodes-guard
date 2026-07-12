@@ -80,7 +80,7 @@ async function main(): Promise<void> {
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
-      // Browser launch + latch already handled in evaluatePreToolUse.
+      // Browser launch already handled in evaluatePreToolUse (exist:false only).
       process.stdout.write(
         antigravityAdapter.emitPreToolUse({
           kind: 'deny',

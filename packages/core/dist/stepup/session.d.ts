@@ -30,7 +30,7 @@ export type CreatedStepupSession = {
 };
 export type PollStepupResult = {
     envelope: Envelope;
-    /** pending | verified | rejected | not_found (session expired / missing). */
+    /** pending | verified | rejected | timeout (expired / missing / wait ended). */
     status?: string | undefined;
 };
 /** MCP / hook step-up — POST .../step-up/session (mode fixed server-side). */
@@ -38,25 +38,41 @@ export declare function createStepupSession(config: StepupConfig, args: CreateSt
 /** Console auth-host session — same endpoint as Toolkit `redirectToConsole()`. */
 export declare function createConsoleBrowserSession(config: StepupConfig, args?: CreateConsoleSessionArgs): Promise<CreatedStepupSession>;
 export declare function pollStepupSession(config: StepupConfig, sid: string): Promise<PollStepupResult>;
+/**
+ * Resolve live step-up status by member-scoped RBAC coordinate (MAT auth).
+ * Prefer this when the agent has resource/action from the deny payload and
+ * may not retain sid.
+ */
+export declare function pollStepupByCoordinate(config: StepupConfig, coordinate: {
+    resource: string;
+    action: string;
+}): Promise<PollStepupResult & {
+    sid?: string;
+}>;
 export type WaitStepupResult = {
     /** Last poll's envelope — useful for diagnostics. */
     envelope: Envelope;
-    /** verified = continue work; rejected/not_found = terminal; timeout = re-poll. */
-    outcome: 'verified' | 'rejected' | 'not_found' | 'timeout';
+    /** verified = retry command; timeout = skip (decline, TTL, or wait ended). */
+    outcome: 'verified' | 'rejected' | 'timeout';
     /** Total elapsed time in ms across all polls. */
     elapsedMs: number;
     /** Number of poll requests issued. */
     attempts: number;
+    /** Resolved session id (from sid arg or coordinate lookup). */
+    sid?: string;
+};
+export type WaitStepupTarget = {
+    sid?: string;
+    resource?: string;
+    action?: string;
 };
 /**
  * Block until step-up is verified or the wait window elapses.
  *
- * Replaces the agent-driven 60-call polling loop with a single, deterministic
- * tool call: caller invokes once, awaits resolution. Polling cadence and
- * timeout live in this server-side function so the agent has no chance to
- * silently shorten or skip the loop.
+ * Prefer `{ resource, action }` (coordinate poll). Optional `sid` skips the
+ * coordinate lookup and hits `GET .../session/:sid` directly.
  */
-export declare function pollStepupSessionWait(config: StepupConfig, sid: string, options?: {
+export declare function pollStepupSessionWait(config: StepupConfig, target: WaitStepupTarget | string, options?: {
     maxWaitMs?: number;
     intervalMs?: number;
 }): Promise<WaitStepupResult>;

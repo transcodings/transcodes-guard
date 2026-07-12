@@ -1,16 +1,5 @@
 #!/usr/bin/env node
-import {
-  cursorAdapter
-} from "../chunk-KAHLTTIE.js";
-import {
-  MAX_STOP_REMINDERS,
-  formatStopReminderMessage,
-  incrementLatchRemindedCount,
-  listLatches,
-  peekPromptGroup,
-  readLatchRecord,
-  sweepLatches
-} from "../chunk-FO5D4T7W.js";
+import "../chunk-42QPN56O.js";
 
 // hooks/stop.ts
 async function main() {
@@ -18,16 +7,6 @@ async function main() {
     for await (const _chunk of process.stdin) {
     }
   } catch {
-  }
-  sweepLatches();
-  const promptGroup = peekPromptGroup();
-  const pending = promptGroup ? listLatches().find((l) => !l.expired && l.group === promptGroup) : void 0;
-  const rec = pending && readLatchRecord(pending.group, pending.resource, pending.action);
-  if (rec && (rec.remindedCount ?? 0) < MAX_STOP_REMINDERS) {
-    process.stdout.write(
-      cursorAdapter.emitStop(formatStopReminderMessage(rec))
-    );
-    incrementLatchRemindedCount(rec.group, rec.resource, rec.action);
   }
   process.exit(0);
 }

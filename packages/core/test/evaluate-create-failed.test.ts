@@ -17,7 +17,6 @@ import { rmSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { formatStepupCreateFailedReason } from '../src/contract/messages.js';
-import { rotatePromptGroup } from '../src/stepup/sid.js';
 import {
   makeHomeSandbox,
   startJsonBackend,
@@ -72,7 +71,6 @@ describe('external MCP step-up deny diagnosability (#189)', () => {
 
   beforeEach(() => {
     home = makeHomeSandbox('evaluate-189-');
-    rotatePromptGroup();
   });
 
   afterEach(() => {

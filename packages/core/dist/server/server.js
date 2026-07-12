@@ -128,26 +128,45 @@ export function createServer(backend = getGateBackend()) {
     server.registerTool('tc_poll_stepup_session', {
         title: 'Poll Step-up MFA Session',
         description: "Single GET against the step-up backend. Returns status 'pending', " +
-            "'verified', or 'rejected'. On verified the result is cached cross-platform " +
-            'so a subsequent danger command in the hook can pass without re-prompting. ' +
-            'On rejected the local pending record is cleared so Stop hooks stop reminding. ' +
-            'Prefer `tc_poll_stepup_session_wait` for the deny-recovery loop — it ' +
-            'blocks until a terminal status in one call instead of requiring 60 manual ' +
-            'iterations.',
+            "'verified', or 'rejected'. Prefer resource+action (coordinate poll); " +
+            'sid remains supported. Prefer `tc_poll_stepup_session_wait` for the ' +
+            'deny-recovery loop.',
         inputSchema: {
             sid: z
                 .string()
                 .min(1)
-                .describe('Session id returned from tc_create_stepup_session.'),
+                .optional()
+                .describe('Optional tc_stepup_… from the deny payload.'),
+            resource: z
+                .string()
+                .min(1)
+                .optional()
+                .describe('RBAC resource from the deny payload.'),
+            action: z
+                .string()
+                .min(1)
+                .optional()
+                .describe('RBAC action from the deny payload.'),
         },
-    }, async ({ sid }) => {
-        const result = await backend.pollStepupSession(sid);
-        if (result.status === 'verified') {
-            backend.markStepupVerified(sid);
+    }, async ({ sid, resource, action }) => {
+        const trimmedSid = sid?.trim();
+        const trimmedResource = resource?.trim();
+        const trimmedAction = action?.trim();
+        if (!trimmedSid && !(trimmedResource && trimmedAction)) {
+            throw new Error('Provide sid, or both resource and action.');
         }
-        else if (result.status === 'rejected' ||
-            result.status === 'not_found') {
-            backend.clearLatchBySid(sid);
+        const result = trimmedSid
+            ? await backend.pollStepupSession(trimmedSid)
+            : await backend.pollStepupByCoordinate({
+                resource: trimmedResource,
+                action: trimmedAction,
+            });
+        const resolvedSid = trimmedSid ??
+            ('sid' in result && typeof result.sid === 'string'
+                ? result.sid
+                : undefined);
+        if (result.status === 'verified' && typeof resolvedSid === 'string') {
+            backend.markStepupVerified(resolvedSid);
         }
         return {
             content: [
@@ -157,6 +176,7 @@ export function createServer(backend = getGateBackend()) {
                         ok: result.envelope.ok,
                         status: result.envelope.status,
                         step_status: result.status,
+                        sid: resolvedSid,
                         raw: result.envelope.data,
                     }, null, 2),
                 },
@@ -165,28 +185,35 @@ export function createServer(backend = getGateBackend()) {
     });
     server.registerTool('tc_poll_stepup_session_wait', {
         title: 'Wait for Step-up MFA Session',
-        description: 'Block until the step-up session reaches `verified`, `rejected`, `not_found`, or the ' +
-            'wait window elapses (default 60s, polling every 1s). Use this — NOT the ' +
-            'single-shot `tc_poll_stepup_session` — as the next action after a PreToolUse ' +
-            'deny carrying a step-up sid. One call replaces the 60-iteration polling ' +
-            'loop. On `outcome: "verified"` retry the original Bash command; on ' +
-            '`outcome: "timeout"` ask the user to complete WebAuthn and whether to ' +
-            'retry — only call this tool again if they say yes; on `outcome: "rejected"`, ' +
-            '`outcome: "not_found"`, or user stop/cancel stop — do NOT retry the command. ' +
-            'Do NOT ask the user to confirm completion before calling this tool — it waits ' +
-            "on the user's behalf. Outcome guidance is also in the first content block.",
+        description: 'Block until the step-up session reaches `verified` or `timeout` ' +
+            '(default wait ~5 min, matching Redis TTL; poll every 1s). Prefer resource+action from the ' +
+            'PreToolUse deny payload (coordinate poll). Optional sid still works. On verified retry ' +
+            'the original command; on timeout (decline wiped caches, TTL expired, or wait ended) ' +
+            'skip this command and continue other work — remint only if the user asks. ' +
+            'If the user says stop/cancel/skip at any time, abort this command and continue other work.',
         inputSchema: {
             sid: z
                 .string()
                 .min(1)
-                .describe('Session id returned from tc_create_stepup_session.'),
+                .optional()
+                .describe('Optional tc_stepup_… from the deny payload.'),
+            resource: z
+                .string()
+                .min(1)
+                .optional()
+                .describe('RBAC resource from the deny payload (preferred).'),
+            action: z
+                .string()
+                .min(1)
+                .optional()
+                .describe('RBAC action from the deny payload (preferred).'),
             max_wait_ms: z
                 .number()
                 .int()
                 .positive()
                 .max(300_000)
                 .optional()
-                .describe('Maximum time to wait in ms. Defaults to 60_000.'),
+                .describe('Maximum time to wait in ms. Defaults to 300_000 (5 min, Redis TTL).'),
             interval_ms: z
                 .number()
                 .int()
@@ -195,17 +222,28 @@ export function createServer(backend = getGateBackend()) {
                 .optional()
                 .describe('Polling interval in ms. Defaults to 1_000.'),
         },
-    }, async ({ sid, max_wait_ms, interval_ms }) => {
-        const result = await backend.pollStepupSessionWait(sid, {
+    }, async ({ sid, resource, action, max_wait_ms, interval_ms }) => {
+        const trimmedSid = sid?.trim();
+        const trimmedResource = resource?.trim();
+        const trimmedAction = action?.trim();
+        if (!trimmedSid && !(trimmedResource && trimmedAction)) {
+            throw new Error('Provide sid, or both resource and action.');
+        }
+        const target = trimmedSid
+            ? trimmedResource && trimmedAction
+                ? {
+                    sid: trimmedSid,
+                    resource: trimmedResource,
+                    action: trimmedAction,
+                }
+                : trimmedSid
+            : { resource: trimmedResource, action: trimmedAction };
+        const result = await backend.pollStepupSessionWait(target, {
             maxWaitMs: max_wait_ms,
             intervalMs: interval_ms,
         });
-        if (result.outcome === 'verified') {
-            backend.markStepupVerified(sid);
-        }
-        else if (result.outcome === 'rejected' ||
-            result.outcome === 'not_found') {
-            backend.clearLatchBySid(sid);
+        if (result.outcome === 'verified' && result.sid) {
+            backend.markStepupVerified(result.sid);
         }
         return {
             content: [
@@ -220,6 +258,7 @@ export function createServer(backend = getGateBackend()) {
                         outcome: result.outcome,
                         attempts: result.attempts,
                         elapsed_ms: result.elapsedMs,
+                        sid: result.sid,
                         raw: result.envelope.data,
                     }, null, 2),
                 },

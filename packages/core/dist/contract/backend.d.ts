@@ -35,7 +35,22 @@ export interface GateBackend {
     sendGateDecisionAudit(decision: GateDecision): Promise<void>;
     createStepupSession(args: CreateStepupArgs): Promise<CreatedStepupSession>;
     pollStepupSession(sid: string): Promise<PollStepupResult>;
-    pollStepupSessionWait(sid: string, options?: {
+    /** Single poll by MAT + resource/action coordinate. */
+    pollStepupByCoordinate(coordinate: {
+        resource: string;
+        action: string;
+    }): Promise<PollStepupResult & {
+        sid?: string;
+    }>;
+    /**
+     * Wait until verified/rejected/timeout.
+     * Pass a sid string, or `{ resource, action }` (optional sid) for coordinate poll.
+     */
+    pollStepupSessionWait(target: string | {
+        sid?: string | undefined;
+        resource?: string | undefined;
+        action?: string | undefined;
+    }, options?: {
         maxWaitMs?: number | undefined;
         intervalMs?: number | undefined;
     }): Promise<WaitStepupResult>;
@@ -45,7 +60,10 @@ export interface GateBackend {
      * by the poll tools on `verified`.
      */
     markStepupVerified(sid: string): void;
-    /** Drop the latch for a terminal poll (rejected / not-found). */
+    /**
+     * @deprecated Local latch removed — coordinate SSOT lives on the backend.
+     * Kept as a no-op for older plugin hook builds.
+     */
     clearLatchBySid(sid: string): void;
     assertRbacCoordinate(resource: string, action: string): Promise<void>;
     isRbacCoordinateError(e: unknown): e is Error;

@@ -32,7 +32,7 @@ function fakeToken(memberId: string): string {
       aud: ['transcodes-mcp'],
       exp: Math.floor(Date.now() / 1000) + 3600,
     }),
-    'utf8',
+    'utf8'
   ).toString('base64url');
   return `eyJhbGciOiJub25lIn0.${payload}.sig`;
 }
@@ -63,10 +63,7 @@ describe('step-up protected tool rule resolution', () => {
 
   it('still matches host-wrapped MCP wire names', () => {
     const rules = loadMergedToolRules();
-    const rule = resolveProtectedToolRule(
-      'tc_create_resource',
-      rules,
-    );
+    const rule = resolveProtectedToolRule('tc_create_resource', rules);
 
     assert.equal(rule?.id, 'tc-create-resource');
   });
@@ -90,9 +87,7 @@ describe('step-up protected tool rule resolution', () => {
       source: 'bundle',
     };
 
-    const rule = resolveProtectedToolRule('tc_create_resource', [
-      bundleRule,
-    ]);
+    const rule = resolveProtectedToolRule('tc_create_resource', [bundleRule]);
 
     assert.equal(rule, undefined);
   });
@@ -107,7 +102,7 @@ describe('step-up protected tool rule resolution', () => {
     assert.equal(resolveProtectedToolRule('archive', rules), undefined);
     assert.equal(
       resolveProtectedToolRule('tc_project__archive', rules)?.id,
-      'tc-custom',
+      'tc-custom'
     );
   });
 
@@ -122,7 +117,10 @@ describe('step-up protected tool rule resolution', () => {
         }),
       ];
 
-      assert.equal(resolveProtectedToolRule('tc_custom_tool', rules), undefined);
+      assert.equal(
+        resolveProtectedToolRule('tc_custom_tool', rules),
+        undefined
+      );
     } finally {
       if (previous !== undefined) process.env.TRANSCODES_GUARD_HOST = previous;
       else delete process.env.TRANSCODES_GUARD_HOST;
@@ -149,7 +147,7 @@ describe('execProtectedTool step-up backstop', () => {
             statusCode: 200,
             payload: [{ permission, resource: 'system', action: 'create' }],
             error: null,
-          }),
+          })
         );
         return;
       }
@@ -196,10 +194,13 @@ describe('execProtectedTool step-up backstop', () => {
     permission = 1;
     markStepupVerified('unrelated-sid');
 
-    const result = await execProtectedTool('tc_create_resource', async (sid) => {
-      assert.equal(sid, undefined);
-      return 'ok';
-    });
+    const result = await execProtectedTool(
+      'tc_create_resource',
+      async (sid) => {
+        assert.equal(sid, undefined);
+        return 'ok';
+      }
+    );
 
     assert.equal(result.isError, false);
     assert.equal(result.content[0]?.text, 'ok');
@@ -213,10 +214,13 @@ describe('execProtectedTool step-up backstop', () => {
     permission = 2;
     markStepupVerified('fresh-sid');
 
-    const result = await execProtectedTool('tc_create_resource', async (sid) => {
-      assert.equal(sid, 'fresh-sid');
-      return 'ok';
-    });
+    const result = await execProtectedTool(
+      'tc_create_resource',
+      async (sid) => {
+        assert.equal(sid, 'fresh-sid');
+        return 'ok';
+      }
+    );
 
     assert.equal(result.isError, false);
     assert.equal(result.content[0]?.text, 'ok');

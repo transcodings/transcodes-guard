@@ -153,7 +153,7 @@ describe('evaluateAction', () => {
     };
   }
 
-  it('parses a level-2 step-up verdict with grouping fields', async () => {
+  it('parses a level-2 step-up verdict with session fields', async () => {
     respond = () =>
       payloadResponse([
         {
@@ -179,7 +179,6 @@ describe('evaluateAction', () => {
       },
       cwd: '/tmp',
       provider: 'cursor',
-      group: 's_group1',
     });
 
     assert.ok(result.ok);
@@ -198,7 +197,7 @@ describe('evaluateAction', () => {
     });
   });
 
-  it('flags a reused grouped session via exist=true', async () => {
+  it('flags a reused coordinate session via exist=true', async () => {
     respond = () =>
       payloadResponse([
         {
@@ -218,7 +217,6 @@ describe('evaluateAction', () => {
 
     const result = await evaluateAction(config(), {
       payload: { command: 'mkdir temp5' },
-      group: 's_group1',
     });
 
     assert.ok(result.ok);

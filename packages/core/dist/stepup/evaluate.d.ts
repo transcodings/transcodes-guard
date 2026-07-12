@@ -5,12 +5,11 @@
  * `evaluatePreToolUse` → emit via that host's adapter. The same decision shape
  * drives Claude Code, Codex, Cursor, and Antigravity.
  *
- * Guard v3 grouping: every host tool call (except built-in transcodes-guard
- * MCP and host meta-tool bypass sets below) → `POST /guard/evaluate` with the
- * raw hook stdin JSON as `payload` and a client-minted per-prompt `sid`. The
- * backend is the single source of truth for step-up status; the client keeps
- * NO on-disk verified/pending records — only a per-coordinate latch (`latch.ts`)
- * that dedupes the browser launch across the N concurrent tool calls of one prompt.
+ * Guard v3: every host tool call (except built-in transcodes-guard MCP and host
+ * meta-tool bypass sets below) → `POST /guard/evaluate` with the raw hook stdin
+ * JSON as `payload`. Backend reuses MFA via Redis
+ * `stepup:{projectId}:{memberId}:{resource}:{action}`. Client opens the browser
+ * only when `exist:false` (fresh mint); no local latch / prompt group.
  *
  * Fail policy:
  *  - Before classify (stdin parse) → `proceed-ungated` (fail-open); the caller
@@ -116,10 +115,8 @@ export type GateDecision = {
  *
  * Side effects performed here (all crash-safe / never throw into the caller):
  *  - `POST /v1/guard/evaluate` (via `evaluateAction`).
- *  - resolve/mint the per-prompt grouping id (`resolvePromptGroup`).
- *  - on a step-up challenge: open the browser once per coordinate + write the
- *    latch. The stdout deny is emitted by the caller AFTER this returns, so a
- *    latch write cannot suppress the deny — and the latch write already swallows
- *    every error.
+ *  - on a fresh step-up challenge (`exist:false`): open the browser once.
+ *    Concurrent hooks rely on backend coordinate claim (SET NX) for dedupe —
+ *    no local latch / prompt group.
  */
 export declare function evaluatePreToolUse(input: ToolCallInput): Promise<GateDecision>;

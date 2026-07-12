@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.49.2...transcodes-guard-v0.50.0) (2026-07-12)
+
+### Features
+
+* step-up MFA: coordinate Redis SSOT, reject=wipe, agent wait verified|timeout, API guard without sid header
+
+
 ## [0.49.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.49.1...transcodes-guard-v0.49.2) (2026-07-09)
 
 

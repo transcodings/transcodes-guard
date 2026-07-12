@@ -21,6 +21,9 @@ export const denyByDefaultBackend = {
     pollStepupSession() {
         return notInstalled();
     },
+    pollStepupByCoordinate() {
+        return notInstalled();
+    },
     pollStepupSessionWait() {
         return notInstalled();
     },

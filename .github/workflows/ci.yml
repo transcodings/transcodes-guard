@@ -199,67 +199,22 @@ jobs:
             echo "::error::Unexpected permissionDecision output for unprotected MCP tool"; exit 1
           fi
 
-      # Stop hook v3 contract (plugins/*/hooks/stop.ts + core/stepup latch.ts):
-      # ① sweepLatches() reaps expired/corrupt step-up.*.json latch files,
-      # ② a live latch in the CURRENT prompt group (grouping-session.json)
-      #    below MAX_STOP_REMINDERS(3) emits a {decision:"block"} reminder and
-      #    increments remindedCount, ③ otherwise silent exit 0.
-      # Fixture invariant: the latch `group` MUST equal grouping-session.json's
-      # `group`, or the reminder never fires (peekPromptGroup filter).
+      # Stop hook: local latch reminders removed. Coordinate SSOT is backend-only;
+      # Stop must exit 0 with no reminder payload (agents recover via deny + poll wait).
 
-      - name: claude-code · Stop reaps expired latch silently (S1)
+      - name: claude-code · Stop hook is silent no-op
         run: |
           set -e
           mkdir -p "$HOME/.transcodes/state"
           NOW=$(node -e 'console.log(Date.now())')
-          OLD=$(node -e 'console.log(Date.now() - 11 * 60 * 1000)')
           printf '{"group":"s_ci","createdAt":%s}' "$NOW" > "$HOME/.transcodes/state/grouping-session.json"
-          printf '{"group":"s_ci","resource":"project","action":"update","sid":"tc_stepup_ci_s1","createdAt":%s}' "$OLD" \
+          printf '{"group":"s_ci","resource":"project","action":"update","sid":"tc_stepup_ci","createdAt":%s}' "$NOW" \
             > "$HOME/.transcodes/state/step-up.s_ci.project.update.json"
           OUT=$(printf '' | node plugins/claude-code/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Stop hook did not exit 0"; exit 1; }
           if echo "$OUT" | grep -q '"decision"'; then
-            echo "::error::Stop hook emitted a reminder for an EXPIRED latch"; exit 1
-          fi
-          if [ -f "$HOME/.transcodes/state/step-up.s_ci.project.update.json" ]; then
-            echo "::error::Stop hook did not reap the expired latch"; exit 1
-          fi
-          rm -f "$HOME/.transcodes/state/grouping-session.json"
-
-      - name: claude-code · Stop reminds on live latch and increments count (S2)
-        run: |
-          set -e
-          mkdir -p "$HOME/.transcodes/state"
-          NOW=$(node -e 'console.log(Date.now())')
-          printf '{"group":"s_ci","createdAt":%s}' "$NOW" > "$HOME/.transcodes/state/grouping-session.json"
-          printf '{"group":"s_ci","resource":"project","action":"update","sid":"tc_stepup_ci_s2","createdAt":%s}' "$NOW" \
-            > "$HOME/.transcodes/state/step-up.s_ci.project.update.json"
-          OUT=$(printf '' | node plugins/claude-code/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
-          echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Stop hook did not exit 0"; exit 1; }
-          echo "$OUT" | grep -q '"decision":"block"' || { echo "::error::Stop hook missed the live-latch reminder"; exit 1; }
-          echo "$OUT" | grep -q 'tc_stepup_ci_s2' || { echo "::error::Reminder does not carry the latch sid"; exit 1; }
-          COUNT=$(node -p "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.transcodes/state/step-up.s_ci.project.update.json', 'utf8')).remindedCount")
-          [ "$COUNT" = "1" ] || { echo "::error::remindedCount expected 1, got $COUNT"; exit 1; }
-          rm -f "$HOME/.transcodes/state/step-up.s_ci.project.update.json" "$HOME/.transcodes/state/grouping-session.json"
-
-      - name: claude-code · Stop stays silent past reminder cap (S3)
-        run: |
-          set -e
-          mkdir -p "$HOME/.transcodes/state"
-          NOW=$(node -e 'console.log(Date.now())')
-          printf '{"group":"s_ci","createdAt":%s}' "$NOW" > "$HOME/.transcodes/state/grouping-session.json"
-          printf '{"group":"s_ci","resource":"project","action":"update","sid":"tc_stepup_ci_s3","createdAt":%s,"remindedCount":3}' "$NOW" \
-            > "$HOME/.transcodes/state/step-up.s_ci.project.update.json"
-          OUT=$(printf '' | node plugins/claude-code/dist/hooks/stop.js 2>&1; printf '\nEXIT:%s' "$?")
-          echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Stop hook did not exit 0"; exit 1; }
-          if echo "$OUT" | grep -q '"decision":"block"'; then
-            echo "::error::Stop hook reminded past the MAX_STOP_REMINDERS cap"; exit 1
-          fi
-          if [ ! -f "$HOME/.transcodes/state/step-up.s_ci.project.update.json" ]; then
-            echo "::error::Live latch was unexpectedly reaped"; exit 1
+            echo "::error::Stop hook unexpectedly emitted a reminder"; exit 1
           fi
           rm -f "$HOME/.transcodes/state/step-up.s_ci.project.update.json" "$HOME/.transcodes/state/grouping-session.json"
 

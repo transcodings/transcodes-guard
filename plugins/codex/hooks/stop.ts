@@ -1,19 +1,12 @@
 #!/usr/bin/env node
 /**
- * Codex CLI Stop hook — expired latch reap + capped MFA reminder.
+ * Codex Stop hook — no-op.
+ *
+ * Local latch / Stop MFA reminders were removed. Step-up SSOT is the backend
+ * coordinate key; agents recover via PreToolUse deny + tc_poll_stepup_session_wait.
  */
 import '../host.js';
 import '../backend.js';
-import { codexAdapter } from '@transcodes-guard/core/hosts';
-import {
-  formatStopReminderMessage,
-  incrementLatchRemindedCount,
-  listLatches,
-  MAX_STOP_REMINDERS,
-  peekPromptGroup,
-  readLatchRecord,
-  sweepLatches,
-} from '@transcodes-guard/core/stepup';
 
 async function main(): Promise<void> {
   try {
@@ -23,20 +16,6 @@ async function main(): Promise<void> {
   } catch {
     // ignore
   }
-
-  sweepLatches();
-
-  const promptGroup = peekPromptGroup();
-  const pending = promptGroup
-    ? listLatches().find((l) => !l.expired && l.group === promptGroup)
-    : undefined;
-  const rec =
-    pending && readLatchRecord(pending.group, pending.resource, pending.action);
-  if (rec && (rec.remindedCount ?? 0) < MAX_STOP_REMINDERS) {
-    process.stdout.write(codexAdapter.emitStop(formatStopReminderMessage(rec)));
-    incrementLatchRemindedCount(rec.group, rec.resource, rec.action);
-  }
-
   process.exit(0);
 }
 

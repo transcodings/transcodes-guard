@@ -15,18 +15,16 @@
 
 import type { GateBackend } from '@transcodes-guard/core/contract';
 import {
-  clearLatchBySid,
   createStepupSession,
   evaluatePreToolUse,
   inspectStepupState,
   loadStepupConfig,
   markStepupVerified,
+  pollStepupByCoordinate,
   pollStepupSession,
   pollStepupSessionWait,
   resolveToken,
-  rotatePromptGroup,
   sendGateDecisionAudit,
-  sweepLatches,
 } from '@transcodes-guard/core/stepup';
 import {
   assertRbacCoordinate,
@@ -47,20 +45,24 @@ export const transcodesGateBackend: GateBackend = {
   // hook path — direct bindings
   evaluatePreToolUse,
   rotatePromptGroup: () => {
-    rotatePromptGroup();
+    // Prompt grouping removed — backend coordinate key is the reuse SSOT.
   },
-  sweepLatches,
+  sweepLatches: () => {
+    // Local latch removed — no-op for older Stop/prompt hooks.
+  },
   hasToken: () => Boolean(resolveToken().token),
   sendGateDecisionAudit,
 
   // server path: step-up session — config loaded internally
   createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),
   pollStepupSession: (sid) => pollStepupSession(loadStepupConfig(), sid),
-  pollStepupSessionWait: (sid, options) =>
-    pollStepupSessionWait(loadStepupConfig(), sid, options),
+  pollStepupByCoordinate: (coordinate) =>
+    pollStepupByCoordinate(loadStepupConfig(), coordinate),
+  pollStepupSessionWait: (target, options) =>
+    pollStepupSessionWait(loadStepupConfig(), target, options),
   inspectStepupState,
   markStepupVerified,
-  clearLatchBySid,
+  clearLatchBySid: () => {},
 
   // server path: RBAC coordinate — config loaded internally, error wrapped
   assertRbacCoordinate: (resource, action) =>

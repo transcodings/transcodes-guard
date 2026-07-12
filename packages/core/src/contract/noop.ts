@@ -44,6 +44,9 @@ export const denyByDefaultBackend: GateBackend = {
   pollStepupSession() {
     return notInstalled();
   },
+  pollStepupByCoordinate() {
+    return notInstalled();
+  },
   pollStepupSessionWait() {
     return notInstalled();
   },

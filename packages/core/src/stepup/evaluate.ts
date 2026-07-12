@@ -5,12 +5,11 @@
  * `evaluatePreToolUse` → emit via that host's adapter. The same decision shape
  * drives Claude Code, Codex, Cursor, and Antigravity.
  *
- * Guard v3 grouping: every host tool call (except built-in transcodes-guard
- * MCP and host meta-tool bypass sets below) → `POST /guard/evaluate` with the
- * raw hook stdin JSON as `payload` and a client-minted per-prompt `sid`. The
- * backend is the single source of truth for step-up status; the client keeps
- * NO on-disk verified/pending records — only a per-coordinate latch (`latch.ts`)
- * that dedupes the browser launch across the N concurrent tool calls of one prompt.
+ * Guard v3: every host tool call (except built-in transcodes-guard MCP and host
+ * meta-tool bypass sets below) → `POST /guard/evaluate` with the raw hook stdin
+ * JSON as `payload`. Backend reuses MFA via Redis
+ * `stepup:{projectId}:{memberId}:{resource}:{action}`. Client opens the browser
+ * only when `exist:false` (fresh mint); no local latch / prompt group.
  *
  * Fail policy:
  *  - Before classify (stdin parse) → `proceed-ungated` (fail-open); the caller
@@ -29,15 +28,7 @@ import {
 } from '../patterns/index.js';
 import { loadStepupConfig } from './config.js';
 import { openBrowser } from './gate.js';
-import {
-  clearLatch,
-  hasLatch,
-  readLatchRecord,
-  readSinglePendingLatchSid,
-  writeLatch,
-} from './latch.js';
 import { evaluateAction } from './rbac-check.js';
-import { resolvePromptGroup } from './sid.js';
 import { resolveToken } from './token-store.js';
 
 export interface ToolCallInput {
@@ -269,11 +260,9 @@ function classifyToolCall(input: ToolCallInput): Classified | null {
  *
  * Side effects performed here (all crash-safe / never throw into the caller):
  *  - `POST /v1/guard/evaluate` (via `evaluateAction`).
- *  - resolve/mint the per-prompt grouping id (`resolvePromptGroup`).
- *  - on a step-up challenge: open the browser once per coordinate + write the
- *    latch. The stdout deny is emitted by the caller AFTER this returns, so a
- *    latch write cannot suppress the deny — and the latch write already swallows
- *    every error.
+ *  - on a fresh step-up challenge (`exist:false`): open the browser once.
+ *    Concurrent hooks rely on backend coordinate claim (SET NX) for dedupe —
+ *    no local latch / prompt group.
  */
 export async function evaluatePreToolUse(
   input: ToolCallInput,
@@ -300,9 +289,6 @@ export async function evaluatePreToolUse(
     return { kind: GATE_DECISION_KIND.BLOCK_NO_TOKEN, block };
   }
 
-  const group = resolvePromptGroup();
-  const sid = readSinglePendingLatchSid(group);
-
   // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) step-up.
   // On failure `verdict` stays null (fail-closed → permission 2) and
   // `failureDetail` records WHY, so the deny message is diagnosable (#189).
@@ -318,8 +304,6 @@ export async function evaluatePreToolUse(
       toolName: wireToolName(input),
       cwd: input.cwd,
       provider: currentHostProvider(),
-      group,
-      sid,
     });
     if (result.ok) {
       verdict = result.verdict;
@@ -347,9 +331,6 @@ export async function evaluatePreToolUse(
   const backendReasoning = verdict?.reasoning?.trim() || undefined;
 
   if (permission === 0) {
-    // Hard RBAC deny — never a challenge, so any stale latch for this
-    // coordinate is orphaned; clear it.
-    clearLatch(group, resource, action);
     return {
       kind: GATE_DECISION_KIND.BLOCK_BY_POLICY,
       block,
@@ -359,8 +340,6 @@ export async function evaluatePreToolUse(
     };
   }
   if (permission === 1) {
-    // Allowed — role permits outright, or step-up session already verified.
-    clearLatch(group, resource, action);
     return {
       kind: GATE_DECISION_KIND.PROCEED_BY_POLICY,
       block,
@@ -372,9 +351,6 @@ export async function evaluatePreToolUse(
 
   // Level 2 — backend created or reused the step-up session.
   if (!verdict?.sid || !verdict.url) {
-    // Two distinct failures share this deny: the evaluate call itself failed
-    // (failureDetail set — environment/backend problem), or a 2xx verdict came
-    // back without a session (backend anomaly). Name which one it was.
     return {
       kind: GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED,
       block,
@@ -389,9 +365,8 @@ export async function evaluatePreToolUse(
     };
   }
 
-  // ── Terminal: rejected — stop immediately (no poll loop, no retry nag) ───
+  // Reject wipes Redis — evaluate should not see status=rejected. Keep as safety.
   if (verdict.status === 'rejected') {
-    clearLatch(group, resource, action);
     return {
       kind: GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED,
       block,
@@ -401,36 +376,17 @@ export async function evaluatePreToolUse(
     };
   }
 
-  // ── Self-heal: stale latch when backend says NOT an in-flight pending ───
-  //
-  // pending + verified are "continue work" paths (poll or retry). Only drop a
-  // latch when the backend is starting fresh (exist:false → session gone) so a
-  // new browser tab can open.
   const reused = verdict.exist === true;
   const pending =
     verdict.status === 'pending' ||
     verdict.status === null ||
     verdict.status === undefined;
-  if (hasLatch(group, resource, action) && !(reused && pending)) {
-    clearLatch(group, resource, action);
-  }
 
-  // pending → open browser once, write latch, tell agent to poll.
+  // pending + exist:false → open browser once (backend SET NX owns dedupe).
   let browserLaunched = false;
   if (pending && !reused) {
     openBrowser(verdict.url);
     browserLaunched = true;
-  }
-  if (pending) {
-    const prior = readLatchRecord(group, resource, action);
-    writeLatch(
-      group,
-      resource,
-      action,
-      verdict.sid,
-      prior?.createdAt ?? Date.now(),
-      prior?.remindedCount,
-    );
   }
 
   return {

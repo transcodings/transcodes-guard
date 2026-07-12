@@ -104,9 +104,11 @@ export function formatStepupCreateFailedSystemMessage(decision) {
     return appendBackendReasoning(`${formatBlockedSummary(decision.block)}\n\n${formatStepupCreateFailedDetail(decision)}`, decision.reasoning);
 }
 export function formatStepupChallengedReason(decision) {
-    return (`Step-up MFA pending. sid=${decision.sid}. Open ${decision.browserUrl}, ` +
-        'complete WebAuthn, then call MCP tool `tc_poll_stepup_session_wait` ' +
-        `with sid="${decision.sid}" and retry the same Bash command.`);
+    return (`Step-up MFA pending. ${decision.resource}:${decision.action}. ` +
+        `Open ${decision.browserUrl}, complete WebAuthn, then call MCP tool ` +
+        '`tc_poll_stepup_session_wait` with ' +
+        `resource="${decision.resource}" action="${decision.action}" ` +
+        `(or sid="${decision.sid}") and retry the same Bash command.`);
 }
 export function formatStepupChallengedSystemMessage(decision) {
     const launchLine = decision.browserLaunched
@@ -121,19 +123,21 @@ export function formatStepupChallengedSystemMessage(decision) {
         launchLine,
         `  ${decision.browserUrl}`,
         '',
+        `Coordinate: ${decision.resource}:${decision.action}`,
         `Session id: ${decision.sid}`,
         '',
         'Agent — drive the step-up loop (do this WITHOUT asking the user for confirmation):',
         '  1. Tell the user (one short line) to complete WebAuthn in the opened tab ' +
             '(paste the URL above if it did not open).',
-        `  2. Immediately call the MCP tool \`tc_poll_stepup_session_wait\` with sid="${decision.sid}". ` +
-            'It blocks until verified or 60s timeout — one call replaces the polling loop.',
+        '  2. Immediately call the MCP tool `tc_poll_stepup_session_wait` with ' +
+            `resource="${decision.resource}" and action="${decision.action}" ` +
+            '(sid optional). It waits up to ~5 min (session TTL) until verified or timeout.',
         '  3. On `outcome: "verified"` retry the SAME Bash command — the hook detects the ' +
-            'verified state and allows it. On `outcome: "timeout"` ask the user to complete ' +
-            'WebAuthn and whether to retry; only call the wait tool again if they say yes. ' +
-            'On `outcome: "rejected"` or ' +
-            '`outcome: "not_found"` stop — the user declined or abandoned step-up; ' +
-            'do NOT retry the command unless they explicitly ask.',
+            'verified state and allows it. On `outcome: "timeout"` (decline wiped the ' +
+            'session, TTL expired, or wait ended) skip this command and continue other work. ' +
+            'Remint only if the user explicitly asks to retry.',
+        '  4. If the user says stop/cancel/skip at any time, abort this command immediately ' +
+            'and continue other work — do not keep waiting.',
     ].join('\n'), decision.reasoning);
 }
 export function formatStepupRejectedReason(decision) {
@@ -156,25 +160,25 @@ export function formatStepupProtocolPrimer() {
         '',
         '  1. Tell the user (one short line) to complete WebAuthn in the opened tab',
         '     (paste the URL from the deny message if it did not open).',
-        '  2. Immediately call MCP tool `tc_poll_stepup_session_wait` with the sid.',
-        '     It blocks until verified or 60s timeout.',
+        '  2. Immediately call MCP tool `tc_poll_stepup_session_wait` with',
+        '     resource+action from the deny (sid optional). Waits up to ~5 min (session TTL)',
+        '     until verified or timeout.',
         '  3. verified → retry the SAME blocked command.',
-        '     timeout → ask the user to complete WebAuthn and whether to retry;',
-        '     only call the wait tool again if they say yes.',
-        '     rejected, not_found, stop, or cancel → stop immediately;',
-        '     no retry or follow-up questions until the user explicitly asks.',
-        '  Do not reopen auth tabs or re-poll after cancel (security fatigue).',
+        '     timeout → decline wiped, TTL expired, or wait ended; skip this command',
+        '     and continue other work. Remint only if the user explicitly asks.',
+        '  4. If the user says stop/cancel/skip at any time, abort this command and',
+        '     continue other work — do not keep waiting.',
+        '  Do not auto-retry after timeout — wait for an explicit user ask.',
         '',
         'Never assume the blocked command ran. Never invent an alternative command.',
-        'Always resume from the pending sid the hook reported.',
+        'Always resume from the resource/action (or sid) the hook reported.',
     ].join('\n');
 }
 export function formatPollStepupSessionWaitAgentContext() {
     return [
         'verified → retry the same blocked command.',
-        'timeout → ask the user to complete WebAuthn and whether to retry; only call this tool again if they say yes.',
-        'rejected, not_found, stop, or cancel → stop immediately; no retry or follow-up questions until the user explicitly asks.',
-        'Do not reopen auth tabs or re-poll after cancel (security fatigue).',
+        'timeout → session ended (declined, TTL expired, or wait ended); skip this command and continue other work. Remint only if the user asks.',
+        'If the user says stop/cancel/skip at any time → abort this command and continue other work; do not keep waiting.',
     ].join('\n');
 }
 export function formatStepupRejectedSystemMessage(decision) {

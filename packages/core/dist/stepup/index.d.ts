@@ -20,7 +20,7 @@ export { inspectStepupState, type StepupStateInspection, } from './inspector.js'
 export { type MemberTokenClaims, type ParsedMemberToken, parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
 export { clearLatch, clearLatchBySid, formatStopReminderMessage, hasLatch, incrementLatchRemindedCount, type LatchInspection, type LatchRecordWithCoordinate, listLatches, readLatchRecord, readSinglePendingLatchSid, sweepLatches, writeLatch, } from './latch.js';
 export { checkRbacPermission, type GuardStepUpStatus, type GuardVerdict, type RbacLevel, } from './rbac-check.js';
-export { type CreateConsoleSessionArgs, type CreatedStepupSession, type CreateStepupArgs, createConsoleBrowserSession, createStepupSession, type PollStepupResult, pollStepupSession, pollStepupSessionWait, type WaitStepupResult, } from './session.js';
+export { type CreateConsoleSessionArgs, type CreatedStepupSession, type CreateStepupArgs, createConsoleBrowserSession, createStepupSession, type PollStepupResult, pollStepupByCoordinate, pollStepupSession, pollStepupSessionWait, type WaitStepupResult, type WaitStepupTarget, } from './session.js';
 export { peekPromptGroup, resolvePromptGroup, rotatePromptGroup, } from './sid.js';
 export { clearTokenFile, type ResolvedToken, readTokenFromFile, readTokenList, readTokenRecords, removeTokenFromFile, resolveToken, setActiveToken, setTokenLabel, type TokenRecord, type TokenSource, transcodesConfigDir, transcodesConfigFile, writeTokenToFile, } from './token-store.js';
 export { claimStepupVerified, hasStepupVerified, markStepupVerified, } from './verified-memory.js';

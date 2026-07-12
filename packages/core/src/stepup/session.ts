@@ -37,7 +37,7 @@ export type CreatedStepupSession = {
 
 export type PollStepupResult = {
   envelope: Envelope;
-  /** pending | verified | rejected | not_found (session expired / missing). */
+  /** pending | verified | rejected | timeout (expired / missing / wait ended). */
   status?: string | undefined;
 };
 
@@ -154,7 +154,7 @@ export async function pollStepupSession(
     path: `${STEPUP_PATH}/${encodeURIComponent(trimmed)}`,
   });
   if (envelope.status === 404) {
-    return { envelope, status: 'not_found' };
+    return { envelope, status: 'timeout' };
   }
   const payload = readStepupPayload(envelope);
   return {
@@ -163,42 +163,128 @@ export async function pollStepupSession(
   };
 }
 
+/**
+ * Resolve live step-up status by member-scoped RBAC coordinate (MAT auth).
+ * Prefer this when the agent has resource/action from the deny payload and
+ * may not retain sid.
+ */
+export async function pollStepupByCoordinate(
+  config: StepupConfig,
+  coordinate: { resource: string; action: string },
+): Promise<PollStepupResult & { sid?: string }> {
+  const resource = coordinate.resource?.trim();
+  const action = coordinate.action?.trim();
+  if (!resource || !action) {
+    throw new Error('resource and action are required');
+  }
+  const q = new URLSearchParams({ resource, action });
+  const envelope = await request(config, {
+    method: 'GET',
+    path: `/guard/step-up/status?${q.toString()}`,
+  });
+  if (envelope.status === 404) {
+    return { envelope, status: 'timeout' };
+  }
+  const payload = readStepupPayload(envelope);
+  const sid = payload ? readString(payload, 'sid') : undefined;
+  return {
+    envelope,
+    status: payload ? readString(payload, 'status') : undefined,
+    ...(sid ? { sid } : {}),
+  };
+}
+
 export type WaitStepupResult = {
   /** Last poll's envelope — useful for diagnostics. */
   envelope: Envelope;
-  /** verified = continue work; rejected/not_found = terminal; timeout = re-poll. */
-  outcome: 'verified' | 'rejected' | 'not_found' | 'timeout';
+  /** verified = retry command; timeout = skip (decline, TTL, or wait ended). */
+  outcome: 'verified' | 'rejected' | 'timeout';
   /** Total elapsed time in ms across all polls. */
   elapsedMs: number;
   /** Number of poll requests issued. */
   attempts: number;
+  /** Resolved session id (from sid arg or coordinate lookup). */
+  sid?: string;
+};
+
+export type WaitStepupTarget = {
+  sid?: string;
+  resource?: string;
+  action?: string;
 };
 
 /**
  * Block until step-up is verified or the wait window elapses.
  *
- * Replaces the agent-driven 60-call polling loop with a single, deterministic
- * tool call: caller invokes once, awaits resolution. Polling cadence and
- * timeout live in this server-side function so the agent has no chance to
- * silently shorten or skip the loop.
+ * Prefer `{ resource, action }` (coordinate poll). Optional `sid` skips the
+ * coordinate lookup and hits `GET .../session/:sid` directly.
  */
 export async function pollStepupSessionWait(
   config: StepupConfig,
-  sid: string,
+  target: WaitStepupTarget | string,
   options: { maxWaitMs?: number; intervalMs?: number } = {},
 ): Promise<WaitStepupResult> {
-  const trimmed = sid?.trim();
-  if (!trimmed) {
-    throw new Error('sid is required');
+  const normalized =
+    typeof target === 'string'
+      ? { sid: target }
+      : {
+          sid: target.sid?.trim() || undefined,
+          resource: target.resource?.trim() || undefined,
+          action: target.action?.trim() || undefined,
+        };
+
+  let sid = normalized.sid;
+  if (!sid && normalized.resource && normalized.action) {
+    const resolved = await pollStepupByCoordinate(config, {
+      resource: normalized.resource,
+      action: normalized.action,
+    });
+    if (resolved.status === 'timeout' || !resolved.sid) {
+      return {
+        envelope: resolved.envelope,
+        outcome: 'timeout',
+        elapsedMs: 0,
+        attempts: 1,
+      };
+    }
+    if (resolved.status === 'verified') {
+      return {
+        envelope: resolved.envelope,
+        outcome: 'verified',
+        elapsedMs: 0,
+        attempts: 1,
+        sid: resolved.sid,
+      };
+    }
+    if (resolved.status === 'rejected') {
+      return {
+        envelope: resolved.envelope,
+        outcome: 'rejected',
+        elapsedMs: 0,
+        attempts: 1,
+        sid: resolved.sid,
+      };
+    }
+    sid = resolved.sid;
   }
-  const maxWaitMs = options.maxWaitMs ?? 60_000;
+  if (!sid) {
+    throw new Error('sid or resource+action is required');
+  }
+
+  const maxWaitMs = options.maxWaitMs ?? 300_000;
   const intervalMs = options.intervalMs ?? 1_000;
   const deadline = Date.now() + maxWaitMs;
   let attempts = 0;
   let lastEnvelope: Envelope | undefined;
   while (true) {
     attempts += 1;
-    const result = await pollStepupSession(config, trimmed);
+    const result =
+      normalized.resource && normalized.action && !normalized.sid
+        ? await pollStepupByCoordinate(config, {
+            resource: normalized.resource,
+            action: normalized.action,
+          })
+        : await pollStepupSession(config, sid);
     lastEnvelope = result.envelope;
     if (result.status === 'verified') {
       return {
@@ -206,6 +292,7 @@ export async function pollStepupSessionWait(
         outcome: 'verified',
         elapsedMs: maxWaitMs - Math.max(0, deadline - Date.now()),
         attempts,
+        sid,
       };
     }
     if (result.status === 'rejected') {
@@ -214,23 +301,27 @@ export async function pollStepupSessionWait(
         outcome: 'rejected',
         elapsedMs: maxWaitMs - Math.max(0, deadline - Date.now()),
         attempts,
+        sid,
       };
     }
-    if (result.status === 'not_found') {
+    if (result.status === 'timeout') {
       return {
         envelope: result.envelope,
-        outcome: 'not_found',
+        outcome: 'timeout',
         elapsedMs: maxWaitMs - Math.max(0, deadline - Date.now()),
         attempts,
+        sid,
       };
     }
     const remaining = deadline - Date.now();
     if (remaining <= 0) {
+      // Wait window ended with no terminal status — same skip path as expired.
       return {
         envelope: lastEnvelope,
         outcome: 'timeout',
         elapsedMs: maxWaitMs - Math.max(0, remaining),
         attempts,
+        sid,
       };
     }
     await new Promise((resolve) =>

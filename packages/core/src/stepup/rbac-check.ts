@@ -105,8 +105,8 @@ function extractFailureMessage(data: unknown): string | undefined {
 
 /**
  * POST /v1/guard/evaluate — one round-trip: backend classifies the raw hook
- * payload, applies the matrix, and (for level 2) creates or reuses the grouped
- * step-up session keyed on `sid`. Every tool call (except built-in
+ * payload, applies the matrix, and (for level 2) creates or reuses the
+ * member-scoped coordinate step-up session. Every tool call (except built-in
  * transcodes-guard MCP) reaches this path. On any failure returns a
  * `GuardEvaluateFailure` (never a verdict) → caller fails closed and surfaces
  * the failure detail in the deny message.
@@ -119,10 +119,6 @@ export async function evaluateAction(
     toolName?: string | undefined;
     cwd?: string | undefined;
     provider?: GuardProvider | undefined;
-    /** Client-minted per-prompt grouping id (`s_…`). */
-    group?: string | undefined;
-    /** `tc_stepup_…` from the local latch file — same field used for poll. */
-    sid?: string | undefined;
   },
 ): Promise<GuardEvaluateResult> {
   const env = await request(config, {
@@ -133,8 +129,6 @@ export async function evaluateAction(
       tool_name: body.toolName,
       cwd: body.cwd,
       provider: body.provider,
-      group: body.group,
-      sid: body.sid,
     },
   });
   if (!env.ok) {

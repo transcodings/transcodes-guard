@@ -84,9 +84,11 @@ export {
   createConsoleBrowserSession,
   createStepupSession,
   type PollStepupResult,
+  pollStepupByCoordinate,
   pollStepupSession,
   pollStepupSessionWait,
   type WaitStepupResult,
+  type WaitStepupTarget,
 } from './session.js';
 export {
   peekPromptGroup,

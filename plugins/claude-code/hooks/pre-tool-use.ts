@@ -3,8 +3,8 @@
  * Claude Code PreToolUse hook — thin entrypoint over @transcodes-guard/core/stepup.
  *
  * All real logic (regex match, git ls-files semantic check, MCP tool-rule
- * lookup, backend RBAC evaluate, grouped step-up session create/reuse, and the
- * crash-safe browser launch + per-coordinate latch write) lives in
+ * lookup, backend RBAC evaluate, coordinate step-up session create/reuse, and
+ * crash-safe browser launch on exist:false) lives in
  * `evaluatePreToolUse` in core/stepup. This file:
  *   1. Parses stdin via the Claude Code adapter.
  *   2. Calls evaluatePreToolUse to produce a host-agnostic GateDecision.
@@ -83,9 +83,7 @@ async function main(): Promise<void> {
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
-      // The browser launch + per-coordinate latch were already handled inside
-      // evaluatePreToolUse (crash-safe, never throws). The hook only emits the
-      // deny and fires the audit.
+      // Browser launch already handled in evaluatePreToolUse (exist:false only).
       process.stdout.write(
         claudeCodeAdapter.emitPreToolUse({
           kind: 'deny',
