@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.52.0...transcodes-guard-v0.52.1) (2026-07-14)
+
+
+### Code Refactoring
+
+* **stepup:** drop client decision-audit writes ([5ee30ba](https://github.com/transcodings/transcodes-guard/commit/5ee30baf814fc86024b56868fe839e7ea8d5e3da))
+
 ## [0.52.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.51.0...transcodes-guard-v0.52.0) (2026-07-12)
 
 
