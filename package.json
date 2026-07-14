@@ -21,6 +21,7 @@
     "format": "biome format --write --files-ignore-unknown=true --no-errors-on-unmatched",
     "check": "biome check --write --files-ignore-unknown=true --no-errors-on-unmatched",
     "type-check": "turbo run type-check",
+    "test:e2e": "node --import tsx --test --test-concurrency=4 \"e2e/scenarios/*.test.ts\"",
     "version:bump": "node scripts/version-bump.mjs",
     "postinstall": "[ -z \"$CI\" ] && lefthook install || true"
   },
@@ -30,6 +31,7 @@
     "esbuild": "^0.28.0",
     "javascript-obfuscator": "^5.4.3",
     "lefthook": "^1.13.6",
+    "tsx": "^4.19.0",
     "turbo": "^2.0.0"
   },
   "engines": {
