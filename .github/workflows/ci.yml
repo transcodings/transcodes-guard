@@ -186,7 +186,7 @@ jobs:
         run: |
           set -e
           # Guard v3: built-in transcodes-guard MCP wire names are classified out
-          # of the hook (evaluate.ts → isTranscodesGuardWireToolName). The handler
+          # of the hook (evaluate.ts → isGuardToolName, exact-set). The handler
           # (execProtectedTool + in-memory verified set) is the backstop, so the
           # hook must pass with no permissionDecision — even for a protected tool
           # like retire_member. No on-disk state is involved (v3).

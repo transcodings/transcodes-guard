@@ -16,7 +16,7 @@ In `evaluatePreToolUse` (`core/src/stepup/evaluate.ts`):
 - **Before** classify (stdin parse only) → **fail-open**: return `{kind:'proceed-ungated'}`. A crash here must never block a safe command.
 - **After** classify (every bash command or external **MCP** `mcp__*` wire name) → **fail-safe** via `POST /guard/evaluate`. Backend unreachable → permission 2 (step-up). A crash after classify must never silently allow a risky command.
 
-MCP gate scope is no longer the local tool-rule registry: external `mcp__*` PreToolUse wire names reach `POST /guard/evaluate`. **Built-in transcodes-guard MCP** (`mcp__*transcodes-guard*`) skips the hook — `execProtectedTool` in the handler is the backstop (tool-rule + `checkRbacPermission`). User/project tool-rules remain for handler backstop, policy documentation, and optional legacy bundle rules — not for deciding whether the hook runs on external MCP tools.
+MCP gate scope is no longer the local tool-rule registry: external `mcp__*` PreToolUse wire names reach `POST /guard/evaluate`. **The skip is an exact-set binary decision (t2)**: built-in transcodes-guard MCP (registered `tc_*` names — `GUARD_TOOL_NAMES` membership, bare or host-namespaced; no substring/prefix heuristics) and the host's static `builtin-exempt/*.json` list (grade ① conversation/plan + ② workspace-read only) skip the hook; everything else is gated. Unknown host → no exemption. `execProtectedTool` in the handler is the backstop (tool-rule + `checkRbacPermission`). User/project tool-rules remain for handler backstop, policy documentation, and optional legacy bundle rules — not for deciding whether the hook runs on external MCP tools.
 
 The backend `/guard/evaluate` classifier + RBAC matrix is the authority for resource/action/permission on gated MCP calls.
 
@@ -36,7 +36,7 @@ The **fire-and-forget** backend call (`sendGateDecisionAudit`) also runs **only 
 
 ## Critical path is evaluate-only
 
-The PreToolUse hot path calls `POST /guard/evaluate` for every Bash command and external `mcp__*` wire name. There is no local pattern registry or policy-bundle cache on the hook path. Built-in transcodes-guard MCP skips the hook; `execProtectedTool` uses system `tool-rules.json` + `checkRbacPermission` as the handler backstop.
+The PreToolUse hot path calls `POST /guard/evaluate` for every Bash command and external `mcp__*` wire name. There is no local pattern registry or policy-bundle cache on the hook path. Built-in transcodes-guard MCP (exact `GUARD_TOOL_NAMES` membership) and per-host builtin-exempt names skip the hook; `execProtectedTool` uses system `tool-rules.json` + `checkRbacPermission` as the handler backstop.
 
 ## Policy-bundle integrity (shared with the backend)
 
