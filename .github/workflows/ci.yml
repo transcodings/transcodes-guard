@@ -71,6 +71,16 @@ jobs:
           done
 
       # ─────────────────────────────────────────────────────────
+      # E2E hook harness (t6 Phase A): spawns the freshly-built dist hook
+      # bundles as child processes against a per-test mock backend and pins
+      # the gate's invariant contracts (built-in skip, gated entry, per-host
+      # wire shapes, fail directions, raw-payload contract, Stop no-op,
+      # evaluate-only request surface). Runs BEFORE the inline smokes; the
+      # smokes stay until Phase C folds them in with a mapping table.
+      - name: E2E hook harness (Phase A)
+        run: npm run test:e2e
+
+      # ─────────────────────────────────────────────────────────
       # Biome lint + format check (no --write).
       # Fails if any source file deviates from biome.json conventions or
       # contains lint errors. noRestrictedImports (gate-backend seam boundary)
