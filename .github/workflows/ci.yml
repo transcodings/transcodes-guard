@@ -365,9 +365,10 @@ jobs:
       # Cursor IDE plugin smoke tests (6 scenarios — wire format is FLAT
       # `{permission, user_message, agent_message}` (no hookSpecificOutput
       # wrapper) and Stop uses `followup_message` instead of `decision:
-      # "block"`. beforeSubmitPrompt has no additional_context channel so
-      # the test verifies its v3 side effect (prompt-group rotation) and
-      # the always-`{ continue: true }` output.)
+      # "block"`. beforeSubmitPrompt has no additional_context channel and
+      # prompt-group rotation is retired (v3 no-op) — the test verifies the
+      # always-`{ continue: true }` output and that legacy grouping state
+      # is left untouched.)
       # ─────────────────────────────────────────────────────────
 
       - name: cursor · no-token fail-closed deny (Shell)
@@ -432,11 +433,16 @@ jobs:
             echo "::error::Cursor Stop hook unexpectedly emitted followup_message on clean state"; exit 1
           fi
 
-      - name: cursor · beforeSubmitPrompt rotates the prompt group
+      - name: cursor · beforeSubmitPrompt emits continue:true (prompt-group retired → no-op)
         run: |
           set -e
-          # v3: each user prompt opens a fresh grouping window. The hook's only
-          # side effect is rotatePromptGroup(); output is always {continue:true}.
+          # Guard v3 (0.50.0, t1 §6): prompt groups are retired — the entry
+          # still calls sweepLatches()/rotatePromptGroup(), but both are
+          # explicit no-ops in gate-backend (dedupe/grouping is backend-owned
+          # via Redis SET NX). The v3 contract is therefore: always
+          # {continue:true} + exit 0, and a legacy grouping-session.json is
+          # left UNTOUCHED. Asserting the old rotation would demand behavior
+          # v3 deliberately removed.
           mkdir -p "$HOME/.transcodes/state"
           NOW=$(node -e 'console.log(Date.now())')
           printf '{"group":"s_before","createdAt":%s}' "$NOW" > "$HOME/.transcodes/state/grouping-session.json"
@@ -445,6 +451,9 @@ jobs:
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor beforeSubmitPrompt did not exit 0"; exit 1; }
           echo "$OUT" | grep -q '"continue":true' || { echo "::error::Cursor beforeSubmitPrompt missed continue:true"; exit 1; }
+          GROUP=$(node -p "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.transcodes/state/grouping-session.json', 'utf8')).group")
+          [ "$GROUP" = "s_before" ] || { echo "::error::beforeSubmitPrompt touched the legacy grouping file (rotation is retired in v3 — no-op expected)"; exit 1; }
+          rm -f "$HOME/.transcodes/state/grouping-session.json"
           GROUP=$(node -p "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.transcodes/state/grouping-session.json', 'utf8')).group")
           [ "$GROUP" != "s_before" ] || { echo "::error::beforeSubmitPrompt did not rotate the prompt group"; exit 1; }
           rm -f "$HOME/.transcodes/state/grouping-session.json"
