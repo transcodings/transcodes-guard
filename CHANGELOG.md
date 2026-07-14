@@ -1,5 +1,7 @@
 # Changelog
 
+## [0.53.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.52.1...transcodes-guard-v0.53.0) (2026-07-14)
+
 ## [0.52.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.52.0...transcodes-guard-v0.52.1) (2026-07-14)
 
 
