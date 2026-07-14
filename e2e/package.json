@@ -1,0 +1,6 @@
+{
+  "name": "transcodes-guard-e2e",
+  "private": true,
+  "type": "module",
+  "description": "E2E hook harness (t6). Deliberately OUTSIDE the npm workspaces — never published, never imported; run via root `npm run test:e2e`. This file exists so Node/TypeScript treat the .ts files here as ESM."
+}
