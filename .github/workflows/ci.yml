@@ -454,6 +454,3 @@ jobs:
           GROUP=$(node -p "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.transcodes/state/grouping-session.json', 'utf8')).group")
           [ "$GROUP" = "s_before" ] || { echo "::error::beforeSubmitPrompt touched the legacy grouping file (rotation is retired in v3 — no-op expected)"; exit 1; }
           rm -f "$HOME/.transcodes/state/grouping-session.json"
-          GROUP=$(node -p "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.transcodes/state/grouping-session.json', 'utf8')).group")
-          [ "$GROUP" != "s_before" ] || { echo "::error::beforeSubmitPrompt did not rotate the prompt group"; exit 1; }
-          rm -f "$HOME/.transcodes/state/grouping-session.json"
