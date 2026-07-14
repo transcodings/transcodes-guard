@@ -1,0 +1,42 @@
+[
+  {
+    "name": "ToolSearch",
+    "reason": "grade 1 (conversation) — tool discovery, no workspace/exec reach"
+  },
+  {
+    "name": "TodoWrite",
+    "reason": "grade 1 (conversation) — session plan tracking"
+  },
+  {
+    "name": "TodoRead",
+    "reason": "grade 1 (conversation) — session plan tracking"
+  },
+  {
+    "name": "TaskCreate",
+    "reason": "grade 1 (conversation) — sub-task bookkeeping"
+  },
+  {
+    "name": "TaskUpdate",
+    "reason": "grade 1 (conversation) — sub-task bookkeeping"
+  },
+  {
+    "name": "TaskList",
+    "reason": "grade 1 (conversation) — sub-task bookkeeping"
+  },
+  {
+    "name": "AskUserQuestion",
+    "reason": "grade 1 (conversation) — prompts the user, no side effects"
+  },
+  {
+    "name": "EnterPlanMode",
+    "reason": "grade 1 (conversation) — plan-mode toggle"
+  },
+  {
+    "name": "ExitPlanMode",
+    "reason": "grade 1 (conversation) — plan-mode toggle"
+  },
+  {
+    "name": "exit_plan_mode",
+    "reason": "grade 1 (conversation) — plan-mode toggle (legacy snake_case wire alias)"
+  }
+]

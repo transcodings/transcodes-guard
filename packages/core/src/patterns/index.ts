@@ -28,13 +28,17 @@ export {
   type RbacAction,
 } from './rbac.js';
 export {
+  type BuiltinExemptEntry,
+  builtinExemptEntries,
   currentHostProvider,
   findFirstToolRule,
   GUARD_PROVIDERS,
+  GUARD_TOOL_NAMES,
   type GuardMatcher,
   type GuardProvider,
+  isBuiltinExemptToolName,
+  isGuardToolName,
   isMcpWireToolName,
-  isTranscodesGuardWireToolName,
   loadMergedToolRules,
   loadSystemToolRules,
   type MergedToolRule,
@@ -51,7 +55,6 @@ export {
   type ToolRuleSource,
   ToolRuleValidationError,
   TRANSCODES_GUARD_TOOL_PREFIX,
-  TRANSCODES_MCP_HOST_MARKER,
   toolNameMatchesRule,
   validateNewToolRule,
 } from './tool-rules.js';

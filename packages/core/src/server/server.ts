@@ -9,8 +9,8 @@ import {
   getGateBackend,
 } from '../contract/index.js';
 import {
+  isGuardToolName,
   isMcpWireToolName,
-  isTranscodesGuardWireToolName,
   loadMergedToolRules,
   type MergedToolRule,
 } from '../patterns/index.js';
@@ -639,7 +639,7 @@ export function createServer(
       },
     },
     async ({ tool_name }) => {
-      if (isTranscodesGuardWireToolName(tool_name)) {
+      if (isGuardToolName(tool_name)) {
         return textResult(
           JSON.stringify(
             {

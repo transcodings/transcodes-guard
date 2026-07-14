@@ -1,0 +1,18 @@
+[
+  {
+    "name": "code_search",
+    "reason": "grade 2 (workspace read) — code search (exact wire name unverified until t4 capture)"
+  },
+  {
+    "name": "task_plan",
+    "reason": "grade 1 (conversation) — plan bookkeeping (exact wire name unverified until t4 capture)"
+  },
+  {
+    "name": "implementation_plan",
+    "reason": "grade 1 (conversation) — plan bookkeeping (exact wire name unverified until t4 capture)"
+  },
+  {
+    "name": "walkthrough",
+    "reason": "grade 1 (conversation) — walkthrough narration (exact wire name unverified until t4 capture)"
+  }
+]
