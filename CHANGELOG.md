@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.54.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.53.0...transcodes-guard-v0.54.0) (2026-07-14)
+
+
+### Features
+
+* **e2e:** t6 Phase A — dist 번들 대상 e2e 훅 하네스 (불변 계약 A1~A7) ([#200](https://github.com/transcodings/transcodes-guard/issues/200)) ([8bb2314](https://github.com/transcodings/transcodes-guard/commit/8bb23143cb175414938cb379beef41b0c396648e))
+
 ## [0.53.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.52.1...transcodes-guard-v0.53.0) (2026-07-14)
 
 ## [0.52.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.52.0...transcodes-guard-v0.52.1) (2026-07-14)
