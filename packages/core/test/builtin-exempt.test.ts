@@ -17,7 +17,7 @@ describe('isBuiltinExemptToolName', () => {
     assert.equal(isBuiltinExemptToolName('claude', 'TodoWrite'), true);
     assert.equal(isBuiltinExemptToolName('cursor', 'Read'), true);
     assert.equal(isBuiltinExemptToolName('codex', 'update_plan'), true);
-    assert.equal(isBuiltinExemptToolName('antigravity', 'task_plan'), true);
+    assert.equal(isBuiltinExemptToolName('antigravity', 'view_file'), true);
     // claude-only name must not leak to cursor
     assert.equal(isBuiltinExemptToolName('cursor', 'ExitPlanMode'), false);
   });

@@ -36,22 +36,6 @@
     "reason": "grade 1 (conversation) — session goal bookkeeping"
   },
   {
-    "name": "read_thread",
-    "reason": "grade 2 (workspace read) — read-only thread transcript"
-  },
-  {
-    "name": "read_thread_terminal",
-    "reason": "grade 2 (workspace read) — read-only thread transcript"
-  },
-  {
-    "name": "list_threads",
-    "reason": "grade 2 (workspace read) — read-only thread enumeration"
-  },
-  {
-    "name": "list_projects",
-    "reason": "grade 2 (workspace read) — read-only project enumeration"
-  },
-  {
     "name": "tool_search_tool",
     "reason": "grade 1 (conversation) — tool discovery, no workspace/exec reach"
   }

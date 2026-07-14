@@ -1,18 +1,26 @@
 [
   {
-    "name": "code_search",
-    "reason": "grade 2 (workspace read) — code search (exact wire name unverified until t4 capture)"
+    "name": "view_file",
+    "reason": "grade 2 (workspace read) — file read (antigravity.google/docs/hooks, 2026-07 doc-verified; live capture pending t4)"
   },
   {
-    "name": "task_plan",
-    "reason": "grade 1 (conversation) — plan bookkeeping (exact wire name unverified until t4 capture)"
+    "name": "list_dir",
+    "reason": "grade 2 (workspace read) — directory listing (doc-verified 2026-07; live capture pending t4)"
   },
   {
-    "name": "implementation_plan",
-    "reason": "grade 1 (conversation) — plan bookkeeping (exact wire name unverified until t4 capture)"
+    "name": "grep_search",
+    "reason": "grade 2 (workspace read) — text search (doc-verified 2026-07; live capture pending t4)"
   },
   {
-    "name": "walkthrough",
-    "reason": "grade 1 (conversation) — walkthrough narration (exact wire name unverified until t4 capture)"
+    "name": "ask_question",
+    "reason": "grade 1 (conversation) — prompts the user, no side effects (doc-verified 2026-07)"
+  },
+  {
+    "name": "ask_permission",
+    "reason": "grade 1 (conversation) — user permission prompt, no side effects (doc-verified 2026-07)"
+  },
+  {
+    "name": "list_permissions",
+    "reason": "grade 1 (conversation) — reads permission state (doc-verified 2026-07)"
   }
 ]
