@@ -24,7 +24,6 @@ import {
   pollStepupSession,
   pollStepupSessionWait,
   resolveToken,
-  sendGateDecisionAudit,
 } from '@transcodes-guard/core/stepup';
 import {
   assertRbacCoordinate,
@@ -51,7 +50,6 @@ export const transcodesGateBackend: GateBackend = {
     // Local latch removed — no-op for older Stop/prompt hooks.
   },
   hasToken: () => Boolean(resolveToken().token),
-  sendGateDecisionAudit,
 
   // server path: step-up session — config loaded internally
   createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),

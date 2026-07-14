@@ -55,7 +55,6 @@ async function main(): Promise<void> {
         }),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_BY_POLICY:
@@ -67,7 +66,6 @@ async function main(): Promise<void> {
         }),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
@@ -79,7 +77,6 @@ async function main(): Promise<void> {
         }),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
@@ -92,7 +89,6 @@ async function main(): Promise<void> {
         }),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED:
@@ -104,7 +100,6 @@ async function main(): Promise<void> {
         }),
       );
       process.stderr.write(`${formatStderrTag(decision)}\n`);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
   }
 }

@@ -116,8 +116,7 @@ describe('external MCP step-up deny diagnosability (#189)', () => {
 
     assert.equal(decision.kind, 'block-stepup-create-failed');
     if (decision.kind !== 'block-stepup-create-failed') return;
-    // Backend-side failure keeps the audited 'create-failed' reason
-    // (decisionAuditEventOf records only this reason).
+    // Backend-side failure keeps the 'create-failed' reason (audited on server evaluate).
     assert.equal(decision.failure.reason, 'create-failed');
     assert.ok(decision.failure.detail?.includes('HTTP 404'));
     assert.ok(decision.failure.detail?.includes('member not found'));

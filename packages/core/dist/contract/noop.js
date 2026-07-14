@@ -13,7 +13,6 @@ export const denyByDefaultBackend = {
     hasToken() {
         return false;
     },
-    async sendGateDecisionAudit() { },
     // server path — call-shaped methods throw
     createStepupSession() {
         return notInstalled();

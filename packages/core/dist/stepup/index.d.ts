@@ -13,7 +13,6 @@
 export { type Envelope, type RequestInput as HttpRequestInput, request, } from './client.js';
 export { DEFAULT_BACKEND_URL, loadStepupConfig, MAX_STOP_REMINDERS, STEPUP_TTL_MS, type StepupConfig, } from './config.js';
 export { CONSOLE_SESSION_COMMENT, type ConsoleSessionResult, fetchMemberProfile, type MemberProfileSummary, openConsoleSession, } from './console.js';
-export { DECISION_AUDIT_TAG, DECISION_AUDIT_TIMEOUT_MS, type DecisionAuditEvent, decisionAuditEventOf, sendDecisionAudit, sendGateDecisionAudit, } from './decision-audit.js';
 export { type BlockResult, evaluatePreToolUse, GATE_DECISION_KIND, type GateDecision, type StepupFailure, type ToolCallInput, } from './evaluate.js';
 export { openBrowser } from './gate.js';
 export { inspectStepupState, type StepupStateInspection, } from './inspector.js';

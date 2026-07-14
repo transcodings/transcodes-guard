@@ -16,7 +16,7 @@ import {
   formatStepupRejectedReason,
   formatStepupRejectedSystemMessage,
   getGateBackend
-} from "../chunk-3JGYRPXV.js";
+} from "../chunk-GNUGAUFS.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
@@ -42,7 +42,6 @@ async function main() {
       );
       process.stderr.write(`${formatStderrTag(decision)}
 `);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
     case GATE_DECISION_KIND.BLOCK_BY_POLICY:
       process.stdout.write(
@@ -54,7 +53,6 @@ async function main() {
       );
       process.stderr.write(`${formatStderrTag(decision)}
 `);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
     case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
       process.stdout.write(
@@ -66,7 +64,6 @@ async function main() {
       );
       process.stderr.write(`${formatStderrTag(decision)}
 `);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
     case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
       process.stdout.write(
@@ -78,7 +75,6 @@ async function main() {
       );
       process.stderr.write(`${formatStderrTag(decision)}
 `);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
     case GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED:
       process.stdout.write(
@@ -90,7 +86,6 @@ async function main() {
       );
       process.stderr.write(`${formatStderrTag(decision)}
 `);
-      await backend.sendGateDecisionAudit(decision);
       process.exit(0);
   }
 }

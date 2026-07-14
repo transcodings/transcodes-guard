@@ -31,14 +31,6 @@ export {
   openConsoleSession,
 } from './console.js';
 export {
-  DECISION_AUDIT_TAG,
-  DECISION_AUDIT_TIMEOUT_MS,
-  type DecisionAuditEvent,
-  decisionAuditEventOf,
-  sendDecisionAudit,
-  sendGateDecisionAudit,
-} from './decision-audit.js';
-export {
   type BlockResult,
   evaluatePreToolUse,
   GATE_DECISION_KIND,

@@ -293,8 +293,8 @@ export async function evaluatePreToolUse(
   // On failure `verdict` stays null (fail-closed → permission 2) and
   // `failureDetail` records WHY, so the deny message is diagnosable (#189).
   // Reason vocabulary matches console.ts: backend-side failure (refusal,
-  // unreachable, malformed) → 'create-failed' (decision-audited), local
-  // client throw → 'error' (excluded from the decision audit).
+  // unreachable, malformed) → 'create-failed' (platform ops: guardLog + server log).
+  // local client throw → 'error'.
   let verdict = null;
   let failureDetail: string | undefined;
   let failureReason: 'create-failed' | 'error' = 'create-failed';
