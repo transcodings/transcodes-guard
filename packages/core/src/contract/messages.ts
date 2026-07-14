@@ -20,6 +20,8 @@ import {
 export const TRANSCODES_GUARD_REPO_URL =
   'https://github.com/transcodings/transcodes-guard';
 
+const APP_CONSOLE_RBAC_LOCATION = 'https://app.transcodes.io → RBAC → Roles';
+
 function appendBackendReasoning(text: string, reasoning?: string): string {
   const trimmed = reasoning?.trim();
   if (!trimmed) return text;
@@ -96,8 +98,10 @@ export function formatBlockByPolicyReason(
   return appendBackendReasoning(
     `Blocked by transcodes-guard: ${decision.block.reason}. ` +
       `Your RBAC role denies this action (resource="${decision.resource}", action="${decision.action}") — ` +
-      'step-up MFA cannot grant it. Report this to the user; do not retry. ' +
-      'An admin must grant the permission in the Transcodes console (RBAC → Roles).',
+      'permission level 0 is a hard deny; step-up MFA only unlocks actions already at level 2. ' +
+      'Report this to the user; do not retry. ' +
+      `An admin must grant the permission at ${APP_CONSOLE_RBAC_LOCATION}. ` +
+      'Do not use get_console_url or auth.transcodes.io for RBAC edits.',
     decision.reasoning,
   );
 }
@@ -113,9 +117,10 @@ export function formatBlockByPolicySystemMessage(
       formatBlockedSummary(decision.block),
       '',
       `RBAC permission DENIED — resource="${decision.resource}", action="${decision.action}".`,
-      'Your role has no access to this action, so step-up MFA cannot unlock it.',
-      'An admin must grant the permission in the Transcodes console (RBAC → Roles),',
-      'then retry. Do not retry until the permission is granted.',
+      'Step-up MFA only unlocks actions already at level 2; it cannot elevate 0 → 2.',
+      `An admin must grant the permission at ${APP_CONSOLE_RBAC_LOCATION}.`,
+      'Do not use get_console_url or auth.transcodes.io for RBAC edits.',
+      'Then retry. Do not retry until the permission is granted.',
     ].join('\n'),
     decision.reasoning,
   );
@@ -257,6 +262,9 @@ export function formatStepupProtocolPrimer(): string {
     '',
     'Never assume the blocked command ran. Never invent an alternative command.',
     'Always resume from the resource/action (or sid) the hook reported.',
+    '',
+    'Step-up MFA only unlocks actions already at RBAC level 2; it cannot elevate level 0 → 2.',
+    `Level 0 changes require an admin at ${APP_CONSOLE_RBAC_LOCATION}; get_console_url cannot edit RBAC.`,
   ].join('\n');
 }
 
