@@ -24,6 +24,13 @@
  * explicit flat `{"permission":"allow"}` on a pass. Stop no-ops are "no
  * output" on every host (v3 Stop hooks are pure no-ops).
  *
+ * Prompt hooks (B7) are inert since t3 but NOT uniform, and the divergence is
+ * the point: claude-code/codex drain stdin and exit 0 silently, while cursor
+ * MUST still emit `{continue:true}` (its contract demands a verdict on
+ * stdout). Antigravity has no prompt hook at all — `promptStdin` returns null
+ * and `assertPromptInert` is null, because PreInvocation fires before every
+ * model call and is a SessionStart stand-in, not a prompt hook.
+ *
  * Fixture note: the built-in skip predicate is EXACT-SET membership (t2) —
  * registered tc_* names + the per-host builtin-exempt/*.json lists. A
  * gated-path fixture name must simply not equal an entry of either set;
@@ -47,9 +54,35 @@ export type WireSpec = {
   assertDeny(res: HookRunResult): DenyShape;
   assertPass(res: HookRunResult): void;
   assertStopNoop(res: HookRunResult): void;
+  /**
+   * Prompt-hook stdin for this host, or null when the host has no prompt hook
+   * (antigravity — PreInvocation is a different contract, not a prompt hook).
+   */
+  promptStdin(text: string, cwd: string): string | null;
+  /**
+   * B7: the prompt hook is inert but NOT uniform. claude-code/codex exit 0
+   * silently; cursor MUST emit `{continue:true}` because its contract requires
+   * a verdict on stdout — "make the hosts consistent" by deleting that emit is
+   * exactly the refactor this assertion exists to stop. null for antigravity.
+   */
+  assertPromptInert: ((res: HookRunResult) => void) | null;
   /** Wrapper leaks that must never appear in this host's stdout. */
   forbiddenSubstrings: string[];
 };
+
+/** Cursor's beforeSubmitPrompt verdict — `{continue:true}`, always. */
+function assertCursorPromptContinue(res: HookRunResult): void {
+  assert.equal(res.exitCode, 0, `prompt hook must exit 0${raw(res)}`);
+  assert.notEqual(
+    res.stdout,
+    '',
+    "cursor's beforeSubmitPrompt contract REQUIRES a {continue} verdict on " +
+      'stdout — silence is a contract violation, not consistency with the ' +
+      `other hosts${raw(res)}`,
+  );
+  const out = res.json() as { continue?: unknown };
+  assert.equal(out.continue, true, raw(res));
+}
 
 function raw(res: HookRunResult): string {
   return `\n--- stdout ---\n${res.stdout}\n--- stderr ---\n${res.stderr}`;
@@ -98,6 +131,16 @@ function snakeCaseStdin(toolName: string, toolInput: unknown, cwd: string): stri
   });
 }
 
+/** Prompt-hook stdin (Claude Code UserPromptSubmit / Cursor beforeSubmitPrompt). */
+function promptSubmitStdin(text: string, cwd: string): string {
+  return JSON.stringify({
+    prompt: text,
+    cwd,
+    session_id: 'e2e-session',
+    hook_event_name: 'UserPromptSubmit',
+  });
+}
+
 function antigravityStdin(name: string, args: unknown, cwd: string): string {
   return JSON.stringify({
     toolCall: { name, args },
@@ -121,6 +164,8 @@ const claudeCode: WireSpec = {
   assertDeny: (res) => claudeStyleDeny(res, claudeCodeForbidden),
   assertPass: assertNoOutput,
   assertStopNoop: assertNoOutput,
+  promptStdin: (text, cwd) => promptSubmitStdin(text, cwd),
+  assertPromptInert: assertNoOutput,
   forbiddenSubstrings: [],
 };
 const claudeCodeForbidden: string[] = [];
@@ -162,6 +207,8 @@ const cursor: WireSpec = {
     assert.equal(out.permission, 'allow', raw(res));
   },
   assertStopNoop: assertNoOutput,
+  promptStdin: (text, cwd) => promptSubmitStdin(text, cwd),
+  assertPromptInert: assertCursorPromptContinue,
   forbiddenSubstrings: cursorForbidden,
 };
 
@@ -185,6 +232,11 @@ const antigravity: WireSpec = {
   },
   assertPass: assertNoOutput,
   assertStopNoop: assertNoOutput,
+  // No prompt hook: Antigravity has no UserPromptSubmit event. PreInvocation
+  // fires before EVERY model call and stands in for SessionStart only — a
+  // different contract, deliberately out of B7's scope.
+  promptStdin: () => null,
+  assertPromptInert: null,
   forbiddenSubstrings: antigravityForbidden,
 };
 
