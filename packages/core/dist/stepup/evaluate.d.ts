@@ -20,7 +20,7 @@
  *    `block-stepup-create-failed`, carrying the HTTP status / backend error
  *    text in `failure.detail` so the deny is diagnosable (issue #189).
  */
-import { type RbacAction } from '../patterns/index.js';
+import { type GuardProvider, type RbacAction } from '../patterns/index.js';
 export interface ToolCallInput {
     toolName: string;
     toolInput: unknown;
@@ -110,6 +110,17 @@ export type GateDecision = {
     action: string;
     reasoning?: string | undefined;
 };
+export type Classified = {
+    summary: string;
+};
+/**
+ * The built-in binary decision (toolgate t2): a call is skipped iff its wire
+ * name is ours (registered tc_* set) or in the host's static builtin-exempt
+ * list — everything else goes to POST /guard/evaluate.
+ * Exported for the §3 acceptance-matrix unit tests; production callers go
+ * through `evaluatePreToolUse`.
+ */
+export declare function classifyToolCall(input: ToolCallInput, provider: GuardProvider | undefined): Classified | null;
 /**
  * Run the full PreToolUse gate against a parsed tool call.
  *

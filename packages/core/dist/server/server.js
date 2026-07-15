@@ -4,7 +4,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { PLUGIN_VERSION } from '../build-info.js';
 import { formatPollStepupSessionWaitAgentContext, getGateBackend, } from '../contract/index.js';
-import { isMcpWireToolName, isTranscodesGuardWireToolName, loadMergedToolRules, } from '../patterns/index.js';
+import { isGuardToolName, isMcpWireToolName, loadMergedToolRules, } from '../patterns/index.js';
 import { TRANSCODES_ROUTER_BODY } from './router-body.js';
 const MCP_TOOL_LOOKUP_NAME_GUIDANCE = 'MCP full wire name from the host PreToolUse hook (e.g. mcp__mongodb__list_collections). External mcp__* names are gated via POST /guard/evaluate; built-in transcodes-guard MCP skips the hook (handler backstop only).';
 // The `/transcodes` umbrella command body lives in the generated
@@ -471,13 +471,13 @@ export function createServer(backend = getGateBackend()) {
     }));
     server.registerTool('tc_simulate_tool_call', {
         title: 'Simulate MCP hook gating',
-        description: 'Given a full MCP wire tool name from a PreToolUse hook, report whether the hook would gate it. External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP (mcp__*transcodes-guard*) skips the hook — execProtectedTool handler backstop applies. Read-only — does not invoke the hook or call the backend.',
+        description: 'Given a full MCP wire tool name from a PreToolUse hook, report whether the hook would gate it. External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP (registered tc_* names, exact set — bare or host-namespaced) skips the hook — execProtectedTool handler backstop applies. Read-only — does not invoke the hook or call the backend.',
         inputSchema: {
             tool_name: z.string().min(1).describe(MCP_TOOL_LOOKUP_NAME_GUIDANCE),
             tool_input: z.unknown().optional(),
         },
     }, async ({ tool_name }) => {
-        if (isTranscodesGuardWireToolName(tool_name)) {
+        if (isGuardToolName(tool_name)) {
             return textResult(JSON.stringify({
                 tool_name,
                 matched: false,

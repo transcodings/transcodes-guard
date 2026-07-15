@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.54.0...transcodes-guard-v0.55.0) (2026-07-15)
+
+
+### Features
+
+* **core:** t2 — 툴 검사 면제를 '이름 정확 일치'로만 허용 (비슷한 이름이 무검사 통과되던 구멍 차단) ([#202](https://github.com/transcodings/transcodes-guard/issues/202)) ([b60fc71](https://github.com/transcodings/transcodes-guard/commit/b60fc711f29f71015821af2bb5d471b1cab30076))
+
 ## [0.54.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.53.0...transcodes-guard-v0.54.0) (2026-07-14)
 
 

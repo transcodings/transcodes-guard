@@ -6,6 +6,18 @@
  * Phase 3 v2: rules mirror the backend guard bundle wire shape (`id`, `type`,
  * `label`, `description`, `name`, `matcher`, optional `action`/`resource`).
  */
+import builtinExemptAntigravity from './data/builtin-exempt/antigravity.json' with {
+    type: 'json'
+};
+import builtinExemptClaude from './data/builtin-exempt/claude.json' with {
+    type: 'json'
+};
+import builtinExemptCodex from './data/builtin-exempt/codex.json' with {
+    type: 'json'
+};
+import builtinExemptCursor from './data/builtin-exempt/cursor.json' with {
+    type: 'json'
+};
 import systemToolRulesData from './data/tool-rules.json' with { type: 'json' };
 import { coerceRbacAction, coerceRbacResource, isRbacAction, } from './rbac.js';
 export const GUARD_PROVIDERS = [
@@ -69,24 +81,119 @@ function globMatches(pattern, toolName) {
         .replace(/\?/g, '.');
     return new RegExp(`^${escaped}$`).test(toolName);
 }
-/**
- * Claude/Codex host namespace marker — plugin `mcp_plugin_transcodes` + server `guard`
- * → `mcp__plugin_mcp_plugin_transcodes_guard__{tool}`.
- */
-export const TRANSCODES_MCP_HOST_MARKER = 'mcp_plugin_transcodes_guard';
 /** Canonical registerTool / tool-rules prefix for built-in transcodes-guard MCP. */
 export const TRANSCODES_GUARD_TOOL_PREFIX = 'tc_';
 /** Wire names emitted by host PreToolUse hooks for MCP tool calls. */
 export function isMcpWireToolName(toolName) {
     return /^mcp__/i.test(toolName);
 }
-/** Built-in transcodes-guard MCP — PreToolUse skips /guard/evaluate. */
-export function isTranscodesGuardWireToolName(toolName) {
+/**
+ * Every registered built-in transcodes-guard MCP tool name (bare form).
+ *
+ * DRIFT ALARM: hand-maintained until t5 derives it from the tool-definition
+ * source. Keep in sync with every `registerTool('tc_…')` call
+ * (core/src/server/server.ts + gate-backend/src/mcp-tools/*.ts) and with
+ * `scripts/tool-catalog.mjs` MCP_TOOLS (bare names there, `tc_` added here) —
+ * the unit test cross-checks this set against the catalog. Adding a tool?
+ * Add it in all three places.
+ */
+export const GUARD_TOOL_NAMES = new Set([
+    'tc_check_project_assets',
+    'tc_check_rbac_permission',
+    'tc_check_related_origin',
+    'tc_create_member',
+    'tc_create_resource',
+    'tc_create_role',
+    'tc_create_stepup_session',
+    'tc_echo',
+    'tc_get_console_url',
+    'tc_get_current_member_id',
+    'tc_get_current_organization_id',
+    'tc_get_current_project_id',
+    'tc_get_integration_guide',
+    'tc_get_member',
+    'tc_get_member_suspension',
+    'tc_get_my_profile',
+    'tc_get_project',
+    'tc_get_resources',
+    'tc_get_roles',
+    'tc_get_security_logs',
+    'tc_inspect_stepup_state',
+    'tc_jwk_backup',
+    'tc_list_authenticators',
+    'tc_list_member_devices',
+    'tc_list_members_paginated',
+    'tc_list_passkeys',
+    'tc_list_totps',
+    'tc_membership_create_checkout_session',
+    'tc_membership_customer_status_by_organization',
+    'tc_membership_customer_status_by_project',
+    'tc_membership_plans',
+    'tc_membership_plans_limits',
+    'tc_passcode_create',
+    'tc_poll_stepup_session',
+    'tc_poll_stepup_session_wait',
+    'tc_project_pwa_auth_console',
+    'tc_retire_member',
+    'tc_retire_resource',
+    'tc_retire_role',
+    'tc_set_role_permissions',
+    'tc_simulate_command',
+    'tc_simulate_hook_invocation',
+    'tc_simulate_tool_call',
+    'tc_suspend_member',
+    'tc_unsuspend_member',
+    'tc_update_member',
+    'tc_update_member_role',
+    'tc_update_resource',
+    'tc_update_role',
+    'tc_user_create',
+    'tc_user_find',
+    'tc_user_get_current',
+]);
+/**
+ * Our MCP server namespace segment as hosts wrap it:
+ * `mcp__plugin_mcp_plugin_transcodes_guard__{tool}` (Claude Code plugin form)
+ * or `mcp__mcp_plugin_transcodes_guard__{tool}` (bare server form).
+ */
+const TRANSCODES_NS_REGEX = /^(plugin_)?mcp_plugin_transcodes_guard$/;
+/**
+ * Built-in transcodes-guard MCP — PreToolUse skips /guard/evaluate.
+ * Exact set membership only (no substring/prefix heuristics): bare
+ * registered name, or host-namespaced form whose namespace AND tool part
+ * both match. Anything else → not ours → gated (fail-safe).
+ */
+export function isGuardToolName(toolName) {
     const lower = toolName.toLowerCase();
-    return (lower.includes(TRANSCODES_GUARD_TOOL_PREFIX) ||
-        lower.startsWith(TRANSCODES_MCP_HOST_MARKER) ||
-        lower.includes('transcodes') ||
-        lower.includes('version'));
+    if (GUARD_TOOL_NAMES.has(lower))
+        return true;
+    const m = /^mcp__([a-z0-9_-]+)__(tc_[a-z0-9_]+)$/.exec(lower);
+    if (!m)
+        return false;
+    return TRANSCODES_NS_REGEX.test(m[1]) && GUARD_TOOL_NAMES.has(m[2]);
+}
+const BUILTIN_EXEMPT_BY_PROVIDER = {
+    claude: builtinExemptClaude,
+    codex: builtinExemptCodex,
+    cursor: builtinExemptCursor,
+    antigravity: builtinExemptAntigravity,
+    web: [],
+};
+/** Per-provider builtin-exempt entries — exposed for tests/reporting only. */
+export function builtinExemptEntries(provider) {
+    return BUILTIN_EXEMPT_BY_PROVIDER[provider];
+}
+/**
+ * Host built-in tool from the per-provider static allow list (grade ①
+ * conversation/plan + ② workspace-read only — see toolgate t2 §2-c).
+ * Exact, case-sensitive match; the lists are compiled into the bundle and
+ * cannot be extended at runtime. Unknown host → NO exemption (fail-safe:
+ * over-gate, never over-skip).
+ */
+export function isBuiltinExemptToolName(provider, toolName) {
+    if (provider === undefined)
+        return false;
+    return BUILTIN_EXEMPT_BY_PROVIDER[provider].some((e) => e.name === toolName);
 }
 export function toolNameMatchesRule(toolName, rule) {
     if (rule.type === 'bash')
