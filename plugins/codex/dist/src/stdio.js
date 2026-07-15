@@ -12,7 +12,7 @@ import {
   isMcpWireToolName,
   loadMergedToolRules,
   objectType
-} from "../chunk-KLMAK4TZ.js";
+} from "../chunk-5C5AMB66.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({

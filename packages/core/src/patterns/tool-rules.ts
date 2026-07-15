@@ -53,9 +53,11 @@ export interface ToolRule {
   /** Step-up resource key — omitted when the rule only gates tool access. */
   resource?: string;
   /**
-   * When true, the hook consumes the verified record (FP-keyed, single-shot).
-   * When false, the MCP tool handler passes sid via X-Step-Up-Session-Id.
-   * Default: `true` for bundle (project) rules, `false` for system rules.
+   * @deprecated Read by nothing (t3). It used to pick which side consumed the
+   * local verified record; there is no local record now — the backend owns
+   * verified state and the handler backstop claims an in-memory sid instead.
+   * Kept in the shape so existing bundle rules and backend verdicts still parse;
+   * do not branch on it.
    */
   consume_in_hook?: boolean;
 }
@@ -327,14 +329,6 @@ export function findFirstToolRule(
     }
   }
   return null;
-}
-
-/** Whether PreToolUse should consume the verified record for this MCP rule. */
-export function mcpConsumesInHook(rule: MergedToolRule): boolean {
-  if (rule.consume_in_hook !== undefined) return rule.consume_in_hook;
-  // Project rules (add_tool_rule / policy bundle) → FP-keyed hook path.
-  // Built-in system rules → GLOBAL; handler needs sid for the backend header.
-  return rule.source === 'bundle';
 }
 
 export class ToolRuleValidationError extends Error {}

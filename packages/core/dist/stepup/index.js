@@ -11,7 +11,7 @@
  * without collision.
  */
 export { request, } from './client.js';
-export { DEFAULT_BACKEND_URL, loadStepupConfig, MAX_STOP_REMINDERS, STEPUP_TTL_MS, } from './config.js';
+export { DEFAULT_BACKEND_URL, loadStepupConfig, STEPUP_TTL_MS, } from './config.js';
 export { CONSOLE_SESSION_COMMENT, fetchMemberProfile, openConsoleSession, } from './console.js';
 export { evaluatePreToolUse, GATE_DECISION_KIND, } from './evaluate.js';
 export { openBrowser } from './gate.js';

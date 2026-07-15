@@ -7,8 +7,6 @@
 export declare const DEFAULT_BACKEND_URL: string;
 /** Step-up validity window. Mirrors the backend TTL used by transcodes. */
 export declare const STEPUP_TTL_MS: number;
-/** Max Stop-hook MFA reminders per in-flight latch before allowing turn end. */
-export declare const MAX_STOP_REMINDERS = 3;
 export type StepupConfig = {
     backendUrl: string;
     apiBaseV1: string;

@@ -43,7 +43,6 @@ export {
   loadSystemToolRules,
   type MergedToolRule,
   mapHostToProvider,
-  mcpConsumesInHook,
   mergeToolRuleChanges,
   ruleAppliesToHost,
   systemToolRuleIds,

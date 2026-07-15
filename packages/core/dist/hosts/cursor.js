@@ -16,8 +16,8 @@
  *  - UserPromptSubmit equivalent (`beforeSubmitPrompt`): has NO context
  *    injection channel — only `{ continue, user_message? }`. The
  *    `emitUserPromptSubmitContext` method below throws to surface wiring
- *    bugs; the matching hook entry handles user "auth done" prompts via
- *    side effects only (consumeVerified + clearPending).
+ *    bugs; the matching hook entry is inert (t3 left it no local state to
+ *    reconcile) and just emits `{ continue: true }`.
  *  - Stop stdout: `{ followup_message? }` — Claude Code's `{ decision: "block",
  *    reason }` semantic, different key name.
  *

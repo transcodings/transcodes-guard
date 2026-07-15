@@ -244,14 +244,6 @@ export function findFirstToolRule(toolName, rules, hostProvider = currentHostPro
     }
     return null;
 }
-/** Whether PreToolUse should consume the verified record for this MCP rule. */
-export function mcpConsumesInHook(rule) {
-    if (rule.consume_in_hook !== undefined)
-        return rule.consume_in_hook;
-    // Project rules (add_tool_rule / policy bundle) → FP-keyed hook path.
-    // Built-in system rules → GLOBAL; handler needs sid for the backend header.
-    return rule.source === 'bundle';
-}
 export class ToolRuleValidationError extends Error {
 }
 function detectShellCommand(name) {

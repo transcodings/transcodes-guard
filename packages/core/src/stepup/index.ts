@@ -19,7 +19,6 @@ export {
 export {
   DEFAULT_BACKEND_URL,
   loadStepupConfig,
-  MAX_STOP_REMINDERS,
   STEPUP_TTL_MS,
   type StepupConfig,
 } from './config.js';

@@ -98,7 +98,7 @@ export type GateDecision = {
     sid: string;
     browserUrl: string;
     browserLaunched: boolean;
-    /** Classified coordinate (also the local latch key). */
+    /** Classified coordinate — the backend's reuse key for this challenge. */
     resource: string;
     action: string;
     reasoning?: string | undefined;
