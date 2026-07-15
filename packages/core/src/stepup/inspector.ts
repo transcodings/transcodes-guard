@@ -16,6 +16,7 @@ import { cacheDir } from '../paths/index.js';
 import { STEPUP_TTL_MS } from './config.js';
 
 export type StepupStateInspection = {
+  /** Where the client would keep cache files, for diagnostics. */
   cache_dir: string;
   now_ms: number;
   /** Backend step-up session TTL, echoed for the agent's wait budgeting. */
@@ -25,7 +26,7 @@ export type StepupStateInspection = {
    * agent reads a fact rather than inferring one from a missing field.
    */
   client_state_files: never[];
-  /** Where the client would keep cache files, for diagnostics. */
+  /** The backend owns every step-up status; poll it, never a local file. */
   backend_owns_state: true;
 };
 

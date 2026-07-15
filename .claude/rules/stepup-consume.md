@@ -4,6 +4,14 @@ paths:
   - "packages/core/src/stepup/**"
 ---
 
+> **STALE — describes the pre-v3 model; scheduled for rewrite in toolgate t7.** The
+> local verified/pending store, the FP-keyed files, `claimVerified`,
+> `recheckVerifiedSid`, `TRANSCODES_GUARD_TEST_TRUST`, the browser-lock, the local
+> latch, and the `mcpConsumesInHook` helper named below **no longer exist**. The
+> backend owns verified state (Redis, keyed on the resource/action coordinate);
+> the client persists nothing. `consume_in_hook` still rides the wire but nothing
+> reads it. Trust the code, not this file, until t7 lands.
+
 # Step-up verified-record lifecycle
 
 The verified record is single-use. Three independent things decide its fate: **who** consumes it, **which file** holds it, and **whether** a locally-present record is even trusted.

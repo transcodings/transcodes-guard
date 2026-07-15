@@ -79,9 +79,9 @@ transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출�
 |---|---|
 | `beforeShellExecution` | Shell 명령에 대해 2단계 검사(정규식 패턴 + `rm -rf`에 대한 `git ls-files` 의미 검사). 일치 시 `{ permission: "deny", user_message, agent_message }`로 차단하고 스텝업 MFA를 시작합니다. |
 | `beforeMCPExecution` | MCP 도구 호출에 대한 정확 일치 tool-rule(시스템 + 정책 번들). `beforeShellExecution`과 동일한 hook 바이너리가 처리하며, classifier는 `Bash` / `run_command`와 함께 `Shell` 도구명을 허용합니다. |
-| `sessionStart` | latch 정리, 프롬프트 그룹 sid 회전, MCP 토큰이 없으면 `{ additional_context }`로 안내. |
-| `beforeSubmitPrompt` | 사용자 제출마다 프롬프트 그룹 sid 회전. Cursor는 `additional_context` 채널 없음 — `{ continue: true }`만 출력. 스텝업 상태는 백엔드 SSOT; 프롬프트 확인 대신 `tc_poll_stepup_session_wait` 사용. |
-| `stop` | `followup_message`로 매달린 스텝업 세션을 모델에 상기시키고, 고아 verified/pending 레코드를 조용히 회수합니다. |
+| `sessionStart` | MCP 토큰이 없으면 `{ additional_context }`로 안내. |
+| `beforeSubmitPrompt` | 아무 일도 하지 않음 — 클라이언트가 들고 있는 스텝업 상태가 없어 조정할 것이 없습니다. Cursor는 `additional_context` 채널이 없으므로 `{ continue: true }`만 출력. 스텝업 상태는 백엔드 SSOT; 프롬프트 확인 대신 `tc_poll_stepup_session_wait` 사용. |
+| `stop` | no-op — stdin만 비우고 조용히 종료합니다. 스텝업 상태는 백엔드 SSOT라 회수하거나 상기시킬 로컬 상태가 없으며, 에이전트는 PreToolUse deny + `tc_poll_stepup_session_wait`로 복구합니다. |
 
 게이트 hook 2종(`beforeShellExecution` / `beforeMCPExecution`)은 `failClosed: true`로 선언됩니다. Cursor의 기본값은 fail-open이라 hook이 크래시·타임아웃하거나 잘못된 JSON을 내면 명령이 그대로 통과합니다. 그래서 게이트는 hook 자체가 실패하면 명령을 명시적으로 차단하며, 이는 보안에 민감한 hook에 대한 Cursor 권장사항과 일치합니다. 수명주기 hook(`sessionStart` / `beforeSubmitPrompt` / `stop`)은 차단이 아닌 관찰 역할이므로, 실패가 정상 작업을 가로막지 않도록 fail-open을 유지합니다.
 

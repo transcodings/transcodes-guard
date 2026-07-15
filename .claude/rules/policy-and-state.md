@@ -17,7 +17,7 @@ paths:
 - **Bash-type rules** are forced to `matcher:'regex'`, require both `action` and `resource`, and put the regex in the **`name`** field (no separate pattern field). **MCP-type rules** reject a `name` containing shell metacharacters `[\s|&;<>$*()`\/]`. There is **no local user-patterns.json** authoring surface — remote bash/MCP rules are written through backend APIs (`add_user_pattern` / `add_tool_rule`).
 - Rule `id` must match `/^[a-z0-9][a-z0-9-]*$/` — enforced in `validateNewToolRule`, *not* in the schema/types.
 - Missing RBAC fields **coerce to defaults** rather than erroring: `DEFAULT_RBAC_RESOURCE='system'`, `DEFAULT_RBAC_ACTION='update'` (`coerceRbacAction`/`coerceRbacResource` backfill legacy records).
-- `mcpConsumesInHook` defaults are asymmetric by source: `source==='bundle'` MCP rules default `consume_in_hook=true` (FP-keyed single-shot), system MCP rules default `false` (handler passes sid via `X-Step-Up-Session-Id`). See [[stepup-consume]].
+- `consume_in_hook` is **dead policy** (t3): nothing reads it. It stays in the rule shape so existing bundle rules and backend verdicts still parse, but there is no local verified record left for either side to consume — the backend owns verified state and the handler backstop claims an in-memory sid instead. Do not branch on it, and do not restore the removed `mcpConsumesInHook` source-default helper. See [[stepup-consume]].
 
 ## State ownership (`core/src/paths`)
 
