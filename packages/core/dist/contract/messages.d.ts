@@ -61,5 +61,9 @@ export declare function formatStepupRejectedSystemMessage(decision: Extract<Gate
  * Stderr 1-line summary tag for the hook process. Distinct from the
  * stdout JSON — this surface lands directly in the terminal under each
  * host's hook log channel.
+ *
+ * Exactly one line, always: the decision-bearing prefix is machine-readable
+ * (`simulate_hook_invocation` parses it) and the trailing command is folded to
+ * a single line so it can never forge one.
  */
 export declare function formatStderrTag(decision: GateDecision): string;
