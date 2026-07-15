@@ -12,7 +12,7 @@ import {
   isMcpWireToolName,
   loadMergedToolRules,
   objectType
-} from "../chunk-S4YBP6HO.js";
+} from "../chunk-CVP7DUEX.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -17209,8 +17209,6 @@ function createServer(backend = getGateBackend()) {
     });
     if (result.outcome === "verified" && result.sid) {
       backend.markStepupVerified(result.sid);
-    } else if (result.sid && (result.outcome === "rejected" || result.outcome === "not_found" || result.outcome === "timeout")) {
-      backend.clearLatchBySid(result.sid);
     }
     return {
       content: [
@@ -17233,8 +17231,8 @@ function createServer(backend = getGateBackend()) {
     };
   });
   server.registerTool("tc_inspect_stepup_state", {
-    title: "Inspect step-up state on disk",
-    description: "Single source of truth for what the step-up state files look like RIGHT NOW. Returns structured JSON for verified / pending / browser-lock records with explicit `age_ms`, `expired`, and `ttl_ms` fields so the agent never has to compute expiry from raw timestamps or trust a wrapped `ls` output. Strict read-only: this tool never consumes or rewrites any record. Call this BEFORE and AFTER any step-up flow to verify state transitions deterministically.",
+    title: "Inspect client step-up state",
+    description: "Reports what step-up state this client holds: nothing. Guard v3 keeps every status on the backend (reuse is keyed by the resource/action coordinate), so `client_state_files` is always empty and that emptiness is the answer \u2014 not a failure to look. To find out whether a coordinate is verified, poll the backend with `poll_stepup_session` / `poll_stepup_session_wait` instead. Strict read-only: writes and consumes nothing.",
     inputSchema: {}
   }, async () => {
     const snapshot = backend.inspectStepupState();
@@ -17249,7 +17247,7 @@ function createServer(backend = getGateBackend()) {
   });
   server.registerTool("tc_simulate_hook_invocation", {
     title: "Invoke PreToolUse hook in a controlled subprocess",
-    description: "Spawns the actual PreToolUse hook binary with a Bash payload as stdin, captures stdout/stderr/exit, and diffs the step-up state files before/after \u2014 all in one structured response. Use this when you need to verify hook behaviour (fast-path consumption, deny emission, new step-up start) without inferring from `exit 127` or `ls` output. WARNING: this is NOT a dry run \u2014 the hook may consume the verified record or create a new step-up session and open a browser tab if a danger pattern is hit. Use it the way you would a real hook invocation, not as a side-effect-free probe.",
+    description: "Spawns the actual PreToolUse hook binary with a Bash payload as stdin and reports what it decided (deny emitted? new step-up started?) plus raw stdout/stderr/exit \u2014 all in one structured response, so you never infer hook behaviour from `exit 127` or `ls` output. WARNING: this is NOT a dry run \u2014 the hook calls the backend and may create a step-up session and open a browser tab. Use it the way you would a real hook invocation, not as a side-effect-free probe.",
     inputSchema: {
       command: external_exports.string().min(1).optional().describe("Bash command string. Builds tool_input={command} when tool_name is Bash and tool_input is not provided. Ignored if tool_input is set."),
       cwd: external_exports.string().optional().describe("Optional working directory passed to the hook payload. Defaults to process.cwd()."),
@@ -17262,7 +17260,6 @@ function createServer(backend = getGateBackend()) {
     if (effectiveToolName === "Bash" && !effectiveToolInput?.command) {
       return textResult("Rejected: Bash payload requires `command` (or `tool_input.command`).", true);
     }
-    const before = backend.inspectStepupState();
     const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT?.trim() || process.env.PLUGIN_ROOT?.trim();
     if (!pluginRoot) {
       return textResult("Rejected: CLAUDE_PLUGIN_ROOT (or PLUGIN_ROOT for Codex) must be set so the hook binary can be located.", true);
@@ -17285,30 +17282,25 @@ function createServer(backend = getGateBackend()) {
       child.on("error", () => resolve({ stdout: stdout2, stderr: stderr2, exitCode: -1 }));
       child.stdin.end(payload);
     });
-    const after = backend.inspectStepupState();
     let parsedStdout = null;
     try {
       parsedStdout = stdout.trim() ? JSON.parse(stdout) : null;
     } catch {
     }
     const denyEmitted = parsedStdout !== null && typeof parsedStdout === "object" && parsedStdout.hookSpecificOutput !== void 0 && parsedStdout.hookSpecificOutput.permissionDecision === "deny";
-    const latchCreated = after.latches.length > before.latches.length;
-    const latchCleared = after.latches.length < before.latches.length;
+    const denyReason = denyEmitted ? parsedStdout.hookSpecificOutput.permissionDecisionReason ?? "" : "";
+    const newStepUpStarted = typeof denyReason === "string" && denyReason.includes("tc_stepup_");
     return {
       content: [
         {
           type: "text",
           text: JSON.stringify({
             deny_emitted: denyEmitted,
-            new_step_up_started: latchCreated && denyEmitted,
-            latch_created: latchCreated,
-            latch_cleared: latchCleared,
+            new_step_up_started: newStepUpStarted,
             exit_code: exitCode,
             stdout_json: parsedStdout,
             stdout_raw: parsedStdout === null ? stdout : void 0,
-            stderr: stderr || void 0,
-            state_before: before,
-            state_after: after
+            stderr: stderr || void 0
           }, null, 2)
         }
       ]

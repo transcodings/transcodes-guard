@@ -17,10 +17,8 @@ export { evaluatePreToolUse, GATE_DECISION_KIND, } from './evaluate.js';
 export { openBrowser } from './gate.js';
 export { inspectStepupState, } from './inspector.js';
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
-export { clearLatch, clearLatchBySid, formatStopReminderMessage, hasLatch, incrementLatchRemindedCount, listLatches, readLatchRecord, readSinglePendingLatchSid, sweepLatches, writeLatch, } from './latch.js';
 export { checkRbacPermission, } from './rbac-check.js';
 export { createConsoleBrowserSession, createStepupSession, pollStepupByCoordinate, pollStepupSession, pollStepupSessionWait, } from './session.js';
-export { peekPromptGroup, resolvePromptGroup, rotatePromptGroup, } from './sid.js';
 export { clearTokenFile, readTokenFromFile, readTokenList, readTokenRecords, removeTokenFromFile, resolveToken, setActiveToken, setTokenLabel, transcodesConfigDir, transcodesConfigFile, writeTokenToFile, } from './token-store.js';
 export { claimStepupVerified, hasStepupVerified, markStepupVerified, } from './verified-memory.js';
 //# sourceMappingURL=index.js.map

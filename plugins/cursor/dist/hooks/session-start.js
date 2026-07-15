@@ -5,13 +5,11 @@ import {
 import {
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-XO5B74QP.js";
+} from "../chunk-E7SJ4Y2S.js";
 
 // hooks/session-start.ts
 async function main() {
   const backend = getGateBackend();
-  backend.sweepLatches();
-  backend.rotatePromptGroup();
   const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
   if (tokenNotice) {
     process.stdout.write(cursorAdapter.emitSessionStartContext(tokenNotice));

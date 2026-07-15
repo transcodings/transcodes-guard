@@ -2,8 +2,8 @@
  * The GateBackend DI interface.
  *
  * One interface covers both consumption paths:
- *   - hook path: evaluatePreToolUse + the pending/verified side-effect helpers
- *     the hook entrypoints call after emitting their decision.
+ *   - hook path: evaluatePreToolUse + the token probe. Guard v3 hooks perform no
+ *     step-up persistence, so there are no side-effect helpers here (t3).
  *   - server path: the step-up session tools, RBAC-coordinate validation, and
  *     the backend MCP tool registration.
  *
@@ -21,10 +21,6 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CreatedStepupSession, CreateStepupArgs, GateDecision, PollStepupResult, StepupStateInspection, ToolCallInput, WaitStepupResult } from './types.js';
 export interface GateBackend {
     evaluatePreToolUse(input: ToolCallInput): Promise<GateDecision>;
-    /** Mint a fresh per-prompt grouping id (prompt-submit / session-start). */
-    rotatePromptGroup(): void;
-    /** Reap expired browser/poll latches (Stop-hook housekeeping). */
-    sweepLatches(now?: number): void;
     /** Whether a Transcodes token is resolvable (session-start no-token notice). */
     hasToken(): boolean;
     createStepupSession(args: CreateStepupArgs): Promise<CreatedStepupSession>;
@@ -54,11 +50,6 @@ export interface GateBackend {
      * by the poll tools on `verified`.
      */
     markStepupVerified(sid: string): void;
-    /**
-     * @deprecated Local latch removed — coordinate SSOT lives on the backend.
-     * Kept as a no-op for older plugin hook builds.
-     */
-    clearLatchBySid(sid: string): void;
     assertRbacCoordinate(resource: string, action: string): Promise<void>;
     isRbacCoordinateError(e: unknown): e is Error;
     registerBackendTools(server: McpServer): void;
