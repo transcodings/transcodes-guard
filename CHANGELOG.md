@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.1...transcodes-guard-v0.55.2) (2026-07-15)
+
+
+### Code Refactoring
+
+* **stepup:** t3 — 클라이언트가 들고 있던 step-up 상태 철거 (아무도 안 읽는데 매 프롬프트 디스크에 쓰던 파일 제거) ([#204](https://github.com/transcodings/transcodes-guard/issues/204)) ([f8fbf9b](https://github.com/transcodings/transcodes-guard/commit/f8fbf9b4a54cb46f426c8731f62d17985ab6f38a))
+
 ## [0.55.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.0...transcodes-guard-v0.55.1) (2026-07-15)
 
 
