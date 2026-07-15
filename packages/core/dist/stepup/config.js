@@ -19,8 +19,6 @@ export const DEFAULT_BACKEND_URL = process.env.environment === 'dev'
     : 'https://api.transcodesapis.com';
 /** Step-up validity window. Mirrors the backend TTL used by transcodes. */
 export const STEPUP_TTL_MS = 10 * 60 * 1_000;
-/** Max Stop-hook MFA reminders per in-flight latch before allowing turn end. */
-export const MAX_STOP_REMINDERS = 3;
 /**
  * Build StepupConfig from the environment + token store. The token is
  * resolved solely from ~/.transcodes/config.json (see token-store.ts).

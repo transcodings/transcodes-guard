@@ -44,7 +44,7 @@ Without a token, the hook still **denies** danger commands but cannot start a st
 | MCP server (`transcodes-guard`) | **Diagnostic / simulation** tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`); **step-up lifecycle** tools (`create_stepup_session`, `poll_stepup_session_wait`); **Transcodes admin** tools (member / organization / RBAC / membership / passcode / auth-device / audit / project management). |
 | `SessionStart` hook | Injects the step-up protocol primer (so the agent knows how to react to a deny) plus a carry-over notice if a step-up session survived a restart. Pure additive context — never blocks. |
 | `UserPromptSubmit` hook | Detects user "auth done" prompts (`"완료"`, `"done"`, …) and surfaces the pending `sid` so the agent can resume polling. |
-| `Stop` hook | Catches dangling step-up loops; silently reaps orphan verified/pending records. |
+| `Stop` hook | No-op — drains stdin and exits silently. Step-up status is backend SSOT, so there is nothing local to reap or remind about; agents recover via the PreToolUse deny + `tc_poll_stepup_session_wait`. |
 
 ## Slash command: `/transcodes`
 

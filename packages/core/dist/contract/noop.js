@@ -8,8 +8,6 @@ export const denyByDefaultBackend = {
     async evaluatePreToolUse() {
         return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
     },
-    rotatePromptGroup() { },
-    sweepLatches() { },
     hasToken() {
         return false;
     },
@@ -30,7 +28,6 @@ export const denyByDefaultBackend = {
         return notInstalled();
     },
     markStepupVerified() { },
-    clearLatchBySid() { },
     assertRbacCoordinate() {
         return notInstalled();
     },

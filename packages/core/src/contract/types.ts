@@ -34,7 +34,6 @@ export {
   type Envelope,
   GATE_DECISION_KIND,
   type GateDecision,
-  type LatchInspection,
   type PollStepupResult,
   type RbacLevel,
   type StepupFailure,

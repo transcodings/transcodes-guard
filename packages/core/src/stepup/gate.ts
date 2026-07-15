@@ -1,11 +1,12 @@
 /**
  * Browser launcher for the step-up flow.
  *
- * Guard v3 removed the local browser-lock file and command fingerprinting:
- * dedup is driven by the latch `sid` (`step-up-session` SSOT) plus the local
- * per-coordinate latch file (`latch.ts`). All that remains here is the OS-level
- * that remains here is the OS-level "open this URL" primitive; the gate decides
- * whether to call it.
+ * Guard v3 removed every local dedup mechanism — browser-lock file, command
+ * fingerprint, per-coordinate latch (t3). Concurrent hooks converge on one tab
+ * because the backend's coordinate claim (SET NX) hands only the first caller a
+ * fresh session (`exist:false`); the rest see a reused one and never open a tab.
+ * All that remains here is the OS-level "open this URL" primitive; the gate
+ * decides whether to call it.
  *
  * Polling is intentionally NOT performed here — the hook process emits a deny
  * JSON and exits 0 so the agent drives the wait via `poll_stepup_session_wait`

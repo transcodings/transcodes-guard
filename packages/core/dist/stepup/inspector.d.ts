@@ -1,12 +1,15 @@
-import { type LatchInspection } from './latch.js';
 export type StepupStateInspection = {
+    /** Where the client would keep cache files, for diagnostics. */
     cache_dir: string;
     now_ms: number;
+    /** Backend step-up session TTL, echoed for the agent's wait budgeting. */
     ttl_ms: number;
-    /** Current per-prompt grouping id (null when none minted / expired). */
-    prompt_group: string | null;
-    /** In-flight browser/poll latches, one per (group, resource, action). */
-    latches: LatchInspection[];
+    /**
+     * Always empty: Guard v3 keeps no step-up state on the client. Present so the
+     * agent reads a fact rather than inferring one from a missing field.
+     */
+    client_state_files: never[];
+    /** The backend owns every step-up status; poll it, never a local file. */
+    backend_owns_state: true;
 };
-export type { LatchInspection };
 export declare function inspectStepupState(now?: number): StepupStateInspection;

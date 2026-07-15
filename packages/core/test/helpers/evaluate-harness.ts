@@ -1,7 +1,7 @@
 /**
  * Shared harness for evaluate-path tests: fake member JWT, HOME sandbox with
  * `~/.transcodes/{state,config.json}`, and local JSON backends. Extracted from
- * evaluate-latch-preserve.test.ts / evaluate-create-failed.test.ts so a token
+ * evaluate-browser-dedupe.test.ts / evaluate-create-failed.test.ts so a token
  * shape or state-dir layout change lands in one place. Not matched by the
  * `test/*.test.ts` runner glob.
  */

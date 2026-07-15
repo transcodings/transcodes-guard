@@ -17,12 +17,6 @@ import { assertRbacCoordinate, RbacCoordinateError, registerAuditTools, register
 export const transcodesGateBackend = {
     // hook path — direct bindings
     evaluatePreToolUse,
-    rotatePromptGroup: () => {
-        // Prompt grouping removed — backend coordinate key is the reuse SSOT.
-    },
-    sweepLatches: () => {
-        // Local latch removed — no-op for older Stop/prompt hooks.
-    },
     hasToken: () => Boolean(resolveToken().token),
     // server path: step-up session — config loaded internally
     createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),
@@ -31,7 +25,6 @@ export const transcodesGateBackend = {
     pollStepupSessionWait: (target, options) => pollStepupSessionWait(loadStepupConfig(), target, options),
     inspectStepupState,
     markStepupVerified,
-    clearLatchBySid: () => { },
     // server path: RBAC coordinate — config loaded internally, error wrapped
     assertRbacCoordinate: (resource, action) => assertRbacCoordinate(loadStepupConfig(), resource, action),
     isRbacCoordinateError: (e) => e instanceof RbacCoordinateError,

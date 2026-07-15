@@ -15,7 +15,7 @@
  * directly in this file.
  */
 export type { GuardMatcher, GuardProvider, MergedPattern, MergedToolRule, RbacAction, ToolRule, ToolRuleChanges, ToolRuleInput, ToolRuleMatch, ToolRuleSource, } from '../patterns/index.js';
-export { type BlockResult, type CreatedStepupSession, type CreateStepupArgs, type Envelope, GATE_DECISION_KIND, type GateDecision, type LatchInspection, type PollStepupResult, type RbacLevel, type StepupFailure, type StepupStateInspection, type ToolCallInput, type WaitStepupResult, } from '../stepup/index.js';
+export { type BlockResult, type CreatedStepupSession, type CreateStepupArgs, type Envelope, GATE_DECISION_KIND, type GateDecision, type PollStepupResult, type RbacLevel, type StepupFailure, type StepupStateInspection, type ToolCallInput, type WaitStepupResult, } from '../stepup/index.js';
 /**
  * Outcome of a forced policy-bundle refresh. Contract-only type: the domain
  * has no single original — this is the union of core/stepup's refresh result

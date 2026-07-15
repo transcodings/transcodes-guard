@@ -19,7 +19,6 @@ export {
 export {
   DEFAULT_BACKEND_URL,
   loadStepupConfig,
-  MAX_STOP_REMINDERS,
   STEPUP_TTL_MS,
   type StepupConfig,
 } from './config.js';
@@ -50,20 +49,6 @@ export {
   REQUIRED_AUDIENCE,
 } from './jwt.js';
 export {
-  clearLatch,
-  clearLatchBySid,
-  formatStopReminderMessage,
-  hasLatch,
-  incrementLatchRemindedCount,
-  type LatchInspection,
-  type LatchRecordWithCoordinate,
-  listLatches,
-  readLatchRecord,
-  readSinglePendingLatchSid,
-  sweepLatches,
-  writeLatch,
-} from './latch.js';
-export {
   checkRbacPermission,
   type GuardStepUpStatus,
   type GuardVerdict,
@@ -82,11 +67,6 @@ export {
   type WaitStepupResult,
   type WaitStepupTarget,
 } from './session.js';
-export {
-  peekPromptGroup,
-  resolvePromptGroup,
-  rotatePromptGroup,
-} from './sid.js';
 export {
   clearTokenFile,
   type ResolvedToken,

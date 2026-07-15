@@ -1,41 +1,27 @@
 #!/usr/bin/env node
 /**
- * Cursor beforeSubmitPrompt hook — rotate the per-prompt grouping sid.
+ * Cursor beforeSubmitPrompt hook — intentionally inert, but must still speak.
  *
- * Guard v3: each new user prompt opens a fresh step-up grouping window. Cursor's
- * beforeSubmitPrompt output is `{ continue, user_message? }` only (no
- * additional_context channel), and there is no local step-up state to
- * reconcile anymore — status lives in the backend (SSOT). So this hook just
- * mints a fresh grouping sid and emits `{ continue: true }`.
+ * Guard v3 keeps every step-up status on the backend (SSOT): reuse is keyed by
+ * the Redis coordinate and browser dedupe is the backend's SET NX claim, so a
+ * new prompt has no local grouping window to rotate and no local latch to sweep
+ * (t3 removed both). Unlike the other hosts' prompt hooks this one is NOT
+ * silent: Cursor's beforeSubmitPrompt contract requires a `{ continue }` verdict
+ * on stdout, so it always emits `{ continue: true }` — on parse failure and on
+ * an unexpected throw alike. Never blocks.
  */
 import '../host.js';
 import '../backend.js';
 import { readFileSync } from 'node:fs';
-import { getGateBackend } from '@transcodes-guard/core/contract';
-import { cursorAdapter } from '@transcodes-guard/core/hosts';
 
 function emitContinue(): never {
   process.stdout.write(JSON.stringify({ continue: true }));
   process.exit(0);
 }
 
-function main(): void {
-  const raw = readFileSync(0, 'utf8');
-  try {
-    cursorAdapter.parseUserPromptSubmitStdin(raw);
-  } catch {
-    emitContinue();
-  }
-  getGateBackend().sweepLatches();
-  getGateBackend().rotatePromptGroup();
-  emitContinue();
-}
-
 try {
-  main();
-} catch (err) {
-  process.stderr.write(
-    `transcodes-guard before-submit-prompt hook error: ${err}\n`,
-  );
-  emitContinue();
+  readFileSync(0, 'utf8');
+} catch {
+  // No stdin (or a closed pipe) is fine — this hook has nothing to read it for.
 }
+emitContinue();

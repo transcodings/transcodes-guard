@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Codex CLI SessionStart hook — fresh grouping sid + no-token notice.
+ * Codex CLI SessionStart hook — no-token notice.
  *
  * The static protocol primer lives in AGENTS.md (Codex auto-loads it into
  * every turn's system message). Step-up status lives in the backend (SSOT), so
- * there is no carry-over state to surface — this hook only mints a fresh
- * per-prompt grouping sid and, when no token is configured, emits the notice.
- * Pure additive context — never blocks.
+ * there is no local state to prime and no carry-over to surface — this hook only
+ * emits the notice when no token is configured. Pure additive context — never
+ * blocks.
  */
 import '../host.js';
 import '../backend.js';
@@ -18,8 +18,6 @@ import { codexAdapter } from '@transcodes-guard/core/hosts';
 
 async function main(): Promise<void> {
   const backend = getGateBackend();
-  backend.sweepLatches();
-  backend.rotatePromptGroup();
   const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
   if (tokenNotice) {
     process.stdout.write(codexAdapter.emitSessionStartContext(tokenNotice));

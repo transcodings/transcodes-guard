@@ -7,7 +7,6 @@ import { describe, it } from 'node:test';
 import {
   findFirstToolRule,
   type MergedToolRule,
-  mcpConsumesInHook,
   type ToolRule,
   toolNameMatchesRule,
 } from '../src/patterns/tool-rules.js';
@@ -29,39 +28,6 @@ const globRule: ToolRule = {
   name: 'mcp__claude_ai_Google_Calendar__*',
   matcher: 'glob',
 };
-
-describe('mcpConsumesInHook', () => {
-  it('defaults bundle rules to hook consume (fp-keyed path)', () => {
-    assert.equal(
-      mcpConsumesInHook({
-        ...exactRule,
-        source: 'bundle',
-      }),
-      true,
-    );
-  });
-
-  it('defaults system rules to deferred handler consume (GLOBAL path)', () => {
-    assert.equal(
-      mcpConsumesInHook({
-        ...exactRule,
-        source: 'system',
-      }),
-      false,
-    );
-  });
-
-  it('honours explicit consume_in_hook override', () => {
-    assert.equal(
-      mcpConsumesInHook({
-        ...exactRule,
-        source: 'system',
-        consume_in_hook: true,
-      }),
-      true,
-    );
-  });
-});
 
 describe('toolNameMatchesRule case-insensitivity', () => {
   it('matches exact rule regardless of casing', () => {

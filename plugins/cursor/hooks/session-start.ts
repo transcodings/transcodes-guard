@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Cursor sessionStart hook — fresh grouping sid + no-token notice.
+ * Cursor sessionStart hook — no-token notice.
  *
  * Cursor's sessionStart output is `{ additional_context?, env? }`
  * (snake_case) — semantically identical to Claude Code's
@@ -17,8 +17,6 @@ import { cursorAdapter } from '@transcodes-guard/core/hosts';
 
 async function main(): Promise<void> {
   const backend = getGateBackend();
-  backend.sweepLatches();
-  backend.rotatePromptGroup();
   const tokenNotice = backend.hasToken() ? null : formatNoTokenSessionNotice();
   if (tokenNotice) {
     process.stdout.write(cursorAdapter.emitSessionStartContext(tokenNotice));

@@ -9,5 +9,5 @@
  */
 export { findFirstMatch, loadMergedPatterns, loadSystemPatterns, } from './danger-patterns.js';
 export { coerceRbacAction, coerceRbacResource, DEFAULT_RBAC_ACTION, DEFAULT_RBAC_RESOURCE, isRbacAction, RBAC_ACTIONS, } from './rbac.js';
-export { builtinExemptEntries, currentHostProvider, findFirstToolRule, GUARD_PROVIDERS, GUARD_TOOL_NAMES, isBuiltinExemptToolName, isGuardToolName, isMcpWireToolName, loadMergedToolRules, loadSystemToolRules, mapHostToProvider, mcpConsumesInHook, mergeToolRuleChanges, ruleAppliesToHost, systemToolRuleIds, ToolRuleValidationError, TRANSCODES_GUARD_TOOL_PREFIX, toolNameMatchesRule, validateNewToolRule, } from './tool-rules.js';
+export { builtinExemptEntries, currentHostProvider, findFirstToolRule, GUARD_PROVIDERS, GUARD_TOOL_NAMES, isBuiltinExemptToolName, isGuardToolName, isMcpWireToolName, loadMergedToolRules, loadSystemToolRules, mapHostToProvider, mergeToolRuleChanges, ruleAppliesToHost, systemToolRuleIds, ToolRuleValidationError, TRANSCODES_GUARD_TOOL_PREFIX, toolNameMatchesRule, validateNewToolRule, } from './tool-rules.js';
 //# sourceMappingURL=index.js.map
