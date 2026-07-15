@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.55.4](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.3...transcodes-guard-v0.55.4) (2026-07-15)
+
+
+### Bug Fixes
+
+* **core:** stderr 태그를 진짜 한 줄로 강제 + e2e 하네스 정리 4건 ([25831bb](https://github.com/transcodings/transcodes-guard/commit/25831bbd70c0ef3981c64a932a4f856d5e339c74))
+* **e2e:** B8의 플러그인 루트를 파일 기준으로 해석 (process.cwd() 의존이 CI에서 red) ([8b91599](https://github.com/transcodings/transcodes-guard/commit/8b91599f0a1f23682349008331a536460ba71f0a))
+* **e2e:** world PATH에 실행 중인 node의 bin 디렉토리 추가 (CI red의 진짜 원인) ([130ee44](https://github.com/transcodings/transcodes-guard/commit/130ee44001b15faf98864825424430ace5f5b46f))
+
 ## [0.55.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.2...transcodes-guard-v0.55.3) (2026-07-15)
 
 

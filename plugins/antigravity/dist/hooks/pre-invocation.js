@@ -6,7 +6,7 @@ import {
   formatNoTokenSessionNotice,
   formatStepupProtocolPrimer,
   getGateBackend
-} from "../chunk-ZSEIYTGJ.js";
+} from "../chunk-D7SNJSRQ.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";

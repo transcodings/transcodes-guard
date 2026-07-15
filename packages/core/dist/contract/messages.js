@@ -219,9 +219,27 @@ export function formatStepupRejectedSystemMessage(decision) {
     ].join('\n'), decision.reasoning);
 }
 /**
+ * Collapse a command into something safe to interpolate into a one-line tag.
+ *
+ * The command is the user's verbatim shell string, so it can carry newlines.
+ * Left raw it would end the tag line early and let the remainder pose as a
+ * fresh tag — `simulate_hook_invocation` reads these lines to report what the
+ * hook decided, so a command containing `transcodes-guard: STEPUP-CHALLENGED
+ * sid=…` could otherwise report a step-up that no decision produced. Keeping
+ * the tag genuinely one line is the formatter's job: no reader can undo the
+ * ambiguity once it is on the wire.
+ */
+function oneLine(command) {
+    return command.replace(/\s+/g, ' ').trim();
+}
+/**
  * Stderr 1-line summary tag for the hook process. Distinct from the
  * stdout JSON — this surface lands directly in the terminal under each
  * host's hook log channel.
+ *
+ * Exactly one line, always: the decision-bearing prefix is machine-readable
+ * (`simulate_hook_invocation` parses it) and the trailing command is folded to
+ * a single line so it can never forge one.
  */
 export function formatStderrTag(decision) {
     switch (decision.kind) {
@@ -229,15 +247,15 @@ export function formatStderrTag(decision) {
         case GATE_DECISION_KIND.PROCEED_BY_POLICY:
             return 'transcodes-guard: pass';
         case GATE_DECISION_KIND.BLOCK_NO_TOKEN:
-            return `transcodes-guard: BLOCKED (no token) — ${decision.block.command}`;
+            return `transcodes-guard: BLOCKED (no token) — ${oneLine(decision.block.command)}`;
         case GATE_DECISION_KIND.BLOCK_BY_POLICY:
-            return `transcodes-guard: BLOCKED (by-policy ${decision.resource}/${decision.action}) — ${decision.block.command}`;
+            return `transcodes-guard: BLOCKED (by-policy ${decision.resource}/${decision.action}) — ${oneLine(decision.block.command)}`;
         case GATE_DECISION_KIND.BLOCK_STEPUP_CREATE_FAILED:
-            return `transcodes-guard: BLOCKED (stepup-create-failed) — ${decision.block.command}`;
+            return `transcodes-guard: BLOCKED (stepup-create-failed) — ${oneLine(decision.block.command)}`;
         case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
-            return `transcodes-guard: STEPUP-CHALLENGED sid=${decision.sid} — ${decision.block.command}`;
+            return `transcodes-guard: STEPUP-CHALLENGED sid=${decision.sid} — ${oneLine(decision.block.command)}`;
         case GATE_DECISION_KIND.BLOCK_STEPUP_REJECTED:
-            return `transcodes-guard: STEPUP-REJECTED ${decision.resource}/${decision.action} — ${decision.block.command}`;
+            return `transcodes-guard: STEPUP-REJECTED ${decision.resource}/${decision.action} — ${oneLine(decision.block.command)}`;
     }
 }
 //# sourceMappingURL=messages.js.map
