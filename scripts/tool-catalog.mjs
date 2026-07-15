@@ -151,7 +151,7 @@ export const MCP_TOOLS = [
   {
     name: 'get_console_url',
     description:
-      'Mint a step-up-protected console URL for browser-only actions (passkeys, TOTP, billing portal).',
+      'Mint an Open Console URL (auth.transcodes.io) for passkeys, TOTP, OTP, JWK backup, and billing. RBAC edits are App Console only (https://app.transcodes.io).',
     category: 'Meta & Identity',
     access: 'api',
     stepUpProtected: false,
@@ -349,7 +349,7 @@ export const MCP_TOOLS = [
   {
     name: 'set_role_permissions',
     description:
-      'Set per-resource permission matrix for a role (0=deny, 1=allow, 2=step-up).',
+      'Set per-resource permission matrix for a role (0=deny, 1=allow, 2=step-up). Requires caller system/update >= 1; calls at level 0 are denied.',
     category: 'RBAC',
     access: 'api',
     stepUpProtected: true,
@@ -357,7 +357,8 @@ export const MCP_TOOLS = [
   },
   {
     name: 'update_member_role',
-    description: "Change a member's assigned role (validates the role exists).",
+    description:
+      "Change a member's assigned role (validates the role exists). Requires caller system/update >= 1; calls at level 0 are denied.",
     category: 'RBAC',
     access: 'api',
     stepUpProtected: true,

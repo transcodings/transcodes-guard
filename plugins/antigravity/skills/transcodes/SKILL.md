@@ -13,6 +13,13 @@ TOOL ACCESS RULES (all items):
 - Mutating Admin API calls: confirm intent + required ids with the user first; some are RBAC-gated or step-up-protected by system tool-rules.
 - If the request is empty or ambiguous, show this full menu and ask what they want.
 
+## Console surfaces (do not conflate)
+
+| Surface | URL | Entry | Use for | RBAC edit? |
+| --- | --- | --- | --- | --- |
+| **App Console** | https://app.transcodes.io | Browser login | RBAC, members, roles, resources, MAT tokens | **Yes** |
+| **Open Console (Auth Host)** | auth.transcodes.io | `get_console_url`, SDK `redirectToConsole()` | Passkeys, TOTP, OTP, JWK backup, billing | **No** |
+
 MENU — Guard & SDK
 1) Check whether a Bash command or MCP tool call would trigger step-up (read-only)
    - Bash: ALL commands reach POST /guard/evaluate in the PreToolUse hook. Call `simulate_command` with the command string.
@@ -26,7 +33,7 @@ MENU — Guard & SDK
 MENU — Transcodes Admin API (transcodes-guard MCP server)
 4) Identity & session context (read-only)
    - `get_current_project_id`, `get_current_organization_id`, `get_current_member_id`, `get_my_profile`, `get_console_url`.
-   - Use these first when the user asks "who am I", "what project/org", or needs a console link.
+   - Use these first when the user asks "who am I", "what project/org", or needs an Open Console link for auth settings.
 5) Members — inspect & lifecycle
    - Read: `get_member`, `list_members_paginated`, `list_member_devices`, `get_member_suspension`.
    - Mutating (confirm first): `create_member`, `update_member`, `suspend_member`, `unsuspend_member`, `retire_member`.
@@ -64,6 +71,9 @@ Drive the loop deterministically — **do NOT wait for user confirmation before 
 **Never** assume the blocked command ran. **Never** invent an alternative command.
 Always resume from the resource/action (or sid) the hook reported.
 
+**RBAC:** Step-up MFA only unlocks actions already at level 2; it cannot elevate level 0 → 2.
+Level 0 requires an admin at https://app.transcodes.io → RBAC → Roles; `get_console_url` cannot edit RBAC.
+
 TOOL CATALOG — all 52 MCP tools + 2 resources on transcodes-guard. Match the user request to a workflow MENU item above OR to an exact tool/resource below, then call it by its exact name.
 
 Resources (read by URI, not tools):
@@ -85,7 +95,7 @@ Meta & Identity (6):
 10) `get_current_organization_id` — Returns organizationId from TRANSCODES_TOKEN JWT. [read-only]
 11) `get_current_member_id` — Returns memberId from TRANSCODES_TOKEN JWT. [read-only]
 12) `get_my_profile` — Profile of the member identified by TRANSCODES_TOKEN. [read-only]
-13) `get_console_url` — Mint a step-up-protected console URL for browser-only actions (passkeys, TOTP, billing portal). [read-only]
+13) `get_console_url` — Mint an Open Console URL (auth.transcodes.io) for passkeys, TOTP, OTP, JWK backup, and billing. RBAC edits are App Console only (https://app.transcodes.io). [read-only]
 14) `get_integration_guide` — Fetch the official Transcodes integration guide (llms.txt). [read-only]
 
 Project (4):
@@ -114,8 +124,8 @@ RBAC (11):
 33) `create_resource` — Add a new RBAC resource key (every role initialized to read=allow, write=allow+step-up). [mutating]
 34) `update_resource` — Update resource label/description. [mutating]
 35) `retire_role` — Permanently retire a role from the project. [mutating · step-up protected]
-36) `set_role_permissions` — Set per-resource permission matrix for a role (0=deny, 1=allow, 2=step-up). [mutating · step-up protected]
-37) `update_member_role` — Change a member's assigned role (validates the role exists). [mutating · step-up protected]
+36) `set_role_permissions` — Set per-resource permission matrix for a role (0=deny, 1=allow, 2=step-up). Requires caller system/update >= 1; calls at level 0 are denied. [mutating · step-up protected]
+37) `update_member_role` — Change a member's assigned role (validates the role exists). Requires caller system/update >= 1; calls at level 0 are denied. [mutating · step-up protected]
 38) `retire_resource` — Permanently retire an RBAC resource key. [mutating · step-up protected]
 
 Passcode (1):

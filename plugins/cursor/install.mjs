@@ -222,7 +222,7 @@ const BROAD_GATE_BYPASS_ALLOW = [
   /^Shell\(\*\)$/i,
   /^Shell\(\*\*\)$/i,
   /^Mcp\(\*\)$/i,
-  /^Mcp\(\*\:\*\)$/i,
+  /^Mcp\(\*:\*\)$/i,
 ];
 
 function isBroadGateBypassAllow(entry) {

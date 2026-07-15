@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.0...transcodes-guard-v0.55.1) (2026-07-15)
+
+
+### Bug Fixes
+
+* RBAC 거부 시 올바른 콘솔 안내 ([1e318df](https://github.com/transcodings/transcodes-guard/commit/1e318df7a518cb9b982acd912b890ee0d70bdc08))
+
 ## [0.55.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.54.0...transcodes-guard-v0.55.0) (2026-07-15)
 
 
