@@ -20,7 +20,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { promptHook, runHook } from '../harness/hook-runner.js';
-import { assertOnlyEvaluateTraffic, MockBackend } from '../harness/mock-backend.js';
+import { MockBackend } from '../harness/mock-backend.js';
 import { makeWorld, type TestWorld } from '../harness/state.js';
 import { ALL_HOSTS, wire } from '../harness/wire.js';
 
@@ -46,13 +46,14 @@ for (const host of ALL_HOSTS) {
     });
 
     after(async () => {
-      // The prompt hook must never call the backend at all — not even evaluate.
+      // The prompt hook must never call the backend at all — not even evaluate,
+      // so this is stricter than `assertOnlyEvaluateTraffic`: zero requests,
+      // not just zero non-evaluate ones.
       assert.deepEqual(
         mock.requests.map((r) => `${r.method} ${r.path}`),
         [],
         'prompt hook must send no backend traffic whatsoever',
       );
-      assertOnlyEvaluateTraffic(mock);
       await mock.close();
       world.dispose();
     });

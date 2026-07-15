@@ -15,25 +15,18 @@
  */
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import type { HostId } from './hook-runner.js';
-
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-
-function pluginsRoot(): string {
-  return process.env.E2E_PLUGINS_ROOT ?? join(REPO_ROOT, 'plugins');
-}
+import { join } from 'node:path';
+import { type HostId, pluginsRoot } from './hook-runner.js';
 
 function stdioPath(host: HostId): string {
   return join(pluginsRoot(), host, 'dist', 'src', 'stdio.js');
 }
 
 /**
- * The plugin install root a host would set as CLAUDE_PLUGIN_ROOT — resolved
- * from this file's location, never `process.cwd()`, so it holds wherever the
- * test runner is invoked from. `tc_simulate_hook_invocation` spawns the hook
- * binary from this env var and fails loudly when it is unset.
+ * The plugin install root a host would set as CLAUDE_PLUGIN_ROOT — resolved via
+ * `pluginsRoot()` (file-relative, never `process.cwd()`), so it holds wherever
+ * the test runner is invoked from. `tc_simulate_hook_invocation` spawns the
+ * hook binary from this env var and fails loudly when it is unset.
  */
 export function pluginRootFor(host: HostId): string {
   return join(pluginsRoot(), host);
@@ -85,11 +78,20 @@ export class McpRunner {
     child.on('error', (err) => runner.failAll(err));
     child.on('close', () => runner.failAll(new Error('MCP server exited')));
 
-    await runner.request('initialize', {
-      protocolVersion: '2024-11-05',
-      capabilities: {},
-      clientInfo: { name: 'transcodes-guard-e2e', version: '0.0.0' },
-    });
+    // The handshake must clean up after itself: a throw here escapes before the
+    // instance reaches the caller, so no `finally { runner.close() }` can ever
+    // reap this child. A broken bundle would otherwise leak one live node per
+    // test and hang the runner at exit.
+    try {
+      await runner.request('initialize', {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'transcodes-guard-e2e', version: '0.0.0' },
+      });
+    } catch (err) {
+      await runner.close();
+      throw err;
+    }
     runner.notify('notifications/initialized');
     return runner;
   }

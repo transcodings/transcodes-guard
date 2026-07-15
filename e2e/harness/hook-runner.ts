@@ -29,7 +29,12 @@ export const ALL_HOSTS: readonly HostId[] = [
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-function pluginsRoot(): string {
+/**
+ * The plugins dir every runner resolves against — one implementation on
+ * purpose, so `E2E_PLUGINS_ROOT` (the known-defective-build red check) can
+ * never point the hook path and the MCP path at different trees.
+ */
+export function pluginsRoot(): string {
   return process.env.E2E_PLUGINS_ROOT ?? join(REPO_ROOT, 'plugins');
 }
 

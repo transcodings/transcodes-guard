@@ -499,7 +499,9 @@ export function createServer(
       // only STEPUP-CHALLENGED names a freshly minted session. Matching the
       // human-facing reason text would re-break the moment that copy is
       // reworded, and would false-positive on any other deny that happens to
-      // quote a sid (a create-failed detail, for one).
+      // quote a sid (a create-failed detail, for one). The line anchor is only
+      // trustworthy because `formatStderrTag` folds the command it interpolates
+      // to a single line — a raw command could otherwise forge a tag line.
       const stepUpTag = /^transcodes-guard: STEPUP-CHALLENGED sid=(\S+)/m.exec(
         stderr,
       );
