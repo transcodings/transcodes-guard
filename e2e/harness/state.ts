@@ -19,7 +19,7 @@
  */
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 export type FakeJwtClaims = {
   oid?: string;
@@ -133,9 +133,16 @@ export function makeWorld(): TestWorld {
         );
       }
       // Built from scratch on purpose — see file header.
+      //
+      // The running node's own bin dir is on PATH because the MCP server's
+      // `simulate_hook_invocation` spawns bare `node` (resolved via PATH), not
+      // `process.execPath`. Hardcoding /usr/bin only works where node happens
+      // to live there — not under nvm/fnm, and not on CI, where
+      // actions/setup-node installs to /opt/hostedtoolcache. Derive it instead
+      // of guessing.
       return {
         HOME: home,
-        PATH: `${binDir}:/usr/bin:/bin`,
+        PATH: `${binDir}:${dirname(process.execPath)}:/usr/bin:/bin`,
         TRANSCODES_BACKEND_URL: backendUrl,
         BROWSER_LOG: browserLog,
         LANG: 'C.UTF-8',

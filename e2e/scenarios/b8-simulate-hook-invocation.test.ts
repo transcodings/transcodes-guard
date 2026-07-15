@@ -45,6 +45,11 @@ async function simulate(
       command,
       cwd: world.home,
     });
+    if (res.isError) {
+      throw new Error(
+        `tc_simulate_hook_invocation rejected: ${JSON.stringify(res.content)}`,
+      );
+    }
     return res.json<SimulateResult>();
   } finally {
     await runner.close();
