@@ -70,6 +70,8 @@ export function registerRbacTools(server) {
     server.registerTool('tc_set_role_permissions', {
         title: 'Set role permissions',
         description: 'Set per-resource permission matrix for a role. 0=deny, 1=allow, 2=allow+step-up. ' +
+            'Requires the caller MAT role to have system/update >= 1; calls at level 0 are denied. ' +
+            'If denied, an admin must edit RBAC at https://app.transcodes.io → RBAC → Roles. ' +
             'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-set-role-permissions`).',
         inputSchema: {
             role_id: z.string(),
@@ -90,6 +92,8 @@ export function registerRbacTools(server) {
         description: "Change a member's assigned role (UpdateMemberRoleDto) — the canonical role-reassignment path. " +
             'Validates the target role EXISTS in the project before assigning (unlike `update_member`, which ' +
             "writes `role` unchecked). Use this whenever the user wants to change a member's role. " +
+            'Requires the caller MAT role to have system/update >= 1; calls at level 0 are denied. ' +
+            'If denied, an admin must edit RBAC at https://app.transcodes.io → RBAC → Roles. ' +
             'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-update-member-role`).',
         inputSchema: {
             body: z.object({
