@@ -54,9 +54,38 @@ export type HookRunResult = {
   json(): unknown;
 };
 
+/**
+ * Hook entry basenames. The prompt hook's filename diverges by host —
+ * `user-prompt-submit` (Claude Code / Codex) vs `before-submit-prompt`
+ * (Cursor) — and Antigravity has no prompt hook at all (its PreInvocation
+ * fires before every model call, a different contract). Use `promptHook()`
+ * rather than hardcoding a name.
+ */
+export type HookName =
+  | 'pre-tool-use'
+  | 'stop'
+  | 'user-prompt-submit'
+  | 'before-submit-prompt';
+
+/**
+ * The prompt-hook entry for a host, or null when the host has none.
+ * Antigravity is null on purpose — PreInvocation is not a prompt hook.
+ */
+export function promptHook(host: HostId): HookName | null {
+  switch (host) {
+    case 'claude-code':
+    case 'codex':
+      return 'user-prompt-submit';
+    case 'cursor':
+      return 'before-submit-prompt';
+    case 'antigravity':
+      return null;
+  }
+}
+
 export type RunHookOptions = {
   host: HostId;
-  hook: 'pre-tool-use' | 'stop';
+  hook: HookName;
   stdin: string;
   env: NodeJS.ProcessEnv;
   cwd: string;

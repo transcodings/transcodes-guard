@@ -493,17 +493,17 @@ export function createServer(
             .hookSpecificOutput as Record<string, unknown>
         ).permissionDecision === 'deny';
       // Guard v3 hooks mutate no local state (t3), so a before/after file diff
-      // can no longer tell us what happened — the deny payload itself does. Only
-      // a step-up challenge names a minted session, so the sid prefix separates
-      // it from a policy deny (permission 0) or a no-token deny.
-      const denyReason = denyEmitted
-        ? ((
-            (parsedStdout as Record<string, unknown>)
-              .hookSpecificOutput as Record<string, unknown>
-          ).permissionDecisionReason ?? '')
-        : '';
-      const newStepUpStarted =
-        typeof denyReason === 'string' && denyReason.includes('tc_stepup_');
+      // can no longer tell us what happened. Read the hook's structured stderr
+      // tag instead of grepping the deny prose: `formatStderrTag` emits exactly
+      // one machine-readable line per decision kind (contract/messages.ts), and
+      // only STEPUP-CHALLENGED names a freshly minted session. Matching the
+      // human-facing reason text would re-break the moment that copy is
+      // reworded, and would false-positive on any other deny that happens to
+      // quote a sid (a create-failed detail, for one).
+      const stepUpTag = /^transcodes-guard: STEPUP-CHALLENGED sid=(\S+)/m.exec(
+        stderr,
+      );
+      const newStepUpStarted = stepUpTag !== null;
       return {
         content: [
           {
@@ -512,6 +512,9 @@ export function createServer(
               {
                 deny_emitted: denyEmitted,
                 new_step_up_started: newStepUpStarted,
+                // The sid the hook actually minted, straight from the tag —
+                // so the agent can poll without scraping it out of the prose.
+                step_up_sid: stepUpTag?.[1],
                 exit_code: exitCode,
                 stdout_json: parsedStdout,
                 stdout_raw: parsedStdout === null ? stdout : undefined,
