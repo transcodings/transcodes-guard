@@ -153,7 +153,7 @@ jobs:
       # The CI runner has NO Transcodes token and NO reachable backend, so the
       # states a smoke can reach are: no-token fail-closed deny, hook-skip
       # (built-in transcodes-guard MCP), backend-unreachable fail-closed deny,
-      # and the token-free latch/Stop paths. Allow (permission 1) and challenge
+      # and the token-free Stop no-op path. Allow (permission 1) and challenge
       # (permission 2 + sid/url) need a mock /guard/evaluate — deliberately out
       # of scope here (PRD smoke-suite-v3-respec P2).
       # All inputs are static JSON literals; no GitHub event injection

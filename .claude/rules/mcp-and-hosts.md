@@ -1,5 +1,5 @@
 ---
-description: Where MCP capabilities get registered, the MCP tool semantics that aren't dry-runs, and the per-host wire-format divergences that live only in core/src/hosts.
+description: Which layer decides what (script / backend / matcher) and the four questions a new skip must pass, plus capability registration, non-dry-run MCP tool semantics, and the per-host wire-format divergences that live only in core/src/hosts.
 paths:
   - "packages/core/src/server/**"
   - "packages/gate-backend/src/mcp-tools/**"
@@ -9,6 +9,36 @@ paths:
 
 # MCP server & per-host wire formats
 
+## Where each decision lives (07-11 model)
+
+Three layers can decide things about a tool call. Putting a decision in the wrong one is how the gate gets holes, so the assignment is fixed:
+
+| Decision | Layer | Why there |
+|---|---|---|
+| **built-in skip** (our `tc_*` registered set + the host's static list) | **script** — static data in the bundle, exact-match | Getting it wrong is a security hole or a recovery deadlock. Delegating to the backend puts the recovery plane inside the failure radius: the tool you poll to recover would itself need the backend that is down |
+| **risk classification + verified** | **backend** (`/guard/evaluate` + cache) | The 07-11 model's core — judgement is backend-owned. See [[gate-security-model]] |
+| **coarse category prefilter** | **matcher** (superset, no decision power) | An external contract we cannot verify — paid for with drift watch, not trust |
+
+> Host matcher widths are **not yet measured** (toolgate t4, needs real devices). Until that lands, do not "fix" a matcher from inference — a wrong guess here silently stops the hook from spawning at all. After any host update, re-run the t4 harness.
+
+**Four questions any new/moved skip must pass** (toolgate briefing §5):
+
+1. **If this skip is wrong, what breaks?** Security → it belongs in the script layer (pinnable by CI). Only performance → a matcher is fine.
+2. **Is the test identity or similarity?** substring/prefix/heuristics are rejected. Only exact match against the registered set, after normalization.
+3. **Does this decision already have an owner?** If yes, don't build a second implementation — add a drift alarm first.
+4. **Which way does it fall when the test fails?** Always toward the gate. A design that falls the other way is rejected.
+
+**Entry bar for the built-in list — reach, not familiarity** (t2 §2-c). The list is an allowlist, so an execution-class tool entering it *is* the gate being disabled:
+
+| Grade | Reach | Examples | Verdict |
+|---|---|---|---|
+| ① | inside the conversation/plan | TodoWrite, plan mode, AskQuestion | allowed |
+| ② | workspace read | Read, Grep, Glob | allowed (team call; current default: yes) |
+| ③ | workspace write | Write, StrReplace, apply_patch | **never** |
+| ④ | execution / outbound | shell, WebFetch, browser, MCP | **always gated** |
+
+`Bash`/`Shell`/`run_command` are literally host built-ins but are grade ④ — barred by definition.
+
 ## Capability registration
 
 - Register every MCP capability inside a single `createServer()` call (`core/src/server/server.ts`), invoking each `register*Tools(server)`. Backend tools are wired via `backend.registerBackendTools(server)` — **not** imported into `server.ts` directly. If you find yourself editing both `stdio.ts` and `http.ts`, the code belongs in `createServer()` instead.
@@ -16,7 +46,8 @@ paths:
 
 ## MCP tool semantics that surprise
 
-- `simulate_hook_invocation` is **not** a dry run — it spawns the real hook binary, which may consume the verified record, create a step-up session, and open a browser tab. By contrast `inspect_stepup_state` and `simulate_tool_call` are strictly read-only.
+- `simulate_hook_invocation` is **not** a dry run — it spawns the real hook binary, which calls the backend and may create a step-up session and open a browser tab. By contrast `inspect_stepup_state` and `simulate_tool_call` are strictly read-only.
+- `inspect_stepup_state` answers "what step-up state does this client hold?" with `client_state_files: []` — **the emptiness is the answer, not a failure to look** (t3). To find out whether a coordinate is verified, poll the backend.
 - `simulate_tool_call` reports whether an external `mcp__*` wire name would reach `POST /guard/evaluate` in the PreToolUse hook. Built-in transcodes-guard MCP skips the hook. The full-fidelity oracle is `simulate_hook_invocation`.
 - `simulate_hook_invocation` resolves the hook binary **only** from `CLAUDE_PLUGIN_ROOT` (or `PLUGIN_ROOT` for Codex) and fails loudly if neither is set — it must not fall back to a path relative to the package dist, because the server now lives in a workspace package, not the plugin tree.
 
@@ -25,15 +56,15 @@ paths:
 Host divergence is allowed **only** in `packages/core/src/hosts/` (wire-format render/parse). Gate/evaluate logic stays in `core/src/stepup/`; never inline host branching into a plugin hook entry or the classifier.
 
 - **Deny travels in the JSON body with `exit(0)` on every host.** Never `exit 2` (legacy stderr-text contract, not honored). stderr is for a one-line human summary only.
-- **PreToolUse fast-path must emit an explicit `permissionDecision: "allow"` JSON** when consuming a verified record. A bare `exit 0` is *not* equivalent — it falls back to the host's default permission flow, where a settings deny rule or built-in safety pattern can override the step-up verification. **Codex is the exception**: its parser rejects a bare `allow` (one without `updatedInput`) as unsupported → hook Failed → fail-open, so on Codex an allow-with-no-rewrite must be emitted as **no output** (a safe pass), never as an allow JSON. `codexAdapter.emitPreToolUse` enforces this (verified against openai/codex `main`, `output_parser.rs`, 2026-05-28). Guard v3 never routes an allow to the Codex hook path (PROCEED_* exits 0), so this is a fail-closed backstop, not a hot path.
+- **If a host path ever emits an explicit `permissionDecision: "allow"`, it must be a real allow JSON** — a bare `exit 0` is *not* equivalent, since it falls back to the host's default permission flow where a settings deny rule or built-in safety pattern can override it. **Codex is the exception**: its parser rejects a bare `allow` (one without `updatedInput`) as unsupported → hook Failed → fail-open, so on Codex an allow-with-no-rewrite must be emitted as **no output** (a safe pass), never as an allow JSON. `codexAdapter.emitPreToolUse` enforces this (verified against openai/codex `main`, `output_parser.rs`, 2026-05-28). Guard v3 routes no allow through the hook at all (`PROCEED_*` just exits 0 — there is no verified record to consume, so no fast-path), which makes this a fail-closed backstop rather than a hot path. Keep it: the cost of the backstop is one adapter method; the cost of rediscovering the Codex parser behaviour is a silent fail-open.
 - **Stop hook** for Claude Code and Codex must be **top-level** `{decision:"block", reason}` — never nested under `hookSpecificOutput`. Every *other* event (PreToolUse, SessionStart, UserPromptSubmit) *does* use the `hookSpecificOutput` wrapper.
 - **Delegate when byte-identical.** A host whose wire format matches Claude Code's must delegate to `claudeCodeAdapter`, not reimplement. Codex delegates deny/context/Stop but **overrides `emitPreToolUse`** to downgrade a bare (rewrite-less) `allow` to no-output (the C1 divergence above); Cursor delegates stdin parsing only (it has its own flat output).
-- **One completion regex.** The user-"done" detection is the single exported `COMPLETION_PATTERN` (Korean + English), reused across every host. Do not redefine a per-host regex.
+- **No user-"done" bridge.** Prompt hooks no longer detect "auth done" and no longer surface a pending sid — the agent drives the poll loop from the deny message instead (t3). `COMPLETION_PATTERN` survives as an exported regex used only by `antigravityAdapter.findCompletionMessage`; no hook calls it today. If you need "did the user say done?", the answer is that nothing should ask.
 - The classifier accepts shell tool names `Bash` (Claude/Codex), `run_command` (Antigravity), and `Shell` (Cursor). Antigravity's adapter renames `args.CommandLine` → `args.command` so the classifier stays host-neutral.
 
 ### Antigravity specifics
 
-- No `SessionStart`, no `UserPromptSubmit` events. **PreInvocation** (fires before *every* model call) fuses both: `invocationNum <= 1` acts as SessionStart; tailing `transcript.jsonl` for a `COMPLETION_PATTERN` user message recovers UserPromptSubmit. Per-turn-once work (primer) **must** be gated behind `invocationNum <= 1`. The adapter's `emitSessionStartContext`/`emitUserPromptSubmitContext`/`parseUserPromptSubmitStdin` intentionally **throw** to surface wiring bugs.
+- No `SessionStart`, no `UserPromptSubmit` events. **PreInvocation** (fires before *every* model call) stands in for SessionStart: session-once work (primer + no-token notice) **must** be gated behind `invocationNum <= 1`, since the event itself fires every turn. It no longer stands in for UserPromptSubmit — the old `transcript.jsonl` tail existed to bridge the user-"done" prompt, and t3 removed that job on every host. The adapter's `emitSessionStartContext`/`emitUserPromptSubmitContext`/`parseUserPromptSubmitStdin` intentionally **throw** to surface wiring bugs.
 - Stop uses `decision: "continue"` to **prevent** turn termination and inject `reason` as a system message — the verb is **inverted** vs Claude Code's `decision: "block"` (same UX intent). Don't assume "continue" means "let it stop".
 - Emit methods must never output a blank payload: `emitPreInvocation` returns the literal `"{}"` when there are no steps, `emitStop` returns `"{}"` when `reason` is empty — the host requires valid JSON even for a no-op.
 - PreToolUse is wired on `run_command|mcp_.*|call_mcp_tool`. The `call_mcp_tool` arm is load-bearing: Antigravity routes lazy-loaded MCP calls through a generic `call_mcp_tool` wrapper that `mcp_.*` misses, so the adapter unwraps `args.ToolName` to expose the real tool name to `POST /guard/evaluate`.
@@ -41,4 +72,4 @@ Host divergence is allowed **only** in `packages/core/src/hosts/` (wire-format r
 ### Cursor specifics
 
 - Stdout is **flat** (`{permission, user_message?, agent_message?, updated_input?}`) — no `hookSpecificOutput` wrapper. One PreToolUse entry serves both `beforeShellExecution` and `beforeMCPExecution`.
-- `beforeSubmitPrompt` has **no** `additional_context` channel: the user-"done" role is handled as **side effects only** (`readVerified` → `consumeVerified` + `clearPending`) and the hook emits `{continue:true}`. `cursorAdapter.emitUserPromptSubmitContext` throws on purpose — never a valid path.
+- `beforeSubmitPrompt` has **no** `additional_context` channel, and since t3 left it no local state to reconcile it is now **inert** — it drains stdin and emits `{continue:true}`. That emit is still mandatory: unlike the other hosts' prompt hooks (silent exit 0), Cursor's contract requires a `{continue}` verdict on stdout, so "make the four hosts consistent" is exactly the wrong refactor here. `cursorAdapter.emitUserPromptSubmitContext` throws on purpose — never a valid path.
