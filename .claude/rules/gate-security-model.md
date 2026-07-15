@@ -1,5 +1,5 @@
 ---
-description: The asymmetric fail policy, fail-closed RBAC, and the no-side-effects-before-stdout contract that make up the gate's security posture.
+description: The asymmetric fail policy, fail-closed RBAC, and the availability trade the gate accepts now that the backend is the sole owner of verified state.
 paths:
   - 'packages/core/src/stepup/**'
   - 'packages/gate-backend/src/mcp-tools/stepup-helper.ts'
@@ -16,35 +16,47 @@ In `evaluatePreToolUse` (`core/src/stepup/evaluate.ts`):
 - **Before** classify (stdin parse only) → **fail-open**: return `{kind:'proceed-ungated'}`. A crash here must never block a safe command.
 - **After** classify (every bash command or external **MCP** `mcp__*` wire name) → **fail-safe** via `POST /guard/evaluate`. Backend unreachable → permission 2 (step-up). A crash after classify must never silently allow a risky command.
 
-MCP gate scope is no longer the local tool-rule registry: external `mcp__*` PreToolUse wire names reach `POST /guard/evaluate`. **The skip is an exact-set binary decision (t2)**: built-in transcodes-guard MCP (registered `tc_*` names — `GUARD_TOOL_NAMES` membership, bare or host-namespaced; no substring/prefix heuristics) and the host's static `builtin-exempt/*.json` list (grade ① conversation/plan + ② workspace-read only) skip the hook; everything else is gated. Unknown host → no exemption. `execProtectedTool` in the handler is the backstop (tool-rule + `checkRbacPermission`). User/project tool-rules remain for handler backstop, policy documentation, and optional legacy bundle rules — not for deciding whether the hook runs on external MCP tools.
+The asymmetry is pinned by `evaluate-decision-matrix.test.ts`: unreachable / malformed / non-2xx all land on the step-up side, never on allow.
 
-The backend `/guard/evaluate` classifier + RBAC matrix is the authority for resource/action/permission on gated MCP calls.
+Note the fail-open branch is narrower than it reads: a garbage stdin does **not** reach it. The adapters normalize an unparseable payload to an `Unknown` tool, which passes classify and gets gated. The pre-classify fail-open exists only for classify itself throwing (verified in t6 A4).
+
+MCP gate scope is not the local tool-rule registry: external `mcp__*` PreToolUse wire names reach `POST /guard/evaluate`. **The skip is an exact-set binary decision (t2)**: built-in transcodes-guard MCP (registered `tc_*` names — `GUARD_TOOL_NAMES` membership, bare or host-namespaced; no substring/prefix heuristics) and the host's static `builtin-exempt/*.json` list (grade ① conversation/plan + ② workspace-read only) skip the hook; everything else is gated. Unknown host → no exemption.
+
+The backend `/guard/evaluate` classifier + RBAC matrix is the authority for resource/action/permission on gated calls.
 
 ## Fail-closed RBAC
 
 The backend permission matrix is the authority: `0` = hard deny, `1` = allow without step-up (→ return `pass`), `2` = allow **with** step-up. Computing the level is fail-**closed**: any network/parse/config throw sets `level = 2`, never `1`. (A level-1 answer lets the command through entirely — counterintuitive for a "guard", hence stated.) Mirror handler at `stepup-helper.ts` (`?? 2`); `assertRbacCoordinate` _rejects_ rule creation when resources can't be fetched.
 
-## No side effects before the deny is on stdout
+**The client sees three outcomes, not four.** An already-verified coordinate never arrives as "permission 2 + verified": the backend's `sessionRedirectResult` rewrites a reused VERIFIED session to `decision:'allow'` + `permission: 1` before it goes on the wire, so it lands on the plain permission-1 pass. Do **not** add a `status === 'verified'` branch to `evaluate.ts` to "complete" the matrix — it would be dead code guarding a shape the backend does not emit (t3 §6).
 
-`evaluatePreToolUse` intentionally performs **no** persistence — the caller does it, in this order:
+## Verified state lives on the backend — the client holds none
 
-1. Emit the deny JSON to stdout **first**.
-2. _Then_ `writePending(decision.pending)` — so a throw in the disk write can't suppress the deny.
-3. On allow, the caller still calls `consumeVerified`/`clearPending` per `decision.consumeHere`, but the FP-keyed record was already removed at read time by `claimVerified` (the atomic single-winner claim — see [[stepup-consume]]), so `consumeVerified` is a no-op there and only `clearPending` does work. The claim, not this step, is what makes the fast path single-shot under concurrency.
+`verified` is owned by the backend cache, keyed on the coordinate `stepup:{projectId}:{memberId}:{resource}:{action}` (the sid is the value, not part of the key). The client persists **nothing**: there is no verified/pending record, no fingerprint-keyed store, no atomic claim, no local re-poll. The hook asks `POST /guard/evaluate` and does what the answer says.
 
-The **fire-and-forget** backend call (`sendGateDecisionAudit`) also runs **only after** stdout. It never rejects. The decision audit uses a sub-second timeout (`DECISION_AUDIT_TIMEOUT_MS = 1000`), no-ops for `pass`/no-token, and **omits the raw command string** (sends only fp/coordinates/ruleId — data minimization).
+This is pinned, not just described: `evaluate-decision-matrix.test.ts` snapshots `~/.transcodes/state/` across a full gate run at every permission level and asserts it stays empty. A client that never writes verified state cannot be tricked into trusting a forged one.
 
-## Critical path is evaluate-only
+Browser dedupe is the backend's coordinate claim (SET NX), not a local lock: only the first caller gets `exist:false` and opens a tab; concurrent hooks see a reused session and open nothing.
 
-The PreToolUse hot path calls `POST /guard/evaluate` for every Bash command and external `mcp__*` wire name. There is no local pattern registry or policy-bundle cache on the hook path. Built-in transcodes-guard MCP (exact `GUARD_TOOL_NAMES` membership) and per-host builtin-exempt names skip the hook; `execProtectedTool` uses system `tool-rules.json` + `checkRbacPermission` as the handler backstop.
+## Availability trade — accepted, not an oversight
 
-## Policy-bundle integrity (shared with the backend)
+Because there is no local record to fall back on, **backend down = every gated call is denied**. The old "5xx → trust the local record" availability fallback died with the record it trusted.
 
-`manifest.sha384` = hex SHA-384 of the **canonical JSON** (recursively key-sorted, compact, no whitespace, `undefined` dropped) of `{schemaVersion, revision, rules}` **without** the manifest field. Verify hash **first**, schema **second** ("verify before activate"). Bump `GUARD_POLICY_BUNDLE_SCHEMA_VERSION` on any bundle shape change. The read path re-checks shape only (not the hash), because integrity was verified at atomic write time.
+This is the deliberate consequence of the 07-11 model, not a regression. If someone proposes restoring a fallback, the first question is: *without a local record, what exactly would you trust?*
+
+## No side effects after the deny is on stdout
+
+The hook emits its deny JSON, writes a one-line stderr tag, and exits 0. That is the whole tail — no persistence, no audit call, nothing that could throw between the decision and the host reading it. (Decision-audit moved server-side; `sendGateDecisionAudit` no longer exists on the client. t6 A7 pins the hook's only outbound request as `POST /v1/guard/evaluate`.)
+
+The one network call that must happen **before** stdout is the step-up session create — the auth URL has to be in the deny message. So the rule is inverted from the old "stdout first, side effects after": **a pre-stdout network call must never be able to suppress the deny.** A failure there is caught and degrades to a `create-failed` deny (still a deny), never to a silent pass.
 
 ## Handler is the backstop, not defense-in-depth
 
-The PreToolUse hook can be bypassed (stdio/curl), so protected backend tool handlers **re-enforce** the gate at run time via `execProtectedTool()` (`stepup-helper.ts`). After a successful level-2 run, the verified record is consumed exactly once (`consumeVerified()` + `clearPending()` in `finally`) — step-up is single-use per protected call, not a session.
+The PreToolUse hook can be bypassed (stdio/curl), so protected backend tool handlers **re-enforce** the gate at run time via `execProtectedTool()` (`stepup-helper.ts`): tool-rule lookup + `checkRbacPermission`.
+
+Built-in transcodes-guard MCP tools skip the hook entirely, so this handler is their *only* gate. Its verified flag lives in **process memory** (`stepup/verified-memory.ts`), not on disk — `poll_stepup_session*` calls `markStepupVerified(sid)` when the backend reports verified, and `execProtectedTool` consumes it once via `claimStepupVerified()`. Both run inside the same long-lived MCP server process, so the flag never crosses a process boundary.
+
+This does not contradict the "no client verified state" rule above: the map only hands off a sid the **backend already verified**; it never decides verification itself. A server restart clears it (re-authenticate), `STEPUP_TTL_MS` bounds staleness, and each sid grants exactly one protected call.
 
 ## Backend URL & network envelope
 

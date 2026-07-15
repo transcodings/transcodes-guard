@@ -66,12 +66,13 @@ export const cursorAdapter: HookAdapter = {
   emitUserPromptSubmitContext(_additionalContext: string): string {
     // Cursor's beforeSubmitPrompt has no additional_context channel — its
     // only outputs are `continue` (allow/block submission) and a
-    // user-facing toast. The hook entry should perform consume/clear side
-    // effects directly and emit `{ continue: true }`. Reaching this stub
-    // indicates the entry script wrongly routed an additionalContext path.
+    // user-facing toast. Since t3 the hook is inert: it drains stdin and
+    // emits `{ continue: true }`, with no state to reconcile. Reaching this
+    // stub indicates the entry script wrongly routed an additionalContext
+    // path.
     throw new Error(
       "Cursor's beforeSubmitPrompt has no additional_context channel. " +
-        'Perform consumeVerified/clearPending as side effects and emit `{ continue: true }` directly.',
+        'The hook is inert — emit `{ continue: true }` directly.',
     );
   },
 

@@ -13,12 +13,15 @@ Commands live in `package.json` scripts (`build:plugin`, `dev:*`, `check`, `type
 - **Resolve persist/cache paths only via `@transcodes-guard/core/paths`** (`dataDir()`/`cacheDir()`). `~/.transcodes/` is owned by the CLI; plugin state lives in `~/.transcodes/state/`. → [.claude/rules/policy-and-state.md](.claude/rules/policy-and-state.md)
 - **New backend MCP tools** go in `packages/gate-backend/src/mcp-tools/` (wired via `GateBackend.registerBackendTools()`); **new tool-rule policy** goes in `packages/core/src/patterns/data/tool-rules.json`. → [.claude/rules/policy-and-state.md](.claude/rules/policy-and-state.md)
 - **The step-up enable/disable is asymmetric**: enabling is safe for an agent, disabling requires a human (the human-only control plane is the `transcodes` CLI). → [.claude/rules/gate-security-model.md](.claude/rules/gate-security-model.md)
+- **Ask the backend; hold nothing.** `verified` is owned by the backend cache (keyed on the resource/action coordinate). On a gated call the hook's whole job is `POST /guard/evaluate` → do what the answer says. Backend down = every gated call denied; that availability trade is accepted, not a bug. → [.claude/rules/gate-security-model.md](.claude/rules/gate-security-model.md)
 
 ## Never
 
 - **Import `@transcodes-guard/gate-backend` outside the seams (`plugins/*/backend.ts`, `mcp/src/backend.ts`)** — biome + the CI firewall backstop fail the build. → [.claude/rules/boundary-and-seams.md](.claude/rules/boundary-and-seams.md)
 - **Drop `"private": true` from any `packages/*/package.json`** — the publish-surface CI gate fails the build (only `plugins/*` and `cli` publish). → [.claude/rules/release-branch-model.md](.claude/rules/release-branch-model.md)
 - **`exit 2` from a hook** — a deny travels in the JSON body with `exit(0)` on every host. → [.claude/rules/mcp-and-hosts.md](.claude/rules/mcp-and-hosts.md)
+- **Persist step-up state on the client, in any form** — no verified/pending record, no local latch, no prompt-group file. `evaluate-decision-matrix.test.ts` asserts a full gate run leaves `~/.transcodes/state/` empty; a client that never writes verified state cannot be tricked into trusting a forged one. → [.claude/rules/gate-security-model.md](.claude/rules/gate-security-model.md)
+- **Add a `status === 'verified'` branch to `evaluate.ts`** to "complete" the permission matrix — the backend downgrades a reused VERIFIED session to `permission: 1` before it hits the wire, so that branch guards a shape that never arrives. The client sees three outcomes, not four. → [.claude/rules/gate-security-model.md](.claude/rules/gate-security-model.md)
 - **Duplicate the MCP server or the gate per plugin.** One `createServer()`, one gate, host-specific adapters only.
 
 ## Architecture
@@ -42,9 +45,8 @@ The public-core ↔ `gate-backend` split is the firewall's whole reason to exist
 ## Rules index
 
 - **[boundary-and-seams](.claude/rules/boundary-and-seams.md)** — the gate-backend import firewall, the contract re-export surface, the load-bearing entry import order (always-on)
-- **[gate-security-model](.claude/rules/gate-security-model.md)** — asymmetric fail policy, fail-closed RBAC, no-side-effects-before-stdout, bundle integrity
-- **[stepup-consume](.claude/rules/stepup-consume.md)** — single-shot verified-record lifecycle: who consumes, which store file, when to trust
-- **[mcp-and-hosts](.claude/rules/mcp-and-hosts.md)** — capability registration, non-dry-run MCP tools, per-host wire-format divergence
+- **[gate-security-model](.claude/rules/gate-security-model.md)** — asymmetric fail policy, fail-closed RBAC, backend-owned verified state, the accepted availability trade
+- **[mcp-and-hosts](.claude/rules/mcp-and-hosts.md)** — which layer decides what (+ the four questions), capability registration, non-dry-run MCP tools, per-host wire-format divergence
 - **[policy-and-state](.claude/rules/policy-and-state.md)** — rule registry semantics, consolidated `~/.transcodes/state/` ownership
 - **[build-and-entries](.claude/rules/build-and-entries.md)** — committed-dist discipline, non-reproducible bundles, tsup inlining, per-host entry layout
 - **[release-branch-model](.claude/rules/release-branch-model.md)** — `dev`/`prod` promotion, version train (CLI excluded), per-host deploy divergence
