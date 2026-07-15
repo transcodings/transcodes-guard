@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.2...transcodes-guard-v0.55.3) (2026-07-15)
+
+
+### Documentation
+
+* **rules:** t7 — 규칙 문서 업데이트 (오래된 내용 갱신) ([#207](https://github.com/transcodings/transcodes-guard/issues/207)) ([096449b](https://github.com/transcodings/transcodes-guard/commit/096449b5d856c3ab0d4e639c3b6a5e4ef19ec8ce))
+
 ## [0.55.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.1...transcodes-guard-v0.55.2) (2026-07-15)
 
 
