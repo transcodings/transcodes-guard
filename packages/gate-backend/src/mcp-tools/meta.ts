@@ -104,12 +104,13 @@ export function registerMetaTools(server: McpServer): void {
     {
       title: 'Get console URL',
       description:
-        'Mint a step-up-protected console URL. Console access is gated behind step-up MFA ' +
+        'Mint a step-up-protected Open Console URL (auth.transcodes.io). Open Console access is gated behind step-up MFA ' +
         'via POST .../console/session; this tool returns the browser URL ' +
-        'the user must visit to authenticate (WebAuthn) before reaching the console. ' +
+        'the user must visit to authenticate (WebAuthn) before reaching Open Console. ' +
         'Use when the user needs to perform browser-only actions: ' +
         'passkey register/update/revoke, authenticator register/update/revoke, ' +
         'TOTP enroll/update/revoke, OTP flows, JWK backup, or subscription portal (cancel, payment method, invoices). ' +
+        'RBAC edits are App Console only (https://app.transcodes.io → RBAC → Roles), not this URL. ' +
         'Direct the user to visit the returned browser_url and complete the action there.',
       inputSchema: {},
     },
@@ -142,7 +143,7 @@ export function registerMetaTools(server: McpServer): void {
             browser_url: result.browserUrl,
             expires_at: result.expiresAt,
             message:
-              'Console access is protected by step-up MFA. Direct the user to browser_url to authenticate, then complete the browser-only action.',
+              'Open Console access is protected by step-up MFA. Use browser_url for authentication settings; RBAC edits are at https://app.transcodes.io → RBAC → Roles.',
           },
           null,
           2,
