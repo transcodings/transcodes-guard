@@ -9,8 +9,8 @@ import {
   getGateBackend,
 } from '../contract/index.js';
 import {
+  isGuardToolName,
   isMcpWireToolName,
-  isTranscodesGuardWireToolName,
   loadMergedToolRules,
   type MergedToolRule,
 } from '../patterns/index.js';
@@ -632,14 +632,14 @@ export function createServer(
     {
       title: 'Simulate MCP hook gating',
       description:
-        'Given a full MCP wire tool name from a PreToolUse hook, report whether the hook would gate it. External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP (mcp__*transcodes-guard*) skips the hook — execProtectedTool handler backstop applies. Read-only — does not invoke the hook or call the backend.',
+        'Given a full MCP wire tool name from a PreToolUse hook, report whether the hook would gate it. External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP (registered tc_* names, exact set — bare or host-namespaced) skips the hook — execProtectedTool handler backstop applies. Read-only — does not invoke the hook or call the backend.',
       inputSchema: {
         tool_name: z.string().min(1).describe(MCP_TOOL_LOOKUP_NAME_GUIDANCE),
         tool_input: z.unknown().optional(),
       },
     },
     async ({ tool_name }) => {
-      if (isTranscodesGuardWireToolName(tool_name)) {
+      if (isGuardToolName(tool_name)) {
         return textResult(
           JSON.stringify(
             {

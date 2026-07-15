@@ -7,12 +7,16 @@
  * silence. The deadlock direction matters most: gating
  * `tc_poll_stepup_session_wait` would make deny-recovery circular.
  *
- * After t2 lands (built-in list as per-host data files), extend the fixture
- * list by iterating those data files.
+ * t2 landed: the per-host builtin-exempt data files are iterated below, so
+ * every list entry is pinned end-to-end (list → dist bundle → silent pass).
  */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { runHook } from '../harness/hook-runner.js';
+import antigravityExempt from '../../packages/core/src/patterns/data/builtin-exempt/antigravity.json' with { type: 'json' };
+import claudeExempt from '../../packages/core/src/patterns/data/builtin-exempt/claude.json' with { type: 'json' };
+import codexExempt from '../../packages/core/src/patterns/data/builtin-exempt/codex.json' with { type: 'json' };
+import cursorExempt from '../../packages/core/src/patterns/data/builtin-exempt/cursor.json' with { type: 'json' };
+import { type HostId, runHook } from '../harness/hook-runner.js';
 import { MockBackend } from '../harness/mock-backend.js';
 import { makeWorld } from '../harness/state.js';
 import { ALL_HOSTS, antigravityCallMcpStdin, wire } from '../harness/wire.js';
@@ -22,6 +26,15 @@ const BUILTIN_NAMES = [
   'tc_retire_member',
   'mcp__plugin_mcp_plugin_transcodes_guard__tc_poll_stepup_session_wait',
 ];
+
+// HostId is the plugin dir name; the JSON files are keyed by provider slug
+// ('claude-code' plugin → 'claude' provider).
+const EXEMPT_BY_HOST: Record<HostId, readonly { name: string }[]> = {
+  'claude-code': claudeExempt,
+  codex: codexExempt,
+  cursor: cursorExempt,
+  antigravity: antigravityExempt,
+};
 
 for (const host of ALL_HOSTS) {
   const spec = wire[host];
@@ -46,6 +59,28 @@ for (const host of ALL_HOSTS) {
         spec.assertPass(res);
         assert.equal(mock.requests.length, 0, 'skip must not touch the backend');
         assert.deepEqual(world.stateFiles(), [], 'skip must not write state');
+      });
+    }
+
+    for (const entry of EXEMPT_BY_HOST[host]) {
+      test(`builtin-exempt ${entry.name} → silent pass, no backend traffic, no state`, async (t) => {
+        const world = makeWorld();
+        t.after(() => world.dispose());
+        const mock = await MockBackend.start();
+        t.after(() => mock.close());
+        world.writeToken();
+
+        const res = await runHook({
+          host,
+          hook: 'pre-tool-use',
+          stdin: spec.mcpStdin(entry.name, {}, world.home),
+          env: world.env(mock.url),
+          cwd: world.home,
+        });
+
+        spec.assertPass(res);
+        assert.equal(mock.requests.length, 0, 'exempt skip must not touch the backend');
+        assert.deepEqual(world.stateFiles(), [], 'exempt skip must not write state');
       });
     }
 

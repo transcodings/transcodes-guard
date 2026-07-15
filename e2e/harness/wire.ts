@@ -24,9 +24,10 @@
  * explicit flat `{"permission":"allow"}` on a pass. Stop no-ops are "no
  * output" on every host (v3 Stop hooks are pure no-ops).
  *
- * Fixture warning: the built-in skip predicate matches SUBSTRINGS
- * (`tc_` / `transcodes` / `version`, prefix `mcp_plugin_transcodes_guard`) —
- * gated-path fixture tool names must avoid those substrings.
+ * Fixture note: the built-in skip predicate is EXACT-SET membership (t2) —
+ * registered tc_* names + the per-host builtin-exempt/*.json lists. A
+ * gated-path fixture name must simply not equal an entry of either set;
+ * substrings are no longer significant.
  */
 import assert from 'node:assert/strict';
 import type { HookRunResult, HostId } from './hook-runner.js';
