@@ -318,18 +318,12 @@ export function createServer(
         maxWaitMs: max_wait_ms,
         intervalMs: interval_ms,
       });
+      // Verified → hand the sid to the handler backstop's in-memory set so a
+      // built-in protected tool can consume it once. Every other outcome
+      // (rejected / not_found / timeout) needs no client-side bookkeeping: the
+      // backend owns the session's fate, and reject wipes the coordinate there.
       if (result.outcome === 'verified' && result.sid) {
         backend.markStepupVerified(result.sid);
-      } else if (
-        result.sid &&
-        (result.outcome === 'rejected' ||
-          result.outcome === 'not_found' ||
-          result.outcome === 'timeout')
-      ) {
-        // Terminal for this wait: drop latch so Stop-hook MFA reminders stop.
-        // Timeout leaves the backend session pending; a later explicit retry
-        // can still reuse it via evaluate.
-        backend.clearLatchBySid(result.sid);
       }
       return {
         content: [
@@ -360,16 +354,15 @@ export function createServer(
   server.registerTool(
     'tc_inspect_stepup_state',
     {
-      title: 'Inspect step-up state on disk',
+      title: 'Inspect client step-up state',
       description:
-        'Single source of truth for what the step-up state files look ' +
-        'like RIGHT NOW. Returns structured JSON for verified / pending / ' +
-        'browser-lock records with explicit `age_ms`, `expired`, and ' +
-        '`ttl_ms` fields so the agent never has to compute expiry from ' +
-        'raw timestamps or trust a wrapped `ls` output. Strict read-only: ' +
-        'this tool never consumes or rewrites any record. Call this ' +
-        'BEFORE and AFTER any step-up flow to verify state transitions ' +
-        'deterministically.',
+        'Reports what step-up state this client holds: nothing. Guard v3 ' +
+        'keeps every status on the backend (reuse is keyed by the ' +
+        'resource/action coordinate), so `client_state_files` is always ' +
+        'empty and that emptiness is the answer — not a failure to look. ' +
+        'To find out whether a coordinate is verified, poll the backend ' +
+        'with `poll_stepup_session` / `poll_stepup_session_wait` instead. ' +
+        'Strict read-only: writes and consumes nothing.',
       inputSchema: {},
     },
     async () => {
@@ -391,15 +384,13 @@ export function createServer(
       title: 'Invoke PreToolUse hook in a controlled subprocess',
       description:
         'Spawns the actual PreToolUse hook binary with a Bash payload as ' +
-        'stdin, captures stdout/stderr/exit, and diffs the step-up state ' +
-        'files before/after — all in one structured response. Use this ' +
-        'when you need to verify hook behaviour (fast-path consumption, ' +
-        'deny emission, new step-up start) without inferring from `exit ' +
-        '127` or `ls` output. WARNING: this is NOT a dry run — the hook ' +
-        'may consume the verified record or create a new step-up session ' +
-        'and open a browser tab if a danger pattern is hit. Use it the ' +
-        'way you would a real hook invocation, not as a side-effect-free ' +
-        'probe.',
+        'stdin and reports what it decided (deny emitted? new step-up ' +
+        'started?) plus raw stdout/stderr/exit — all in one structured ' +
+        'response, so you never infer hook behaviour from `exit 127` or ' +
+        '`ls` output. WARNING: this is NOT a dry run — the hook calls the ' +
+        'backend and may create a step-up session and open a browser tab. ' +
+        'Use it the way you would a real hook invocation, not as a ' +
+        'side-effect-free probe.',
       inputSchema: {
         command: z
           .string()
@@ -446,7 +437,6 @@ export function createServer(
           true,
         );
       }
-      const before = backend.inspectStepupState();
       // Host-supplied plugin install root. Claude Code sets
       // CLAUDE_PLUGIN_ROOT; Codex CLI sets PLUGIN_ROOT (+ honors
       // CLAUDE_PLUGIN_ROOT as alias). Fail loudly when neither is
@@ -486,7 +476,6 @@ export function createServer(
         child.on('error', () => resolve({ stdout, stderr, exitCode: -1 }));
         child.stdin.end(payload);
       });
-      const after = backend.inspectStepupState();
       let parsedStdout: unknown = null;
       try {
         parsedStdout = stdout.trim() ? JSON.parse(stdout) : null;
@@ -503,11 +492,18 @@ export function createServer(
           (parsedStdout as Record<string, unknown>)
             .hookSpecificOutput as Record<string, unknown>
         ).permissionDecision === 'deny';
-      // Guard v3: the only local state a hook mutates is the per-coordinate
-      // latch set. A new latch after the run means a fresh step-up challenge
-      // opened; a smaller set means a coordinate resolved (allow/self-heal).
-      const latchCreated = after.latches.length > before.latches.length;
-      const latchCleared = after.latches.length < before.latches.length;
+      // Guard v3 hooks mutate no local state (t3), so a before/after file diff
+      // can no longer tell us what happened — the deny payload itself does. Only
+      // a step-up challenge names a minted session, so the sid prefix separates
+      // it from a policy deny (permission 0) or a no-token deny.
+      const denyReason = denyEmitted
+        ? ((
+            (parsedStdout as Record<string, unknown>)
+              .hookSpecificOutput as Record<string, unknown>
+          ).permissionDecisionReason ?? '')
+        : '';
+      const newStepUpStarted =
+        typeof denyReason === 'string' && denyReason.includes('tc_stepup_');
       return {
         content: [
           {
@@ -515,15 +511,11 @@ export function createServer(
             text: JSON.stringify(
               {
                 deny_emitted: denyEmitted,
-                new_step_up_started: latchCreated && denyEmitted,
-                latch_created: latchCreated,
-                latch_cleared: latchCleared,
+                new_step_up_started: newStepUpStarted,
                 exit_code: exitCode,
                 stdout_json: parsedStdout,
                 stdout_raw: parsedStdout === null ? stdout : undefined,
                 stderr: stderr || undefined,
-                state_before: before,
-                state_after: after,
               },
               null,
               2,

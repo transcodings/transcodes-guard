@@ -43,12 +43,6 @@ import {
 export const transcodesGateBackend: GateBackend = {
   // hook path — direct bindings
   evaluatePreToolUse,
-  rotatePromptGroup: () => {
-    // Prompt grouping removed — backend coordinate key is the reuse SSOT.
-  },
-  sweepLatches: () => {
-    // Local latch removed — no-op for older Stop/prompt hooks.
-  },
   hasToken: () => Boolean(resolveToken().token),
 
   // server path: step-up session — config loaded internally
@@ -60,7 +54,6 @@ export const transcodesGateBackend: GateBackend = {
     pollStepupSessionWait(loadStepupConfig(), target, options),
   inspectStepupState,
   markStepupVerified,
-  clearLatchBySid: () => {},
 
   // server path: RBAC coordinate — config loaded internally, error wrapped
   assertRbacCoordinate: (resource, action) =>

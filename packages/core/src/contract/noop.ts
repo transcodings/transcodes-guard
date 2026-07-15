@@ -30,8 +30,6 @@ export const denyByDefaultBackend: GateBackend = {
   async evaluatePreToolUse() {
     return { kind: GATE_DECISION_KIND.PROCEED_UNGATED };
   },
-  rotatePromptGroup() {},
-  sweepLatches() {},
   hasToken() {
     return false;
   },
@@ -53,7 +51,6 @@ export const denyByDefaultBackend: GateBackend = {
     return notInstalled();
   },
   markStepupVerified() {},
-  clearLatchBySid() {},
   assertRbacCoordinate() {
     return notInstalled();
   },

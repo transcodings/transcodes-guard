@@ -1,31 +1,33 @@
 /**
  * Read-only inspector for the client's step-up state (Guard v3).
  *
- * Guard v3 keeps all step-up *status* in the backend cache (SSOT); the client
- * holds only the per-prompt grouping id and the per-coordinate browser latches
- * (`latch.ts`). This inspector surfaces exactly those, as structured JSON with
- * deterministic expiry, so the agent never parses `ls` or guesses from raw
- * timestamps.
+ * There is no client step-up state left to report. The backend owns every
+ * status — reuse is keyed by the Redis coordinate
+ * `stepup:{projectId}:{memberId}:{resource}:{action}` and browser dedupe is the
+ * backend's SET NX claim (toolgate t1) — so the local latch / prompt-group files
+ * this inspector used to surface were removed in t3.
  *
- * Strict read-only: never mints a group, never writes or clears a latch. Expired
- * entries are reported intact (with `expired: true`) rather than swept.
+ * The tool is kept as the agent-facing answer to "what does the client hold?":
+ * `client_state_files: []` is a load-bearing assertion, not an empty stub. To
+ * check whether a coordinate is verified, poll the backend
+ * (`tc_poll_stepup_session`), never a local file.
  */
 import { cacheDir } from '../paths/index.js';
 import { STEPUP_TTL_MS } from './config.js';
-import { type LatchInspection, listLatches } from './latch.js';
-import { peekPromptGroup } from './sid.js';
 
 export type StepupStateInspection = {
   cache_dir: string;
   now_ms: number;
+  /** Backend step-up session TTL, echoed for the agent's wait budgeting. */
   ttl_ms: number;
-  /** Current per-prompt grouping id (null when none minted / expired). */
-  prompt_group: string | null;
-  /** In-flight browser/poll latches, one per (group, resource, action). */
-  latches: LatchInspection[];
+  /**
+   * Always empty: Guard v3 keeps no step-up state on the client. Present so the
+   * agent reads a fact rather than inferring one from a missing field.
+   */
+  client_state_files: never[];
+  /** Where the client would keep cache files, for diagnostics. */
+  backend_owns_state: true;
 };
-
-export type { LatchInspection };
 
 export function inspectStepupState(
   now: number = Date.now(),
@@ -34,7 +36,7 @@ export function inspectStepupState(
     cache_dir: cacheDir(),
     now_ms: now,
     ttl_ms: STEPUP_TTL_MS,
-    prompt_group: peekPromptGroup(now),
-    latches: listLatches(now),
+    client_state_files: [],
+    backend_owns_state: true,
   };
 }
