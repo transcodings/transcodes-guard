@@ -1,0 +1,42 @@
+[
+    {
+        "name": "view_image",
+        "reason": "grade 2 (workspace read) — renders an image file to the user"
+    },
+    {
+        "name": "update_plan",
+        "reason": "grade 1 (conversation) — session plan tracking"
+    },
+    {
+        "name": "request_user_input",
+        "reason": "grade 1 (conversation) — prompts the user, no side effects"
+    },
+    {
+        "name": "list_mcp_resources",
+        "reason": "grade 2 (workspace read) — read-only MCP resource enumeration"
+    },
+    {
+        "name": "list_mcp_resource_templates",
+        "reason": "grade 2 (workspace read) — read-only MCP resource enumeration"
+    },
+    {
+        "name": "read_mcp_resource",
+        "reason": "grade 2 (workspace read) — read-only MCP resource fetch"
+    },
+    {
+        "name": "get_goal",
+        "reason": "grade 1 (conversation) — session goal bookkeeping"
+    },
+    {
+        "name": "create_goal",
+        "reason": "grade 1 (conversation) — session goal bookkeeping"
+    },
+    {
+        "name": "update_goal",
+        "reason": "grade 1 (conversation) — session goal bookkeeping"
+    },
+    {
+        "name": "tool_search_tool",
+        "reason": "grade 1 (conversation) — tool discovery, no workspace/exec reach"
+    }
+]

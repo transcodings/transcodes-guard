@@ -1,0 +1,37 @@
+[
+    { "name": "Read", "reason": "grade 2 (workspace read) — file read" },
+    { "name": "Grep", "reason": "grade 2 (workspace read) — text search" },
+    { "name": "Glob", "reason": "grade 2 (workspace read) — file-name search" },
+    {
+        "name": "SemanticSearch",
+        "reason": "grade 2 (workspace read) — semantic search"
+    },
+    {
+        "name": "SwitchMode",
+        "reason": "grade 1 (conversation) — agent mode toggle"
+    },
+    {
+        "name": "TodoWrite",
+        "reason": "grade 1 (conversation) — session plan tracking"
+    },
+    {
+        "name": "todo_write",
+        "reason": "grade 1 (conversation) — session plan tracking (snake_case wire alias)"
+    },
+    {
+        "name": "AskQuestion",
+        "reason": "grade 1 (conversation) — prompts the user, no side effects"
+    },
+    {
+        "name": "ask_question",
+        "reason": "grade 1 (conversation) — prompts the user (snake_case wire alias)"
+    },
+    {
+        "name": "Task",
+        "reason": "grade 1 (conversation) — sub-agent bookkeeping; sub-agent tool calls hook individually"
+    },
+    {
+        "name": "Await",
+        "reason": "grade 1 (conversation) — async sub-task wait, no side effects"
+    }
+]

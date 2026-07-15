@@ -39,17 +39,42 @@ export declare function loadMergedToolRules(bundleRules?: ToolRule[]): MergedToo
 export interface ToolRuleMatch {
     matched: MergedToolRule;
 }
-/**
- * Claude/Codex host namespace marker — plugin `mcp_plugin_transcodes` + server `guard`
- * → `mcp__plugin_mcp_plugin_transcodes_guard__{tool}`.
- */
-export declare const TRANSCODES_MCP_HOST_MARKER = "mcp_plugin_transcodes_guard";
 /** Canonical registerTool / tool-rules prefix for built-in transcodes-guard MCP. */
 export declare const TRANSCODES_GUARD_TOOL_PREFIX = "tc_";
 /** Wire names emitted by host PreToolUse hooks for MCP tool calls. */
 export declare function isMcpWireToolName(toolName: string): boolean;
-/** Built-in transcodes-guard MCP — PreToolUse skips /guard/evaluate. */
-export declare function isTranscodesGuardWireToolName(toolName: string): boolean;
+/**
+ * Every registered built-in transcodes-guard MCP tool name (bare form).
+ *
+ * DRIFT ALARM: hand-maintained until t5 derives it from the tool-definition
+ * source. Keep in sync with every `registerTool('tc_…')` call
+ * (core/src/server/server.ts + gate-backend/src/mcp-tools/*.ts) and with
+ * `scripts/tool-catalog.mjs` MCP_TOOLS (bare names there, `tc_` added here) —
+ * the unit test cross-checks this set against the catalog. Adding a tool?
+ * Add it in all three places.
+ */
+export declare const GUARD_TOOL_NAMES: ReadonlySet<string>;
+/**
+ * Built-in transcodes-guard MCP — PreToolUse skips /guard/evaluate.
+ * Exact set membership only (no substring/prefix heuristics): bare
+ * registered name, or host-namespaced form whose namespace AND tool part
+ * both match. Anything else → not ours → gated (fail-safe).
+ */
+export declare function isGuardToolName(toolName: string): boolean;
+export interface BuiltinExemptEntry {
+    name: string;
+    reason: string;
+}
+/** Per-provider builtin-exempt entries — exposed for tests/reporting only. */
+export declare function builtinExemptEntries(provider: GuardProvider): readonly BuiltinExemptEntry[];
+/**
+ * Host built-in tool from the per-provider static allow list (grade ①
+ * conversation/plan + ② workspace-read only — see toolgate t2 §2-c).
+ * Exact, case-sensitive match; the lists are compiled into the bundle and
+ * cannot be extended at runtime. Unknown host → NO exemption (fail-safe:
+ * over-gate, never over-skip).
+ */
+export declare function isBuiltinExemptToolName(provider: GuardProvider | undefined, toolName: string): boolean;
 export declare function toolNameMatchesRule(toolName: string, rule: ToolRule): boolean;
 /**
  * Map a host / provider string to the canonical rule `provider` slug.
