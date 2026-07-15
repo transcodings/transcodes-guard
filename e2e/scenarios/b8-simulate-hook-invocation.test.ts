@@ -17,13 +17,12 @@
  * backend as the server.
  */
 import assert from 'node:assert/strict';
-import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { McpRunner } from '../harness/mcp-runner.js';
+import { McpRunner, pluginRootFor } from '../harness/mcp-runner.js';
 import { assertOnlyEvaluateTraffic, MockBackend } from '../harness/mock-backend.js';
 import { makeWorld } from '../harness/state.js';
 
-const PLUGIN_ROOT = join(process.cwd(), 'plugins', 'claude-code');
+const PLUGIN_ROOT = pluginRootFor('claude-code');
 
 type SimulateResult = {
   deny_emitted: boolean;

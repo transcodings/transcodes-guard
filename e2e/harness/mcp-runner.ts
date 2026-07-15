@@ -21,9 +21,22 @@ import type { HostId } from './hook-runner.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+function pluginsRoot(): string {
+  return process.env.E2E_PLUGINS_ROOT ?? join(REPO_ROOT, 'plugins');
+}
+
 function stdioPath(host: HostId): string {
-  const root = process.env.E2E_PLUGINS_ROOT ?? join(REPO_ROOT, 'plugins');
-  return join(root, host, 'dist', 'src', 'stdio.js');
+  return join(pluginsRoot(), host, 'dist', 'src', 'stdio.js');
+}
+
+/**
+ * The plugin install root a host would set as CLAUDE_PLUGIN_ROOT — resolved
+ * from this file's location, never `process.cwd()`, so it holds wherever the
+ * test runner is invoked from. `tc_simulate_hook_invocation` spawns the hook
+ * binary from this env var and fails loudly when it is unset.
+ */
+export function pluginRootFor(host: HostId): string {
+  return join(pluginsRoot(), host);
 }
 
 /** MCP `tools/call` result — `content` plus the error flag. */
