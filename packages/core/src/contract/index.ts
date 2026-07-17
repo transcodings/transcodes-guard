@@ -12,4 +12,5 @@ export {
   isGateBackendInstalled,
   setGateBackend,
 } from './registry.js';
+export * from './tool-def.js';
 export * from './types.js';
