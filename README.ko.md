@@ -2,6 +2,19 @@
 
 [English](./README.md) | **한국어**
 
+<p align="center">
+  <a href="https://x.com/hellotranscodes"><img src="https://img.shields.io/badge/Follow-%40hellotranscodes-000000?style=flat&logo=x&logoColor=white" alt="Follow on X" /></a>
+  <a href="https://discord.gg/YA4y3WdBr"><img src="https://img.shields.io/badge/Join-Discord-5865F2?style=flat&logo=discord&logoColor=white" alt="Join Discord" /></a>
+  <a href="https://www.youtube.com/@hellotranscodes"><img src="https://img.shields.io/badge/Subscribe-YouTube-FF0000?style=flat&logo=youtube&logoColor=white" alt="Subscribe on YouTube" /></a>
+</p>
+
+<p align="center">
+  <a href="#claude-code"><img src="https://img.shields.io/badge/supports-Claude_Code-CC785C?style=flat&logo=anthropic&logoColor=white" alt="Claude Code" /></a>
+  <a href="#cursor-beta"><img src="https://img.shields.io/badge/supports-Cursor-000000?style=flat&logo=cursor&logoColor=white" alt="Cursor" /></a>
+  <a href="#antigravity-beta"><img src="https://img.shields.io/badge/supports-Antigravity-4285F4?style=flat&logo=google&logoColor=white" alt="Antigravity" /></a>
+  <a href="#codex"><img src="https://img.shields.io/badge/supports-ChatGPT-412991?style=flat&logo=openai&logoColor=white" alt="ChatGPT (Codex)" /></a>
+</p>
+
 ## 소개
 
 `transcodes-guard`는 AI 코딩 에이전트가 실행하려는 위험한 셸 명령(그리고 보호 대상 MCP tool 호출)을 *실행 직전에* 가로채, Transcodes 백엔드에 대해 Transcodes Step-up MFA(WebAuthn) 인증을 강제하는 호스트 hook + MCP 서버 게이트입니다. 인증을 통과한 명령만 실행됩니다.
@@ -165,6 +178,13 @@ Bash danger 감지는 전체 명령 문자열에 대한 정규식 매치입니�
 매칭은 컴파일된 각 정규식을 전체 명령 문자열에 대해 실행합니다(주석, 따옴표 안의 인자, heredoc 모두 매치되며, 토큰 추출은 하지 않음) — 먼저 매치된 것이 이기며, SYSTEM이 USER보다 앞섭니다.
 
 알려진 한계(간단히): 셸 따옴표를 이해하지 못합니다(`echo "rm -rf /"`가 매치될 수 있음 → 오탐 가능). 정규식 우회가 부분적으로 가능합니다(1차 방어선임). 시맨틱 체크는 git 디렉터리가 아닌 곳에서는 생략됩니다.
+
+## 커뮤니티 & 지원
+
+- **Discord:** 문의·지원은 **[Discord](https://discord.gg/YA4y3WdBr)**로 연락해 주세요.
+- **Twitter / X:** 문의·소식은 **[X (@hellotranscodes)](https://x.com/hellotranscodes)**로 연락해 주세요.
+- **YouTube:** 튜토리얼과 공지는 **[YouTube (@hellotranscodes)](https://www.youtube.com/@hellotranscodes)**에서 확인하세요.
+- **Feedback & Support:** **[GitHub Issue](https://github.com/transcodings/transcodes-guard/issues)**를 생성해 주세요.
 
 ## License
 

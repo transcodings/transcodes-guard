@@ -2,6 +2,19 @@
 
 **English** | [한국어](./README.ko.md)
 
+<p align="center">
+  <a href="https://x.com/hellotranscodes"><img src="https://img.shields.io/badge/Follow-%40hellotranscodes-000000?style=flat&logo=x&logoColor=white" alt="Follow on X" /></a>
+  <a href="https://discord.gg/YA4y3WdBr"><img src="https://img.shields.io/badge/Join-Discord-5865F2?style=flat&logo=discord&logoColor=white" alt="Join Discord" /></a>
+  <a href="https://www.youtube.com/@hellotranscodes"><img src="https://img.shields.io/badge/Subscribe-YouTube-FF0000?style=flat&logo=youtube&logoColor=white" alt="Subscribe on YouTube" /></a>
+</p>
+
+<p align="center">
+  <a href="#claude-code"><img src="https://img.shields.io/badge/supports-Claude_Code-CC785C?style=flat&logo=anthropic&logoColor=white" alt="Claude Code" /></a>
+  <a href="#cursor-beta"><img src="https://img.shields.io/badge/supports-Cursor-000000?style=flat&logo=cursor&logoColor=white" alt="Cursor" /></a>
+  <a href="#antigravity-beta"><img src="https://img.shields.io/badge/supports-Antigravity-4285F4?style=flat&logo=google&logoColor=white" alt="Antigravity" /></a>
+  <a href="#codex"><img src="https://img.shields.io/badge/supports-ChatGPT-412991?style=flat&logo=openai&logoColor=white" alt="ChatGPT (Codex)" /></a>
+</p>
+
 ## Intro
 
 `transcodes-guard` is a host-hook + MCP-server gate that intercepts risky shell commands (and protected MCP tool calls) from AI coding agents _right before execution_ and forces a Transcodes Step-up MFA (WebAuthn) challenge against the Transcodes backend. Only verified commands run.
@@ -223,6 +236,13 @@ Bash danger detection is a regex match against the full command string. Two tier
 Matching runs each compiled regex against the full command string (comments, quoted args, and heredocs all match; there is no token extraction) — first match wins, system before user.
 
 Known limits (briefly): shell quoting is not understood (`echo "rm -rf /"` can match → a possible false positive); regex bypass is partially possible (this is the first line of defense); the semantic check is skipped in non-git directories.
+
+## Community & Support
+
+- **Discord:** For questions and support, reach out on **[Discord](https://discord.gg/YA4y3WdBr)**.
+- **Twitter / X:** For questions and updates, contact us on **[X (@hellotranscodes)](https://x.com/hellotranscodes)**.
+- **YouTube:** Watch tutorials and announcements on **[YouTube (@hellotranscodes)](https://www.youtube.com/@hellotranscodes)**.
+- **Feedback & Support:** Create a **[GitHub Issue](https://github.com/transcodings/transcodes-guard/issues)**.
 
 ## License
 
