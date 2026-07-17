@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.5](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.4...transcodes-guard-v0.55.5) (2026-07-17)
+
+
+### Documentation
+
+* **readme:** add community badges and support section ([5e687e4](https://github.com/transcodings/transcodes-guard/commit/5e687e41aeb5be48f703919eaa4bc048b7508b18))
+
 ## [0.55.4](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.3...transcodes-guard-v0.55.4) (2026-07-15)
 
 
