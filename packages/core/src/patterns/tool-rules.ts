@@ -20,11 +20,22 @@ import builtinExemptCursor from './data/builtin-exempt/cursor.json' with {
 };
 import systemToolRulesData from './data/tool-rules.json' with { type: 'json' };
 import {
+  GUARD_PROTECTED_TOOL_RULES,
+  GUARD_TOOL_NAMES,
+} from './guard-tool-names.generated.js';
+import {
   coerceRbacAction,
   coerceRbacResource,
   isRbacAction,
   type RbacAction,
 } from './rbac.js';
+
+export {
+  GUARD_META_TOOL_NAMES,
+  GUARD_PROTECTED_TOOL_RULES,
+  GUARD_TOOL_NAMES,
+  type GuardProtectedToolRule,
+} from './guard-tool-names.generated.js';
 
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
 
@@ -145,71 +156,6 @@ export const TRANSCODES_GUARD_TOOL_PREFIX = 'tc_';
 export function isMcpWireToolName(toolName: string): boolean {
   return /^mcp__/i.test(toolName);
 }
-
-/**
- * Every registered built-in transcodes-guard MCP tool name (bare form).
- *
- * DRIFT ALARM: hand-maintained until t5 derives it from the tool-definition
- * source. Keep in sync with every `registerTool('tc_…')` call
- * (core/src/server/server.ts + gate-backend/src/mcp-tools/*.ts) and with
- * `scripts/tool-catalog.mjs` MCP_TOOLS (bare names there, `tc_` added here) —
- * the unit test cross-checks this set against the catalog. Adding a tool?
- * Add it in all three places.
- */
-export const GUARD_TOOL_NAMES: ReadonlySet<string> = new Set([
-  'tc_check_project_assets',
-  'tc_check_rbac_permission',
-  'tc_check_related_origin',
-  'tc_create_member',
-  'tc_create_resource',
-  'tc_create_role',
-  'tc_create_stepup_session',
-  'tc_echo',
-  'tc_get_console_url',
-  'tc_get_current_member_id',
-  'tc_get_current_organization_id',
-  'tc_get_current_project_id',
-  'tc_get_integration_guide',
-  'tc_get_member',
-  'tc_get_member_suspension',
-  'tc_get_my_profile',
-  'tc_get_project',
-  'tc_get_resources',
-  'tc_get_roles',
-  'tc_get_security_logs',
-  'tc_inspect_stepup_state',
-  'tc_jwk_backup',
-  'tc_list_authenticators',
-  'tc_list_member_devices',
-  'tc_list_members_paginated',
-  'tc_list_passkeys',
-  'tc_list_totps',
-  'tc_membership_create_checkout_session',
-  'tc_membership_customer_status_by_organization',
-  'tc_membership_customer_status_by_project',
-  'tc_membership_plans',
-  'tc_membership_plans_limits',
-  'tc_passcode_create',
-  'tc_poll_stepup_session',
-  'tc_poll_stepup_session_wait',
-  'tc_project_pwa_auth_console',
-  'tc_retire_member',
-  'tc_retire_resource',
-  'tc_retire_role',
-  'tc_set_role_permissions',
-  'tc_simulate_command',
-  'tc_simulate_hook_invocation',
-  'tc_simulate_tool_call',
-  'tc_suspend_member',
-  'tc_unsuspend_member',
-  'tc_update_member',
-  'tc_update_member_role',
-  'tc_update_resource',
-  'tc_update_role',
-  'tc_user_create',
-  'tc_user_find',
-  'tc_user_get_current',
-]);
 
 /**
  * Our MCP server namespace segment as hosts wrap it:
@@ -388,7 +334,7 @@ export function validateNewToolRule(input: ToolRuleInput): ToolRule {
     );
   }
 
-  const systemIds = new Set(loadSystemToolRules().rules.map((r) => r.id));
+  const systemIds = systemToolRuleIds();
   if (systemIds.has(id)) {
     throw new ToolRuleValidationError(
       `id "${id}" is reserved by a system tool-rule and cannot be overridden`,
@@ -533,6 +479,14 @@ export function mergeToolRuleChanges(
   });
 }
 
+/**
+ * Reserved system rule ids: the JSON registry (now MCP-rule-free) plus the
+ * ids derived from the protected tool definitions — a bundle rule must not
+ * be able to shadow `tc-retire-member` and friends.
+ */
 export function systemToolRuleIds(): Set<string> {
-  return new Set(loadSystemToolRules().rules.map((r) => r.id));
+  return new Set([
+    ...loadSystemToolRules().rules.map((r) => r.id),
+    ...GUARD_PROTECTED_TOOL_RULES.map((r) => r.id),
+  ]);
 }

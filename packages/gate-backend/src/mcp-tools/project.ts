@@ -6,21 +6,16 @@
  * plugin. The project is fixed by the TRANSCODES_TOKEN pid claim, never a
  * tool argument, so tenancy cannot be bypassed.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
 import { loadStepupConfig } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
+import { defineBackendTool, textResult } from './define.js';
 import { blockedResult, req } from './transcodes-client.js';
 
 const DEFAULT_CDN_BASE_URL = 'https://cdn.transcodes.link';
 const ASSET_CHECK_TIMEOUT_MS = 5_000;
 const AUTH_APP_URL_PROD = 'https://auth.transcodes.io';
 const AUTH_APP_URL_DEV = 'https://auth.automexpert.com';
-
-// MCP 응답을 text content shape으로 고정한다.
-const textResult = (text: string, isError = false) => ({
-  isError,
-  content: [{ type: 'text' as const, text }],
-});
 
 type AssetStatus = 'available' | 'missing' | 'unreachable';
 type PwaAssetsState =
@@ -273,18 +268,22 @@ async function loadProjectForOriginCheck() {
   return project;
 }
 
-export function registerProjectTools(server: McpServer): void {
-  server.registerTool(
-    'tc_get_project',
-    {
-      title: 'Get project',
-      description:
-        'Fetch the active project (fixed by TRANSCODES_TOKEN pid claim). ' +
-        'Returns all information about the project — including toolkit, domain_url, title, description, and created/updated timestamps. ' +
-        'No arguments — project is determined by the token.',
-      inputSchema: {},
-    },
-    async () => {
+export const projectToolDefinitions: readonly GuardToolDefinition[] = [
+  defineBackendTool({
+    name: 'tc_get_project',
+    title: 'Get project',
+    description:
+      'Fetch the active project (fixed by TRANSCODES_TOKEN pid claim). ' +
+      'Returns all information about the project — including toolkit, domain_url, title, description, and created/updated timestamps. ' +
+      'No arguments — project is determined by the token.',
+    summary: 'Fetch the active project (fixed by TRANSCODES_TOKEN pid claim).',
+    category: 'Project',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -294,21 +293,26 @@ export function registerProjectTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_check_related_origin',
-    {
-      title: 'Check sign-in related origin',
-      description:
-        'Read-only diagnostic for hosted sign-in redirect setup. ' +
-        'Checks whether a redirect_uri/origin is present in the active project authentication.related_origins allow-list, matching the backend sign-in callback policy.',
-      inputSchema: {
-        redirect_uri: z.string().optional(),
-        origin: z.string().optional(),
-      },
+  defineBackendTool({
+    name: 'tc_check_related_origin',
+    title: 'Check sign-in related origin',
+    description:
+      'Read-only diagnostic for hosted sign-in redirect setup. ' +
+      'Checks whether a redirect_uri/origin is present in the active project authentication.related_origins allow-list, matching the backend sign-in callback policy.',
+    summary:
+      'Check whether a redirect_uri/origin is registered in project authentication.related_origins.',
+    category: 'Project',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {
+      redirect_uri: z.string().optional(),
+      origin: z.string().optional(),
     },
-    async ({ redirect_uri, origin }) => {
+    handler: async ({ redirect_uri, origin }) => {
       try {
         const target = redirect_uri?.trim() || origin?.trim();
         if (!target) {
@@ -341,19 +345,24 @@ export function registerProjectTools(server: McpServer): void {
         );
       }
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_check_project_assets',
-    {
-      title: 'Check project CDN assets',
-      description:
-        'Read-only CDN asset diagnostic for the active project. ' +
-        'Separates Authentication-only SDK availability (`webworker.js`) from optional Web App Kit install assets (`manifest.json`, `sw.js`) so missing manifest/sw.js is not mistaken for auth failures. ' +
-        'Use when webworker/manifest/sw.js status, CDN setup, auth-only install, or installable app assets are unclear.',
-      inputSchema: {},
-    },
-    async () => {
+  defineBackendTool({
+    name: 'tc_check_project_assets',
+    title: 'Check project CDN assets',
+    description:
+      'Read-only CDN asset diagnostic for the active project. ' +
+      'Separates Authentication-only SDK availability (`webworker.js`) from optional Web App Kit install assets (`manifest.json`, `sw.js`) so missing manifest/sw.js is not mistaken for auth failures. ' +
+      'Use when webworker/manifest/sw.js status, CDN setup, auth-only install, or installable app assets are unclear.',
+    summary:
+      'Separate auth SDK webworker status from optional manifest/sw.js install assets.',
+    category: 'Project',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       try {
         const config = loadStepupConfig();
         const report = await checkProjectAssets(config.projectId);
@@ -372,18 +381,23 @@ export function registerProjectTools(server: McpServer): void {
         );
       }
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_project_pwa_auth_console',
-    {
-      title: 'Auth config (console-only)',
-      description:
-        'Blocked: Authentication and console configuration (manifest, service worker, branding, WebAuthn, related origins, token expiry, etc.) must be done in the Transcodes console. ' +
-        'These settings trigger an SDK rebuild and redeployment — a pipeline the console manages automatically. ' +
-        'Applying changes directly via API skips that pipeline and leaves the live SDK out of sync with the new configuration.',
-      inputSchema: {},
-    },
-    async () => blockedResult(MSG_PROJECT_PWA_AUTH_CONSOLE),
-  );
-}
+  defineBackendTool({
+    name: 'tc_project_pwa_auth_console',
+    title: 'Auth config (console-only)',
+    description:
+      'Blocked: Authentication and console configuration (manifest, service worker, branding, WebAuthn, related origins, token expiry, etc.) must be done in the Transcodes console. ' +
+      'These settings trigger an SDK rebuild and redeployment — a pipeline the console manages automatically. ' +
+      'Applying changes directly via API skips that pipeline and leaves the live SDK out of sync with the new configuration.',
+    summary:
+      'Auth and console configuration must be done in the Transcodes console.',
+    category: 'Project',
+    access: 'console-only',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => blockedResult(MSG_PROJECT_PWA_AUTH_CONSOLE),
+  }),
+];

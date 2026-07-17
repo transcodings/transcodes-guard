@@ -7,15 +7,17 @@
  * `node scripts/generate-router-files.mjs` (it runs automatically via
  * `prebuild:plugin`), and every consumer regenerates.
  *
- * Consumed by scripts/generate-router-files.mjs (plain ESM — importable with
- * zero build step, which is why this is .mjs and not .ts).
+ * Consumed by scripts/generate-router-files.mjs. The catalog section is
+ * derived from the tool definition data via scripts/tool-metadata.mts, so
+ * this module (and its consumers) must run under tsx:
+ * `node --import tsx scripts/generate-router-files.mjs`.
  */
 
 import {
   MCP_RESOURCES,
   MCP_TOOLS,
   renderToolCatalogSection,
-} from './tool-catalog.mjs';
+} from './tool-metadata.mts';
 
 // Shared opening sentence. Every host file and the runtime body begin with this
 // exact preamble; only the trailing clause (introTail) and the request line
@@ -101,9 +103,16 @@ export const STEPUP_PROTOCOL_SECTION = [
   'Level 0 requires an admin at https://app.transcodes.io → RBAC → Roles; `get_console_url` cannot edit RBAC.',
 ].join('\n');
 
-export const SHARED_BODY = [
+// Hand-written prose only — the drift check (assertBacktickedToolNames) scans
+// this, not SHARED_BODY: generated tool summaries may legitimately backtick
+// snake_case argument/field names that are not tool names.
+export const HAND_PROSE = [
   WORKFLOW_MENU.join('\n'),
   STEPUP_PROTOCOL_SECTION,
+].join('\n');
+
+export const SHARED_BODY = [
+  HAND_PROSE,
   renderToolCatalogSection(MCP_TOOLS, MCP_RESOURCES),
 ].join('\n');
 

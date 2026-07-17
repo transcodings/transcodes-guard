@@ -9,8 +9,12 @@
  * `claimStepupVerified()`. Same long-lived MCP server process, so the mark →
  * claim handoff never crosses a process boundary.
  */
+import type {
+  ProtectedToolDefinition,
+  ToolTextResult,
+} from '@transcodes-guard/core/contract';
 import {
-  loadMergedToolRules,
+  GUARD_PROTECTED_TOOL_RULES,
   type MergedToolRule,
   ruleAppliesToHost,
   TRANSCODES_GUARD_TOOL_PREFIX,
@@ -41,10 +45,21 @@ async function getCachedRbacLevel(
   return level;
 }
 
+// 시스템 룰 테이블. 정의 데이터의 stepUp 좌표에서 파생한 core 생성물
+// GUARD_PROTECTED_TOOL_RULES가 유일한 파생 지점이고, 여기서는 런타임 룰
+// 상수 필드(type/matcher/source)만 덧붙인다.
+export const SYSTEM_PROTECTED_TOOL_RULES: readonly MergedToolRule[] =
+  GUARD_PROTECTED_TOOL_RULES.map((r) => ({
+    ...r,
+    type: 'mcp' as const,
+    matcher: 'exact' as const,
+    source: 'system' as const,
+  }));
+
 // 로컬 handler 이름과 MCP wire 이름을 모두 시스템 tool-rule 기준으로 해석한다.
 export function resolveProtectedToolRule(
   toolName: string,
-  rules: MergedToolRule[] = loadMergedToolRules(),
+  rules: readonly MergedToolRule[] = SYSTEM_PROTECTED_TOOL_RULES,
 ): MergedToolRule | undefined {
   return rules.find((r) => {
     if (!ruleAppliesToHost(r)) return false;
@@ -96,6 +111,17 @@ function stepupRequiredResult(
         ),
       },
     ],
+  };
+}
+
+// 정의 데이터의 stepUp 선언을 execProtectedTool 래핑으로 이행하는 등록 루프 어댑터.
+// config를 먼저 로드하는 순서는 전환 전 핸들러 형태(핸들러 선두 loadStepupConfig)를 보존한다.
+export function wrapProtectedTool(
+  def: ProtectedToolDefinition,
+): (args: never) => Promise<ToolTextResult> {
+  return async (args) => {
+    const config = loadStepupConfig();
+    return execProtectedTool(def.name, (sid) => def.run(config, args, sid));
   };
 }
 

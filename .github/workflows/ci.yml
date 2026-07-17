@@ -34,6 +34,13 @@ jobs:
       - name: Install
         run: npm ci
 
+      # The codegen imports gate-backend definition modules whose
+      # @transcodes-guard/core/* value imports resolve to the built core dist.
+      # Build core first so a definition module may value-import any current
+      # core export without depending on the committed dist's freshness.
+      - name: Build core for codegen
+        run: npm run build -w @transcodes-guard/core
+
       # Router codegen drift gate. Unlike dist (esbuild is non-reproducible, see
       # below), the per-host /transcodes command/skill files + router-body.ts are
       # pure deterministic templating from scripts/router-body.mjs, so a
@@ -42,7 +49,7 @@ jobs:
       # files in write mode, so checking after the build would compare freshly
       # written output against itself and always pass (vacuous gate).
       - name: Verify router codegen is up to date
-        run: node scripts/generate-router-files.mjs --check
+        run: node --import tsx scripts/generate-router-files.mjs --check
 
       - name: Build plugin
         run: npm run build:plugin
@@ -96,13 +103,16 @@ jobs:
       # (../../gate-backend/src/…) passes biome clean. This grep denies any
       # import specifier that reaches into gate-backend from outside the
       # sanctioned seams (plugins/*/backend.ts, mcp/src/backend.ts) and the
-      # package's own sources.
+      # package's own sources. scripts/tool-metadata.mts is the one codegen
+      # seam: it reads tool definition METADATA at build time (never bundled,
+      # handlers never invoked) to derive GUARD_TOOL_NAMES and the catalogs.
       - name: Firewall backstop — no gate-backend imports outside the seams
         run: |
           HITS=$(git grep -nE "from ['\"]([^'\"]*/)?gate-backend(/[^'\"]*)?['\"]" -- \
             ':!packages/gate-backend' \
             ':!plugins/*/backend.ts' \
             ':!mcp/src/backend.ts' \
+            ':!scripts/tool-metadata.mts' \
             ':!*dist/*' \
             ':!package-lock.json' \
             ':!*.md' || true)

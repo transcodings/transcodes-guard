@@ -73,18 +73,18 @@ Level 0 requires an admin at https://app.transcodes.io → RBAC → Roles; `get_
 TOOL CATALOG — all 52 MCP tools + 2 resources on transcodes-guard. Match the user request to a workflow MENU item above OR to an exact tool/resource below, then call it by its exact name.
 
 Resources (read by URI, not tools):
-- `version://info` — Returns the running plugin version. Use to confirm which build is loaded.
-- `tc-tool-rules://list` — Read-only list of system MCP tool-rules (execProtectedTool handler backstop).
+- `version://info` — Returns the running plugin version. Use this to confirm which build is currently loaded after an update.
+- `tc-tool-rules://list` — Read-only list of system MCP tool-rules derived from the tool definition data (stepUp coordinates). These gate built-in transcodes-guard MCP tools via execProtectedTool — external mcp__* tools use POST /guard/evaluate instead.
 
 Gate & Policies (8):
-1) `simulate_tool_call` — Report whether a full MCP wire tool name would be gated by the PreToolUse hook (POST /guard/evaluate). [read-only]
-2) `simulate_command` — Read-only check whether a Bash command would reach POST /guard/evaluate in the PreToolUse hook. [read-only]
-3) `create_stepup_session` — Open a WebAuthn step-up session; returns sid and browser URL. [mutating]
-4) `poll_stepup_session` — Single-shot poll of step-up session status (pending or verified). [read-only]
-5) `poll_stepup_session_wait` — Block until step-up reaches verified or timeout — use after a hook deny. [read-only]
-6) `inspect_stepup_state` — Read-only snapshot of verified, pending, and browser-lock state files. [read-only]
-7) `simulate_hook_invocation` — Spawn the real hook binary and diff step-up state before/after. [read-only]
-8) `echo` — Health-check tool that echoes a message back to the caller. [read-only]
+1) `create_stepup_session` — Open a WebAuthn step-up session; returns sid and browser URL. [mutating]
+2) `poll_stepup_session` — Single-shot poll of step-up session status (pending or verified). [read-only]
+3) `poll_stepup_session_wait` — Block until step-up reaches verified or timeout — use after a hook deny. [read-only]
+4) `inspect_stepup_state` — Read-only snapshot of verified, pending, and browser-lock state files. [read-only]
+5) `simulate_hook_invocation` — Spawn the real hook binary and diff step-up state before/after. [read-only]
+6) `echo` — Health-check tool that echoes a message back to the caller. [read-only]
+7) `simulate_command` — Read-only check whether a Bash command would reach POST /guard/evaluate in the PreToolUse hook. [read-only]
+8) `simulate_tool_call` — Report whether a full MCP wire tool name would be gated by the PreToolUse hook (POST /guard/evaluate). [read-only]
 
 Meta & Identity (6):
 9) `get_current_project_id` — Returns project ID parsed from TRANSCODES_TOKEN. [read-only]
@@ -96,8 +96,8 @@ Meta & Identity (6):
 
 Project (4):
 15) `get_project` — Fetch the active project (fixed by TRANSCODES_TOKEN pid claim). [read-only]
-16) `check_project_assets` — Separate auth SDK webworker status from optional manifest/sw.js install assets. [read-only]
-17) `check_related_origin` — Check whether a redirect_uri/origin is registered in project authentication.related_origins. [read-only]
+16) `check_related_origin` — Check whether a redirect_uri/origin is registered in project authentication.related_origins. [read-only]
+17) `check_project_assets` — Separate auth SDK webworker status from optional manifest/sw.js install assets. [read-only]
 18) `project_pwa_auth_console` — Auth and console configuration must be done in the Transcodes console. [console-only]
 
 Members (9):
@@ -105,24 +105,24 @@ Members (9):
 20) `list_members_paginated` — Paginated member list with sort options. [read-only]
 21) `list_member_devices` — Passkeys, authenticators, and TOTP devices for a member. [read-only]
 22) `get_member_suspension` — Check whether a member is currently suspended. [read-only]
-23) `create_member` — Create a member for onboarding or manual provisioning. [mutating]
-24) `update_member` — Update member profile fields (name, email, metadata). Use update_member_role to change a role. [mutating]
-25) `retire_member` — Permanently delete a member — irreversible kill switch. [mutating · step-up protected]
-26) `suspend_member` — Temporarily suspend a member; blocks login and invalidates sessions. [mutating · step-up protected]
-27) `unsuspend_member` — Lift a member suspension and restore login ability. [mutating · step-up protected]
+23) `retire_member` — Permanently delete a member — irreversible kill switch. [mutating · step-up protected]
+24) `suspend_member` — Temporarily suspend a member; blocks login and invalidates sessions. [mutating · step-up protected]
+25) `unsuspend_member` — Lift a member suspension and restore login ability. [mutating · step-up protected]
+26) `create_member` — Create a member for onboarding or manual provisioning. [mutating]
+27) `update_member` — Update member profile fields (name, email, metadata). Use update_member_role to change a role. [mutating]
 
 RBAC (11):
 28) `get_roles` — List all roles and permission matrix for the project. [read-only]
 29) `get_resources` — List RBAC resource keys for the project. [read-only]
 30) `check_rbac_permission` — Simulate whether a member may access a resource+action. [read-only]
-31) `create_role` — Create a new role before setting permissions. [mutating]
-32) `update_role` — Update role metadata (description). [mutating]
-33) `create_resource` — Add a new RBAC resource key (every role initialized to read=allow, write=allow+step-up). [mutating]
-34) `update_resource` — Update resource label/description. [mutating]
-35) `retire_role` — Permanently retire a role from the project. [mutating · step-up protected]
-36) `set_role_permissions` — Set per-resource permission matrix for a role (0=deny, 1=allow, 2=step-up). Requires caller system/update >= 1; calls at level 0 are denied. [mutating · step-up protected]
-37) `update_member_role` — Change a member's assigned role (validates the role exists). Requires caller system/update >= 1; calls at level 0 are denied. [mutating · step-up protected]
-38) `retire_resource` — Permanently retire an RBAC resource key. [mutating · step-up protected]
+31) `retire_role` — Permanently retire a role from the project. [mutating · step-up protected]
+32) `set_role_permissions` — Set per-resource permission matrix for a role (0=deny, 1=allow, 2=step-up). Requires caller system/update >= 1; calls at level 0 are denied. [mutating · step-up protected]
+33) `update_member_role` — Change a member's assigned role (validates the role exists). Requires caller system/update >= 1; calls at level 0 are denied. [mutating · step-up protected]
+34) `retire_resource` — Permanently retire an RBAC resource key. [mutating · step-up protected]
+35) `create_role` — Create a new role before setting permissions. [mutating]
+36) `update_role` — Update role metadata (description). [mutating]
+37) `create_resource` — Add a new RBAC resource key (every role initialized to read=allow, write=allow+step-up). [mutating]
+38) `update_resource` — Update resource label/description. [mutating]
 
 Passcode (1):
 39) `passcode_create` — Create a recovery passcode for a member (support/onboarding). [mutating · step-up protected]

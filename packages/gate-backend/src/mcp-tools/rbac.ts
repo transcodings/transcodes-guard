@@ -5,20 +5,18 @@
  * `retire_resource`) plus the read tools needed to investigate them
  * (`get_roles`, `get_resources`, `check_rbac_permission`).
  *
- * Protected handlers thread the verified sid via `withStepupVerifiedSid`;
- * the in-memory `requireStepup` pattern is gone — the PreToolUse hook
- * now enforces via `hooks/tool-rules.json`.
+ * Protected tools declare their step-up coordinate via `stepUp`; the
+ * registration loop wraps `run` in `execProtectedTool`.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
 import { loadStepupConfig } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
-import { execProtectedTool } from './stepup-helper.js';
+import {
+  defineBackendTool,
+  defineProtectedBackendTool,
+  textResult,
+} from './define.js';
 import { req } from './transcodes-client.js';
-
-const textResult = (text: string, isError = false) => ({
-  isError,
-  content: [{ type: 'text' as const, text }],
-});
 
 const PROJECT_ID_GUIDANCE =
   'project_id in the body must be the TRANSCODES_TOKEN project id (pid claim); it is not configurable per tool call.';
@@ -32,16 +30,20 @@ const ResourcePermissions = z.object({
   delete: PermissionLevel.optional(),
 });
 
-export function registerRbacTools(server: McpServer): void {
-  server.registerTool(
-    'tc_get_roles',
-    {
-      title: 'Get roles',
-      description:
-        'List all roles and permission matrix for a project. Use when you need RBAC data for console parity or to know which roles can be assigned.',
-      inputSchema: {},
-    },
-    async () => {
+export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
+  defineBackendTool({
+    name: 'tc_get_roles',
+    title: 'Get roles',
+    description:
+      'List all roles and permission matrix for a project. Use when you need RBAC data for console parity or to know which roles can be assigned.',
+    summary: 'List all roles and permission matrix for the project.',
+    category: 'RBAC',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -50,17 +52,21 @@ export function registerRbacTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_get_resources',
-    {
-      title: 'Get resources',
-      description:
-        'List RBAC resource keys for a project. Use before editing roles or building permission UI.',
-      inputSchema: {},
-    },
-    async () => {
+  defineBackendTool({
+    name: 'tc_get_resources',
+    title: 'Get resources',
+    description:
+      'List RBAC resource keys for a project. Use before editing roles or building permission UI.',
+    summary: 'List RBAC resource keys for the project.',
+    category: 'RBAC',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -69,23 +75,27 @@ export function registerRbacTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_check_rbac_permission',
-    {
-      title: 'Check RBAC permission',
-      description:
-        'Simulate whether a member may access a resource+action (SkipAuth). Returns denied/allowed; if allowed, may include stepUpRequired. Use for guard/debugging before routing.',
-      inputSchema: {
-        body: z.object({
-          member_id: z.string(),
-          resource: z.string(),
-          action: z.enum(['create', 'read', 'update', 'delete']),
-        }),
-      },
+  defineBackendTool({
+    name: 'tc_check_rbac_permission',
+    title: 'Check RBAC permission',
+    description:
+      'Simulate whether a member may access a resource+action (SkipAuth). Returns denied/allowed; if allowed, may include stepUpRequired. Use for guard/debugging before routing.',
+    summary: 'Simulate whether a member may access a resource+action.',
+    category: 'RBAC',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {
+      body: z.object({
+        member_id: z.string(),
+        resource: z.string(),
+        action: z.enum(['create', 'read', 'update', 'delete']),
+      }),
     },
-    async ({ body }) => {
+    handler: async ({ body }) => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -97,260 +107,311 @@ export function registerRbacTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_retire_role',
-    {
-      title: 'Retire role',
-      description:
-        'Retire a role from the project. Use when the user wants to remove, drop, or discard a role. ' +
-        'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-role`). ' +
-        'Body { project_id } is injected from TRANSCODES_TOKEN by the server.',
-      inputSchema: {
-        role_id: z.string(),
-      },
+  defineProtectedBackendTool({
+    name: 'tc_retire_role',
+    title: 'Retire role',
+    description:
+      'Retire a role from the project. Use when the user wants to remove, drop, or discard a role. ' +
+      'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-role`). ' +
+      'Body { project_id } is injected from TRANSCODES_TOKEN by the server.',
+    summary: 'Permanently retire a role from the project.',
+    category: 'RBAC',
+    access: 'api',
+    mutating: true,
+    meta: false,
+    stepUpProtected: true,
+    stepUp: {
+      action: 'delete',
+      resource: 'system',
+      label: 'Retire role',
+      ruleDescription: 'Permanent role deletion',
     },
-    async ({ role_id }) => {
-      const config = loadStepupConfig();
-      return execProtectedTool('tc_retire_role', (sid) =>
-        req(
-          config,
-          {
-            method: 'DELETE',
-            body: { project_id: config.projectId },
-            stepUpSid: sid,
-          },
-          'retire_role',
-          `/${encodeURIComponent(role_id)}`,
-        ),
-      );
+    inputSchema: {
+      role_id: z.string(),
     },
-  );
+    run: (config, { role_id }, sid) =>
+      req(
+        config,
+        {
+          method: 'DELETE',
+          body: { project_id: config.projectId },
+          stepUpSid: sid,
+        },
+        'retire_role',
+        `/${encodeURIComponent(role_id)}`,
+      ),
+  }),
 
-  server.registerTool(
-    'tc_set_role_permissions',
-    {
-      title: 'Set role permissions',
-      description:
-        'Set per-resource permission matrix for a role. 0=deny, 1=allow, 2=allow+step-up. ' +
-        'Requires the caller MAT role to have system/update >= 1; calls at level 0 are denied. ' +
-        'If denied, an admin must edit RBAC at https://app.transcodes.io → RBAC → Roles. ' +
-        'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-set-role-permissions`).',
-      inputSchema: {
-        role_id: z.string(),
-        body: z.object({
-          permissions: z.record(z.string(), ResourcePermissions),
-        }),
-      },
+  defineProtectedBackendTool({
+    name: 'tc_set_role_permissions',
+    title: 'Set role permissions',
+    description:
+      'Set per-resource permission matrix for a role. 0=deny, 1=allow, 2=allow+step-up. ' +
+      'Requires the caller MAT role to have system/update >= 1; calls at level 0 are denied. ' +
+      'If denied, an admin must edit RBAC at https://app.transcodes.io → RBAC → Roles. ' +
+      'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-set-role-permissions`).',
+    summary:
+      'Set per-resource permission matrix for a role (0=deny, 1=allow, 2=step-up). Requires caller system/update >= 1; calls at level 0 are denied.',
+    category: 'RBAC',
+    access: 'api',
+    mutating: true,
+    meta: false,
+    stepUpProtected: true,
+    stepUp: {
+      action: 'update',
+      resource: 'system',
+      label: 'Set role permissions',
+      ruleDescription: 'Role permissions matrix reset',
     },
-    async ({ role_id, body }) => {
-      const config = loadStepupConfig();
-      return execProtectedTool('tc_set_role_permissions', (sid) =>
-        req(
-          config,
-          {
-            method: 'PUT',
-            body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
-          },
-          'set_role_permissions',
-          `/${encodeURIComponent(role_id)}/permissions`,
-        ),
-      );
+    inputSchema: {
+      role_id: z.string(),
+      body: z.object({
+        permissions: z.record(z.string(), ResourcePermissions),
+      }),
     },
-  );
+    run: (config, { role_id, body }, sid) =>
+      req(
+        config,
+        {
+          method: 'PUT',
+          body: { ...body, project_id: config.projectId },
+          stepUpSid: sid,
+        },
+        'set_role_permissions',
+        `/${encodeURIComponent(role_id)}/permissions`,
+      ),
+  }),
 
-  server.registerTool(
-    'tc_update_member_role',
-    {
-      title: 'Update member role',
-      description:
-        "Change a member's assigned role (UpdateMemberRoleDto) — the canonical role-reassignment path. " +
-        'Validates the target role EXISTS in the project before assigning (unlike `update_member`, which ' +
-        "writes `role` unchecked). Use this whenever the user wants to change a member's role. " +
-        'Requires the caller MAT role to have system/update >= 1; calls at level 0 are denied. ' +
-        'If denied, an admin must edit RBAC at https://app.transcodes.io → RBAC → Roles. ' +
-        'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-update-member-role`).',
-      inputSchema: {
-        body: z.object({
-          member_id: z.string(),
-          role: z.string(),
-        }),
-      },
+  defineProtectedBackendTool({
+    name: 'tc_update_member_role',
+    title: 'Update member role',
+    description:
+      "Change a member's assigned role (UpdateMemberRoleDto) — the canonical role-reassignment path. " +
+      'Validates the target role EXISTS in the project before assigning (unlike `update_member`, which ' +
+      "writes `role` unchecked). Use this whenever the user wants to change a member's role. " +
+      'Requires the caller MAT role to have system/update >= 1; calls at level 0 are denied. ' +
+      'If denied, an admin must edit RBAC at https://app.transcodes.io → RBAC → Roles. ' +
+      'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-update-member-role`).',
+    summary:
+      "Change a member's assigned role (validates the role exists). Requires caller system/update >= 1; calls at level 0 are denied.",
+    category: 'RBAC',
+    access: 'api',
+    mutating: true,
+    meta: false,
+    stepUpProtected: true,
+    stepUp: {
+      action: 'update',
+      resource: 'system',
+      label: 'Update member role',
+      ruleDescription: 'Member role reassignment',
     },
-    async ({ body }) => {
-      const config = loadStepupConfig();
-      return execProtectedTool('tc_update_member_role', (sid) =>
-        req(
-          config,
-          {
-            method: 'PUT',
-            body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
-          },
-          'update_member_role',
-        ),
-      );
+    inputSchema: {
+      body: z.object({
+        member_id: z.string(),
+        role: z.string(),
+      }),
     },
-  );
+    run: (config, { body }, sid) =>
+      req(
+        config,
+        {
+          method: 'PUT',
+          body: { ...body, project_id: config.projectId },
+          stepUpSid: sid,
+        },
+        'update_member_role',
+      ),
+  }),
 
-  server.registerTool(
-    'tc_retire_resource',
-    {
-      title: 'Retire resource',
-      description:
-        'Retire a resource key from the project. Use when the user wants to remove, drop, or discard a resource. ' +
-        'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-resource`). ' +
-        'Path: resource_key. Query: project_id. No JSON body.',
-      inputSchema: {
-        resource_key: z.string(),
-      },
+  defineProtectedBackendTool({
+    name: 'tc_retire_resource',
+    title: 'Retire resource',
+    description:
+      'Retire a resource key from the project. Use when the user wants to remove, drop, or discard a resource. ' +
+      'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-resource`). ' +
+      'Path: resource_key. Query: project_id. No JSON body.',
+    summary: 'Permanently retire an RBAC resource key.',
+    category: 'RBAC',
+    access: 'api',
+    mutating: true,
+    meta: false,
+    stepUpProtected: true,
+    stepUp: {
+      action: 'delete',
+      resource: 'system',
+      label: 'Retire resource',
+      ruleDescription: 'Permanent RBAC resource deletion',
     },
-    async ({ resource_key }) => {
-      const config = loadStepupConfig();
-      return execProtectedTool('tc_retire_resource', (sid) =>
-        req(
-          config,
-          {
-            method: 'DELETE',
-            query: { project_id: config.projectId },
-            omitBody: true,
-            stepUpSid: sid,
-          },
-          'retire_resource',
-          `/${encodeURIComponent(resource_key)}`,
-        ),
-      );
+    inputSchema: {
+      resource_key: z.string(),
     },
-  );
+    run: (config, { resource_key }, sid) =>
+      req(
+        config,
+        {
+          method: 'DELETE',
+          query: { project_id: config.projectId },
+          omitBody: true,
+          stepUpSid: sid,
+        },
+        'retire_resource',
+        `/${encodeURIComponent(resource_key)}`,
+      ),
+  }),
 
-  server.registerTool(
-    'tc_create_role',
-    {
-      title: 'Create role',
-      description:
-        'Create a new role (CreateRoleDto). Use before set_role_permissions to fill per-resource access. ' +
-        'RBAC-gated via tool-rule `tc-create-role` (0=block, 1=allow, 2=step-up MFA). ' +
-        PROJECT_ID_GUIDANCE,
-      inputSchema: {
-        body: z.object({
-          name: z.string(),
-          description: z.string().optional(),
-        }),
-      },
+  defineProtectedBackendTool({
+    name: 'tc_create_role',
+    title: 'Create role',
+    description:
+      'Create a new role (CreateRoleDto). Use before set_role_permissions to fill per-resource access. ' +
+      'RBAC-gated via tool-rule `tc-create-role` (0=block, 1=allow, 2=step-up MFA). ' +
+      PROJECT_ID_GUIDANCE,
+    summary: 'Create a new role before setting permissions.',
+    category: 'RBAC',
+    access: 'api',
+    mutating: true,
+    meta: false,
+    stepUpProtected: false,
+    stepUp: {
+      action: 'create',
+      resource: 'system',
+      label: 'Create role',
+      ruleDescription: 'New RBAC role creation',
     },
-    async ({ body }) => {
-      const config = loadStepupConfig();
-      return execProtectedTool('tc_create_role', (sid) =>
-        req(
-          config,
-          {
-            method: 'POST',
-            body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
-          },
-          'create_role',
-        ),
-      );
+    inputSchema: {
+      body: z.object({
+        name: z.string(),
+        description: z.string().optional(),
+      }),
     },
-  );
+    run: (config, { body }, sid) =>
+      req(
+        config,
+        {
+          method: 'POST',
+          body: { ...body, project_id: config.projectId },
+          stepUpSid: sid,
+        },
+        'create_role',
+      ),
+  }),
 
-  server.registerTool(
-    'tc_update_role',
-    {
-      title: 'Update role',
-      description:
-        'Update role metadata (UpdateRoleDto). ' +
-        'RBAC-gated via tool-rule `tc-update-role` (0=block, 1=allow, 2=step-up MFA). ' +
-        PROJECT_ID_GUIDANCE,
-      inputSchema: {
-        role_id: z.string(),
-        body: z.object({
-          description: z.string().optional(),
-        }),
-      },
+  defineProtectedBackendTool({
+    name: 'tc_update_role',
+    title: 'Update role',
+    description:
+      'Update role metadata (UpdateRoleDto). ' +
+      'RBAC-gated via tool-rule `tc-update-role` (0=block, 1=allow, 2=step-up MFA). ' +
+      PROJECT_ID_GUIDANCE,
+    summary: 'Update role metadata (description).',
+    category: 'RBAC',
+    access: 'api',
+    mutating: true,
+    meta: false,
+    stepUpProtected: false,
+    stepUp: {
+      action: 'update',
+      resource: 'system',
+      label: 'Update role',
+      ruleDescription: 'RBAC role metadata update',
     },
-    async ({ role_id, body }) => {
-      const config = loadStepupConfig();
-      return execProtectedTool('tc_update_role', (sid) =>
-        req(
-          config,
-          {
-            method: 'PUT',
-            body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
-          },
-          'update_role',
-          `/${encodeURIComponent(role_id)}`,
-        ),
-      );
+    inputSchema: {
+      role_id: z.string(),
+      body: z.object({
+        description: z.string().optional(),
+      }),
     },
-  );
+    run: (config, { role_id, body }, sid) =>
+      req(
+        config,
+        {
+          method: 'PUT',
+          body: { ...body, project_id: config.projectId },
+          stepUpSid: sid,
+        },
+        'update_role',
+        `/${encodeURIComponent(role_id)}`,
+      ),
+  }),
 
-  server.registerTool(
-    'tc_create_resource',
-    {
-      title: 'Create resource',
-      description:
-        'Add a new resource key (CreateResourceDto). Every existing role is initialized with the ' +
-        'default permission matrix for the new key: read = allow (1), and create/update/delete = ' +
-        'allow + step-up MFA (2). ' +
-        'RBAC-gated via tool-rule `tc-create-resource` (0=block, 1=allow, 2=step-up MFA). ' +
-        PROJECT_ID_GUIDANCE,
-      inputSchema: {
-        body: z.object({
-          key: z.string(),
-          name: z.string(),
-          description: z.string().optional(),
-        }),
-      },
+  defineProtectedBackendTool({
+    name: 'tc_create_resource',
+    title: 'Create resource',
+    description:
+      'Add a new resource key (CreateResourceDto). Every existing role is initialized with the ' +
+      'default permission matrix for the new key: read = allow (1), and create/update/delete = ' +
+      'allow + step-up MFA (2). ' +
+      'RBAC-gated via tool-rule `tc-create-resource` (0=block, 1=allow, 2=step-up MFA). ' +
+      PROJECT_ID_GUIDANCE,
+    summary:
+      'Add a new RBAC resource key (every role initialized to read=allow, write=allow+step-up).',
+    category: 'RBAC',
+    access: 'api',
+    mutating: true,
+    meta: false,
+    stepUpProtected: false,
+    stepUp: {
+      action: 'create',
+      resource: 'system',
+      label: 'Create resource',
+      ruleDescription: 'New RBAC resource creation',
     },
-    async ({ body }) => {
-      const config = loadStepupConfig();
-      return execProtectedTool('tc_create_resource', (sid) =>
-        req(
-          config,
-          {
-            method: 'POST',
-            body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
-          },
-          'create_resource',
-        ),
-      );
+    inputSchema: {
+      body: z.object({
+        key: z.string(),
+        name: z.string(),
+        description: z.string().optional(),
+      }),
     },
-  );
+    run: (config, { body }, sid) =>
+      req(
+        config,
+        {
+          method: 'POST',
+          body: { ...body, project_id: config.projectId },
+          stepUpSid: sid,
+        },
+        'create_resource',
+      ),
+  }),
 
-  server.registerTool(
-    'tc_update_resource',
-    {
-      title: 'Update resource',
-      description:
-        'Update resource label/description (UpdateResourceDto). Key stays the same. ' +
-        'RBAC-gated via tool-rule `tc-update-resource` (0=block, 1=allow, 2=step-up MFA). ' +
-        PROJECT_ID_GUIDANCE,
-      inputSchema: {
-        resource_key: z.string(),
-        body: z.object({
-          description: z.string().optional(),
-        }),
-      },
+  defineProtectedBackendTool({
+    name: 'tc_update_resource',
+    title: 'Update resource',
+    description:
+      'Update resource label/description (UpdateResourceDto). Key stays the same. ' +
+      'RBAC-gated via tool-rule `tc-update-resource` (0=block, 1=allow, 2=step-up MFA). ' +
+      PROJECT_ID_GUIDANCE,
+    summary: 'Update resource label/description.',
+    category: 'RBAC',
+    access: 'api',
+    mutating: true,
+    meta: false,
+    stepUpProtected: false,
+    stepUp: {
+      action: 'update',
+      resource: 'system',
+      label: 'Update resource',
+      ruleDescription: 'RBAC resource metadata update',
     },
-    async ({ resource_key, body }) => {
-      const config = loadStepupConfig();
-      return execProtectedTool('tc_update_resource', (sid) =>
-        req(
-          config,
-          {
-            method: 'PATCH',
-            body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
-          },
-          'update_resource',
-          `/${encodeURIComponent(resource_key)}`,
-        ),
-      );
+    inputSchema: {
+      resource_key: z.string(),
+      body: z.object({
+        description: z.string().optional(),
+      }),
     },
-  );
-}
+    run: (config, { resource_key, body }, sid) =>
+      req(
+        config,
+        {
+          method: 'PATCH',
+          body: { ...body, project_id: config.projectId },
+          stepUpSid: sid,
+        },
+        'update_resource',
+        `/${encodeURIComponent(resource_key)}`,
+      ),
+  }),
+];
