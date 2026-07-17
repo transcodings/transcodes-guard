@@ -54,7 +54,7 @@ for (const host of ALL_HOSTS) {
           decision: 'stepup',
           sid: 'tc_stepup_e2e',
           url: `${mock.url}/mfa`,
-          exist: true, // launch happens (t8) but lands in the shim log — shape test ignores it
+          exist: true, // reuse → no browser side effect in this shape test
           status: 'pending',
         }),
       );

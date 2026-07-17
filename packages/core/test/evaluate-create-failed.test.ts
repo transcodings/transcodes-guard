@@ -41,8 +41,8 @@ function stepupPayloadItem(overrides: Record<string, unknown> = {}) {
     sid: 'tc_stepup_189',
     url: 'https://auth.example/?sid=tc_stepup_189',
     expires_at: new Date(Date.now() + 600_000).toISOString(),
-    // pending + valid sid/url reaches openBrowser (t8, exist-independent) —
-    // the PATH shim installed in before() swallows the launch.
+    // exist:true (reused pending) keeps openBrowser out of case (a); the PATH
+    // shim installed in before() guards the run regardless.
     exist: true,
     status: 'pending',
     ...overrides,

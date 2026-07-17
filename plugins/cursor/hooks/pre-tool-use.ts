@@ -83,7 +83,7 @@ async function main(): Promise<void> {
       process.exit(0);
 
     case GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED:
-      // Browser launch already handled in evaluatePreToolUse (every pending challenge, t8).
+      // Browser launch already handled in evaluatePreToolUse (fresh mint, exist:false only).
       process.stdout.write(
         cursorAdapter.emitPreToolUse({
           kind: 'deny',

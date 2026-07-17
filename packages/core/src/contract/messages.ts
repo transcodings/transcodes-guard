@@ -185,11 +185,11 @@ export function formatStepupChallengedSystemMessage(
     { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED }
   >,
 ): string {
-  // The false arm is defensive only: every pending challenge launches (t8),
-  // so it renders solely for an off-contract non-pending verdict.
+  // False arm = reused pending (exist:true): an earlier hook run already
+  // opened the tab for this session — relay the URL instead of re-opening.
   const launchLine = decision.browserLaunched
     ? 'A browser tab has been opened automatically:'
-    : 'Open this URL to authenticate:';
+    : 'A browser tab was already opened for this session — reuse it, or open:';
   return appendBackendReasoning(
     [
       'Pending for Step-up MFA authentication. This Bash command was NOT executed.',

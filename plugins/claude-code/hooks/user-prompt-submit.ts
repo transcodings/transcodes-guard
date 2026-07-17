@@ -3,7 +3,7 @@
  * Claude Code UserPromptSubmit hook — intentionally inert.
  *
  * Guard v3 keeps every step-up status on the backend (SSOT): reuse is keyed by
- * the Redis coordinate and session dedupe (not tab dedupe, t8) is the backend's SET NX claim, so a
+ * the Redis coordinate and browser dedupe is the backend's SET NX claim, so a
  * new prompt has no local grouping window to rotate and no local latch to sweep
  * (t3 removed both). The hook stays registered because the host manifest wires
  * it; it drains stdin so the host's writer never blocks, then exits 0 without

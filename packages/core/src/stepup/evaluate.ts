@@ -9,7 +9,7 @@
  * meta-tool bypass sets below) → `POST /guard/evaluate` with the raw hook stdin
  * JSON as `payload`. Backend reuses MFA via Redis
  * `stepup:{projectId}:{memberId}:{resource}:{action}`. Client opens the browser
- * on every pending challenge (t8); no local latch / prompt group.
+ * only when `exist:false` (fresh mint); no local latch / prompt group.
  *
  * Fail policy:
  *  - Before classify (stdin parse) → `proceed-ungated` (fail-open); the caller
@@ -197,9 +197,9 @@ export function classifyToolCall(
  *
  * Side effects performed here (all crash-safe / never throw into the caller):
  *  - `POST /v1/guard/evaluate` (via `evaluateAction`).
- *  - on a pending step-up challenge: open the browser (t8 — regardless of
- *    `exist`). Backend coordinate claim (SET NX) dedupes the session, so every
- *    tab lands on the same auth URL — no local latch / prompt group.
+ *  - on a fresh step-up challenge (`exist:false`): open the browser once.
+ *    Concurrent hooks rely on backend coordinate claim (SET NX) for dedupe —
+ *    no local latch / prompt group.
  */
 export async function evaluatePreToolUse(
   input: ToolCallInput,
@@ -318,13 +318,13 @@ export async function evaluatePreToolUse(
     verdict.status === null ||
     verdict.status === undefined;
 
-  // pending → always open (t8). Backend SET NX dedupes the session mint, so
-  // concurrent hooks all land on the same auth URL; auth itself happens once.
-  // browserLaunched=false survives only as a defensive shape: a non-pending
-  // status here means an off-contract verdict the backend does not emit
-  // (permission-2 'verified' is rewritten server-side — gate-security-model.md).
+  // `exist` is the backend's tab-open signal (t8 reverted): the coordinate
+  // claim (SET NX) hands exactly one caller a fresh mint (exist:false) — that
+  // caller opens the tab. Reused pending (exist:true) relays the URL without
+  // opening; no local latch / prompt group.
+  const reused = verdict.exist === true;
   let browserLaunched = false;
-  if (pending) {
+  if (pending && !reused) {
     openBrowser(verdict.url);
     browserLaunched = true;
   }
