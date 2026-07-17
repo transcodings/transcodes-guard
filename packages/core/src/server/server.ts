@@ -6,7 +6,10 @@ import {
   getGateBackend,
   registerToolDefinitions,
 } from '../contract/index.js';
-import { loadMergedToolRules, type MergedToolRule } from '../patterns/index.js';
+import {
+  GUARD_PROTECTED_TOOL_RULES,
+  type GuardProtectedToolRule,
+} from '../patterns/index.js';
 import { TRANSCODES_ROUTER_BODY } from './router-body.js';
 import { coreToolDefinitions } from './tool-definitions.js';
 
@@ -25,7 +28,9 @@ function transcodesRouterBody(request?: string): string {
   );
 }
 
-function formatToolRulesMarkdown(rules: MergedToolRule[]): string {
+function formatToolRulesMarkdown(
+  rules: readonly GuardProtectedToolRule[],
+): string {
   const lines: string[] = [
     '# Step-up-protected MCP tool rules (system)',
     '',
@@ -37,9 +42,7 @@ function formatToolRulesMarkdown(rules: MergedToolRule[]): string {
   ];
   for (const r of rules) {
     lines.push(
-      `| \`${r.id}\` | \`${r.name}\` | ${r.description} | ${
-        r.action ?? '—'
-      } | ${r.resource ?? '—'} |`,
+      `| \`${r.id}\` | \`${r.name}\` | ${r.description} | ${r.action} | ${r.resource} |`,
     );
   }
   return lines.join('\n');
@@ -132,7 +135,7 @@ export function createServer(
     {
       title: 'Step-up-protected MCP tool rules (system)',
       description:
-        'Read-only list of system MCP tool-rules from hooks/tool-rules.json. These gate built-in transcodes-guard MCP tools via execProtectedTool — external mcp__* tools use POST /guard/evaluate instead.',
+        'Read-only list of system MCP tool-rules derived from the tool definition data (stepUp coordinates). These gate built-in transcodes-guard MCP tools via execProtectedTool — external mcp__* tools use POST /guard/evaluate instead.',
       mimeType: 'text/markdown',
     },
     async (uri) => ({
@@ -140,7 +143,7 @@ export function createServer(
         {
           uri: uri.href,
           mimeType: 'text/markdown',
-          text: formatToolRulesMarkdown(loadMergedToolRules()),
+          text: formatToolRulesMarkdown(GUARD_PROTECTED_TOOL_RULES),
         },
       ],
     }),

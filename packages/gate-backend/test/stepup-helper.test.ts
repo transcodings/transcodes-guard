@@ -5,10 +5,7 @@ import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { after, afterEach, before, describe, it } from 'node:test';
-import {
-  loadMergedToolRules,
-  type MergedToolRule,
-} from '@transcodes-guard/core/patterns';
+import type { MergedToolRule } from '@transcodes-guard/core/patterns';
 import {
   claimStepupVerified,
   clearTokenFile,
@@ -19,6 +16,7 @@ import {
 import {
   execProtectedTool,
   resolveProtectedToolRule,
+  SYSTEM_PROTECTED_TOOL_RULES,
 } from '../src/mcp-tools/stepup-helper.js';
 
 process.env.HOME = mkdtempSync(path.join(os.tmpdir(), 'guard-mcp-tools-'));
@@ -62,7 +60,7 @@ describe('step-up protected tool rule resolution', () => {
   });
 
   it('still matches host-wrapped MCP wire names', () => {
-    const rules = loadMergedToolRules();
+    const rules = [...SYSTEM_PROTECTED_TOOL_RULES];
     const rule = resolveProtectedToolRule('tc_create_resource', rules);
 
     assert.equal(rule?.id, 'tc-create-resource');

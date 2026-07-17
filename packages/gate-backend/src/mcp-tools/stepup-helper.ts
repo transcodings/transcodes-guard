@@ -14,7 +14,6 @@ import type {
   ToolTextResult,
 } from '@transcodes-guard/core/contract';
 import {
-  loadMergedToolRules,
   type MergedToolRule,
   ruleAppliesToHost,
   TRANSCODES_GUARD_TOOL_PREFIX,
@@ -27,6 +26,7 @@ import {
   type RbacLevel,
   type StepupConfig,
 } from '@transcodes-guard/core/stepup';
+import { backendToolDefinitions } from './definitions.js';
 
 const RBAC_TTL_MS = 5 * 60_000;
 const rbacCache = new Map<string, { level: RbacLevel; exp: number }>();
@@ -45,10 +45,32 @@ async function getCachedRbacLevel(
   return level;
 }
 
+// 정의 데이터의 stepUp 좌표에서 파생한 시스템 룰 — tool-rules.json의 손 MCP
+// 룰을 대체한다. id는 이름의 기계 변환(tc_x_y → tc-x-y)으로, core의 생성물
+// GUARD_PROTECTED_TOOL_RULES와 같은 파생 규칙을 공유한다(동등성은 테스트로 고정).
+export const SYSTEM_PROTECTED_TOOL_RULES: readonly MergedToolRule[] =
+  backendToolDefinitions.flatMap((d) =>
+    d.stepUp === undefined
+      ? []
+      : [
+          {
+            id: d.name.replace(/_/g, '-'),
+            type: 'mcp' as const,
+            label: d.stepUp.label,
+            description: d.stepUp.ruleDescription,
+            name: d.name,
+            matcher: 'exact' as const,
+            action: d.stepUp.action,
+            resource: d.stepUp.resource,
+            source: 'system' as const,
+          },
+        ],
+  );
+
 // 로컬 handler 이름과 MCP wire 이름을 모두 시스템 tool-rule 기준으로 해석한다.
 export function resolveProtectedToolRule(
   toolName: string,
-  rules: MergedToolRule[] = loadMergedToolRules(),
+  rules: readonly MergedToolRule[] = SYSTEM_PROTECTED_TOOL_RULES,
 ): MergedToolRule | undefined {
   return rules.find((r) => {
     if (!ruleAppliesToHost(r)) return false;

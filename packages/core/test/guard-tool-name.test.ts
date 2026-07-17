@@ -5,19 +5,18 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-// Untyped repo script; the catalog is the hand-maintained mirror of every
-// registerTool() call, so importing it turns this test into a drift guard
-// between the catalog and GUARD_TOOL_NAMES.
-// @ts-expect-error TS7016 — plain-JS script, no declaration file
-import { MCP_TOOLS } from '../../../scripts/tool-catalog.mjs';
+import { denyByDefaultBackend } from '../src/contract/noop.js';
 import { GUARD_TOOL_NAMES, isGuardToolName } from '../src/patterns/tool-rules.js';
+import { coreToolDefinitions } from '../src/server/tool-definitions.js';
 
-describe('GUARD_TOOL_NAMES drift guard', () => {
-  it('matches scripts/tool-catalog.mjs 1:1 (catalog stores bare names)', () => {
-    const fromCatalog = new Set(
-      (MCP_TOOLS as { name: string }[]).map((t) => `tc_${t.name}`),
-    );
-    assert.deepEqual([...GUARD_TOOL_NAMES].sort(), [...fromCatalog].sort());
+// GUARD_TOOL_NAMES is generated from the definition data; the full 1:1 union
+// drift guard lives in packages/gate-backend/test/tool-definitions.test.ts
+// (it can see both definition arrays). Here: the core subset only.
+describe('GUARD_TOOL_NAMES drift guard (core subset)', () => {
+  it('contains every core tool definition name', () => {
+    for (const def of coreToolDefinitions(denyByDefaultBackend)) {
+      assert.equal(GUARD_TOOL_NAMES.has(def.name), true, def.name);
+    }
   });
 });
 

@@ -42,7 +42,7 @@ jobs:
       # files in write mode, so checking after the build would compare freshly
       # written output against itself and always pass (vacuous gate).
       - name: Verify router codegen is up to date
-        run: node scripts/generate-router-files.mjs --check
+        run: node --import tsx scripts/generate-router-files.mjs --check
 
       - name: Build plugin
         run: npm run build:plugin
@@ -96,13 +96,16 @@ jobs:
       # (../../gate-backend/src/…) passes biome clean. This grep denies any
       # import specifier that reaches into gate-backend from outside the
       # sanctioned seams (plugins/*/backend.ts, mcp/src/backend.ts) and the
-      # package's own sources.
+      # package's own sources. scripts/tool-metadata.mts is the one codegen
+      # seam: it reads tool definition METADATA at build time (never bundled,
+      # handlers never invoked) to derive GUARD_TOOL_NAMES and the catalogs.
       - name: Firewall backstop — no gate-backend imports outside the seams
         run: |
           HITS=$(git grep -nE "from ['\"]([^'\"]*/)?gate-backend(/[^'\"]*)?['\"]" -- \
             ':!packages/gate-backend' \
             ':!plugins/*/backend.ts' \
             ':!mcp/src/backend.ts' \
+            ':!scripts/tool-metadata.mts' \
             ':!*dist/*' \
             ':!package-lock.json' \
             ':!*.md' || true)
