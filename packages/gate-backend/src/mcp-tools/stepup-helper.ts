@@ -9,6 +9,10 @@
  * `claimStepupVerified()`. Same long-lived MCP server process, so the mark →
  * claim handoff never crosses a process boundary.
  */
+import type {
+  ProtectedToolDefinition,
+  ToolTextResult,
+} from '@transcodes-guard/core/contract';
 import {
   loadMergedToolRules,
   type MergedToolRule,
@@ -96,6 +100,17 @@ function stepupRequiredResult(
         ),
       },
     ],
+  };
+}
+
+// 정의 데이터의 stepUp 선언을 execProtectedTool 래핑으로 이행하는 등록 루프 어댑터.
+// config를 먼저 로드하는 순서는 전환 전 핸들러 형태(핸들러 선두 loadStepupConfig)를 보존한다.
+export function wrapProtectedTool(
+  def: ProtectedToolDefinition,
+): (args: never) => Promise<ToolTextResult> {
+  return async (args) => {
+    const config = loadStepupConfig();
+    return execProtectedTool(def.name, (sid) => def.run(config, args, sid));
   };
 }
 

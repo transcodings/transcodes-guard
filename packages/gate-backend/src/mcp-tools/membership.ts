@@ -7,48 +7,52 @@
  * tool returns a Stripe redirect URL. The billing portal (cancel / payment
  * method / invoices) stays console-only — surface it via `get_console_url`.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
 import { loadStepupConfig } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
+import { defineBackendTool, textResult } from './define.js';
 import { req } from './transcodes-client.js';
 
-const textResult = (text: string, isError = false) => ({
-  isError,
-  content: [{ type: 'text' as const, text }],
-});
-
-export function registerMembershipTools(server: McpServer): void {
-  server.registerTool(
-    'tc_membership_plans',
-    {
-      title: 'Membership plans',
-      description:
-        'Returns the full list of available Transcodes membership plans (free, standard, business, enterprise) including price, currency, billing interval, and Stripe product metadata. ' +
-        'This is a public endpoint — no authentication required. ' +
-        'Use this tool to display plan options to users or to look up the price_id needed for membership_create_checkout_session.',
-      inputSchema: {},
-    },
-    async () => {
+export const membershipToolDefinitions: readonly GuardToolDefinition[] = [
+  defineBackendTool({
+    name: 'tc_membership_plans',
+    title: 'Membership plans',
+    description:
+      'Returns the full list of available Transcodes membership plans (free, standard, business, enterprise) including price, currency, billing interval, and Stripe product metadata. ' +
+      'This is a public endpoint — no authentication required. ' +
+      'Use this tool to display plan options to users or to look up the price_id needed for membership_create_checkout_session.',
+    summary: 'List available Transcodes membership plans and Stripe metadata.',
+    category: 'Membership',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const config = loadStepupConfig();
       const text = await req(config, { method: 'GET' }, 'membership_plans');
       return textResult(text);
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_membership_plans_limits',
-    {
-      title: 'Membership plan limits',
-      description:
-        'Returns the resource limits enforced per plan tier. ' +
-        'Each plan entry includes: projects (max projects allowed), roles, resources, members (max members per project), and price (monthly USD, null = contact for pricing). ' +
-        'Free tier: 1 project / 2 roles / 2 resources / 2 members. ' +
-        'Standard: 5 projects / unlimited roles & resources / 10 members. ' +
-        'Business & Enterprise: unlimited everything. ' +
-        'Use this to build pricing comparison UI or to warn users when they are approaching a limit.',
-      inputSchema: {},
-    },
-    async () => {
+  defineBackendTool({
+    name: 'tc_membership_plans_limits',
+    title: 'Membership plan limits',
+    description:
+      'Returns the resource limits enforced per plan tier. ' +
+      'Each plan entry includes: projects (max projects allowed), roles, resources, members (max members per project), and price (monthly USD, null = contact for pricing). ' +
+      'Free tier: 1 project / 2 roles / 2 resources / 2 members. ' +
+      'Standard: 5 projects / unlimited roles & resources / 10 members. ' +
+      'Business & Enterprise: unlimited everything. ' +
+      'Use this to build pricing comparison UI or to warn users when they are approaching a limit.',
+    summary: 'Resource limits enforced per plan tier.',
+    category: 'Membership',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -57,19 +61,24 @@ export function registerMembershipTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_membership_customer_status_by_project',
-    {
-      title: 'Customer status by project',
-      description:
-        'Returns the active subscription status of the organization that owns the project in TRANSCODES_TOKEN (pid claim). ' +
-        'SkipAuth — GET /v1/membership/customer/status/project?project_id=... ' +
-        'Useful when the SDK Toolkit only carries a project context.',
-      inputSchema: {},
-    },
-    async () => {
+  defineBackendTool({
+    name: 'tc_membership_customer_status_by_project',
+    title: 'Customer status by project',
+    description:
+      'Returns the active subscription status of the organization that owns the project in TRANSCODES_TOKEN (pid claim). ' +
+      'SkipAuth — GET /v1/membership/customer/status/project?project_id=... ' +
+      'Useful when the SDK Toolkit only carries a project context.',
+    summary:
+      'Subscription status for the organization owning the token project.',
+    category: 'Membership',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -78,19 +87,23 @@ export function registerMembershipTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_membership_customer_status_by_organization',
-    {
-      title: 'Customer status by organization',
-      description:
-        'Returns the active subscription status for the organization in TRANSCODES_TOKEN (oid claim). ' +
-        'SkipAuth — GET /v1/membership/customer/status/organization?organization_id=... ' +
-        'Preferred when the caller already knows the organization (avoids the project → organization lookup).',
-      inputSchema: {},
-    },
-    async () => {
+  defineBackendTool({
+    name: 'tc_membership_customer_status_by_organization',
+    title: 'Customer status by organization',
+    description:
+      'Returns the active subscription status for the organization in TRANSCODES_TOKEN (oid claim). ' +
+      'SkipAuth — GET /v1/membership/customer/status/organization?organization_id=... ' +
+      'Preferred when the caller already knows the organization (avoids the project → organization lookup).',
+    summary: 'Subscription status for the token organization.',
+    category: 'Membership',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -99,26 +112,30 @@ export function registerMembershipTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_membership_create_checkout_session',
-    {
-      title: 'Create checkout session',
-      description:
-        'MCP checkout: POST /v1/membership/mcp/session — creates a Stripe Checkout session for the organization bound to the MAT (x-transcodes-token) and returns a one-time redirect URL. ' +
-        'Use for plan upgrade or first purchase (e.g. free → standard). ' +
-        'Body: price_id from membership_plans; optional mode: "subscription" (default) | "payment" | "setup". ' +
-        'Organization is resolved server-side from the authenticated principal — do not pass organization_id in the body. ' +
-        'The returned URL expires after a short window — redirect the user immediately after receiving it.',
-      inputSchema: {
-        body: z.object({
-          price_id: z.string(),
-          mode: z.enum(['subscription', 'payment', 'setup']).optional(),
-        }),
-      },
+  defineBackendTool({
+    name: 'tc_membership_create_checkout_session',
+    title: 'Create checkout session',
+    description:
+      'MCP checkout: POST /v1/membership/mcp/session — creates a Stripe Checkout session for the organization bound to the MAT (x-transcodes-token) and returns a one-time redirect URL. ' +
+      'Use for plan upgrade or first purchase (e.g. free → standard). ' +
+      'Body: price_id from membership_plans; optional mode: "subscription" (default) | "payment" | "setup". ' +
+      'Organization is resolved server-side from the authenticated principal — do not pass organization_id in the body. ' +
+      'The returned URL expires after a short window — redirect the user immediately after receiving it.',
+    summary: 'Create a Stripe Checkout session for plan upgrade or purchase.',
+    category: 'Membership',
+    access: 'api',
+    mutating: true,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {
+      body: z.object({
+        price_id: z.string(),
+        mode: z.enum(['subscription', 'payment', 'setup']).optional(),
+      }),
     },
-    async ({ body }) => {
+    handler: async ({ body }) => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -127,5 +144,5 @@ export function registerMembershipTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
-}
+  }),
+];

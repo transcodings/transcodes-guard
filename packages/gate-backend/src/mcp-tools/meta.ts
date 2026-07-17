@@ -7,48 +7,55 @@
  * `get_integration_guide` fetches the public llms.txt guide via builtin
  * fetch (no axios dependency). Tunnel tools are intentionally omitted —
  * plugins ship their own HTTP transport entry (`src/http.ts`).
+ *
+ * NOTE: `meta: false` here means "not a step-up infrastructure tool" — the
+ * category name 'Meta & Identity' is unrelated to the meta skip set.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
 import {
   loadStepupConfig,
   openConsoleSession,
 } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
+import { defineBackendTool, textResult } from './define.js';
 import { req } from './transcodes-client.js';
 
 const INSTRUCTIONS_URL = 'https://transcodes.io/instructions';
 
-const textResult = (text: string, isError = false) => ({
-  isError,
-  content: [{ type: 'text' as const, text }],
-});
-
-export function registerMetaTools(server: McpServer): void {
-  server.registerTool(
-    'tc_get_current_project_id',
-    {
-      title: 'Get current project id',
-      description:
-        'Returns the active project ID parsed from TRANSCODES_TOKEN. ' +
-        'Call this tool first when you need the project ID instead of asking the user.',
-      inputSchema: {},
-    },
-    async () => {
+export const metaToolDefinitions: readonly GuardToolDefinition[] = [
+  defineBackendTool({
+    name: 'tc_get_current_project_id',
+    title: 'Get current project id',
+    description:
+      'Returns the active project ID parsed from TRANSCODES_TOKEN. ' +
+      'Call this tool first when you need the project ID instead of asking the user.',
+    summary: 'Returns project ID parsed from TRANSCODES_TOKEN.',
+    category: 'Meta & Identity',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const config = loadStepupConfig();
       return textResult(
         JSON.stringify({ ok: true, project_id: config.projectId }, null, 2),
       );
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_get_current_organization_id',
-    {
-      title: 'Get current organization id',
-      description: 'Returns organizationId from TRANSCODES_TOKEN JWT.',
-      inputSchema: {},
-    },
-    async () => {
+  defineBackendTool({
+    name: 'tc_get_current_organization_id',
+    title: 'Get current organization id',
+    description: 'Returns organizationId from TRANSCODES_TOKEN JWT.',
+    summary: 'Returns organizationId from TRANSCODES_TOKEN JWT.',
+    category: 'Meta & Identity',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const config = loadStepupConfig();
       return textResult(
         JSON.stringify(
@@ -58,34 +65,42 @@ export function registerMetaTools(server: McpServer): void {
         ),
       );
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_get_current_member_id',
-    {
-      title: 'Get current member id',
-      description: 'Returns memberId from TRANSCODES_TOKEN JWT.',
-      inputSchema: {},
-    },
-    async () => {
+  defineBackendTool({
+    name: 'tc_get_current_member_id',
+    title: 'Get current member id',
+    description: 'Returns memberId from TRANSCODES_TOKEN JWT.',
+    summary: 'Returns memberId from TRANSCODES_TOKEN JWT.',
+    category: 'Meta & Identity',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const config = loadStepupConfig();
       return textResult(
         JSON.stringify({ ok: true, member_id: config.memberId }, null, 2),
       );
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_get_my_profile',
-    {
-      title: 'Get my profile',
-      description:
-        'Returns the profile of the member identified by TRANSCODES_TOKEN (organizationId, projectId, memberId in config). ' +
-        'Use when the user asks "who am I", "show my profile", or "show my member info". ' +
-        'No arguments needed.',
-      inputSchema: {},
-    },
-    async () => {
+  defineBackendTool({
+    name: 'tc_get_my_profile',
+    title: 'Get my profile',
+    description:
+      'Returns the profile of the member identified by TRANSCODES_TOKEN (organizationId, projectId, memberId in config). ' +
+      'Use when the user asks "who am I", "show my profile", or "show my member info". ' +
+      'No arguments needed.',
+    summary: 'Profile of the member identified by TRANSCODES_TOKEN.',
+    category: 'Meta & Identity',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -97,24 +112,29 @@ export function registerMetaTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_get_console_url',
-    {
-      title: 'Get console URL',
-      description:
-        'Mint a step-up-protected Open Console URL (auth.transcodes.io). Open Console access is gated behind step-up MFA ' +
-        'via POST .../console/session; this tool returns the browser URL ' +
-        'the user must visit to authenticate (WebAuthn) before reaching Open Console. ' +
-        'Use when the user needs to perform browser-only actions: ' +
-        'passkey register/update/revoke, authenticator register/update/revoke, ' +
-        'TOTP enroll/update/revoke, OTP flows, JWK backup, or subscription portal (cancel, payment method, invoices). ' +
-        'RBAC edits are App Console only (https://app.transcodes.io → RBAC → Roles), not this URL. ' +
-        'Direct the user to visit the returned browser_url and complete the action there.',
-      inputSchema: {},
-    },
-    async () => {
+  defineBackendTool({
+    name: 'tc_get_console_url',
+    title: 'Get console URL',
+    description:
+      'Mint a step-up-protected Open Console URL (auth.transcodes.io). Open Console access is gated behind step-up MFA ' +
+      'via POST .../console/session; this tool returns the browser URL ' +
+      'the user must visit to authenticate (WebAuthn) before reaching Open Console. ' +
+      'Use when the user needs to perform browser-only actions: ' +
+      'passkey register/update/revoke, authenticator register/update/revoke, ' +
+      'TOTP enroll/update/revoke, OTP flows, JWK backup, or subscription portal (cancel, payment method, invoices). ' +
+      'RBAC edits are App Console only (https://app.transcodes.io → RBAC → Roles), not this URL. ' +
+      'Direct the user to visit the returned browser_url and complete the action there.',
+    summary:
+      'Mint an Open Console URL (auth.transcodes.io) for passkeys, TOTP, OTP, JWK backup, and billing. RBAC edits are App Console only (https://app.transcodes.io).',
+    category: 'Meta & Identity',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {},
+    handler: async () => {
       const result = await openConsoleSession({
         openBrowser: false,
         comment: 'Open the Transcodes console (browser-only action)',
@@ -150,26 +170,30 @@ export function registerMetaTools(server: McpServer): void {
         ),
       );
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_get_integration_guide',
-    {
-      title: 'Get integration guide',
-      description:
-        'IMPORTANT: You MUST call this tool BEFORE writing ANY Transcodes-related code. ' +
-        'Fetches the official Transcodes integration guide (llms.txt) — the single source of truth for all implementation details. ' +
-        'Trigger keywords: install, setup, integrate, SDK, passkey, auth, login, signup, redirect, ' +
-        'step-up, MFA, JWT, token, audit, webhook, RBAC, role, CDN, webworker, ' +
-        'sign-in, sign-out, session, member, console, admin, IDP, OTP, TOTP, biometric, WebAuthn. ' +
-        'The returned guide contains exact API signatures, code examples, framework setup (React, Next.js, Vue, Vite), ' +
-        'CSP rules, JWT verification, and common mistakes. You MUST follow it instead of guessing. ' +
-        'Call once per conversation — the result stays in context for follow-up requests.',
-      inputSchema: {
-        topic: z.string().optional(),
-      },
+  defineBackendTool({
+    name: 'tc_get_integration_guide',
+    title: 'Get integration guide',
+    description:
+      'IMPORTANT: You MUST call this tool BEFORE writing ANY Transcodes-related code. ' +
+      'Fetches the official Transcodes integration guide (llms.txt) — the single source of truth for all implementation details. ' +
+      'Trigger keywords: install, setup, integrate, SDK, passkey, auth, login, signup, redirect, ' +
+      'step-up, MFA, JWT, token, audit, webhook, RBAC, role, CDN, webworker, ' +
+      'sign-in, sign-out, session, member, console, admin, IDP, OTP, TOTP, biometric, WebAuthn. ' +
+      'The returned guide contains exact API signatures, code examples, framework setup (React, Next.js, Vue, Vite), ' +
+      'CSP rules, JWT verification, and common mistakes. You MUST follow it instead of guessing. ' +
+      'Call once per conversation — the result stays in context for follow-up requests.',
+    summary: 'Fetch the official Transcodes integration guide (llms.txt).',
+    category: 'Meta & Identity',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {
+      topic: z.string().optional(),
     },
-    async ({ topic }) => {
+    handler: async ({ topic }) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 15_000);
       try {
@@ -196,5 +220,5 @@ export function registerMetaTools(server: McpServer): void {
         clearTimeout(timer);
       }
     },
-  );
-}
+  }),
+];

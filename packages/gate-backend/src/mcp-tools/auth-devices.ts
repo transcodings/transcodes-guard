@@ -6,28 +6,28 @@
  * and handled via the console, so only the audit reads are exposed here.
  * Project is fixed by the TRANSCODES_TOKEN pid claim.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
 import { loadStepupConfig } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
+import { defineBackendTool, textResult } from './define.js';
 import { req } from './transcodes-client.js';
 
-const textResult = (text: string, isError = false) => ({
-  isError,
-  content: [{ type: 'text' as const, text }],
-});
-
-export function registerAuthDeviceTools(server: McpServer): void {
-  server.registerTool(
-    'tc_list_authenticators',
-    {
-      title: 'List authenticators',
-      description:
-        'List all WebAuthn authenticators for a member. Separate from the passkey service. Requires member_id.',
-      inputSchema: {
-        member_id: z.string(),
-      },
+export const authDeviceToolDefinitions: readonly GuardToolDefinition[] = [
+  defineBackendTool({
+    name: 'tc_list_authenticators',
+    title: 'List authenticators',
+    description:
+      'List all WebAuthn authenticators for a member. Separate from the passkey service. Requires member_id.',
+    summary: 'List WebAuthn authenticators for a member.',
+    category: 'Auth Devices',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {
+      member_id: z.string(),
     },
-    async ({ member_id }) => {
+    handler: async ({ member_id }) => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -39,19 +39,23 @@ export function registerAuthDeviceTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_list_passkeys',
-    {
-      title: 'List passkeys',
-      description:
-        'List passkeys for a member. Server typically filters by project rp_id. Requires member_id.',
-      inputSchema: {
-        member_id: z.string(),
-      },
+  defineBackendTool({
+    name: 'tc_list_passkeys',
+    title: 'List passkeys',
+    description:
+      'List passkeys for a member. Server typically filters by project rp_id. Requires member_id.',
+    summary: 'List passkeys for a member.',
+    category: 'Auth Devices',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {
+      member_id: z.string(),
     },
-    async ({ member_id }) => {
+    handler: async ({ member_id }) => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -63,19 +67,23 @@ export function registerAuthDeviceTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
+  }),
 
-  server.registerTool(
-    'tc_list_totps',
-    {
-      title: 'List TOTP devices',
-      description:
-        'List TOTP devices for a member. Use to audit MFA enrollment. Requires member_id.',
-      inputSchema: {
-        member_id: z.string(),
-      },
+  defineBackendTool({
+    name: 'tc_list_totps',
+    title: 'List TOTP devices',
+    description:
+      'List TOTP devices for a member. Use to audit MFA enrollment. Requires member_id.',
+    summary: 'List TOTP devices for a member.',
+    category: 'Auth Devices',
+    access: 'api',
+    mutating: false,
+    meta: false,
+    stepUpProtected: false,
+    inputSchema: {
+      member_id: z.string(),
     },
-    async ({ member_id }) => {
+    handler: async ({ member_id }) => {
       const config = loadStepupConfig();
       const text = await req(
         config,
@@ -87,5 +95,5 @@ export function registerAuthDeviceTools(server: McpServer): void {
       );
       return textResult(text);
     },
-  );
-}
+  }),
+];

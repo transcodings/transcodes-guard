@@ -13,7 +13,10 @@
  * side. Error classes are wrapped in `is*Error` predicates for the same reason.
  */
 
-import type { GateBackend } from '@transcodes-guard/core/contract';
+import {
+  type GateBackend,
+  registerToolDefinitions,
+} from '@transcodes-guard/core/contract';
 import {
   createStepupSession,
   evaluatePreToolUse,
@@ -27,17 +30,9 @@ import {
 } from '@transcodes-guard/core/stepup';
 import {
   assertRbacCoordinate,
+  backendToolDefinitions,
   RbacCoordinateError,
-  registerAuditTools,
-  registerAuthDeviceTools,
-  registerJwkTools,
-  registerMembershipTools,
-  registerMemberTools,
-  registerMetaTools,
-  registerOrganizationTools,
-  registerPasscodeTools,
-  registerProjectTools,
-  registerRbacTools,
+  wrapProtectedTool,
 } from './mcp-tools/index.js';
 
 export const transcodesGateBackend: GateBackend = {
@@ -60,17 +55,9 @@ export const transcodesGateBackend: GateBackend = {
     assertRbacCoordinate(loadStepupConfig(), resource, action),
   isRbacCoordinateError: (e): e is Error => e instanceof RbacCoordinateError,
 
-  // server path: backend-coupled MCP tools
-  registerBackendTools: (server) => {
-    registerMemberTools(server);
-    registerRbacTools(server);
-    registerPasscodeTools(server);
-    registerProjectTools(server);
-    registerAuditTools(server);
-    registerAuthDeviceTools(server);
-    registerMembershipTools(server);
-    registerMetaTools(server);
-    registerOrganizationTools(server);
-    registerJwkTools(server);
-  },
+  // server path: backend-coupled MCP tools — one generic loop over the
+  // definition data; stepUp-declaring definitions are wrapped in the
+  // execProtectedTool backstop by wrapProtectedTool.
+  registerBackendTools: (server) =>
+    registerToolDefinitions(server, backendToolDefinitions, wrapProtectedTool),
 };
