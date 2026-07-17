@@ -320,6 +320,9 @@ export async function evaluatePreToolUse(
 
   // pending → always open (t8). Backend SET NX dedupes the session mint, so
   // concurrent hooks all land on the same auth URL; auth itself happens once.
+  // browserLaunched=false survives only as a defensive shape: a non-pending
+  // status here means an off-contract verdict the backend does not emit
+  // (permission-2 'verified' is rewritten server-side — gate-security-model.md).
   let browserLaunched = false;
   if (pending) {
     openBrowser(verdict.url);

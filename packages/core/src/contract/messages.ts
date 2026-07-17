@@ -185,6 +185,8 @@ export function formatStepupChallengedSystemMessage(
     { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED }
   >,
 ): string {
+  // The false arm is defensive only: every pending challenge launches (t8),
+  // so it renders solely for an off-contract non-pending verdict.
   const launchLine = decision.browserLaunched
     ? 'A browser tab has been opened automatically:'
     : 'Open this URL to authenticate:';

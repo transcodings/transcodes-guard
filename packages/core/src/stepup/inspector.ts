@@ -3,7 +3,7 @@
  *
  * There is no client step-up state left to report. The backend owns every
  * status — reuse is keyed by the Redis coordinate
- * `stepup:{projectId}:{memberId}:{resource}:{action}` and browser dedupe is the
+ * `stepup:{projectId}:{memberId}:{resource}:{action}` and session dedupe (not tab dedupe, t8) is the
  * backend's SET NX claim (toolgate t1) — so the local latch / prompt-group files
  * this inspector used to surface were removed in t3.
  *

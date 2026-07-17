@@ -18,6 +18,7 @@ import type { Server } from 'node:http';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { formatStepupCreateFailedReason } from '../src/contract/messages.js';
 import {
+  installBrowserShim,
   makeHomeSandbox,
   startJsonBackend,
   startUnreachableBackend,
@@ -40,7 +41,8 @@ function stepupPayloadItem(overrides: Record<string, unknown> = {}) {
     sid: 'tc_stepup_189',
     url: 'https://auth.example/?sid=tc_stepup_189',
     expires_at: new Date(Date.now() + 600_000).toISOString(),
-    // exist:true (reused pending) keeps openBrowser out of the test run.
+    // pending + valid sid/url reaches openBrowser (t8, exist-independent) —
+    // the PATH shim installed in before() swallows the launch.
     exist: true,
     status: 'pending',
     ...overrides,
@@ -51,16 +53,19 @@ describe('external MCP step-up deny diagnosability (#189)', () => {
   let server: Server;
   let respond: () => { status: number; body: unknown };
   let home = '';
+  let restoreBrowserShim: () => void;
   const origHome = process.env.HOME;
   const origUrl = process.env.TRANSCODES_BACKEND_URL;
 
   before(async () => {
+    restoreBrowserShim = installBrowserShim();
     const backend = await startJsonBackend(() => respond());
     server = backend.server;
     process.env.TRANSCODES_BACKEND_URL = backend.url;
   });
 
   after(() => {
+    restoreBrowserShim();
     server.close();
     if (origUrl === undefined) {
       delete process.env.TRANSCODES_BACKEND_URL;

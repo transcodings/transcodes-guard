@@ -6,8 +6,12 @@
 import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { afterEach, beforeEach, describe, it } from 'node:test';
-import { makeHomeSandbox, startJsonBackend } from './helpers/evaluate-harness.js';
+import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
+import {
+  installBrowserShim,
+  makeHomeSandbox,
+  startJsonBackend,
+} from './helpers/evaluate-harness.js';
 
 function pendingVerdict(opts: {
   sid: string;
@@ -41,8 +45,17 @@ function pendingVerdict(opts: {
 describe('coordinate exist browser launch', () => {
   let server: Server | undefined;
   let home = '';
+  let restoreBrowserShim: () => void;
   const origHome = process.env.HOME;
   const origUrl = process.env.TRANSCODES_BACKEND_URL;
+
+  before(() => {
+    restoreBrowserShim = installBrowserShim();
+  });
+
+  after(() => {
+    restoreBrowserShim();
+  });
 
   beforeEach(() => {
     home = makeHomeSandbox('coord-exist-');

@@ -3,7 +3,7 @@
  * Cursor beforeSubmitPrompt hook — intentionally inert, but must still speak.
  *
  * Guard v3 keeps every step-up status on the backend (SSOT): reuse is keyed by
- * the Redis coordinate and browser dedupe is the backend's SET NX claim, so a
+ * the Redis coordinate and session dedupe (not tab dedupe, t8) is the backend's SET NX claim, so a
  * new prompt has no local grouping window to rotate and no local latch to sweep
  * (t3 removed both). Unlike the other hosts' prompt hooks this one is NOT
  * silent: Cursor's beforeSubmitPrompt contract requires a `{ continue }` verdict

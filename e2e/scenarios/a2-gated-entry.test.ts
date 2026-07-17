@@ -55,6 +55,8 @@ for (const host of ALL_HOSTS) {
       spec.assertDeny(res);
       assert.equal(mock.evaluateRequests().length, 1);
       assert.deepEqual(await world.waitForBrowserLaunches(1), [mfaUrl]);
+      // Settle window: a second wrongly-spawned tab would land within it.
+      assert.deepEqual(await world.waitForBrowserLaunches(2, 500), [mfaUrl]);
       assertOnlyEvaluateTraffic(mock);
     });
 
@@ -103,6 +105,8 @@ for (const host of ALL_HOSTS) {
       spec.assertDeny(res);
       assert.equal(mock.evaluateRequests().length, 1);
       assert.deepEqual(await world.waitForBrowserLaunches(1), [mfaUrl]);
+      // Settle window: a second wrongly-spawned tab would land within it.
+      assert.deepEqual(await world.waitForBrowserLaunches(2, 500), [mfaUrl]);
       assertOnlyEvaluateTraffic(mock);
     });
   });
