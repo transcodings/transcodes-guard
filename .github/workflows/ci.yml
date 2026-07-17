@@ -34,6 +34,13 @@ jobs:
       - name: Install
         run: npm ci
 
+      # The codegen imports gate-backend definition modules whose
+      # @transcodes-guard/core/* value imports resolve to the built core dist.
+      # Build core first so a definition module may value-import any current
+      # core export without depending on the committed dist's freshness.
+      - name: Build core for codegen
+        run: npm run build -w @transcodes-guard/core
+
       # Router codegen drift gate. Unlike dist (esbuild is non-reproducible, see
       # below), the per-host /transcodes command/skill files + router-body.ts are
       # pure deterministic templating from scripts/router-body.mjs, so a

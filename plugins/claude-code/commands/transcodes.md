@@ -79,8 +79,8 @@ Level 0 requires an admin at https://app.transcodes.io → RBAC → Roles; `get_
 TOOL CATALOG — all 52 MCP tools + 2 resources on transcodes-guard. Match the user request to a workflow MENU item above OR to an exact tool/resource below, then call it by its exact name.
 
 Resources (read by URI, not tools):
-- `version://info` — Returns the running plugin version. Use to confirm which build is loaded.
-- `tc-tool-rules://list` — Read-only list of system MCP tool-rules (execProtectedTool handler backstop).
+- `version://info` — Returns the running plugin version. Use this to confirm which build is currently loaded after an update.
+- `tc-tool-rules://list` — Read-only list of system MCP tool-rules derived from the tool definition data (stepUp coordinates). These gate built-in transcodes-guard MCP tools via execProtectedTool — external mcp__* tools use POST /guard/evaluate instead.
 
 Gate & Policies (8):
 1) `create_stepup_session` — Open a WebAuthn step-up session; returns sid and browser URL. [mutating]

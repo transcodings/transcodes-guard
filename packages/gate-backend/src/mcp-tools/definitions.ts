@@ -1,6 +1,5 @@
 /**
- * Aggregate of every gate-backend tool definition, in registration order
- * (preserves the pre-t5 `registerBackendTools` call sequence).
+ * Aggregate of every gate-backend tool definition, in registration order.
  *
  * Imported by `registerBackendTools()` for registration and by the codegen
  * pipeline (`scripts/tool-metadata.mts`) for metadata — handlers are never

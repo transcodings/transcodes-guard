@@ -20,27 +20,71 @@
  * Usage: node --import tsx scripts/generate-router-files.mjs [--check]
  * (tsx is required: the metadata module imports the TS definition sources.)
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HOSTS, RUNTIME_BODY, renderHost, SHARED_BODY } from './router-body.mjs';
-import {
-  assertBacktickedToolNames,
-  renderCliCatalogTs,
-  renderGuardToolNamesTs,
-} from './tool-metadata.mts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
 
-// Hand-written menu prose must only name registered tools.
-assertBacktickedToolNames(SHARED_BODY);
+// The metadata import graph reaches its own output (tool-definitions.ts →
+// patterns barrel → tool-rules.ts → guard-tool-names.generated.ts), so a
+// missing or merge-conflicted generated file would crash the very script that
+// regenerates it. Bootstrap: in write mode, seed an empty stub first (the real
+// content overwrites it below); in check mode a broken file is drift, full stop.
+const GENERATED_NAMES_REL =
+  'packages/core/src/patterns/guard-tool-names.generated.ts';
+{
+  const generatedPath = path.join(root, GENERATED_NAMES_REL);
+  const broken =
+    !existsSync(generatedPath) ||
+    readFileSync(generatedPath, 'utf8').includes('<<<<<<<');
+  if (broken && check) {
+    console.error(
+      `router codegen drift in:\n  - ${GENERATED_NAMES_REL}\n` +
+        'The generated file is missing or conflicted. Run `node --import tsx scripts/generate-router-files.mjs` and commit the result.'
+    );
+    process.exit(1);
+  }
+  if (broken) {
+    writeFileSync(
+      generatedPath,
+      `// BOOTSTRAP STUB — immediately overwritten by scripts/generate-router-files.mjs.
+import type { RbacAction } from './rbac.js';
+export const GUARD_TOOL_NAMES: ReadonlySet<string> = new Set();
+export const GUARD_META_TOOL_NAMES: ReadonlySet<string> = new Set();
+export interface GuardProtectedToolRule {
+  id: string;
+  name: string;
+  label: string;
+  description: string;
+  action: RbacAction;
+  resource: string;
+}
+export const GUARD_PROTECTED_TOOL_RULES: readonly GuardProtectedToolRule[] = [];
+`,
+      'utf8',
+    );
+  }
+}
+
+// Imported dynamically so the bootstrap above runs before the graph loads.
+const { HAND_PROSE, HOSTS, RUNTIME_BODY, renderHost } = await import(
+  './router-body.mjs'
+);
+const { assertBacktickedToolNames, renderCliCatalogTs, renderGuardToolNamesTs } =
+  await import('./tool-metadata.mts');
+
+// Hand-written menu prose must only name registered tools. Generated tool
+// summaries are excluded: they may backtick non-tool identifiers.
+assertBacktickedToolNames(HAND_PROSE);
 
 // Emit a single-quoted TS string literal matching the repo's biome formatter
 // (quoteStyle: single). Escaping mirrors what biome would print so the
 // generated file is already formatter-clean and the --check gate stays stable.
 const singleQuoted = `'${RUNTIME_BODY.replace(/\\/g, '\\\\')
   .replace(/'/g, "\\'")
+  .replace(/\r/g, '\\r')
   .replace(/\n/g, '\\n')}'`;
 
 // biome wraps the long assignment onto its own indented line; match that shape.

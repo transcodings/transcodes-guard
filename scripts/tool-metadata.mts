@@ -10,11 +10,12 @@
  *
  * Runs under tsx (`node --import tsx scripts/generate-router-files.mjs`).
  * Core definition modules are imported by RELATIVE path so tsx compiles the
- * sources directly; gate-backend definition modules reach core only through
- * long-existing `@transcodes-guard/core/*` dist exports, so the committed
- * (possibly stale) dist is always sufficient. Handlers are never invoked —
- * only data properties are read. The gate-backend relative import below is
- * a sanctioned codegen seam (exempted in the CI firewall backstop).
+ * sources directly; gate-backend definition modules resolve their
+ * `@transcodes-guard/core/*` value imports against the built core dist, so
+ * `prebuild:plugin` (and the CI codegen check) builds core first. Handlers
+ * are never invoked — only data properties are read. The gate-backend
+ * relative import below is a sanctioned codegen seam (exempted in the CI
+ * firewall backstop).
  */
 import { denyByDefaultBackend } from '../packages/core/src/contract/noop.js';
 import {
@@ -54,17 +55,21 @@ export const ALL_TOOL_DEFINITIONS: readonly GuardToolDefinition[] = [
   }
 }
 
-/** @see packages/core/src/server/server.ts — resources stay imperative there. */
+/**
+ * Wording must match the `registerResource` descriptions in
+ * packages/core/src/server/server.ts verbatim — resources stay imperative
+ * there, and this list feeds the generated host docs.
+ */
 export const MCP_RESOURCES = [
   {
     uri: 'version://info',
     description:
-      'Returns the running plugin version. Use to confirm which build is loaded.',
+      'Returns the running plugin version. Use this to confirm which build is currently loaded after an update.',
   },
   {
     uri: 'tc-tool-rules://list',
     description:
-      'Read-only list of system MCP tool-rules (execProtectedTool handler backstop).',
+      'Read-only list of system MCP tool-rules derived from the tool definition data (stepUp coordinates). These gate built-in transcodes-guard MCP tools via execProtectedTool — external mcp__* tools use POST /guard/evaluate instead.',
   },
 ] as const;
 
@@ -160,7 +165,10 @@ export function assertBacktickedToolNames(text: string): void {
 // biome 포맷과 일치하는 문자열 리터럴: 기본 단일 인용, 이스케이프가 줄어들면
 // 이중 인용을 선택한다(biome quoteStyle single의 실제 동작).
 const q = (s: string): string => {
-  const esc = s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
+  const esc = s
+    .replace(/\\/g, '\\\\')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n');
   const singles = (esc.match(/'/g) ?? []).length;
   const doubles = (esc.match(/"/g) ?? []).length;
   if (singles > doubles) return `"${esc.replace(/"/g, '\\"')}"`;
@@ -233,9 +241,7 @@ export function renderGuardToolNamesTs(): string {
   lines.push(
     ' * Step-up coordinates of every protected tool, in registration order —',
   );
-  lines.push(
-    ' * replaces the hand-written system MCP rules of tool-rules.json.',
-  );
+  lines.push(' * the system MCP rule table, derived from the definition data.');
   lines.push(' */');
   lines.push(
     'export const GUARD_PROTECTED_TOOL_RULES: readonly GuardProtectedToolRule[] = [',
@@ -257,13 +263,20 @@ export function renderGuardToolNamesTs(): string {
 
 /** cli/src/tool-catalog.generated.ts */
 export function renderCliCatalogTs(): string {
+  // Stable-sort by TOOL_CATEGORY_ORDER so consumers that render the array
+  // in order (buildAdminToolsPayload) show sections in display order.
+  const sorted = [...ALL_TOOL_DEFINITIONS].sort(
+    (a, b) =>
+      (TOOL_CATEGORY_ORDER as readonly string[]).indexOf(a.category) -
+      (TOOL_CATEGORY_ORDER as readonly string[]).indexOf(b.category),
+  );
   const lines: string[] = [];
   lines.push(GENERATED_HEADER);
   lines.push(`import type { AdminToolEntry } from './tool-catalog.js';`);
   lines.push('');
   lines.push('/** All Transcodes Admin MCP tools, grouped for display. */');
   lines.push('export const TRANSCODES_ADMIN_TOOLS: AdminToolEntry[] = [');
-  for (const def of ALL_TOOL_DEFINITIONS) {
+  for (const def of sorted) {
     lines.push('  {');
     lines.push(prop('    ', 'name', q(def.name.slice('tc_'.length))));
     lines.push(prop('    ', 'title', q(def.title)));

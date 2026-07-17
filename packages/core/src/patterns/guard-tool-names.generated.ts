@@ -86,7 +86,7 @@ export interface GuardProtectedToolRule {
 
 /**
  * Step-up coordinates of every protected tool, in registration order —
- * replaces the hand-written system MCP rules of tool-rules.json.
+ * the system MCP rule table, derived from the definition data.
  */
 export const GUARD_PROTECTED_TOOL_RULES: readonly GuardProtectedToolRule[] = [
   {

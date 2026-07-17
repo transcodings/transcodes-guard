@@ -4,8 +4,11 @@
  * every derived table:
  *  - definition names ↔ generated GUARD_TOOL_NAMES
  *  - stepUp declarations ↔ generated GUARD_PROTECTED_TOOL_RULES
- *  - stepUp declarations ↔ the runtime backstop rule table
  *  - registration loop wiring (52 registrations, protected wrapped)
+ *
+ * The runtime backstop rule table (SYSTEM_PROTECTED_TOOL_RULES) is a direct
+ * map over GUARD_PROTECTED_TOOL_RULES, so it needs no drift alarm; the pin
+ * here covers only the constant runtime fields it adds.
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -60,17 +63,15 @@ describe('definition data ↔ generated constants drift alarm', () => {
     );
   });
 
-  it('the runtime backstop rule table derives from the same declarations', () => {
+  it('the runtime backstop rule table adds only the constant rule fields', () => {
     assert.deepEqual(
-      SYSTEM_PROTECTED_TOOL_RULES.map((r) => ({
-        id: r.id,
-        name: r.name,
-        label: r.label,
-        description: r.description,
-        action: r.action,
-        resource: r.resource,
+      SYSTEM_PROTECTED_TOOL_RULES,
+      GUARD_PROTECTED_TOOL_RULES.map((r) => ({
+        ...r,
+        type: 'mcp',
+        matcher: 'exact',
+        source: 'system',
       })),
-      GUARD_PROTECTED_TOOL_RULES.map((r) => ({ ...r })),
     );
   });
 });

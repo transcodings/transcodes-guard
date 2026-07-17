@@ -7,20 +7,16 @@
  */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { GUARD_TOOL_NAMES } from '../../packages/core/src/patterns/guard-tool-names.generated.js';
+import {
+  GUARD_META_TOOL_NAMES,
+  GUARD_TOOL_NAMES,
+} from '../../packages/core/src/patterns/guard-tool-names.generated.js';
 import { McpRunner } from '../harness/mcp-runner.js';
 import { MockBackend } from '../harness/mock-backend.js';
 import { makeWorld } from '../harness/state.js';
 
-const META_TOOLS = [
-  'tc_create_stepup_session',
-  'tc_inspect_stepup_state',
-  'tc_poll_stepup_session',
-  'tc_poll_stepup_session_wait',
-];
-
 describe('C1 registration identity', () => {
-  test('tools/list equals GUARD_TOOL_NAMES exactly (52 tools)', async (t) => {
+  test('tools/list equals GUARD_TOOL_NAMES exactly', async (t) => {
     const world = makeWorld();
     t.after(() => world.dispose());
     const mock = await MockBackend.start();
@@ -30,9 +26,12 @@ describe('C1 registration identity', () => {
     const runner = await McpRunner.start('claude-code', world.env(mock.url));
     try {
       const names = await runner.listToolNames();
-      assert.equal(names.length, 52);
-      assert.deepEqual([...names].sort(), [...GUARD_TOOL_NAMES].sort());
-      for (const meta of META_TOOLS) {
+      assert.deepEqual(
+        [...names].sort(),
+        [...GUARD_TOOL_NAMES].sort(),
+        'tools/list differs from the generated GUARD_TOOL_NAMES. The runner spawns the committed plugin dist — after changing definitions, run `npm run build:plugin` before this suite.',
+      );
+      for (const meta of GUARD_META_TOOL_NAMES) {
         assert.ok(names.includes(meta), meta);
       }
     } finally {

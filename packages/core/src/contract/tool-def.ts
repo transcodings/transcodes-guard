@@ -49,9 +49,9 @@ export interface ToolTextResult {
 }
 
 /**
- * Step-up RBAC coordinate for a protected tool — replaces the hand-written
- * system MCP rule that used to live in `patterns/data/tool-rules.json`.
- * The rule `id` is derived mechanically (`tc_x_y` → `tc-x-y`).
+ * Step-up RBAC coordinate for a protected tool — the source the system MCP
+ * rule is derived from. The rule `id` is derived mechanically
+ * (`tc_x_y` → `tc-x-y`).
  */
 export interface GuardToolStepUp {
   action: RbacAction;
@@ -101,7 +101,7 @@ export interface PlainToolDefinition extends GuardToolMetadata {
  * Protected tool: the registration loop wraps `run` in the caller-supplied
  * `wrapProtected` (gate-backend's `execProtectedTool`), so declaring
  * `stepUp` IS being wrapped — a definition cannot forget its backstop.
- * `config` is loaded once by the wrapper, mirroring the pre-t5 handler shape.
+ * `config` is loaded once by the wrapper, before the handler body runs.
  */
 export interface ProtectedToolDefinition extends GuardToolMetadata {
   inputSchema: ZodRawShape;
