@@ -7,6 +7,7 @@
  */
 export type { GateBackend } from './backend.js';
 export * from './messages.js';
+export { denyByDefaultBackend } from './noop.js';
 export {
   getGateBackend,
   isGateBackendInstalled,
