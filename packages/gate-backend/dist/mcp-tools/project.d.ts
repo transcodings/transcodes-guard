@@ -6,7 +6,7 @@
  * plugin. The project is fixed by the TRANSCODES_TOKEN pid claim, never a
  * tool argument, so tenancy cannot be bypassed.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
 type AssetStatus = 'available' | 'missing' | 'unreachable';
 type PwaAssetsState = 'configured' | 'not_configured_or_missing' | 'partial' | 'unreachable';
 export type ProjectOriginConfig = {
@@ -73,5 +73,5 @@ export declare function checkProjectAssets(projectId: string, fetcher?: FetchLik
     })[];
     diagnostics: string[];
 }>;
-export declare function registerProjectTools(server: McpServer): void;
+export declare const projectToolDefinitions: readonly GuardToolDefinition[];
 export {};

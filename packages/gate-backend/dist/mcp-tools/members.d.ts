@@ -3,10 +3,9 @@
  * `src/tools/members.ts`.
  *
  * Read tools (`get_member`, `list_members_paginated`, `list_member_devices`,
- * `get_member_suspension`) are plain backend calls. Protected tools
- * (`retire_member`, `suspend_member`, `unsuspend_member`) are gated by the
- * PreToolUse hook via tool-rules; here they only thread the verified sid
- * via `withStepupVerifiedSid` so the backend can validate.
+ * `get_member_suspension`) are plain backend calls. Protected tools declare
+ * their step-up coordinate via `stepUp`; the registration loop wraps `run`
+ * in `execProtectedTool` so the backend can validate the verified sid.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-export declare function registerMemberTools(server: McpServer): void;
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
+export declare const memberToolDefinitions: readonly GuardToolDefinition[];

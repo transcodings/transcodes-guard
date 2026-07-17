@@ -1,5 +1,5 @@
 /**
  * Platform user MCP tools.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-export declare function registerOrganizationTools(server: McpServer): void;
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
+export declare const organizationToolDefinitions: readonly GuardToolDefinition[];
