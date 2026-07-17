@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.6](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.5...transcodes-guard-v0.55.6) (2026-07-17)
+
+
+### Code Refactoring
+
+* **toolgate:** 툴 레지스트리를 정의 데이터 1벌로 통합 (t5/R1 전환부) ([#213](https://github.com/transcodings/transcodes-guard/issues/213)) ([2ac402a](https://github.com/transcodings/transcodes-guard/commit/2ac402a65efaa86b19f1fd16095861dcdb1169a0))
+
 ## [0.55.5](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.4...transcodes-guard-v0.55.5) (2026-07-17)
 
 
