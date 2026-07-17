@@ -9,7 +9,7 @@ import {
 } from "../chunk-ZEXGVDSU.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.55.4";
+var PLUGIN_VERSION = "0.55.5";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = formatStepupProtocolPrimer();
