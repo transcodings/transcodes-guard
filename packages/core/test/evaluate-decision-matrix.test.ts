@@ -25,8 +25,9 @@ import assert from 'node:assert/strict';
 import { readdirSync, rmSync } from 'node:fs';
 import type { Server } from 'node:http';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import {
+  installBrowserShim,
   makeHomeSandbox,
   startJsonBackend,
   startUnreachableBackend,
@@ -79,8 +80,17 @@ function stateFiles(home: string): string[] {
 describe('evaluate decision matrix (t3 §3)', () => {
   let server: Server | undefined;
   let home = '';
+  let restoreBrowserShim: () => void;
   const origHome = process.env.HOME;
   const origUrl = process.env.TRANSCODES_BACKEND_URL;
+
+  before(() => {
+    restoreBrowserShim = installBrowserShim();
+  });
+
+  after(() => {
+    restoreBrowserShim();
+  });
 
   beforeEach(() => {
     home = makeHomeSandbox('t3-matrix-');

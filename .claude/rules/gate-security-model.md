@@ -36,7 +36,7 @@ The backend permission matrix is the authority: `0` = hard deny, `1` = allow wit
 
 This is pinned, not just described: `evaluate-decision-matrix.test.ts` snapshots `~/.transcodes/state/` across a full gate run at every permission level and asserts it stays empty. A client that never writes verified state cannot be tricked into trusting a forged one.
 
-Browser dedupe is the backend's coordinate claim (SET NX), not a local lock: only the first caller gets `exist:false` and opens a tab; concurrent hooks see a reused session and open nothing.
+Browser dedupe rides the backend's coordinate claim (SET NX), not a local lock: `exist` on the wire is the tab-open signal. Only the caller that minted the session gets `exist:false` and opens a tab; every other hook — concurrent or a later retry in the same pending window — receives the same reused session (`exist:true`) and relays the URL without opening. One pending session, one tab: an unconditional open would multiply tabs under concurrency and agent retries, the exact side effect the Redis claim exists to prevent.
 
 ## Availability trade — accepted, not an oversight
 

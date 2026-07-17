@@ -185,9 +185,11 @@ export function formatStepupChallengedSystemMessage(
     { kind: typeof GATE_DECISION_KIND.BLOCK_STEPUP_CHALLENGED }
   >,
 ): string {
+  // False arm = reused pending (exist:true): an earlier hook run already
+  // opened the tab for this session — relay the URL instead of re-opening.
   const launchLine = decision.browserLaunched
     ? 'A browser tab has been opened automatically:'
-    : 'A concurrent hook process already opened a tab — reuse it:';
+    : 'A browser tab was already opened for this session — reuse it, or open:';
   return appendBackendReasoning(
     [
       'Pending for Step-up MFA authentication. This Bash command was NOT executed.',

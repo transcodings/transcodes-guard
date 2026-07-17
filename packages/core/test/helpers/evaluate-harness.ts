@@ -5,7 +5,13 @@
  * shape or state-dir layout change lands in one place. Not matched by the
  * `test/*.test.ts` runner glob.
  */
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import type { Server } from 'node:http';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -38,6 +44,33 @@ export function makeHomeSandbox(prefix: string): string {
     JSON.stringify({ token: fakeMemberJwt() }),
   );
   return home;
+}
+
+const BROWSER_SHIM_SOURCE = `#!/bin/sh
+# unit-test browser shim — swallows the launch instead of opening a tab.
+exit 0
+`;
+
+/**
+ * Prepend a PATH shim dir whose fake \`open\`/\`xdg-open\` swallow browser
+ * launches. Evaluate-path tests run \`openBrowser\` in-process (it spawns the
+ * OS opener via PATH — core/src/stepup/gate.ts), and every pending challenge
+ * launches since t8, so without this a test run opens real tabs. Returns a
+ * restore fn for after().
+ */
+export function installBrowserShim(): () => void {
+  const dir = mkdtempSync(path.join(tmpdir(), 'browser-shim-'));
+  for (const opener of ['open', 'xdg-open']) {
+    const shim = path.join(dir, opener);
+    writeFileSync(shim, BROWSER_SHIM_SOURCE);
+    chmodSync(shim, 0o755);
+  }
+  const origPath = process.env.PATH;
+  process.env.PATH = `${dir}${path.delimiter}${origPath ?? ''}`;
+  return () => {
+    process.env.PATH = origPath;
+    rmSync(dir, { recursive: true, force: true });
+  };
 }
 
 /** Local backend answering every request with the handler's JSON. */
