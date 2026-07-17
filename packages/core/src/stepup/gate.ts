@@ -2,9 +2,9 @@
  * Browser launcher for the step-up flow.
  *
  * Guard v3 removed every local dedup mechanism — browser-lock file, command
- * fingerprint, per-coordinate latch (t3). Concurrent hooks converge on one tab
- * because the backend's coordinate claim (SET NX) hands only the first caller a
- * fresh session (`exist:false`); the rest see a reused one and never open a tab.
+ * fingerprint, per-coordinate latch (t3). Every pending challenge opens a tab
+ * (t8): the backend's coordinate claim (SET NX) dedupes the session, not the
+ * tab, so concurrent hooks all open the same auth URL and authenticate once.
  * All that remains here is the OS-level "open this URL" primitive; the gate
  * decides whether to call it.
  *

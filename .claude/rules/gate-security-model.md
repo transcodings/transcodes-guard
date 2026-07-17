@@ -36,7 +36,7 @@ The backend permission matrix is the authority: `0` = hard deny, `1` = allow wit
 
 This is pinned, not just described: `evaluate-decision-matrix.test.ts` snapshots `~/.transcodes/state/` across a full gate run at every permission level and asserts it stays empty. A client that never writes verified state cannot be tricked into trusting a forged one.
 
-Browser dedupe is the backend's coordinate claim (SET NX), not a local lock: only the first caller gets `exist:false` and opens a tab; concurrent hooks see a reused session and open nothing.
+Session dedupe is the backend's coordinate claim (SET NX), not a local lock: only the first caller gets `exist:false`; concurrent hooks receive the same reused session and URL. The tab itself is NOT deduped (t8): every pending challenge opens the browser, fresh or reused — all tabs share one auth URL, so authentication still happens once, and the 5-minute verified cache bounds how often the same coordinate re-challenges.
 
 ## Availability trade — accepted, not an oversight
 

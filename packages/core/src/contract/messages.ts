@@ -187,7 +187,7 @@ export function formatStepupChallengedSystemMessage(
 ): string {
   const launchLine = decision.browserLaunched
     ? 'A browser tab has been opened automatically:'
-    : 'A concurrent hook process already opened a tab — reuse it:';
+    : 'Open this URL to authenticate:';
   return appendBackendReasoning(
     [
       'Pending for Step-up MFA authentication. This Bash command was NOT executed.',

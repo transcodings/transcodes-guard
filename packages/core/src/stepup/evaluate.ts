@@ -9,7 +9,7 @@
  * meta-tool bypass sets below) → `POST /guard/evaluate` with the raw hook stdin
  * JSON as `payload`. Backend reuses MFA via Redis
  * `stepup:{projectId}:{memberId}:{resource}:{action}`. Client opens the browser
- * only when `exist:false` (fresh mint); no local latch / prompt group.
+ * on every pending challenge (t8); no local latch / prompt group.
  *
  * Fail policy:
  *  - Before classify (stdin parse) → `proceed-ungated` (fail-open); the caller
@@ -197,9 +197,9 @@ export function classifyToolCall(
  *
  * Side effects performed here (all crash-safe / never throw into the caller):
  *  - `POST /v1/guard/evaluate` (via `evaluateAction`).
- *  - on a fresh step-up challenge (`exist:false`): open the browser once.
- *    Concurrent hooks rely on backend coordinate claim (SET NX) for dedupe —
- *    no local latch / prompt group.
+ *  - on a pending step-up challenge: open the browser (t8 — regardless of
+ *    `exist`). Backend coordinate claim (SET NX) dedupes the session, so every
+ *    tab lands on the same auth URL — no local latch / prompt group.
  */
 export async function evaluatePreToolUse(
   input: ToolCallInput,
@@ -313,15 +313,15 @@ export async function evaluatePreToolUse(
     };
   }
 
-  const reused = verdict.exist === true;
   const pending =
     verdict.status === 'pending' ||
     verdict.status === null ||
     verdict.status === undefined;
 
-  // pending + exist:false → open browser once (backend SET NX owns dedupe).
+  // pending → always open (t8). Backend SET NX dedupes the session mint, so
+  // concurrent hooks all land on the same auth URL; auth itself happens once.
   let browserLaunched = false;
-  if (pending && !reused) {
+  if (pending) {
     openBrowser(verdict.url);
     browserLaunched = true;
   }

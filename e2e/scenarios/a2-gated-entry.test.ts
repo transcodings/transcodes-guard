@@ -1,9 +1,9 @@
 /**
  * A2 — gated entry: a shell command or an external `mcp__*` wire name reaches
  * POST /guard/evaluate, and a step-up challenge comes back as a deny JSON with
- * exit 0. Fresh mint (`exist:false`) opens the browser exactly once; a reused
- * coordinate (`exist:true`) denies WITHOUT opening the browser (backend SET NX
- * owns dedupe — pins the `pending && !reused` branch of evaluate.ts).
+ * exit 0. Every pending challenge opens the browser, fresh or reused (t8 —
+ * pins the `pending`-only branch of evaluate.ts; backend SET NX dedupes the
+ * session mint, so all tabs share one auth URL).
  */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
@@ -82,14 +82,15 @@ for (const host of ALL_HOSTS) {
       assertOnlyEvaluateTraffic(mock);
     });
 
-    test('reused coordinate (exist:true) denies without launching the browser', async (t) => {
+    test('reused coordinate (exist:true) denies and still launches the browser', async (t) => {
       const world = makeWorld();
       t.after(() => world.dispose());
       const mock = await MockBackend.start();
       t.after(() => mock.close());
       world.writeToken();
 
-      mock.onEvaluate(challenge({ provider: spec.providerSlug, url: `${mock.url}/mfa`, exist: true }));
+      const mfaUrl = `${mock.url}/mfa`;
+      mock.onEvaluate(challenge({ provider: spec.providerSlug, url: mfaUrl, exist: true }));
 
       const res = await runHook({
         host,
@@ -101,8 +102,7 @@ for (const host of ALL_HOSTS) {
 
       spec.assertDeny(res);
       assert.equal(mock.evaluateRequests().length, 1);
-      // Grace window: a wrongly-spawned shim would land within this poll.
-      assert.deepEqual(await world.waitForBrowserLaunches(1, 500), []);
+      assert.deepEqual(await world.waitForBrowserLaunches(1), [mfaUrl]);
       assertOnlyEvaluateTraffic(mock);
     });
   });

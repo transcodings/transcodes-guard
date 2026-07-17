@@ -1,6 +1,7 @@
 /**
- * Regression: browser launch is gated on backend `exist`.
- * Fresh mint (exist:false) opens a tab; reused pending (exist:true) does not.
+ * Regression: every pending challenge opens a tab, regardless of backend
+ * `exist` (t8). SET NX dedupes the session mint, not the tab — reused pending
+ * (exist:true) launches too.
  */
 import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
@@ -87,7 +88,7 @@ describe('coordinate exist browser launch', () => {
     assert.equal(decision.action, 'read');
   });
 
-  it('skips browser launch on reused pending (exist:true)', async () => {
+  it('launches browser on reused pending (exist:true) too', async () => {
     const backend = await startJsonBackend(() => ({
       status: 200,
       body: pendingVerdict({
@@ -109,7 +110,7 @@ describe('coordinate exist browser launch', () => {
 
     assert.equal(decision.kind, 'block-stepup-challenged');
     if (decision.kind !== 'block-stepup-challenged') return;
-    assert.equal(decision.browserLaunched, false);
+    assert.equal(decision.browserLaunched, true);
     assert.equal(decision.sid, 'tc_stepup_reused');
   });
 });
