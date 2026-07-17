@@ -1,7 +1,7 @@
 /**
  * Definition-data drift alarms (t5 §3). This suite can see BOTH definition
- * arrays, so it owns the full 1:1 checks that replaced the deleted
- * `scripts/tool-catalog.mjs` oracle:
+ * arrays, so it owns the full 1:1 checks between the definition data and
+ * every derived table:
  *  - definition names ↔ generated GUARD_TOOL_NAMES
  *  - stepUp declarations ↔ generated GUARD_PROTECTED_TOOL_RULES
  *  - stepUp declarations ↔ the runtime backstop rule table
