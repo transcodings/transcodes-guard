@@ -5,9 +5,8 @@
  * `retire_resource`) plus the read tools needed to investigate them
  * (`get_roles`, `get_resources`, `check_rbac_permission`).
  *
- * Protected handlers thread the verified sid via `withStepupVerifiedSid`;
- * the in-memory `requireStepup` pattern is gone — the PreToolUse hook
- * now enforces via `hooks/tool-rules.json`.
+ * Protected tools declare their step-up coordinate via `stepUp`; the
+ * registration loop wraps `run` in `execProtectedTool`.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-export declare function registerRbacTools(server: McpServer): void;
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
+export declare const rbacToolDefinitions: readonly GuardToolDefinition[];

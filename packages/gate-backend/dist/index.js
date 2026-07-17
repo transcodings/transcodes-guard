@@ -12,8 +12,9 @@
  * load the StepupConfig here so the config type never escapes to the public
  * side. Error classes are wrapped in `is*Error` predicates for the same reason.
  */
+import { registerToolDefinitions, } from '@transcodes-guard/core/contract';
 import { createStepupSession, evaluatePreToolUse, inspectStepupState, loadStepupConfig, markStepupVerified, pollStepupByCoordinate, pollStepupSession, pollStepupSessionWait, resolveToken, } from '@transcodes-guard/core/stepup';
-import { assertRbacCoordinate, RbacCoordinateError, registerAuditTools, registerAuthDeviceTools, registerJwkTools, registerMembershipTools, registerMemberTools, registerMetaTools, registerOrganizationTools, registerPasscodeTools, registerProjectTools, registerRbacTools, } from './mcp-tools/index.js';
+import { assertRbacCoordinate, backendToolDefinitions, RbacCoordinateError, wrapProtectedTool, } from './mcp-tools/index.js';
 export const transcodesGateBackend = {
     // hook path — direct bindings
     evaluatePreToolUse,
@@ -28,18 +29,9 @@ export const transcodesGateBackend = {
     // server path: RBAC coordinate — config loaded internally, error wrapped
     assertRbacCoordinate: (resource, action) => assertRbacCoordinate(loadStepupConfig(), resource, action),
     isRbacCoordinateError: (e) => e instanceof RbacCoordinateError,
-    // server path: backend-coupled MCP tools
-    registerBackendTools: (server) => {
-        registerMemberTools(server);
-        registerRbacTools(server);
-        registerPasscodeTools(server);
-        registerProjectTools(server);
-        registerAuditTools(server);
-        registerAuthDeviceTools(server);
-        registerMembershipTools(server);
-        registerMetaTools(server);
-        registerOrganizationTools(server);
-        registerJwkTools(server);
-    },
+    // server path: backend-coupled MCP tools — one generic loop over the
+    // definition data; stepUp-declaring definitions are wrapped in the
+    // execProtectedTool backstop by wrapProtectedTool.
+    registerBackendTools: (server) => registerToolDefinitions(server, backendToolDefinitions, wrapProtectedTool),
 };
 //# sourceMappingURL=index.js.map

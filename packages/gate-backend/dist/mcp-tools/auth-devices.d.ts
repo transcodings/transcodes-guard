@@ -6,5 +6,5 @@
  * and handled via the console, so only the audit reads are exposed here.
  * Project is fixed by the TRANSCODES_TOKEN pid claim.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-export declare function registerAuthDeviceTools(server: McpServer): void;
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
+export declare const authDeviceToolDefinitions: readonly GuardToolDefinition[];

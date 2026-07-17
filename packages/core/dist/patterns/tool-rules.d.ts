@@ -1,4 +1,5 @@
 import { type RbacAction } from './rbac.js';
+export { GUARD_META_TOOL_NAMES, GUARD_PROTECTED_TOOL_RULES, GUARD_TOOL_NAMES, type GuardProtectedToolRule, } from './guard-tool-names.generated.js';
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
 export declare const GUARD_PROVIDERS: readonly ["claude", "codex", "cursor", "antigravity", "web"];
 export type GuardProvider = (typeof GUARD_PROVIDERS)[number];
@@ -45,17 +46,6 @@ export interface ToolRuleMatch {
 export declare const TRANSCODES_GUARD_TOOL_PREFIX = "tc_";
 /** Wire names emitted by host PreToolUse hooks for MCP tool calls. */
 export declare function isMcpWireToolName(toolName: string): boolean;
-/**
- * Every registered built-in transcodes-guard MCP tool name (bare form).
- *
- * DRIFT ALARM: hand-maintained until t5 derives it from the tool-definition
- * source. Keep in sync with every `registerTool('tc_…')` call
- * (core/src/server/server.ts + gate-backend/src/mcp-tools/*.ts) and with
- * `scripts/tool-catalog.mjs` MCP_TOOLS (bare names there, `tc_` added here) —
- * the unit test cross-checks this set against the catalog. Adding a tool?
- * Add it in all three places.
- */
-export declare const GUARD_TOOL_NAMES: ReadonlySet<string>;
 /**
  * Built-in transcodes-guard MCP — PreToolUse skips /guard/evaluate.
  * Exact set membership only (no substring/prefix heuristics): bare
@@ -126,4 +116,9 @@ export interface ToolRuleChanges {
 }
 export declare function validateNewToolRule(input: ToolRuleInput): ToolRule;
 export declare function mergeToolRuleChanges(existing: ToolRule, changes: ToolRuleChanges): ToolRule;
+/**
+ * Reserved system rule ids: the JSON registry (now MCP-rule-free) plus the
+ * ids derived from the protected tool definitions — a bundle rule must not
+ * be able to shadow `tc-retire-member` and friends.
+ */
 export declare function systemToolRuleIds(): Set<string>;

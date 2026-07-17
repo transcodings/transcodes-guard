@@ -201,11 +201,14 @@ export async function evaluatePreToolUse(input) {
             reasoning: backendReasoning,
         };
     }
-    const reused = verdict.exist === true;
     const pending = verdict.status === 'pending' ||
         verdict.status === null ||
         verdict.status === undefined;
-    // pending + exist:false → open browser once (backend SET NX owns dedupe).
+    // `exist` is the backend's tab-open signal (t8 reverted): the coordinate
+    // claim (SET NX) hands exactly one caller a fresh mint (exist:false) — that
+    // caller opens the tab. Reused pending (exist:true) relays the URL without
+    // opening; no local latch / prompt group.
+    const reused = verdict.exist === true;
     let browserLaunched = false;
     if (pending && !reused) {
         openBrowser(verdict.url);

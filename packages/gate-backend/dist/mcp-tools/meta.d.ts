@@ -7,6 +7,9 @@
  * `get_integration_guide` fetches the public llms.txt guide via builtin
  * fetch (no axios dependency). Tunnel tools are intentionally omitted —
  * plugins ship their own HTTP transport entry (`src/http.ts`).
+ *
+ * NOTE: `meta: false` here means "not a step-up infrastructure tool" — the
+ * category name 'Meta & Identity' is unrelated to the meta skip set.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-export declare function registerMetaTools(server: McpServer): void;
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
+export declare const metaToolDefinitions: readonly GuardToolDefinition[];

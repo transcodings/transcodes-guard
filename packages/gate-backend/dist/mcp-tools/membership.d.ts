@@ -7,5 +7,5 @@
  * tool returns a Stripe redirect URL. The billing portal (cancel / payment
  * method / invoices) stays console-only — surface it via `get_console_url`.
  */
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-export declare function registerMembershipTools(server: McpServer): void;
+import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
+export declare const membershipToolDefinitions: readonly GuardToolDefinition[];

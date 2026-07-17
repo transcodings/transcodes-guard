@@ -1,12 +1,24 @@
-import { loadStepupConfig } from '@transcodes-guard/core/stepup';
 import { z } from 'zod';
-import { execProtectedTool } from './stepup-helper.js';
+import { defineProtectedBackendTool } from './define.js';
 import { req } from './transcodes-client.js';
-export function registerAuditTools(server) {
-    server.registerTool('tc_get_security_logs', {
+export const auditToolDefinitions = [
+    defineProtectedBackendTool({
+        name: 'tc_get_security_logs',
         title: 'Get security logs',
         description: 'List project audit logs with pagination and filters. Use for security investigations, login/admin activity review, compliance. Returns tag, severity, IP, user_agent, member_id, metadata. Filter by `tag`; `start_date`/`end_date` are ISO 8601 range filters. ' +
             'RBAC-gated via tool-rule `tc-get-security-logs` (system/read).',
+        summary: 'Paginated project audit logs with tag and date filters.',
+        category: 'Audit',
+        access: 'api',
+        mutating: false,
+        meta: false,
+        stepUpProtected: false,
+        stepUp: {
+            action: 'read',
+            resource: 'system',
+            label: 'Get security logs',
+            ruleDescription: 'Project audit log access',
+        },
         inputSchema: {
             page: z.number().optional(),
             limit: z.number().optional(),
@@ -14,9 +26,7 @@ export function registerAuditTools(server) {
             start_date: z.string().optional(),
             end_date: z.string().optional(),
         },
-    }, async ({ page, limit, tag, start_date, end_date }) => {
-        const config = loadStepupConfig();
-        return execProtectedTool('tc_get_security_logs', (sid) => req(config, {
+        run: (config, { page, limit, tag, start_date, end_date }, sid) => req(config, {
             method: 'GET',
             query: {
                 project_id: config.projectId,
@@ -27,7 +37,7 @@ export function registerAuditTools(server) {
                 end_date,
             },
             stepUpSid: sid,
-        }, 'get_security_logs'));
-    });
-}
+        }, 'get_security_logs'),
+    }),
+];
 //# sourceMappingURL=audit.js.map
