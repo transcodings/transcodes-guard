@@ -36,7 +36,6 @@ export function defineProtectedBackendTool<S extends ZodRawShape>(
     run: (
       config: StepupConfig,
       args: objectOutputType<S, ZodTypeAny>,
-      sid: string | undefined,
     ) => Promise<string>;
   },
 ): ProtectedToolDefinition {

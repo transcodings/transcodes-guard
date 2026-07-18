@@ -124,16 +124,13 @@ export const memberToolDefinitions = [
         stepUp: {
             action: 'delete',
             resource: 'system',
-            label: 'Retire member',
-            ruleDescription: 'Permanent member deletion',
         },
         inputSchema: {
             body: z.object({ member_id: z.string() }),
         },
-        run: (config, { body }, sid) => req(config, {
+        run: (config, { body }) => req(config, {
             method: 'DELETE',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'retire_member'),
     }),
     defineProtectedBackendTool({
@@ -151,16 +148,13 @@ export const memberToolDefinitions = [
         stepUp: {
             action: 'update',
             resource: 'system',
-            label: 'Suspend member',
-            ruleDescription: 'Member login suspension',
         },
         inputSchema: {
             body: z.object({ member_id: z.string() }),
         },
-        run: (config, { body }, sid) => req(config, {
+        run: (config, { body }) => req(config, {
             method: 'POST',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'suspend_member'),
     }),
     defineProtectedBackendTool({
@@ -178,16 +172,13 @@ export const memberToolDefinitions = [
         stepUp: {
             action: 'update',
             resource: 'system',
-            label: 'Unsuspend member',
-            ruleDescription: 'Member suspension removal',
         },
         inputSchema: {
             body: z.object({ member_id: z.string() }),
         },
-        run: (config, { body }, sid) => req(config, {
+        run: (config, { body }) => req(config, {
             method: 'DELETE',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'unsuspend_member'),
     }),
     defineProtectedBackendTool({
@@ -205,8 +196,6 @@ export const memberToolDefinitions = [
         stepUp: {
             action: 'create',
             resource: 'system',
-            label: 'Create member',
-            ruleDescription: 'New member provisioning',
         },
         inputSchema: {
             body: z.object({
@@ -216,10 +205,9 @@ export const memberToolDefinitions = [
                 metadata: z.record(z.string(), z.unknown()).optional(),
             }),
         },
-        run: (config, { body }, sid) => req(config, {
+        run: (config, { body }) => req(config, {
             method: 'POST',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'create_member'),
     }),
     defineProtectedBackendTool({
@@ -239,8 +227,6 @@ export const memberToolDefinitions = [
         stepUp: {
             action: 'update',
             resource: 'system',
-            label: 'Update member',
-            ruleDescription: 'Member profile update',
         },
         inputSchema: {
             body: z.object({
@@ -251,10 +237,9 @@ export const memberToolDefinitions = [
                 metadata: z.record(z.string(), z.unknown()).optional(),
             }),
         },
-        run: (config, { body }, sid) => req(config, {
+        run: (config, { body }) => req(config, {
             method: 'PUT',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'update_member'),
     }),
 ];

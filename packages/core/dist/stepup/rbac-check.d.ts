@@ -7,15 +7,10 @@
  * RBAC matrix the single authority for the decision; the local rule only maps a
  * command/tool onto a coordinate.
  *
- * Backend route: POST /v1/auth/role/check-permission
- *   body  { member_id, resource, action, project_id }
- *   reply { data: { payload: [ { permission: 0|1|2, resource, action } ] } }
- *
- * `checkRbacPermission` returns `null` when the decision cannot be determined
- * (network/parse failure). `evaluateAction` instead returns a
- * `GuardEvaluateFailure` carrying the HTTP status + backend error text, so the
- * hook can surface WHY the gate failed (issue #189). Callers MUST fail-closed
- * either way — treat any failure as step-up required (2), never as allow.
+ * `evaluateAction` returns a `GuardEvaluateFailure` carrying the HTTP status +
+ * backend error text on failure, so the hook can surface WHY the gate failed
+ * (issue #189). Callers MUST fail-closed — treat any failure as step-up
+ * required (2), never as allow.
  */
 import { type GuardProvider } from '../patterns/index.js';
 import type { StepupConfig } from './config.js';
@@ -71,4 +66,3 @@ export declare function evaluateAction(config: StepupConfig, body: {
     cwd?: string | undefined;
     provider?: GuardProvider | undefined;
 }): Promise<GuardEvaluateResult>;
-export declare function checkRbacPermission(config: StepupConfig, resource: string, action: string): Promise<RbacLevel | null>;

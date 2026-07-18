@@ -6,7 +6,7 @@
  *   - packages/core/src/server/router-body.ts  (runtime body, committed .ts
  *     consumed by server.ts — same generated-source pattern as build-info.ts)
  *   - packages/core/src/patterns/guard-tool-names.generated.ts
- *     (GUARD_TOOL_NAMES / GUARD_META_TOOL_NAMES / GUARD_PROTECTED_TOOL_RULES)
+ *     (GUARD_TOOL_NAMES / GUARD_META_TOOL_NAMES)
  *   - cli/src/tool-catalog.generated.ts (CLI dashboard catalog)
  *   - the four per-host command/skill markdown files (claude-code / cursor /
  *     antigravity / codex)
@@ -50,18 +50,8 @@ const GENERATED_NAMES_REL =
     writeFileSync(
       generatedPath,
       `// BOOTSTRAP STUB — immediately overwritten by scripts/generate-router-files.mjs.
-import type { RbacAction } from './rbac.js';
 export const GUARD_TOOL_NAMES: ReadonlySet<string> = new Set();
 export const GUARD_META_TOOL_NAMES: ReadonlySet<string> = new Set();
-export interface GuardProtectedToolRule {
-  id: string;
-  name: string;
-  label: string;
-  description: string;
-  action: RbacAction;
-  resource: string;
-}
-export const GUARD_PROTECTED_TOOL_RULES: readonly GuardProtectedToolRule[] = [];
 `,
       'utf8',
     );

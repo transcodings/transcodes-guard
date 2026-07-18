@@ -5,7 +5,7 @@
  * Read tools (`get_member`, `list_members_paginated`, `list_member_devices`,
  * `get_member_suspension`) are plain backend calls. Protected tools declare
  * their step-up coordinate via `stepUp`; the registration loop wraps `run`
- * in `execProtectedTool` so the backend can validate the verified sid.
+ * in the 403 → STEP_UP_REQUIRED translation (enforcement is backend-owned).
  */
 import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
 import { loadStepupConfig } from '@transcodes-guard/core/stepup';
@@ -166,19 +166,16 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'delete',
       resource: 'system',
-      label: 'Retire member',
-      ruleDescription: 'Permanent member deletion',
     },
     inputSchema: {
       body: z.object({ member_id: z.string() }),
     },
-    run: (config, { body }, sid) =>
+    run: (config, { body }) =>
       req(
         config,
         {
           method: 'DELETE',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'retire_member',
       ),
@@ -201,19 +198,16 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'update',
       resource: 'system',
-      label: 'Suspend member',
-      ruleDescription: 'Member login suspension',
     },
     inputSchema: {
       body: z.object({ member_id: z.string() }),
     },
-    run: (config, { body }, sid) =>
+    run: (config, { body }) =>
       req(
         config,
         {
           method: 'POST',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'suspend_member',
       ),
@@ -235,19 +229,16 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'update',
       resource: 'system',
-      label: 'Unsuspend member',
-      ruleDescription: 'Member suspension removal',
     },
     inputSchema: {
       body: z.object({ member_id: z.string() }),
     },
-    run: (config, { body }, sid) =>
+    run: (config, { body }) =>
       req(
         config,
         {
           method: 'DELETE',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'unsuspend_member',
       ),
@@ -269,8 +260,6 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'create',
       resource: 'system',
-      label: 'Create member',
-      ruleDescription: 'New member provisioning',
     },
     inputSchema: {
       body: z.object({
@@ -280,13 +269,12 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
         metadata: z.record(z.string(), z.unknown()).optional(),
       }),
     },
-    run: (config, { body }, sid) =>
+    run: (config, { body }) =>
       req(
         config,
         {
           method: 'POST',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'create_member',
       ),
@@ -311,8 +299,6 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'update',
       resource: 'system',
-      label: 'Update member',
-      ruleDescription: 'Member profile update',
     },
     inputSchema: {
       body: z.object({
@@ -323,13 +309,12 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
         metadata: z.record(z.string(), z.unknown()).optional(),
       }),
     },
-    run: (config, { body }, sid) =>
+    run: (config, { body }) =>
       req(
         config,
         {
           method: 'PUT',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'update_member',
       ),

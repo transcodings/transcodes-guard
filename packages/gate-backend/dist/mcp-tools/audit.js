@@ -16,8 +16,6 @@ export const auditToolDefinitions = [
         stepUp: {
             action: 'read',
             resource: 'system',
-            label: 'Get security logs',
-            ruleDescription: 'Project audit log access',
         },
         inputSchema: {
             page: z.number().optional(),
@@ -26,7 +24,7 @@ export const auditToolDefinitions = [
             start_date: z.string().optional(),
             end_date: z.string().optional(),
         },
-        run: (config, { page, limit, tag, start_date, end_date }, sid) => req(config, {
+        run: (config, { page, limit, tag, start_date, end_date }) => req(config, {
             method: 'GET',
             query: {
                 project_id: config.projectId,
@@ -36,7 +34,6 @@ export const auditToolDefinitions = [
                 start_date,
                 end_date,
             },
-            stepUpSid: sid,
         }, 'get_security_logs'),
     }),
 ];

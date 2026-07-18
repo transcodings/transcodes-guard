@@ -19,10 +19,7 @@ import builtinExemptCursor from './data/builtin-exempt/cursor.json' with {
   type: 'json',
 };
 import systemToolRulesData from './data/tool-rules.json' with { type: 'json' };
-import {
-  GUARD_PROTECTED_TOOL_RULES,
-  GUARD_TOOL_NAMES,
-} from './guard-tool-names.generated.js';
+import { GUARD_TOOL_NAMES } from './guard-tool-names.generated.js';
 import {
   coerceRbacAction,
   coerceRbacResource,
@@ -32,9 +29,7 @@ import {
 
 export {
   GUARD_META_TOOL_NAMES,
-  GUARD_PROTECTED_TOOL_RULES,
   GUARD_TOOL_NAMES,
-  type GuardProtectedToolRule,
 } from './guard-tool-names.generated.js';
 
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
@@ -480,13 +475,11 @@ export function mergeToolRuleChanges(
 }
 
 /**
- * Reserved system rule ids: the JSON registry (now MCP-rule-free) plus the
- * ids derived from the protected tool definitions — a bundle rule must not
- * be able to shadow `tc-retire-member` and friends.
+ * Reserved system rule ids from the JSON registry (now MCP-rule-free). The
+ * derived protected-rule table was retired with the handler backstop (t10) —
+ * step-up enforcement for built-in tools is backend-owned, so there are no
+ * client rule ids left to shadow.
  */
 export function systemToolRuleIds(): Set<string> {
-  return new Set([
-    ...loadSystemToolRules().rules.map((r) => r.id),
-    ...GUARD_PROTECTED_TOOL_RULES.map((r) => r.id),
-  ]);
+  return new Set(loadSystemToolRules().rules.map((r) => r.id));
 }

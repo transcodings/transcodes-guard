@@ -26,7 +26,7 @@ The backend `/guard/evaluate` classifier + RBAC matrix is the authority for reso
 
 ## Fail-closed RBAC
 
-The backend permission matrix is the authority: `0` = hard deny, `1` = allow without step-up (→ return `pass`), `2` = allow **with** step-up. Computing the level is fail-**closed**: any network/parse/config throw sets `level = 2`, never `1`. (A level-1 answer lets the command through entirely — counterintuitive for a "guard", hence stated.) Mirror handler at `stepup-helper.ts` (`?? 2`); `assertRbacCoordinate` _rejects_ rule creation when resources can't be fetched.
+The backend permission matrix is the authority: `0` = hard deny, `1` = allow without step-up (→ return `pass`), `2` = allow **with** step-up. Computing the level is fail-**closed**: any network/parse/config throw sets `level = 2`, never `1`. (A level-1 answer lets the command through entirely — counterintuitive for a "guard", hence stated.) `assertRbacCoordinate` _rejects_ rule creation when resources can't be fetched. For built-in protected tools the same fail-closed posture lives server-side: `StepUpSessionGuard` 403s on any RBAC/coordinate-lookup failure.
 
 **The client sees three outcomes, not four.** An already-verified coordinate never arrives as "permission 2 + verified": the backend's `sessionRedirectResult` rewrites a reused VERIFIED session to `decision:'allow'` + `permission: 1` before it goes on the wire, so it lands on the plain permission-1 pass. Do **not** add a `status === 'verified'` branch to `evaluate.ts` to "complete" the matrix — it would be dead code guarding a shape the backend does not emit (t3 §6).
 
@@ -50,13 +50,13 @@ The hook emits its deny JSON, writes a one-line stderr tag, and exits 0. That is
 
 The one network call that must happen **before** stdout is the step-up session create — the auth URL has to be in the deny message. So the rule is inverted from the old "stdout first, side effects after": **a pre-stdout network call must never be able to suppress the deny.** A failure there is caught and degrades to a `create-failed` deny (still a deny), never to a silent pass.
 
-## Handler is the backstop, not defense-in-depth
+## Backend is the sole enforcer — the handler only translates
 
-The PreToolUse hook can be bypassed (stdio/curl), so protected backend tool handlers **re-enforce** the gate at run time via `execProtectedTool()` (`stepup-helper.ts`): tool-rule lookup + `checkRbacPermission`.
+Built-in transcodes-guard MCP tools skip the hook entirely, and since t10 there is **no client-side backstop either**: the authoritative (and only) gate for a protected built-in tool is the backend `StepUpSessionGuard` on the API call itself. It resolves RBAC for the route's declared coordinate and, at level 2, accepts either a verified `X-Step-Up-Session-Id` (legacy path — the plugin never sends one) or a **verified coordinate cache entry** (`stepup:{projectId}:{memberId}:{resource}:{action}` — the same cache the evaluate reuse path reads). stdio/curl hook bypass therefore changes nothing: the enforcement point is behind the API, not in front of it.
 
-Built-in transcodes-guard MCP tools skip the hook entirely, so this handler is their *only* gate. Its verified flag lives in **process memory** (`stepup/verified-memory.ts`), not on disk — `poll_stepup_session*` calls `markStepupVerified(sid)` when the backend reports verified, and `execProtectedTool` consumes it once via `claimStepupVerified()`. Both run inside the same long-lived MCP server process, so the flag never crosses a process boundary.
+The client keeps exactly one job here: `wrapProtectedTool` (`stepup-helper.ts`) runs the handler and, when the backend envelope reports 403, translates it into a structured `STEP_UP_REQUIRED` result carrying the definition's `stepUp` coordinate so the agent can drive create → WebAuthn → poll → retry. It performs no RBAC lookup, holds no verified memory, and attaches no step-up header — `verified-memory.ts`, `execProtectedTool`, and the client `checkRbacPermission` were deleted with the backstop, which is what makes the "client holds none" rule above exception-free. The fail-closed `?? 2` meaning moved server-side with the enforcement.
 
-This does not contradict the "no client verified state" rule above: the map only hands off a sid the **backend already verified**; it never decides verification itself. A server restart clears it (re-authenticate), `STEPUP_TTL_MS` bounds staleness, and each sid grants exactly one protected call.
+A verified coordinate is multi-use within the backend TTL (300s) — single-shot sid consumption died with the client backstop; the semantics now match the evaluate path's VERIFIED-reuse → allow rewrite.
 
 ## Backend URL & network envelope
 

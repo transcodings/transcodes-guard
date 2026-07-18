@@ -27,7 +27,6 @@ export const denyByDefaultBackend = {
     inspectStepupState() {
         return notInstalled();
     },
-    markStepupVerified() { },
     assertRbacCoordinate() {
         return notInstalled();
     },

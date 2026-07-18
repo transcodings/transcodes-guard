@@ -17,16 +17,13 @@ export const passcodeToolDefinitions = [
         stepUp: {
             action: 'create',
             resource: 'system',
-            label: 'Passcode create',
-            ruleDescription: 'Recovery passcode generation',
         },
         inputSchema: {
             body: z.object({ member_id: z.string() }),
         },
-        run: (config, { body }, sid) => req(config, {
+        run: (config, { body }) => req(config, {
             method: 'POST',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'passcode_create'),
     }),
 ];

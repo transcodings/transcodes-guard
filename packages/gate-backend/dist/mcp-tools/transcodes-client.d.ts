@@ -3,11 +3,11 @@
  * step-up-protected toolset.
  *
  * Adapted from transcodes-mcp-server/src/constants.ts (endpoint map) and
- * src/tools/tool-utils.ts (`req` helper). Step-up enforcement is NOT here
- * — the PreToolUse hook gates protected calls via `hooks/tool-rules.json`
- * before this layer runs, and tool handlers thread the verified sid
- * through `withStepupVerifiedSid` so `request()` can attach the
- * `X-Step-Up-Session-Id` header.
+ * src/tools/tool-utils.ts (`req` helper). Step-up enforcement is NOT here —
+ * the backend `StepUpSessionGuard` enforces it on the API call itself,
+ * accepting a verified coordinate cache entry; the client sends no step-up
+ * header. A 403 from a protected call is translated to `STEP_UP_REQUIRED`
+ * by `wrapProtectedTool` (stepup-helper.ts).
  */
 import { type HttpRequestInput as RequestInput, type StepupConfig } from '@transcodes-guard/core/stepup';
 export type ReqInput = Omit<RequestInput, 'path'>;

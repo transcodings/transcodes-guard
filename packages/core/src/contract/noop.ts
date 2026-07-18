@@ -50,7 +50,6 @@ export const denyByDefaultBackend: GateBackend = {
   inspectStepupState() {
     return notInstalled();
   },
-  markStepupVerified() {},
   assertRbacCoordinate() {
     return notInstalled();
   },

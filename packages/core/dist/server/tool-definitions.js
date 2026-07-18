@@ -125,9 +125,6 @@ export function coreToolDefinitions(backend) {
                     ('sid' in result && typeof result.sid === 'string'
                         ? result.sid
                         : undefined);
-                if (result.status === 'verified' && typeof resolvedSid === 'string') {
-                    backend.markStepupVerified(resolvedSid);
-                }
                 return {
                     content: [
                         {
@@ -212,13 +209,9 @@ export function coreToolDefinitions(backend) {
                     maxWaitMs: max_wait_ms,
                     intervalMs: interval_ms,
                 });
-                // Verified → hand the sid to the handler backstop's in-memory set so a
-                // built-in protected tool can consume it once. Every other outcome
-                // (rejected / not_found / timeout) needs no client-side bookkeeping: the
-                // backend owns the session's fate, and reject wipes the coordinate there.
-                if (result.outcome === 'verified' && result.sid) {
-                    backend.markStepupVerified(result.sid);
-                }
+                // No client-side bookkeeping on any outcome: the backend owns the
+                // session's fate, and a verified coordinate is honored server-side
+                // (StepUpSessionGuard reads the same coordinate cache — no sid handoff).
                 return {
                     content: [
                         {
@@ -440,7 +433,7 @@ export function coreToolDefinitions(backend) {
         defineTool({
             name: 'tc_simulate_tool_call',
             title: 'Simulate MCP hook gating',
-            description: 'Given a full MCP wire tool name from a PreToolUse hook, report whether the hook would gate it. External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP (registered tc_* names, exact set — bare or host-namespaced) skips the hook — execProtectedTool handler backstop applies. Read-only — does not invoke the hook or call the backend.',
+            description: 'Given a full MCP wire tool name from a PreToolUse hook, report whether the hook would gate it. External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP (registered tc_* names, exact set — bare or host-namespaced) skips the hook — the backend StepUpSessionGuard enforces step-up on the API call itself. Read-only — does not invoke the hook or call the backend.',
             summary: 'Report whether a full MCP wire tool name would be gated by the PreToolUse hook (POST /guard/evaluate).',
             category: 'Gate & Policies',
             access: 'gate',
@@ -458,7 +451,7 @@ export function coreToolDefinitions(backend) {
                         matched: false,
                         will_trigger_hook: false,
                         matched_by: 'transcodes-guard-handler',
-                        note: 'Built-in transcodes-guard MCP skips PreToolUse /guard/evaluate; execProtectedTool handler backstop applies.',
+                        note: 'Built-in transcodes-guard MCP skips PreToolUse /guard/evaluate; the backend StepUpSessionGuard enforces step-up on the API call itself.',
                     }, null, 2));
                 }
                 if (isMcpWireToolName(tool_name)) {

@@ -7,15 +7,10 @@
  * RBAC matrix the single authority for the decision; the local rule only maps a
  * command/tool onto a coordinate.
  *
- * Backend route: POST /v1/auth/role/check-permission
- *   body  { member_id, resource, action, project_id }
- *   reply { data: { payload: [ { permission: 0|1|2, resource, action } ] } }
- *
- * `checkRbacPermission` returns `null` when the decision cannot be determined
- * (network/parse failure). `evaluateAction` instead returns a
- * `GuardEvaluateFailure` carrying the HTTP status + backend error text, so the
- * hook can surface WHY the gate failed (issue #189). Callers MUST fail-closed
- * either way — treat any failure as step-up required (2), never as allow.
+ * `evaluateAction` returns a `GuardEvaluateFailure` carrying the HTTP status +
+ * backend error text on failure, so the hook can surface WHY the gate failed
+ * (issue #189). Callers MUST fail-closed — treat any failure as step-up
+ * required (2), never as allow.
  */
 
 import { GUARD_PROVIDERS, type GuardProvider } from '../patterns/index.js';
@@ -182,44 +177,4 @@ export async function evaluateAction(
       status,
     },
   };
-}
-
-function extractPermission(
-  data: unknown,
-  resource: string,
-  action: string,
-): RbacLevel | null {
-  if (!data || typeof data !== 'object') return null;
-  const payload = (data as { payload?: unknown }).payload;
-  if (!Array.isArray(payload)) return null;
-
-  const match = payload.find(
-    (p): p is { permission: number } =>
-      !!p &&
-      typeof p === 'object' &&
-      (p as { resource?: unknown }).resource === resource &&
-      (p as { action?: unknown }).action === action,
-  );
-
-  const level = match?.permission;
-  return level === 0 || level === 1 || level === 2 ? level : null;
-}
-
-export async function checkRbacPermission(
-  config: StepupConfig,
-  resource: string,
-  action: string,
-): Promise<RbacLevel | null> {
-  const env = await request(config, {
-    method: 'POST',
-    path: '/auth/role/check-permission',
-    body: {
-      member_id: config.memberId,
-      resource,
-      action,
-      project_id: config.projectId,
-    },
-  });
-  if (!env.ok) return null;
-  return extractPermission(env.data, resource, action);
 }

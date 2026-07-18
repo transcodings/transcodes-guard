@@ -6,7 +6,8 @@
  * (`get_roles`, `get_resources`, `check_rbac_permission`).
  *
  * Protected tools declare their step-up coordinate via `stepUp`; the
- * registration loop wraps `run` in `execProtectedTool`.
+ * registration loop wraps `run` in the 403 → STEP_UP_REQUIRED translation
+ * (enforcement is backend-owned).
  */
 import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
 import { loadStepupConfig } from '@transcodes-guard/core/stepup';
@@ -125,19 +126,16 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'delete',
       resource: 'system',
-      label: 'Retire role',
-      ruleDescription: 'Permanent role deletion',
     },
     inputSchema: {
       role_id: z.string(),
     },
-    run: (config, { role_id }, sid) =>
+    run: (config, { role_id }) =>
       req(
         config,
         {
           method: 'DELETE',
           body: { project_id: config.projectId },
-          stepUpSid: sid,
         },
         'retire_role',
         `/${encodeURIComponent(role_id)}`,
@@ -162,8 +160,6 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'update',
       resource: 'system',
-      label: 'Set role permissions',
-      ruleDescription: 'Role permissions matrix reset',
     },
     inputSchema: {
       role_id: z.string(),
@@ -171,13 +167,12 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
         permissions: z.record(z.string(), ResourcePermissions),
       }),
     },
-    run: (config, { role_id, body }, sid) =>
+    run: (config, { role_id, body }) =>
       req(
         config,
         {
           method: 'PUT',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'set_role_permissions',
         `/${encodeURIComponent(role_id)}/permissions`,
@@ -204,8 +199,6 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'update',
       resource: 'system',
-      label: 'Update member role',
-      ruleDescription: 'Member role reassignment',
     },
     inputSchema: {
       body: z.object({
@@ -213,13 +206,12 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
         role: z.string(),
       }),
     },
-    run: (config, { body }, sid) =>
+    run: (config, { body }) =>
       req(
         config,
         {
           method: 'PUT',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'update_member_role',
       ),
@@ -241,20 +233,17 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'delete',
       resource: 'system',
-      label: 'Retire resource',
-      ruleDescription: 'Permanent RBAC resource deletion',
     },
     inputSchema: {
       resource_key: z.string(),
     },
-    run: (config, { resource_key }, sid) =>
+    run: (config, { resource_key }) =>
       req(
         config,
         {
           method: 'DELETE',
           query: { project_id: config.projectId },
           omitBody: true,
-          stepUpSid: sid,
         },
         'retire_resource',
         `/${encodeURIComponent(resource_key)}`,
@@ -277,8 +266,6 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'create',
       resource: 'system',
-      label: 'Create role',
-      ruleDescription: 'New RBAC role creation',
     },
     inputSchema: {
       body: z.object({
@@ -286,13 +273,12 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
         description: z.string().optional(),
       }),
     },
-    run: (config, { body }, sid) =>
+    run: (config, { body }) =>
       req(
         config,
         {
           method: 'POST',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'create_role',
       ),
@@ -314,8 +300,6 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'update',
       resource: 'system',
-      label: 'Update role',
-      ruleDescription: 'RBAC role metadata update',
     },
     inputSchema: {
       role_id: z.string(),
@@ -323,13 +307,12 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
         description: z.string().optional(),
       }),
     },
-    run: (config, { role_id, body }, sid) =>
+    run: (config, { role_id, body }) =>
       req(
         config,
         {
           method: 'PUT',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'update_role',
         `/${encodeURIComponent(role_id)}`,
@@ -355,8 +338,6 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'create',
       resource: 'system',
-      label: 'Create resource',
-      ruleDescription: 'New RBAC resource creation',
     },
     inputSchema: {
       body: z.object({
@@ -365,13 +346,12 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
         description: z.string().optional(),
       }),
     },
-    run: (config, { body }, sid) =>
+    run: (config, { body }) =>
       req(
         config,
         {
           method: 'POST',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'create_resource',
       ),
@@ -393,8 +373,6 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'update',
       resource: 'system',
-      label: 'Update resource',
-      ruleDescription: 'RBAC resource metadata update',
     },
     inputSchema: {
       resource_key: z.string(),
@@ -402,13 +380,12 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
         description: z.string().optional(),
       }),
     },
-    run: (config, { resource_key, body }, sid) =>
+    run: (config, { resource_key, body }) =>
       req(
         config,
         {
           method: 'PATCH',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'update_resource',
         `/${encodeURIComponent(resource_key)}`,

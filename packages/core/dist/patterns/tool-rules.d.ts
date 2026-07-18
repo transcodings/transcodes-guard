@@ -1,5 +1,5 @@
 import { type RbacAction } from './rbac.js';
-export { GUARD_META_TOOL_NAMES, GUARD_PROTECTED_TOOL_RULES, GUARD_TOOL_NAMES, type GuardProtectedToolRule, } from './guard-tool-names.generated.js';
+export { GUARD_META_TOOL_NAMES, GUARD_TOOL_NAMES, } from './guard-tool-names.generated.js';
 export type GuardMatcher = 'exact' | 'glob' | 'regex';
 export declare const GUARD_PROVIDERS: readonly ["claude", "codex", "cursor", "antigravity", "web"];
 export type GuardProvider = (typeof GUARD_PROVIDERS)[number];
@@ -117,8 +117,9 @@ export interface ToolRuleChanges {
 export declare function validateNewToolRule(input: ToolRuleInput): ToolRule;
 export declare function mergeToolRuleChanges(existing: ToolRule, changes: ToolRuleChanges): ToolRule;
 /**
- * Reserved system rule ids: the JSON registry (now MCP-rule-free) plus the
- * ids derived from the protected tool definitions — a bundle rule must not
- * be able to shadow `tc-retire-member` and friends.
+ * Reserved system rule ids from the JSON registry (now MCP-rule-free). The
+ * derived protected-rule table was retired with the handler backstop (t10) —
+ * step-up enforcement for built-in tools is backend-owned, so there are no
+ * client rule ids left to shadow.
  */
 export declare function systemToolRuleIds(): Set<string>;

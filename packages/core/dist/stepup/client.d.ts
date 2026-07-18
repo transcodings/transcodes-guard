@@ -18,13 +18,6 @@ export type RequestInput = {
     query?: Record<string, string | number | boolean | undefined | null>;
     body?: unknown;
     /**
-     * Step-up MFA session id. When set, sent as `X-Step-Up-Session-Id` header
-     * so the backend can verify the verified record before executing a
-     * sensitive operation. Used by tool handlers that consumed a verified
-     * record via `withStepupVerifiedSid`.
-     */
-    stepUpSid?: string;
-    /**
      * Send no request body at all (e.g. `DELETE …/resources/:key` with query
      * params only). Without this flag, body=undefined still sends `{}` so
      * Nest's `@Body()` validation passes — matches transcodes parity.

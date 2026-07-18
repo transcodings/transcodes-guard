@@ -22,7 +22,7 @@ export declare function defineBackendTool<S extends ZodRawShape>(def: Omit<Plain
 export declare function defineProtectedBackendTool<S extends ZodRawShape>(def: Omit<ProtectedToolDefinition, 'inputSchema' | 'run' | 'meta'> & {
     meta: false;
     inputSchema: S;
-    run: (config: StepupConfig, args: objectOutputType<S, ZodTypeAny>, sid: string | undefined) => Promise<string>;
+    run: (config: StepupConfig, args: objectOutputType<S, ZodTypeAny>) => Promise<string>;
 }): ProtectedToolDefinition;
 /** Shared text-content result shape for backend tool handlers. */
 export declare function textResult(text: string, isError?: boolean): ToolTextResult;

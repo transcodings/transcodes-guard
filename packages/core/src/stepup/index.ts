@@ -48,11 +48,10 @@ export {
   parseMemberAccessToken,
   REQUIRED_AUDIENCE,
 } from './jwt.js';
-export {
-  checkRbacPermission,
-  type GuardStepUpStatus,
-  type GuardVerdict,
-  type RbacLevel,
+export type {
+  GuardStepUpStatus,
+  GuardVerdict,
+  RbacLevel,
 } from './rbac-check.js';
 export {
   type CreateConsoleSessionArgs,
@@ -83,8 +82,3 @@ export {
   transcodesConfigFile,
   writeTokenToFile,
 } from './token-store.js';
-export {
-  claimStepupVerified,
-  hasStepupVerified,
-  markStepupVerified,
-} from './verified-memory.js';

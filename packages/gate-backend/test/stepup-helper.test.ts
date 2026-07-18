@@ -1,23 +1,22 @@
+/**
+ * 403 → STEP_UP_REQUIRED translation tests (t10).
+ *
+ * The handler backstop is gone: `wrapProtectedTool` performs no RBAC check
+ * and holds no verified state. Its whole contract is: run the handler, and
+ * when the backend envelope reports 403, translate it into a structured
+ * `STEP_UP_REQUIRED` result carrying the definition's stepUp coordinate.
+ */
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
-import type { Server } from 'node:http';
-import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { after, afterEach, before, describe, it } from 'node:test';
-import type { MergedToolRule } from '@transcodes-guard/core/patterns';
+import { afterEach, describe, it } from 'node:test';
+import type { ProtectedToolDefinition } from '@transcodes-guard/core/contract';
 import {
-  claimStepupVerified,
   clearTokenFile,
-  hasStepupVerified,
-  markStepupVerified,
   writeTokenToFile,
 } from '@transcodes-guard/core/stepup';
-import {
-  execProtectedTool,
-  resolveProtectedToolRule,
-  SYSTEM_PROTECTED_TOOL_RULES,
-} from '../src/mcp-tools/stepup-helper.js';
+import { wrapProtectedTool } from '../src/mcp-tools/stepup-helper.js';
 
 process.env.HOME = mkdtempSync(path.join(os.tmpdir(), 'guard-mcp-tools-'));
 
@@ -35,194 +34,92 @@ function fakeToken(memberId: string): string {
   return `eyJhbGciOiJub25lIn0.${payload}.sig`;
 }
 
-function systemRule(overrides: Partial<MergedToolRule> = {}): MergedToolRule {
+function protectedDef(
+  run: ProtectedToolDefinition['run'],
+): ProtectedToolDefinition {
   return {
-    id: 'tc-custom',
-    type: 'mcp',
-    label: 'Custom rule',
-    description: 'Custom rule',
-    name: 'tc_custom_tool',
-    matcher: 'exact',
-    action: 'create',
-    resource: 'system',
-    source: 'system',
-    ...overrides,
+    name: 'tc_retire_role',
+    title: 'Retire role',
+    description: 'test',
+    summary: 'test',
+    category: 'RBAC',
+    access: 'api',
+    mutating: true,
+    meta: false,
+    stepUpProtected: true,
+    stepUp: { action: 'delete', resource: 'system' },
+    inputSchema: {},
+    run,
   };
 }
 
-describe('step-up protected tool rule resolution', () => {
-  it('matches the registered MCP tool name to the system rule', () => {
-    const rule = resolveProtectedToolRule('tc_create_resource');
-
-    assert.equal(rule?.id, 'tc-create-resource');
-    assert.equal(rule?.resource, 'system');
-    assert.equal(rule?.action, 'create');
-  });
-
-  it('still matches host-wrapped MCP wire names', () => {
-    const rules = [...SYSTEM_PROTECTED_TOOL_RULES];
-    const rule = resolveProtectedToolRule('tc_create_resource', rules);
-
-    assert.equal(rule?.id, 'tc-create-resource');
-  });
-
-  it('does not match unrelated handler names', () => {
-    const rule = resolveProtectedToolRule('unknown_tool');
-
-    assert.equal(rule, undefined);
-  });
-
-  it('does not resolve transcodes tool names from bundle rules', () => {
-    const bundleRule: MergedToolRule = {
-      id: 'external-create-resource',
-      type: 'mcp',
-      label: 'External create resource',
-      description: 'External tool with the same suffix',
-      name: 'mcp__external__server__create_resource',
-      matcher: 'exact',
-      action: 'create',
-      resource: 'system',
-      source: 'bundle',
-    };
-
-    const rule = resolveProtectedToolRule('tc_create_resource', [bundleRule]);
-
-    assert.equal(rule, undefined);
-  });
-
-  it('does not misread canonical tool ids that contain double underscores', () => {
-    const rules = [
-      systemRule({
-        name: 'tc_project__archive',
-      }),
-    ];
-
-    assert.equal(resolveProtectedToolRule('archive', rules), undefined);
-    assert.equal(
-      resolveProtectedToolRule('tc_project__archive', rules)?.id,
-      'tc-custom'
-    );
-  });
-
-  it('does not resolve provider-scoped local handler rules on another host', () => {
-    const previous = process.env.TRANSCODES_GUARD_HOST;
-    process.env.TRANSCODES_GUARD_HOST = 'codex';
-    try {
-      const rules = [
-        systemRule({
-          provider: 'cursor',
-          name: 'tc_custom_tool',
-        }),
-      ];
-
-      assert.equal(
-        resolveProtectedToolRule('tc_custom_tool', rules),
-        undefined
-      );
-    } finally {
-      if (previous !== undefined) process.env.TRANSCODES_GUARD_HOST = previous;
-      else delete process.env.TRANSCODES_GUARD_HOST;
-    }
-  });
-});
-
-describe('execProtectedTool step-up backstop', () => {
-  let server: Server;
-  let baseUrl: string;
-  let requestedPaths: string[] = [];
-  let permission: 0 | 1 | 2 = 2;
-
-  before(async () => {
-    server = createServer((req, res) => {
-      requestedPaths.push(`${req.method} ${req.url}`);
-      if (req.url === '/v1/auth/role/check-permission') {
-        res.statusCode = 200;
-        res.setHeader('content-type', 'application/json');
-        res.end(
-          JSON.stringify({
-            logId: 'test',
-            success: true,
-            statusCode: 200,
-            payload: [{ permission, resource: 'system', action: 'create' }],
-            error: null,
-          })
-        );
-        return;
-      }
-      res.statusCode = 500;
-      res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ error: 'unexpected request' }));
-    });
-    await new Promise<void>((resolve) => server.listen(0, resolve));
-    const address = server.address();
-    assert.ok(address && typeof address === 'object');
-    baseUrl = `http://127.0.0.1:${address.port}`;
-  });
-
-  after(() => server.close());
-
+describe('wrapProtectedTool 403 translation', () => {
   afterEach(() => {
-    requestedPaths = [];
-    permission = 2;
-    // Drain any leftover in-memory verified sid between cases.
-    claimStepupVerified();
     clearTokenFile();
-    delete process.env.TRANSCODES_BACKEND_URL;
   });
 
-  it('denies level-2 without creating a step-up session from the handler', async () => {
-    writeTokenToFile(fakeToken('member-level-2'), 'test');
-    process.env.TRANSCODES_BACKEND_URL = baseUrl;
-    let called = false;
+  it('translates a 403 envelope into STEP_UP_REQUIRED with the stepUp coordinate', async () => {
+    writeTokenToFile(fakeToken('member-1'), 'test');
+    const handler = wrapProtectedTool(
+      protectedDef(async () =>
+        JSON.stringify({
+          ok: false,
+          status: 403,
+          data: { message: 'Step-up MFA is not verified for this action.' },
+        }),
+      ),
+    );
 
-    const result = await execProtectedTool('tc_create_resource', async () => {
-      called = true;
-      return 'should not run';
-    });
+    const result = await handler({} as never);
 
     assert.equal(result.isError, true);
-    assert.equal(called, false);
-    assert.match(result.content[0]?.text ?? '', /"code": "STEP_UP_REQUIRED"/);
-    assert.deepEqual(requestedPaths, ['POST /v1/auth/role/check-permission']);
+    const body = JSON.parse(result.content[0]?.text ?? '{}');
+    assert.equal(body.code, 'STEP_UP_REQUIRED');
+    assert.equal(body.tool, 'tc_retire_role');
+    assert.equal(body.resource, 'system');
+    assert.equal(body.action, 'delete');
+    assert.equal(
+      body.message,
+      'Step-up MFA is not verified for this action.',
+    );
+    assert.ok(Array.isArray(body.next_actions));
+    assert.match(body.next_actions.join(' '), /tc_create_stepup_session/);
+    assert.match(body.next_actions.join(' '), /tc_poll_stepup_session_wait/);
   });
 
-  it('runs level-1 with no sid and leaves the verified set untouched', async () => {
-    writeTokenToFile(fakeToken('member-level-1'), 'test');
-    process.env.TRANSCODES_BACKEND_URL = baseUrl;
-    permission = 1;
-    markStepupVerified('unrelated-sid');
+  it('passes any non-403 envelope through untouched', async () => {
+    writeTokenToFile(fakeToken('member-1'), 'test');
+    const text = JSON.stringify({ ok: true, status: 200, data: { id: 'x' } });
+    const handler = wrapProtectedTool(protectedDef(async () => text));
 
-    const result = await execProtectedTool(
-      'tc_create_resource',
-      async (sid) => {
-        assert.equal(sid, undefined);
-        return 'ok';
-      }
-    );
+    const result = await handler({} as never);
 
     assert.equal(result.isError, false);
-    assert.equal(result.content[0]?.text, 'ok');
-    // Level 1 never touches the in-memory verified set.
-    assert.equal(hasStepupVerified(), true);
+    assert.equal(result.content[0]?.text, text);
   });
 
-  it('consumes a verified sid single-shot on the level-2 path', async () => {
-    writeTokenToFile(fakeToken('member-level-2'), 'test');
-    process.env.TRANSCODES_BACKEND_URL = baseUrl;
-    permission = 2;
-    markStepupVerified('fresh-sid');
+  it('passes non-JSON handler output through untouched', async () => {
+    writeTokenToFile(fakeToken('member-1'), 'test');
+    const handler = wrapProtectedTool(protectedDef(async () => 'plain text'));
 
-    const result = await execProtectedTool(
-      'tc_create_resource',
-      async (sid) => {
-        assert.equal(sid, 'fresh-sid');
-        return 'ok';
-      }
-    );
+    const result = await handler({} as never);
 
     assert.equal(result.isError, false);
-    assert.equal(result.content[0]?.text, 'ok');
-    // Single-shot: the sid is gone after one successful level-2 run.
-    assert.equal(hasStepupVerified(), false);
+    assert.equal(result.content[0]?.text, 'plain text');
+  });
+
+  it('loads the config before running the handler (member claims visible)', async () => {
+    writeTokenToFile(fakeToken('member-42'), 'test');
+    let seenMemberId: string | undefined;
+    const handler = wrapProtectedTool(
+      protectedDef(async (config) => {
+        seenMemberId = config.memberId;
+        return JSON.stringify({ ok: true, status: 200, data: null });
+      }),
+    );
+
+    await handler({} as never);
+
+    assert.equal(seenMemberId, 'member-42');
   });
 });

@@ -21,9 +21,6 @@ export async function request(config, input) {
         'x-transcodes-token': config.token,
         Accept: 'application/json',
     };
-    if (input.stepUpSid) {
-        headers['X-Step-Up-Session-Id'] = input.stepUpSid;
-    }
     let body;
     const sendsBody = input.method !== 'GET' && !input.omitBody;
     if (sendsBody) {

@@ -3,12 +3,7 @@
  * arrays, so it owns the full 1:1 checks between the definition data and
  * every derived table:
  *  - definition names ↔ generated GUARD_TOOL_NAMES
- *  - stepUp declarations ↔ generated GUARD_PROTECTED_TOOL_RULES
  *  - registration loop wiring (52 registrations, protected wrapped)
- *
- * The runtime backstop rule table (SYSTEM_PROTECTED_TOOL_RULES) is a direct
- * map over GUARD_PROTECTED_TOOL_RULES, so it needs no drift alarm; the pin
- * here covers only the constant runtime fields it adds.
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -20,12 +15,10 @@ import {
 } from '@transcodes-guard/core/contract';
 import {
   GUARD_META_TOOL_NAMES,
-  GUARD_PROTECTED_TOOL_RULES,
   GUARD_TOOL_NAMES,
 } from '@transcodes-guard/core/patterns';
 import { coreToolDefinitions } from '@transcodes-guard/core/server';
 import { backendToolDefinitions } from '../src/mcp-tools/definitions.js';
-import { SYSTEM_PROTECTED_TOOL_RULES } from '../src/mcp-tools/stepup-helper.js';
 
 const allDefinitions = [
   ...coreToolDefinitions(denyByDefaultBackend),
@@ -47,32 +40,13 @@ describe('definition data ↔ generated constants drift alarm', () => {
     }
   });
 
-  it('stepUp declarations equal GUARD_PROTECTED_TOOL_RULES 1:1 (15 rules)', () => {
+  it('every stepUp declaration carries a full RBAC coordinate (15 tools)', () => {
     const declared = allDefinitions.filter((d) => d.stepUp !== undefined);
     assert.equal(declared.length, 15);
-    assert.deepEqual(
-      declared.map((d) => ({
-        id: d.name.replace(/_/g, '-'),
-        name: d.name,
-        label: d.stepUp?.label,
-        description: d.stepUp?.ruleDescription,
-        action: d.stepUp?.action,
-        resource: d.stepUp?.resource,
-      })),
-      GUARD_PROTECTED_TOOL_RULES.map((r) => ({ ...r })),
-    );
-  });
-
-  it('the runtime backstop rule table adds only the constant rule fields', () => {
-    assert.deepEqual(
-      SYSTEM_PROTECTED_TOOL_RULES,
-      GUARD_PROTECTED_TOOL_RULES.map((r) => ({
-        ...r,
-        type: 'mcp',
-        matcher: 'exact',
-        source: 'system',
-      })),
-    );
+    for (const def of declared) {
+      assert.ok(def.stepUp?.resource, def.name);
+      assert.ok(def.stepUp?.action, def.name);
+    }
   });
 });
 
@@ -105,7 +79,10 @@ describe('registration loop wiring', () => {
     assert.deepEqual(names.sort(), [...GUARD_TOOL_NAMES].sort());
     assert.deepEqual(
       wrapped.sort(),
-      GUARD_PROTECTED_TOOL_RULES.map((r) => r.name).sort(),
+      allDefinitions
+        .filter((d) => d.stepUp !== undefined)
+        .map((d) => d.name)
+        .sort(),
     );
   });
 

@@ -32,17 +32,14 @@ export interface ToolTextResult {
     }[];
 }
 /**
- * Step-up RBAC coordinate for a protected tool — the source the system MCP
- * rule is derived from. The rule `id` is derived mechanically
- * (`tc_x_y` → `tc-x-y`).
+ * Step-up RBAC coordinate for a protected tool. Enforcement lives on the
+ * backend (`StepUpSessionGuard` + coordinate verified cache); the client uses
+ * this coordinate only to phrase the `STEP_UP_REQUIRED` recovery guidance
+ * when the backend answers 403.
  */
 export interface GuardToolStepUp {
     action: RbacAction;
     resource: string;
-    /** Human label for the derived rule (rule table / audit surfaces). */
-    label: string;
-    /** One-line rule description for the derived rule table. */
-    ruleDescription: string;
 }
 interface GuardToolMetadata {
     /** Canonical registered wire name — always `tc_`-prefixed. */
@@ -79,14 +76,16 @@ export interface PlainToolDefinition extends GuardToolMetadata {
 }
 /**
  * Protected tool: the registration loop wraps `run` in the caller-supplied
- * `wrapProtected` (gate-backend's `execProtectedTool`), so declaring
- * `stepUp` IS being wrapped — a definition cannot forget its backstop.
- * `config` is loaded once by the wrapper, before the handler body runs.
+ * `wrapProtected` (gate-backend's 403 → `STEP_UP_REQUIRED` translation), so
+ * declaring `stepUp` IS being wrapped — a definition cannot forget its
+ * recovery guidance. Enforcement itself is backend-owned; the handler sends
+ * no step-up header. `config` is loaded once by the wrapper, before the
+ * handler body runs.
  */
 export interface ProtectedToolDefinition extends GuardToolMetadata {
     inputSchema: ZodRawShape;
     stepUp: GuardToolStepUp;
-    run: (config: StepupConfig, args: never, sid: string | undefined) => Promise<string>;
+    run: (config: StepupConfig, args: never) => Promise<string>;
 }
 export type GuardToolDefinition = PlainToolDefinition | ProtectedToolDefinition;
 /**
@@ -102,13 +101,14 @@ export declare function defineTool<S extends ZodRawShape>(def: GuardToolMetadata
 export declare function defineProtectedTool<S extends ZodRawShape>(def: GuardToolMetadata & {
     inputSchema: S;
     stepUp: GuardToolStepUp;
-    run: (config: StepupConfig, args: objectOutputType<S, ZodTypeAny>, sid: string | undefined) => Promise<string>;
+    run: (config: StepupConfig, args: objectOutputType<S, ZodTypeAny>) => Promise<string>;
 }): ProtectedToolDefinition;
 /**
  * Generic registration loop — the single `registerTool` call site per
- * package. Protected definitions require `wrapProtected` (the
- * `execProtectedTool` adapter); registering one without it throws loudly at
- * startup rather than shipping an unwrapped protected tool.
+ * package. Protected definitions require `wrapProtected` (the 403 →
+ * `STEP_UP_REQUIRED` translation adapter); registering one without it throws
+ * loudly at startup rather than shipping a protected tool with no recovery
+ * guidance.
  */
 export declare function registerToolDefinitions(server: McpServer, defs: readonly GuardToolDefinition[], wrapProtected?: (def: ProtectedToolDefinition) => (args: never) => Promise<ToolTextResult>): void;
 export {};

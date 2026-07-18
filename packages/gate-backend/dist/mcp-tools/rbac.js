@@ -86,16 +86,13 @@ export const rbacToolDefinitions = [
         stepUp: {
             action: 'delete',
             resource: 'system',
-            label: 'Retire role',
-            ruleDescription: 'Permanent role deletion',
         },
         inputSchema: {
             role_id: z.string(),
         },
-        run: (config, { role_id }, sid) => req(config, {
+        run: (config, { role_id }) => req(config, {
             method: 'DELETE',
             body: { project_id: config.projectId },
-            stepUpSid: sid,
         }, 'retire_role', `/${encodeURIComponent(role_id)}`),
     }),
     defineProtectedBackendTool({
@@ -114,8 +111,6 @@ export const rbacToolDefinitions = [
         stepUp: {
             action: 'update',
             resource: 'system',
-            label: 'Set role permissions',
-            ruleDescription: 'Role permissions matrix reset',
         },
         inputSchema: {
             role_id: z.string(),
@@ -123,10 +118,9 @@ export const rbacToolDefinitions = [
                 permissions: z.record(z.string(), ResourcePermissions),
             }),
         },
-        run: (config, { role_id, body }, sid) => req(config, {
+        run: (config, { role_id, body }) => req(config, {
             method: 'PUT',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'set_role_permissions', `/${encodeURIComponent(role_id)}/permissions`),
     }),
     defineProtectedBackendTool({
@@ -147,8 +141,6 @@ export const rbacToolDefinitions = [
         stepUp: {
             action: 'update',
             resource: 'system',
-            label: 'Update member role',
-            ruleDescription: 'Member role reassignment',
         },
         inputSchema: {
             body: z.object({
@@ -156,10 +148,9 @@ export const rbacToolDefinitions = [
                 role: z.string(),
             }),
         },
-        run: (config, { body }, sid) => req(config, {
+        run: (config, { body }) => req(config, {
             method: 'PUT',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'update_member_role'),
     }),
     defineProtectedBackendTool({
@@ -177,17 +168,14 @@ export const rbacToolDefinitions = [
         stepUp: {
             action: 'delete',
             resource: 'system',
-            label: 'Retire resource',
-            ruleDescription: 'Permanent RBAC resource deletion',
         },
         inputSchema: {
             resource_key: z.string(),
         },
-        run: (config, { resource_key }, sid) => req(config, {
+        run: (config, { resource_key }) => req(config, {
             method: 'DELETE',
             query: { project_id: config.projectId },
             omitBody: true,
-            stepUpSid: sid,
         }, 'retire_resource', `/${encodeURIComponent(resource_key)}`),
     }),
     defineProtectedBackendTool({
@@ -205,8 +193,6 @@ export const rbacToolDefinitions = [
         stepUp: {
             action: 'create',
             resource: 'system',
-            label: 'Create role',
-            ruleDescription: 'New RBAC role creation',
         },
         inputSchema: {
             body: z.object({
@@ -214,10 +200,9 @@ export const rbacToolDefinitions = [
                 description: z.string().optional(),
             }),
         },
-        run: (config, { body }, sid) => req(config, {
+        run: (config, { body }) => req(config, {
             method: 'POST',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'create_role'),
     }),
     defineProtectedBackendTool({
@@ -235,8 +220,6 @@ export const rbacToolDefinitions = [
         stepUp: {
             action: 'update',
             resource: 'system',
-            label: 'Update role',
-            ruleDescription: 'RBAC role metadata update',
         },
         inputSchema: {
             role_id: z.string(),
@@ -244,10 +227,9 @@ export const rbacToolDefinitions = [
                 description: z.string().optional(),
             }),
         },
-        run: (config, { role_id, body }, sid) => req(config, {
+        run: (config, { role_id, body }) => req(config, {
             method: 'PUT',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'update_role', `/${encodeURIComponent(role_id)}`),
     }),
     defineProtectedBackendTool({
@@ -267,8 +249,6 @@ export const rbacToolDefinitions = [
         stepUp: {
             action: 'create',
             resource: 'system',
-            label: 'Create resource',
-            ruleDescription: 'New RBAC resource creation',
         },
         inputSchema: {
             body: z.object({
@@ -277,10 +257,9 @@ export const rbacToolDefinitions = [
                 description: z.string().optional(),
             }),
         },
-        run: (config, { body }, sid) => req(config, {
+        run: (config, { body }) => req(config, {
             method: 'POST',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'create_resource'),
     }),
     defineProtectedBackendTool({
@@ -298,8 +277,6 @@ export const rbacToolDefinitions = [
         stepUp: {
             action: 'update',
             resource: 'system',
-            label: 'Update resource',
-            ruleDescription: 'RBAC resource metadata update',
         },
         inputSchema: {
             resource_key: z.string(),
@@ -307,10 +284,9 @@ export const rbacToolDefinitions = [
                 description: z.string().optional(),
             }),
         },
-        run: (config, { resource_key, body }, sid) => req(config, {
+        run: (config, { resource_key, body }) => req(config, {
             method: 'PATCH',
             body: { ...body, project_id: config.projectId },
-            stepUpSid: sid,
         }, 'update_resource', `/${encodeURIComponent(resource_key)}`),
     }),
 ];

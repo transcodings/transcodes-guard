@@ -22,7 +22,6 @@ import {
   evaluatePreToolUse,
   inspectStepupState,
   loadStepupConfig,
-  markStepupVerified,
   pollStepupByCoordinate,
   pollStepupSession,
   pollStepupSessionWait,
@@ -48,7 +47,6 @@ export const transcodesGateBackend: GateBackend = {
   pollStepupSessionWait: (target, options) =>
     pollStepupSessionWait(loadStepupConfig(), target, options),
   inspectStepupState,
-  markStepupVerified,
 
   // server path: RBAC coordinate — config loaded internally, error wrapped
   assertRbacCoordinate: (resource, action) =>
@@ -57,7 +55,7 @@ export const transcodesGateBackend: GateBackend = {
 
   // server path: backend-coupled MCP tools — one generic loop over the
   // definition data; stepUp-declaring definitions are wrapped in the
-  // execProtectedTool backstop by wrapProtectedTool.
+  // 403 → STEP_UP_REQUIRED translation by wrapProtectedTool.
   registerBackendTools: (server) =>
     registerToolDefinitions(server, backendToolDefinitions, wrapProtectedTool),
 };
