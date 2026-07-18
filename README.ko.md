@@ -3,6 +3,7 @@
 [English](./README.md) | **한국어**
 
 <p align="center">
+  <a href="https://transcodes.io"><img src="https://img.shields.io/badge/Website-transcodes.io-7B61FF?style=flat" alt="transcodes.io" /></a>
   <a href="https://x.com/hellotranscodes"><img src="https://img.shields.io/badge/Follow-%40hellotranscodes-000000?style=flat&logo=x&logoColor=white" alt="Follow on X" /></a>
   <a href="https://discord.gg/YA4y3WdBr"><img src="https://img.shields.io/badge/Join-Discord-5865F2?style=flat&logo=discord&logoColor=white" alt="Join Discord" /></a>
   <a href="https://www.youtube.com/@hellotranscodes"><img src="https://img.shields.io/badge/Subscribe-YouTube-FF0000?style=flat&logo=youtube&logoColor=white" alt="Subscribe on YouTube" /></a>
@@ -11,7 +12,7 @@
 <p align="center">
   <a href="#claude-code"><img src="https://img.shields.io/badge/supports-Claude_Code-CC785C?style=flat&logo=anthropic&logoColor=white" alt="Claude Code" /></a>
   <a href="#cursor-beta"><img src="https://img.shields.io/badge/supports-Cursor-000000?style=flat&logo=cursor&logoColor=white" alt="Cursor" /></a>
-  <a href="#antigravity-beta"><img src="https://img.shields.io/badge/supports-Antigravity-4285F4?style=flat&logo=google&logoColor=white" alt="Antigravity" /></a>
+  <a href="#antigravity"><img src="https://img.shields.io/badge/supports-Antigravity-4285F4?style=flat&logo=google&logoColor=white" alt="Antigravity" /></a>
   <a href="#codex"><img src="https://img.shields.io/badge/supports-ChatGPT-412991?style=flat&logo=openai&logoColor=white" alt="ChatGPT (Codex)" /></a>
 </p>
 
@@ -19,13 +20,33 @@
 
 `transcodes-guard`는 AI 코딩 에이전트가 실행하려는 위험한 셸 명령(그리고 보호 대상 MCP tool 호출)을 *실행 직전에* 가로채, Transcodes 백엔드에 대해 Transcodes Step-up MFA(WebAuthn) 인증을 강제하는 호스트 hook + MCP 서버 게이트입니다. 인증을 통과한 명령만 실행됩니다.
 
-하나의 git 저장소에 하나의 공유 코어(npm workspaces)를 두고, 네 개의 호스트 플러그인(Claude Code, Codex, Cursor, Antigravity)을 각 호스트의 네이티브 방식으로 설치합니다. **Claude Code와 Codex는 정식 지원 호스트이고, Cursor와 Antigravity는 아직 베타 버전**입니다(크래시·버그 발생 가능). 플러그인은 npm으로 배포되지 않으며, `transcodes` CLI만 npm으로 배포됩니다. 저장소, 제품, 플러그인 모두 `transcodes-guard`라는 이름을 씁니다.
+하나의 git 저장소에 하나의 공유 코어(npm workspaces)를 두고, 네 개의 호스트 플러그인(Claude Code, Codex, Cursor, Antigravity)을 각 호스트의 네이티브 방식으로 설치합니다. **Claude Code, Codex, Antigravity는 정식 지원 호스트이고, Cursor는 아직 베타 버전**입니다(크래시·버그 발생 가능). 플러그인은 npm으로 배포되지 않으며, `transcodes` CLI만 npm으로 배포됩니다. 저장소, 제품, 플러그인 모두 `transcodes-guard`라는 이름을 씁니다.
 
 모든 호스트에서 Node.js >= 20이 필요합니다.
 
 ## 설치
 
-### Claude Code
+**순서대로** 진행하세요. 토큰이 없으면 플러그인은 위험 명령을 DENY할 수는 있지만 step-up 세션은 열지 못합니다.
+
+### 1. CLI 설치
+
+```bash
+npm install -g @bigstrider/transcodes-cli
+transcodes
+```
+
+`transcodes`는 로컬 대시보드를 엽니다(기본 포트 3847). 또는: `npx @bigstrider/transcodes-cli`.
+
+### 2. Transcodes Console에서 프로젝트 생성 후 토큰 입력
+
+1. [Transcodes Console](https://app.transcodes.io)에서 프로젝트를 만들고, auth cluster·멤버를 설정한 뒤 멤버 상세 페이지에서 access token(멤버 MCP JWT)을 발급합니다. 대시보드 **Getting Started** 가이드도 같은 흐름입니다.
+2. 대시보드 **Tokens** 탭에 토큰을 붙여넣고, 필수 label(예: `transcodes-{project}-{env}`)을 입력한 뒤 **Save**합니다.
+
+토큰은 `~/.transcodes/config.json`에 저장되며 모든 호스트 플러그인이 공유합니다. 비대화형: `transcodes set <token> -l <label>`.
+
+### 3. 플러그인 설치
+
+#### Claude Code
 
 Claude Code가 기본 호스트입니다. 이 저장소가 곧 마켓플레이스이므로, Claude Code 세션에서 다음 두 줄만 실행하면 됩니다.
 
@@ -45,9 +66,9 @@ Claude Code가 기본 호스트입니다. 이 저장소가 곧 마켓플레이�
 }
 ```
 
-### Codex
+#### Codex
 
-사전 요구사항: 플러그인 + hooks를 지원하는 Codex CLI 빌드(`codex plugin --help`가 동작해야 함), Node >= 20.
+사전 요구사항: 플러그인 + hooks를 지원하는 Codex CLI 빌드(`codex plugin --help`가 동작해야 함), Node >= 20. 먼저 [§1](#1-cli-설치)–[§2](#2-transcodes-console에서-프로젝트-생성-후-토큰-입력)을 완료하세요.
 
 **1단계 — Codex 마켓플레이스로 설치.** 저장소는 `./plugins/codex`를 가리키는 Codex 카탈로그인 `.agents/plugins/marketplace.json`을 제공합니다. `codex plugin marketplace add`는 GitHub 저장소를 직접 받습니다(Codex가 알아서 클론). `dist/`가 커밋돼 있어 수동 클론·빌드가 필요 없습니다.
 
@@ -61,13 +82,9 @@ Codex는 legacy `.claude-plugin/marketplace.json`보다 `.agents/plugins/marketp
 
 **2단계 — 최초 실행.** Codex가 일회성 hook 신뢰 검토(trust review)를 띄웁니다(`/hooks`로 확인). 한 번 승인하세요. `--dangerously-bypass-hook-trust`는 사용하지 **마세요**.
 
-**3단계 — 토큰 저장**(멤버 MCP JWT). 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`를 실행하면 로컬 대시보드가 열립니다(터미널에 URL 출력, 기본 포트 3847) — 거기에 토큰을 붙여넣으세요(`~/.transcodes/config.json`에 저장되어 모든 세션이 읽음). 비대화형: `transcodes set <token> -l <label>`. 토큰이 없으면 hook은 위험 명령을 여전히 DENY 하지만 step-up 세션은 열지 못합니다.
+#### Antigravity
 
-### Antigravity (Beta)
-
-> ⚠️ **베타** — Antigravity 플러그인은 아직 베타 버전이라 크래시나 버그가 발생할 수 있고, 설치 방법과 API가 바뀔 수 있습니다. 안정적인 사용에는 **Claude Code** 또는 **Codex** 플러그인을 권장합니다.
-
-사전 요구사항: **Node >= 20**, **Google Antigravity 2.0**(데스크톱 앱 또는 `agy` CLI). CLI가 없으면 먼저 설치하세요:
+사전 요구사항: **Node >= 20**, **Google Antigravity 2.0**(데스크톱 앱 또는 `agy` CLI), 그리고 [§2](#2-transcodes-console에서-프로젝트-생성-후-토큰-입력)에서 저장한 토큰. Antigravity CLI가 없으면 먼저 설치하세요:
 
 ```bash
 curl -fsSL https://antigravity.google/cli/install.sh | bash
@@ -83,19 +100,17 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 
 같은 한 줄을 재실행하면 in-place 업데이트됩니다.
 
-토큰도 저장하세요 — 권장: `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`.
-
 > **`agy plugin install https://github.com/transcodings/transcodes-guard`는 사용하지 마세요.** 이 명령은 저장소를 bulk 멀티플러그인 카탈로그로 보고 Antigravity용뿐 아니라 Claude Code 어댑터까지 함께 설치합니다(와이어 포맷 불일치). `__PLUGIN_DIR__` 경로 치환도 건너뛰어 hook/MCP가 런타임에 실패합니다. 위 한 줄 명령을 사용하세요.
 >
 > **기여자 / 워크스페이스 전용:** 저장소를 클론한 뒤 `node plugins/antigravity/install.mjs --local` (`<cwd>/.agents/plugins/transcodes-guard`에 복사).
 
 > 참고: Antigravity의 hook matcher는 `run_command|mcp_.*|call_mcp_tool`로, 셸 실행 **및** MCP tool 호출을 게이트합니다 — Antigravity가 범용 `call_mcp_tool` 래퍼로 dispatch하는 lazy-loaded 호출까지 포함합니다(어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑). 파일 편집 도구(`write_to_file` 등)는 게이트되지 않습니다.
 
-### Cursor (Beta)
+#### Cursor (Beta)
 
 > ⚠️ **베타** — Cursor 플러그인은 아직 베타 버전이라 크래시나 버그가 발생할 수 있고, 설치 방법과 API가 바뀔 수 있습니다. 안정적인 사용에는 **Claude Code** 또는 **Codex** 플러그인을 권장합니다.
 
-사전 요구사항: **Node >= 20**, Hooks가 켜진 Cursor **데스크톱**(Settings → Hooks). 2026-05 기준 Cloud Agent는 `beforeShellExecution` / `beforeMCPExecution` hook을 실행하지 않습니다.
+사전 요구사항: **Node >= 20**, Hooks가 켜진 Cursor **데스크톱**(Settings → Hooks), 그리고 [§2](#2-transcodes-console에서-프로젝트-생성-후-토큰-입력)에서 저장한 토큰. 2026-05 기준 Cloud Agent는 `beforeShellExecution` / `beforeMCPExecution` hook을 실행하지 않습니다.
 
 **한 줄**로 설치합니다 — 수동 `cd`, `npm install`, 빌드 불필요(`dist/` 커밋됨):
 
@@ -107,36 +122,12 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 
 **첫 실행:** 일회성 hook 신뢰 검토를 승인합니다(커맨드 팔레트 → **Cursor: Review Hooks**).
 
-**토큰 저장:** `npm install -g @bigstrider/transcodes-cli` 후 `transcodes`(대시보드). 비대화형: `transcodes set <token> -l <label>`.
-
 **CLI Agent 참고:** `~/.cursor/cli-config.json`에 `"approvalMode": "unrestricted"`(Run Everything)이거나 Shell/MCP가 allowlist에 미리 등록돼 있으면, Cursor가 gate hook 없이 도구를 실행할 수 있습니다. 게이트를 타게 하려면 `"approvalMode": "allowlist"`로 바꾸고 allowlist에서 해당 항목을 제거하세요.
 
 > **기여자 / 워크스페이스 전용:** 저장소를 클론한 뒤 `node plugins/cursor/install.mjs --local` (`<cwd>/.cursor/plugins/transcodes-guard` + `<cwd>/.cursor/hooks.json`).
 
 > **선택 — Team Marketplace:** Teams/Enterprise 관리자는 `https://github.com/transcodings/transcodes-guard`를 팀 마켓플레이스로 import해 Required/Optional로 배포할 수 있습니다. Marketplace만으로는 user-level hook이 항상 등록되지 않을 수 있으므로, 안정적인 게이트 연동을 위해 위 `install.mjs` one-liner를 함께 실행하세요.
 
-## CLI 설치
-
-`@bigstrider/transcodes-cli`(bin: `transcodes`)는 사람이 다루는 컨트롤 플레인입니다. hooks와 MCP 서버가 읽는 멤버 토큰을 저장하고 `~/.transcodes/`를 소유하며, 플러그인이 아닌 토큰·대시보드 도구이므로 플러그인과 달리 npm에 **배포됩니다**.
-
-```bash
-npx @bigstrider/transcodes-cli            # 설치 없이 대시보드 실행
-npm install -g @bigstrider/transcodes-cli # 또는 전역 설치 → `transcodes` 명령
-```
-
-명령:
-
-- `transcodes` (인자 없음) — GUI 대시보드
-- `transcodes set <token> -l <label>` — 토큰 저장
-- `transcodes tokens` — 저장된 토큰 목록
-- `transcodes status` — 활성 토큰 소스 + 만료
-- `transcodes console` — 브라우저에서 인증 설정(passkey, TOTP) 열기
-- `transcodes reset` — 저장된 토큰 전체 삭제
-- `transcodes policy refresh` — 조직 정책 번들 캐시 강제 갱신
-- `transcodes version` — 설치된 CLI 버전 출력
-- `transcodes help` — 전체 명령 목록과 사용법
-
-멤버 토큰은 `~/.transcodes/config.json`에 저장되며, hooks와 MCP 서버가 공유 resolver를 통해 읽습니다. CLI에는 게이트 on/off 토글이 **없습니다** — 보호를 끄려면 호스트의 네이티브 방식으로 플러그인을 비활성화하거나 제거하세요.
 
 ## 주요 기능
 
@@ -157,7 +148,7 @@ npm install -g @bigstrider/transcodes-cli # 또는 전역 설치 → `transcodes
 - `simulate_command`
 - `simulate_hook_invocation` — **실제** hook 바이너리를 실행합니다(드라이런이 아니며, 검증 레코드를 소모하거나 브라우저를 열 수 있습니다).
 
-step-up이 실제로 시작되려면 토큰(멤버 MCP JWT)이 필요합니다. 권장: CLI 설치(`npm install -g @bigstrider/transcodes-cli`) 후 `transcodes`를 실행해 대시보드에서 입력하세요. 비대화형: `transcodes set <token> -l <label>`.
+step-up이 실제로 시작되려면 토큰(멤버 MCP JWT)이 필요합니다 — 게이트를 쓰려면 먼저 [§1](#1-cli-설치)–[§2](#2-transcodes-console에서-프로젝트-생성-후-토큰-입력)을 완료하세요.
 
 ### tool_rules (보호 대상 MCP tools)
 

@@ -3,6 +3,7 @@
 **English** | [한국어](./README.ko.md)
 
 <p align="center">
+  <a href="https://transcodes.io"><img src="https://img.shields.io/badge/Website-transcodes.io-7B61FF?style=flat" alt="transcodes.io" /></a>
   <a href="https://x.com/hellotranscodes"><img src="https://img.shields.io/badge/Follow-%40hellotranscodes-000000?style=flat&logo=x&logoColor=white" alt="Follow on X" /></a>
   <a href="https://discord.gg/YA4y3WdBr"><img src="https://img.shields.io/badge/Join-Discord-5865F2?style=flat&logo=discord&logoColor=white" alt="Join Discord" /></a>
   <a href="https://www.youtube.com/@hellotranscodes"><img src="https://img.shields.io/badge/Subscribe-YouTube-FF0000?style=flat&logo=youtube&logoColor=white" alt="Subscribe on YouTube" /></a>
@@ -11,7 +12,7 @@
 <p align="center">
   <a href="#claude-code"><img src="https://img.shields.io/badge/supports-Claude_Code-CC785C?style=flat&logo=anthropic&logoColor=white" alt="Claude Code" /></a>
   <a href="#cursor-beta"><img src="https://img.shields.io/badge/supports-Cursor-000000?style=flat&logo=cursor&logoColor=white" alt="Cursor" /></a>
-  <a href="#antigravity-beta"><img src="https://img.shields.io/badge/supports-Antigravity-4285F4?style=flat&logo=google&logoColor=white" alt="Antigravity" /></a>
+  <a href="#antigravity"><img src="https://img.shields.io/badge/supports-Antigravity-4285F4?style=flat&logo=google&logoColor=white" alt="Antigravity" /></a>
   <a href="#codex"><img src="https://img.shields.io/badge/supports-ChatGPT-412991?style=flat&logo=openai&logoColor=white" alt="ChatGPT (Codex)" /></a>
 </p>
 
@@ -19,13 +20,33 @@
 
 `transcodes-guard` is a host-hook + MCP-server gate that intercepts risky shell commands (and protected MCP tool calls) from AI coding agents _right before execution_ and forces a Transcodes Step-up MFA (WebAuthn) challenge against the Transcodes backend. Only verified commands run.
 
-It is one git repo with one shared core (npm workspaces) and four host plugins — Claude Code, Codex, Cursor, and Antigravity — each installed via its native mechanism. **Claude Code and Codex are stable and supported; Cursor and Antigravity are still in beta** (may crash or misbehave). The plugins are not distributed via npm; only the `transcodes` CLI is. The repo, product, and plugins are all named `transcodes-guard`.
+It is one git repo with one shared core (npm workspaces) and four host plugins — Claude Code, Codex, Cursor, and Antigravity — each installed via its native mechanism. **Claude Code, Codex, and Antigravity are stable and supported; Cursor is still in beta** (may crash or misbehave). The plugins are not distributed via npm; only the `transcodes` CLI is. The repo, product, and plugins are all named `transcodes-guard`.
 
 Node.js >= 20 is required for all hosts.
 
 ## Installation
 
-### Claude Code
+Do this **in order**. Without a token the plugin can still DENY danger commands, but it cannot open a step-up session.
+
+### 1. Install the CLI
+
+```bash
+npm install -g @bigstrider/transcodes-cli
+transcodes
+```
+
+`transcodes` opens the local dashboard (default port 3847). Or: `npx @bigstrider/transcodes-cli`.
+
+### 2. Create a project in Transcodes Console and save the token
+
+1. In the [Transcodes Console](https://app.transcodes.io), create a project, set up an auth cluster and member, then issue an access token (member MCP JWT) from the member detail page. The dashboard **Getting Started** guide walks through the same steps.
+2. In the dashboard **Tokens** tab, paste the token, set a required label (e.g. `transcodes-{project}-{env}`), and **Save**.
+
+The token is stored at `~/.transcodes/config.json` and shared by every host plugin. Non-interactive: `transcodes set <token> -l <label>`.
+
+### 3. Install a host plugin
+
+#### Claude Code
 
 Claude Code is the primary host. The marketplace **is** this repo. Run two lines in a Claude Code session:
 
@@ -47,7 +68,7 @@ For team auto-registration, add this to your project's `.claude/settings.json`:
 }
 ```
 
-#### How to write prompt
+##### How to write prompt
 
 Type `/transcodes`, press **Tab** to select **transcodes-guard**, then type your request.
 
@@ -61,9 +82,9 @@ Example:
 /transcodes make transcodes google calendar event custom rule
 ```
 
-### Codex
+#### Codex
 
-Prerequisites: a Codex CLI build with plugin + hooks support (`codex plugin --help` should work), Node >= 20.
+Prerequisites: a Codex CLI build with plugin + hooks support (`codex plugin --help` should work), Node >= 20. Complete [§1](#1-install-the-cli)–[§2](#2-create-a-project-in-transcodes-console-and-save-the-token) first.
 
 **Step 1 — install via the Codex marketplace.** The repo ships `.agents/plugins/marketplace.json`, a Codex catalog pointing at `./plugins/codex`. `codex plugin marketplace add` accepts a GitHub repo directly (Codex clones it for you), and `dist/` is committed, so no manual clone or build is needed:
 
@@ -77,9 +98,7 @@ Codex resolves `.agents/plugins/marketplace.json` ahead of the legacy `.claude-p
 
 **Step 2 — first run.** Codex prompts a one-time hook trust review (`/hooks` to inspect). Approve it once. Do **not** use `--dangerously-bypass-hook-trust`.
 
-**Step 3 — save your token** (the member MCP JWT) so step-up can start. Recommended: `npm install -g @bigstrider/transcodes-cli` then run `transcodes` to open the local dashboard (URL printed in the terminal; default port 3847) and paste your token (persisted to `~/.transcodes/config.json` for every session). Non-interactive: `transcodes set <token> -l <label>`. Without a token, the hook still DENIES danger commands but cannot open a step-up session.
-
-#### How to write prompt
+##### How to write prompt
 
 Type `$transcodes`, press **Tab** to select **transcodes-guard**, then type your request.
 
@@ -93,11 +112,9 @@ Example:
 $transcodes make transcodes google calendar event custom rule
 ```
 
-### Antigravity (Beta)
+#### Antigravity
 
-> ⚠️ **Beta** — the Antigravity plugin is still in beta and may crash or misbehave; the install flow and APIs may change. For production use, prefer the **Claude Code** or **Codex** plugins.
-
-Prerequisites: **Node >= 20** and **Google Antigravity 2.0** (desktop app or the `agy` CLI). Install the CLI if you do not have it yet:
+Prerequisites: **Node >= 20**, **Google Antigravity 2.0** (desktop app or the `agy` CLI), and a saved token from [§2](#2-create-a-project-in-transcodes-console-and-save-the-token). Install the Antigravity CLI if you do not have it yet:
 
 ```bash
 curl -fsSL https://antigravity.google/cli/install.sh | bash
@@ -113,9 +130,7 @@ The bundled installer copies the Antigravity plugin into `~/.gemini/config/plugi
 
 Re-run the same one-liner to update in place.
 
-Also save your token — recommended: `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
-
-#### How to write prompt
+##### How to write prompt
 
 Type `/transcodes`, press **Tab** to select **transcodes-guard**, then type your request.
 
@@ -135,11 +150,11 @@ Example:
 
 > Note: Antigravity's hook matcher is `run_command|mcp_.*|call_mcp_tool`, gating shell execution **and** MCP tool calls — including lazy-loaded calls that Antigravity routes through a generic `call_mcp_tool` wrapper (the adapter unwraps the real tool name from `args.ToolName`). File-edit tools (`write_to_file`, …) are not gated.
 
-### Cursor (Beta)
+#### Cursor (Beta)
 
 > ⚠️ **Beta** — the Cursor plugin is still in beta and may crash or misbehave; the install flow and APIs may change. For production use, prefer the **Claude Code** or **Codex** plugins.
 
-Prerequisites: **Node >= 20**, Cursor **desktop** with Hooks enabled (Settings → Hooks). Cloud agents do not run `beforeShellExecution` / `beforeMCPExecution` hooks as of 2026-05.
+Prerequisites: **Node >= 20**, Cursor **desktop** with Hooks enabled (Settings → Hooks), and a saved token from [§2](#2-create-a-project-in-transcodes-console-and-save-the-token). Cloud agents do not run `beforeShellExecution` / `beforeMCPExecution` hooks as of 2026-05.
 
 Then run **one line** — no manual `cd`, no `npm install`, no build step (`dist/` is committed):
 
@@ -151,15 +166,13 @@ The installer copies the plugin into `~/.cursor/plugins/local/transcodes-guard`,
 
 **First run:** approve the one-time hook trust review (command palette → **Cursor: Review Hooks**).
 
-**Save your token:** `npm install -g @bigstrider/transcodes-cli` then `transcodes` (dashboard). Non-interactive: `transcodes set <token> -l <label>`.
-
 **CLI Agent note:** if `~/.cursor/cli-config.json` has `"approvalMode": "unrestricted"` (Run Everything) or pre-approved Shell/MCP allowlist entries, Cursor may execute tools without calling gate hooks. Use `"approvalMode": "allowlist"` and remove allowlist entries you want the gate to intercept.
 
 > **Contributors / workspace-only install:** clone the repo and run `node plugins/cursor/install.mjs --local` (copies into `<cwd>/.cursor/plugins/transcodes-guard` and wires `<cwd>/.cursor/hooks.json`).
 
 > **Optional — Team Marketplace:** Teams/Enterprise admins can import `https://github.com/transcodings/transcodes-guard` as a team marketplace and assign the plugin as Required/Optional. Marketplace install alone does not always register user-level hooks; still run `install.mjs` above for reliable gate wiring.
 
-#### How to write prompt
+##### How to write prompt
 
 Type `/transcodes`, press **Tab** to select **transcodes-guard**, then type your request.
 
@@ -172,29 +185,6 @@ Example:
 ```text
 /transcodes make transcodes google calendar event custom rule
 ```
-
-## CLI installation
-
-`@bigstrider/transcodes-cli` (bin: `transcodes`) is the human control plane: it stores the member token that the hooks and MCP server read, and it owns `~/.transcodes/`. Unlike the plugins, it **is** published to npm. It is not a plugin — it is the token + dashboard tool.
-
-```bash
-npx @bigstrider/transcodes-cli            # run the dashboard without installing
-npm install -g @bigstrider/transcodes-cli # or install globally → `transcodes` command
-```
-
-Commands:
-
-- `transcodes` (no args) — GUI dashboard
-- `transcodes set <token> -l <label>` — store a token
-- `transcodes tokens` — list stored tokens
-- `transcodes status` — active token source + expiry
-- `transcodes console` — open auth settings (passkeys, TOTP) in your browser
-- `transcodes reset` — delete all saved tokens
-- `transcodes policy refresh` — force-refresh the org policy bundle cache
-- `transcodes version` — print the installed CLI version
-- `transcodes help` — full command list and usage
-
-The member token is stored at `~/.transcodes/config.json`; the hooks and the MCP server read it via the shared resolver. There is **no** gate on/off toggle in the CLI — to turn protection off, disable or uninstall the plugin via the host's native mechanism.
 
 ## Key features
 
@@ -215,7 +205,7 @@ Diagnostics MCP tools:
 - `simulate_command`
 - `simulate_hook_invocation` — spawns the **real** hook binary (not a dry run; it can consume a verified record or open a browser).
 
-A token (the member MCP JWT) is required for step-up to actually start. Recommended: install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to enter it in the dashboard. Non-interactive: `transcodes set <token> -l <label>`.
+A token (the member MCP JWT) is required for step-up to actually start — complete [§1](#1-install-the-cli)–[§2](#2-create-a-project-in-transcodes-console-and-save-the-token) before relying on the gate.
 
 ### tool_rules (protected MCP tools)
 
