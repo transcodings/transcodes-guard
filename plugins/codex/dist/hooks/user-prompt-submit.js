@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import "../chunk-F63K2CSZ.js";
+import "../chunk-Y5R2VWPX.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";
