@@ -17,7 +17,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { objectOutputType, ZodRawShape, ZodTypeAny } from 'zod';
 import type { RbacAction } from '../patterns/index.js';
-import type { StepupConfig } from '../stepup/index.js';
+import type { Envelope, StepupConfig } from '../stepup/index.js';
 /** How the tool reaches its capability — mirrors the TOOL CATALOG badges. */
 export type ToolAccess = 'api' | 'console-only' | 'gate';
 /** Display order for TOOL CATALOG sections (docs + CLI). */
@@ -81,11 +81,15 @@ export interface PlainToolDefinition extends GuardToolMetadata {
  * recovery guidance. Enforcement itself is backend-owned; the handler sends
  * no step-up header. `config` is loaded once by the wrapper, before the
  * handler body runs.
+ *
+ * `run` returns the typed HTTP `Envelope` (not display text) so the wrapper
+ * branches on `envelope.status` as a typed field; the wrapper owns
+ * serialization of the success/non-403 output.
  */
 export interface ProtectedToolDefinition extends GuardToolMetadata {
     inputSchema: ZodRawShape;
     stepUp: GuardToolStepUp;
-    run: (config: StepupConfig, args: never) => Promise<string>;
+    run: (config: StepupConfig, args: never) => Promise<Envelope>;
 }
 export type GuardToolDefinition = PlainToolDefinition | ProtectedToolDefinition;
 /**
@@ -101,7 +105,7 @@ export declare function defineTool<S extends ZodRawShape>(def: GuardToolMetadata
 export declare function defineProtectedTool<S extends ZodRawShape>(def: GuardToolMetadata & {
     inputSchema: S;
     stepUp: GuardToolStepUp;
-    run: (config: StepupConfig, args: objectOutputType<S, ZodTypeAny>) => Promise<string>;
+    run: (config: StepupConfig, args: objectOutputType<S, ZodTypeAny>) => Promise<Envelope>;
 }): ProtectedToolDefinition;
 /**
  * Generic registration loop — the single `registerTool` call site per

@@ -61,7 +61,7 @@ export interface ToolRule {
   /**
    * @deprecated Read by nothing (t3). It used to pick which side consumed the
    * local verified record; there is no local record now — the backend owns
-   * verified state and the handler backstop claims an in-memory sid instead.
+   * verified state outright, keyed on the step-up coordinate.
    * Kept in the shape so existing bundle rules and backend verdicts still parse;
    * do not branch on it.
    */

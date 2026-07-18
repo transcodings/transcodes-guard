@@ -58,6 +58,27 @@ const ENDPOINT_MAP = {
     user_find: '/user',
 };
 /**
+ * Typed variant of `req` for step-up-protected `run` handlers: returns the
+ * HTTP `Envelope` itself so `wrapProtectedTool` branches on `status` as a
+ * typed field and owns serialization. An endpoint-map miss (programming
+ * error — every protected tool name is in the map) degrades to a non-403
+ * error envelope instead of throwing.
+ */
+export async function reqEnvelope(config, input, toolName, pathSuffix) {
+    const base = ENDPOINT_MAP[toolName];
+    if (!base) {
+        return {
+            ok: false,
+            status: 0,
+            data: {
+                error: `Tool '${toolName}' is not in this plugin's endpoint map.`,
+            },
+        };
+    }
+    const path = pathSuffix ? `${base}${pathSuffix}` : base;
+    return request(config, { ...input, path });
+}
+/**
  * Resolve the tool's base path from ENDPOINT_MAP + optional `pathSuffix`
  * and call the backend. Returns a JSON-stringified envelope so the model
  * sees a stable shape regardless of HTTP outcome (success, 4xx, network

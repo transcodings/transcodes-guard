@@ -31,8 +31,13 @@ function sanitizeFailureText(text) {
         ? `${flat.slice(0, FAILURE_MESSAGE_MAX_LENGTH)}…`
         : flat;
 }
-/** Pull human-readable failure text out of the backend error envelope. */
-function extractFailureMessage(data) {
+/**
+ * Pull human-readable failure text out of the backend error envelope.
+ * Handles the exception-filter shape (`error` + `logId`), NestJS validation
+ * arrays (`message: string[]`), and sanitizes/caps the result. Also consumed
+ * by gate-backend's 403 → `STEP_UP_REQUIRED` translation (`wrapProtectedTool`).
+ */
+export function extractFailureMessage(data) {
     if (!data || typeof data !== 'object')
         return undefined;
     const o = data;

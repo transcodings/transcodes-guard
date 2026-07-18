@@ -48,10 +48,11 @@ export {
   parseMemberAccessToken,
   REQUIRED_AUDIENCE,
 } from './jwt.js';
-export type {
-  GuardStepUpStatus,
-  GuardVerdict,
-  RbacLevel,
+export {
+  extractFailureMessage,
+  type GuardStepUpStatus,
+  type GuardVerdict,
+  type RbacLevel,
 } from './rbac-check.js';
 export {
   type CreateConsoleSessionArgs,

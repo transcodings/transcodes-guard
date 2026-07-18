@@ -17,7 +17,7 @@ import {
   defineProtectedBackendTool,
   textResult,
 } from './define.js';
-import { req } from './transcodes-client.js';
+import { req, reqEnvelope } from './transcodes-client.js';
 
 const PROJECT_ID_GUIDANCE =
   'project_id in the body must be the TRANSCODES_TOKEN project id (pid claim); it is not configurable per tool call.';
@@ -115,7 +115,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     title: 'Retire role',
     description:
       'Retire a role from the project. Use when the user wants to remove, drop, or discard a role. ' +
-      'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-role`). ' +
+      'Verified action — step-up MFA enforced by the backend StepUpSessionGuard on the API call. ' +
       'Body { project_id } is injected from TRANSCODES_TOKEN by the server.',
     summary: 'Permanently retire a role from the project.',
     category: 'RBAC',
@@ -131,7 +131,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
       role_id: z.string(),
     },
     run: (config, { role_id }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'DELETE',
@@ -149,7 +149,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
       'Set per-resource permission matrix for a role. 0=deny, 1=allow, 2=allow+step-up. ' +
       'Requires the caller MAT role to have system/update >= 1; calls at level 0 are denied. ' +
       'If denied, an admin must edit RBAC at https://app.transcodes.io → RBAC → Roles. ' +
-      'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-set-role-permissions`).',
+      'Verified action — step-up MFA enforced by the backend StepUpSessionGuard on the API call.',
     summary:
       'Set per-resource permission matrix for a role (0=deny, 1=allow, 2=step-up). Requires caller system/update >= 1; calls at level 0 are denied.',
     category: 'RBAC',
@@ -168,7 +168,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
       }),
     },
     run: (config, { role_id, body }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'PUT',
@@ -188,7 +188,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
       "writes `role` unchecked). Use this whenever the user wants to change a member's role. " +
       'Requires the caller MAT role to have system/update >= 1; calls at level 0 are denied. ' +
       'If denied, an admin must edit RBAC at https://app.transcodes.io → RBAC → Roles. ' +
-      'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-update-member-role`).',
+      'Verified action — step-up MFA enforced by the backend StepUpSessionGuard on the API call.',
     summary:
       "Change a member's assigned role (validates the role exists). Requires caller system/update >= 1; calls at level 0 are denied.",
     category: 'RBAC',
@@ -207,7 +207,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
       }),
     },
     run: (config, { body }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'PUT',
@@ -222,7 +222,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     title: 'Retire resource',
     description:
       'Retire a resource key from the project. Use when the user wants to remove, drop, or discard a resource. ' +
-      'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-resource`). ' +
+      'Verified action — step-up MFA enforced by the backend StepUpSessionGuard on the API call. ' +
       'Path: resource_key. Query: project_id. No JSON body.',
     summary: 'Permanently retire an RBAC resource key.',
     category: 'RBAC',
@@ -238,7 +238,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
       resource_key: z.string(),
     },
     run: (config, { resource_key }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'DELETE',
@@ -255,7 +255,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     title: 'Create role',
     description:
       'Create a new role (CreateRoleDto). Use before set_role_permissions to fill per-resource access. ' +
-      'RBAC-gated via tool-rule `tc-create-role` (0=block, 1=allow, 2=step-up MFA). ' +
+      'RBAC-gated by the backend StepUpSessionGuard (0=block, 1=allow, 2=step-up MFA). ' +
       PROJECT_ID_GUIDANCE,
     summary: 'Create a new role before setting permissions.',
     category: 'RBAC',
@@ -274,7 +274,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
       }),
     },
     run: (config, { body }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'POST',
@@ -289,7 +289,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     title: 'Update role',
     description:
       'Update role metadata (UpdateRoleDto). ' +
-      'RBAC-gated via tool-rule `tc-update-role` (0=block, 1=allow, 2=step-up MFA). ' +
+      'RBAC-gated by the backend StepUpSessionGuard (0=block, 1=allow, 2=step-up MFA). ' +
       PROJECT_ID_GUIDANCE,
     summary: 'Update role metadata (description).',
     category: 'RBAC',
@@ -308,7 +308,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
       }),
     },
     run: (config, { role_id, body }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'PUT',
@@ -326,7 +326,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
       'Add a new resource key (CreateResourceDto). Every existing role is initialized with the ' +
       'default permission matrix for the new key: read = allow (1), and create/update/delete = ' +
       'allow + step-up MFA (2). ' +
-      'RBAC-gated via tool-rule `tc-create-resource` (0=block, 1=allow, 2=step-up MFA). ' +
+      'RBAC-gated by the backend StepUpSessionGuard (0=block, 1=allow, 2=step-up MFA). ' +
       PROJECT_ID_GUIDANCE,
     summary:
       'Add a new RBAC resource key (every role initialized to read=allow, write=allow+step-up).',
@@ -347,7 +347,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
       }),
     },
     run: (config, { body }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'POST',
@@ -362,7 +362,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
     title: 'Update resource',
     description:
       'Update resource label/description (UpdateResourceDto). Key stays the same. ' +
-      'RBAC-gated via tool-rule `tc-update-resource` (0=block, 1=allow, 2=step-up MFA). ' +
+      'RBAC-gated by the backend StepUpSessionGuard (0=block, 1=allow, 2=step-up MFA). ' +
       PROJECT_ID_GUIDANCE,
     summary: 'Update resource label/description.',
     category: 'RBAC',
@@ -381,7 +381,7 @@ export const rbacToolDefinitions: readonly GuardToolDefinition[] = [
       }),
     },
     run: (config, { resource_key, body }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'PATCH',

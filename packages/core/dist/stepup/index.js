@@ -17,6 +17,7 @@ export { evaluatePreToolUse, GATE_DECISION_KIND, } from './evaluate.js';
 export { openBrowser } from './gate.js';
 export { inspectStepupState, } from './inspector.js';
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
+export { extractFailureMessage, } from './rbac-check.js';
 export { createConsoleBrowserSession, createStepupSession, pollStepupByCoordinate, pollStepupSession, pollStepupSessionWait, } from './session.js';
 export { clearTokenFile, readTokenFromFile, readTokenList, readTokenRecords, removeTokenFromFile, resolveToken, setActiveToken, setTokenLabel, transcodesConfigDir, transcodesConfigFile, writeTokenToFile, } from './token-store.js';
 //# sourceMappingURL=index.js.map

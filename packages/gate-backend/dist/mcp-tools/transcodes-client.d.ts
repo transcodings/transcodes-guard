@@ -9,8 +9,16 @@
  * header. A 403 from a protected call is translated to `STEP_UP_REQUIRED`
  * by `wrapProtectedTool` (stepup-helper.ts).
  */
-import { type HttpRequestInput as RequestInput, type StepupConfig } from '@transcodes-guard/core/stepup';
+import { type Envelope, type HttpRequestInput as RequestInput, type StepupConfig } from '@transcodes-guard/core/stepup';
 export type ReqInput = Omit<RequestInput, 'path'>;
+/**
+ * Typed variant of `req` for step-up-protected `run` handlers: returns the
+ * HTTP `Envelope` itself so `wrapProtectedTool` branches on `status` as a
+ * typed field and owns serialization. An endpoint-map miss (programming
+ * error — every protected tool name is in the map) degrades to a non-403
+ * error envelope instead of throwing.
+ */
+export declare function reqEnvelope(config: StepupConfig, input: ReqInput, toolName: string, pathSuffix?: string): Promise<Envelope>;
 /**
  * Resolve the tool's base path from ENDPOINT_MAP + optional `pathSuffix`
  * and call the backend. Returns a JSON-stringified envelope so the model

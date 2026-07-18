@@ -15,7 +15,7 @@ import {
   defineProtectedBackendTool,
   textResult,
 } from './define.js';
-import { req } from './transcodes-client.js';
+import { req, reqEnvelope } from './transcodes-client.js';
 
 const MEMBER_SUSPENSION_API_NOTE =
   'Exact path after /v1: /auth/member/revocation (singular member, NOT members). ' +
@@ -155,7 +155,7 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
     description:
       'PERMANENTLY delete a member from the project (kill switch — irreversible). ' +
       'Use only when the user wants to fully delete / remove a member; for a temporary block use suspend_member. ' +
-      'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-retire-member`). ' +
+      'Verified action — step-up MFA enforced by the backend StepUpSessionGuard on the API call. ' +
       'Body: { member_id } — project_id comes from TRANSCODES_TOKEN.',
     summary: 'Permanently delete a member — irreversible kill switch.',
     category: 'Members',
@@ -171,7 +171,7 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
       body: z.object({ member_id: z.string() }),
     },
     run: (config, { body }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'DELETE',
@@ -186,7 +186,7 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
     title: 'Suspend member (reversible)',
     description:
       'Temporarily SUSPEND a member: blocks login and invalidates active sessions. Reversible via unsuspend_member. ' +
-      'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-suspend-member`). ' +
+      'Verified action — step-up MFA enforced by the backend StepUpSessionGuard on the API call. ' +
       MEMBER_SUSPENSION_API_NOTE,
     summary:
       'Temporarily suspend a member; blocks login and invalidates sessions.',
@@ -203,7 +203,7 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
       body: z.object({ member_id: z.string() }),
     },
     run: (config, { body }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'POST',
@@ -218,7 +218,7 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
     title: 'Unsuspend member',
     description:
       "Lift a member's suspension and restore their ability to log in and create sessions. Use only on members previously suspended. " +
-      'Verified action — step-up MFA enforced by the PreToolUse hook (tool-rule `tc-unsuspend-member`). ' +
+      'Verified action — step-up MFA enforced by the backend StepUpSessionGuard on the API call. ' +
       MEMBER_SUSPENSION_API_NOTE,
     summary: 'Lift a member suspension and restore login ability.',
     category: 'Members',
@@ -234,7 +234,7 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
       body: z.object({ member_id: z.string() }),
     },
     run: (config, { body }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'DELETE',
@@ -249,7 +249,7 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
     title: 'Create member',
     description:
       'Create a member (CreateMemberDto). member_id/name may be auto-generated. Use for onboarding or manual provisioning. ' +
-      'RBAC-gated via tool-rule `tc-create-member` (0=block, 1=allow, 2=step-up MFA). ' +
+      'RBAC-gated by the backend StepUpSessionGuard (0=block, 1=allow, 2=step-up MFA). ' +
       'Auth: TRANSCODES_TOKEN sent as x-transcodes-token (not in body).',
     summary: 'Create a member for onboarding or manual provisioning.',
     category: 'Members',
@@ -270,7 +270,7 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
       }),
     },
     run: (config, { body }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'POST',
@@ -285,7 +285,7 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
     title: 'Update member',
     description:
       'Update member PROFILE fields — name, email, metadata (UpdateMemberDto, flat shape). ' +
-      'RBAC-gated via tool-rule `tc-update-member` (0=block, 1=allow, 2=step-up MFA). ' +
+      'RBAC-gated by the backend StepUpSessionGuard (0=block, 1=allow, 2=step-up MFA). ' +
       'member_id is required — supply the target member explicitly (it may differ from the caller). ' +
       "To REASSIGN a member's ROLE, use `update_member_role` instead: it validates the role exists " +
       '(this tool writes `role` straight through with no validation). Prefer omitting `role` here.',
@@ -310,7 +310,7 @@ export const memberToolDefinitions: readonly GuardToolDefinition[] = [
       }),
     },
     run: (config, { body }) =>
-      req(
+      reqEnvelope(
         config,
         {
           method: 'PUT',

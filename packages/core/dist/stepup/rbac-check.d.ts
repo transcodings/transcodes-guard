@@ -52,6 +52,13 @@ export type GuardEvaluateResult = {
     verdict: GuardVerdict;
 } | GuardEvaluateFailure;
 /**
+ * Pull human-readable failure text out of the backend error envelope.
+ * Handles the exception-filter shape (`error` + `logId`), NestJS validation
+ * arrays (`message: string[]`), and sanitizes/caps the result. Also consumed
+ * by gate-backend's 403 → `STEP_UP_REQUIRED` translation (`wrapProtectedTool`).
+ */
+export declare function extractFailureMessage(data: unknown): string | undefined;
+/**
  * POST /v1/guard/evaluate — one round-trip: backend classifies the raw hook
  * payload, applies the matrix, and (for level 2) creates or reuses the
  * member-scoped coordinate step-up session. Every tool call (except built-in

@@ -14,7 +14,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { defineTool, formatPollStepupSessionWaitAgentContext, } from '../contract/index.js';
 import { isGuardToolName, isMcpWireToolName } from '../patterns/index.js';
-const MCP_TOOL_LOOKUP_NAME_GUIDANCE = 'MCP full wire name from the host PreToolUse hook (e.g. mcp__mongodb__list_collections). External mcp__* names are gated via POST /guard/evaluate; built-in transcodes-guard MCP skips the hook (handler backstop only).';
+const MCP_TOOL_LOOKUP_NAME_GUIDANCE = 'MCP full wire name from the host PreToolUse hook (e.g. mcp__mongodb__list_collections). External mcp__* names are gated via POST /guard/evaluate; built-in transcodes-guard MCP skips the hook (the backend StepUpSessionGuard enforces step-up on the API call itself).';
 function textResult(text, isError = false) {
     return {
         isError,
@@ -450,7 +450,7 @@ export function coreToolDefinitions(backend) {
                         tool_name,
                         matched: false,
                         will_trigger_hook: false,
-                        matched_by: 'transcodes-guard-handler',
+                        matched_by: 'transcodes-guard-builtin',
                         note: 'Built-in transcodes-guard MCP skips PreToolUse /guard/evaluate; the backend StepUpSessionGuard enforces step-up on the API call itself.',
                     }, null, 2));
                 }

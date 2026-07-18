@@ -10,6 +10,7 @@
  * by `wrapProtectedTool` (stepup-helper.ts).
  */
 import {
+  type Envelope,
   type HttpRequestInput as RequestInput,
   request,
   type StepupConfig,
@@ -75,6 +76,33 @@ const ENDPOINT_MAP: Readonly<Record<string, string>> = {
 };
 
 export type ReqInput = Omit<RequestInput, 'path'>;
+
+/**
+ * Typed variant of `req` for step-up-protected `run` handlers: returns the
+ * HTTP `Envelope` itself so `wrapProtectedTool` branches on `status` as a
+ * typed field and owns serialization. An endpoint-map miss (programming
+ * error — every protected tool name is in the map) degrades to a non-403
+ * error envelope instead of throwing.
+ */
+export async function reqEnvelope(
+  config: StepupConfig,
+  input: ReqInput,
+  toolName: string,
+  pathSuffix?: string,
+): Promise<Envelope> {
+  const base = ENDPOINT_MAP[toolName];
+  if (!base) {
+    return {
+      ok: false,
+      status: 0,
+      data: {
+        error: `Tool '${toolName}' is not in this plugin's endpoint map.`,
+      },
+    };
+  }
+  const path = pathSuffix ? `${base}${pathSuffix}` : base;
+  return request(config, { ...input, path });
+}
 
 /**
  * Resolve the tool's base path from ENDPOINT_MAP + optional `pathSuffix`
