@@ -1,5 +1,14 @@
 # Changelog
 
+
+## [0.56.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.6...transcodes-guard-v0.56.0) (2026-07-18)
+
+
+### Documentation
+
+* **readme:** reorder install (CLI → token → plugins) and promote Antigravity out of beta
+
+
 ## [0.55.6](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.55.5...transcodes-guard-v0.55.6) (2026-07-17)
 
 
