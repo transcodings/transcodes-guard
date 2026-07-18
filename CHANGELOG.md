@@ -1,6 +1,22 @@
 # Changelog
 
 
+## [0.58.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.57.0...transcodes-guard-v0.58.0) (2026-07-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **stepup:** 신 클라이언트는 구 백엔드(좌표 폴백 없음)와 조합 시 등급 2 built-in 툴이 인증 후에도 403이다. 백엔드 #393을 먼저 dev에 배포·검증한 뒤에 이 변경을 배포한다.
+
+### Features
+
+* **stepup:** execProtectedTool 백스톱 제거 — 집행을 백엔드 StepUpSessionGuard로 단일화 (t10) ([3d81240](https://github.com/transcodings/transcodes-guard/commit/3d812408d1b8e20e04ba47442209eb9799f15335))
+
+
+### Bug Fixes
+
+* **stepup:** PR [#216](https://github.com/transcodings/transcodes-guard/issues/216) 리뷰 반영 — 403 번역을 errorCode 분기 + 타입 Envelope로 재작업 ([e6396ad](https://github.com/transcodings/transcodes-guard/commit/e6396ad0f53c602d23d9877187ab3b2b45dca95e))
+
 ## [0.57.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.56.0...transcodes-guard-v0.57.0) (2026-07-18)
 
 
