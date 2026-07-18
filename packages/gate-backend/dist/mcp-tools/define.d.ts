@@ -12,7 +12,7 @@
  * exist only in core's definitions; a backend tool can never be meta.
  */
 import type { PlainToolDefinition, ProtectedToolDefinition, ToolTextResult } from '@transcodes-guard/core/contract';
-import type { StepupConfig } from '@transcodes-guard/core/stepup';
+import type { Envelope, StepupConfig } from '@transcodes-guard/core/stepup';
 import type { objectOutputType, ZodRawShape, ZodTypeAny } from 'zod';
 export declare function defineBackendTool<S extends ZodRawShape>(def: Omit<PlainToolDefinition, 'inputSchema' | 'handler' | 'meta'> & {
     meta: false;
@@ -22,7 +22,7 @@ export declare function defineBackendTool<S extends ZodRawShape>(def: Omit<Plain
 export declare function defineProtectedBackendTool<S extends ZodRawShape>(def: Omit<ProtectedToolDefinition, 'inputSchema' | 'run' | 'meta'> & {
     meta: false;
     inputSchema: S;
-    run: (config: StepupConfig, args: objectOutputType<S, ZodTypeAny>, sid: string | undefined) => Promise<string>;
+    run: (config: StepupConfig, args: objectOutputType<S, ZodTypeAny>) => Promise<Envelope>;
 }): ProtectedToolDefinition;
 /** Shared text-content result shape for backend tool handlers. */
 export declare function textResult(text: string, isError?: boolean): ToolTextResult;

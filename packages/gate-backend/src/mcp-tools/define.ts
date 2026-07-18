@@ -16,7 +16,7 @@ import type {
   ProtectedToolDefinition,
   ToolTextResult,
 } from '@transcodes-guard/core/contract';
-import type { StepupConfig } from '@transcodes-guard/core/stepup';
+import type { Envelope, StepupConfig } from '@transcodes-guard/core/stepup';
 import type { objectOutputType, ZodRawShape, ZodTypeAny } from 'zod';
 
 export function defineBackendTool<S extends ZodRawShape>(
@@ -36,8 +36,7 @@ export function defineProtectedBackendTool<S extends ZodRawShape>(
     run: (
       config: StepupConfig,
       args: objectOutputType<S, ZodTypeAny>,
-      sid: string | undefined,
-    ) => Promise<string>;
+    ) => Promise<Envelope>;
   },
 ): ProtectedToolDefinition {
   return def as unknown as ProtectedToolDefinition;

@@ -13,7 +13,7 @@
  * side. Error classes are wrapped in `is*Error` predicates for the same reason.
  */
 import { registerToolDefinitions, } from '@transcodes-guard/core/contract';
-import { createStepupSession, evaluatePreToolUse, inspectStepupState, loadStepupConfig, markStepupVerified, pollStepupByCoordinate, pollStepupSession, pollStepupSessionWait, resolveToken, } from '@transcodes-guard/core/stepup';
+import { createStepupSession, evaluatePreToolUse, inspectStepupState, loadStepupConfig, pollStepupByCoordinate, pollStepupSession, pollStepupSessionWait, resolveToken, } from '@transcodes-guard/core/stepup';
 import { assertRbacCoordinate, backendToolDefinitions, RbacCoordinateError, wrapProtectedTool, } from './mcp-tools/index.js';
 export const transcodesGateBackend = {
     // hook path — direct bindings
@@ -25,13 +25,12 @@ export const transcodesGateBackend = {
     pollStepupByCoordinate: (coordinate) => pollStepupByCoordinate(loadStepupConfig(), coordinate),
     pollStepupSessionWait: (target, options) => pollStepupSessionWait(loadStepupConfig(), target, options),
     inspectStepupState,
-    markStepupVerified,
     // server path: RBAC coordinate — config loaded internally, error wrapped
     assertRbacCoordinate: (resource, action) => assertRbacCoordinate(loadStepupConfig(), resource, action),
     isRbacCoordinateError: (e) => e instanceof RbacCoordinateError,
     // server path: backend-coupled MCP tools — one generic loop over the
     // definition data; stepUp-declaring definitions are wrapped in the
-    // execProtectedTool backstop by wrapProtectedTool.
+    // 403 → STEP_UP_REQUIRED translation by wrapProtectedTool.
     registerBackendTools: (server) => registerToolDefinitions(server, backendToolDefinitions, wrapProtectedTool),
 };
 //# sourceMappingURL=index.js.map

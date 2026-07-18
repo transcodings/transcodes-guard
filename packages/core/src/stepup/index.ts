@@ -49,7 +49,7 @@ export {
   REQUIRED_AUDIENCE,
 } from './jwt.js';
 export {
-  checkRbacPermission,
+  extractFailureMessage,
   type GuardStepUpStatus,
   type GuardVerdict,
   type RbacLevel,
@@ -83,8 +83,3 @@ export {
   transcodesConfigFile,
   writeTokenToFile,
 } from './token-store.js';
-export {
-  claimStepupVerified,
-  hasStepupVerified,
-  markStepupVerified,
-} from './verified-memory.js';

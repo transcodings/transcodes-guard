@@ -1,207 +1,137 @@
 /**
- * RBAC + optional step-up sid for protected MCP tool handlers.
- * Hook is first line; this re-checks on handler run (stdio/curl bypass backstop).
- * Matrix: 0=block, 1=pass (no sid), 2=step-up (verified sid required).
+ * Backend-403 → structured recovery translation for protected MCP tool
+ * handlers.
  *
- * Guard v3: the "verified" signal is no longer an on-disk record. The poll
- * tools mark a backend-verified sid in the server's in-memory verified set
- * (`verified-memory.ts`); this backstop consumes it single-shot via
- * `claimStepupVerified()`. Same long-lived MCP server process, so the mark →
- * claim handoff never crosses a process boundary.
+ * Enforcement is backend-owned: `StepUpSessionGuard` resolves RBAC and
+ * accepts step-up via the coordinate verified cache
+ * (`stepup:{project}:{member}:{resource}:{action}`), so the handler sends no
+ * step-up header and re-checks nothing. The wrapper's only job is recovery
+ * guidance, branched on the guard's machine-readable `errorCode`:
+ *
+ * - `STEP_UP_REQUIRED` (or absent — legacy backend) → the coordinate is
+ *   unlockable: guide create → WebAuthn → poll → retry.
+ * - `RBAC_DENIED` → permission level 0: step-up cannot unlock it, so guide
+ *   the agent NOT to start an auth ceremony.
+ * - `RBAC_UNRESOLVED` → the backend could not resolve the RBAC level
+ *   (transient/misconfiguration): guide a plain retry, not auth.
  */
 import type {
   ProtectedToolDefinition,
   ToolTextResult,
 } from '@transcodes-guard/core/contract';
 import {
-  GUARD_PROTECTED_TOOL_RULES,
-  type MergedToolRule,
-  ruleAppliesToHost,
-  TRANSCODES_GUARD_TOOL_PREFIX,
-  toolNameMatchesRule,
-} from '@transcodes-guard/core/patterns';
-import {
-  checkRbacPermission,
-  claimStepupVerified,
+  type Envelope,
+  extractFailureMessage,
   loadStepupConfig,
-  type RbacLevel,
-  type StepupConfig,
 } from '@transcodes-guard/core/stepup';
 
-const RBAC_TTL_MS = 5 * 60_000;
-const rbacCache = new Map<string, { level: RbacLevel; exp: number }>();
-
-// 동일 멤버/리소스/액션 조합의 RBAC 판정을 짧게 캐시해 반복 호출 비용을 줄인다.
-async function getCachedRbacLevel(
-  config: StepupConfig,
-  resource: string,
-  action: string,
-): Promise<RbacLevel> {
-  const key = `${config.memberId}:${resource}:${action}`;
-  const hit = rbacCache.get(key);
-  if (hit && Date.now() < hit.exp) return hit.level;
-  const level = (await checkRbacPermission(config, resource, action)) ?? 2;
-  rbacCache.set(key, { level, exp: Date.now() + RBAC_TTL_MS });
-  return level;
-}
-
-// 시스템 룰 테이블. 정의 데이터의 stepUp 좌표에서 파생한 core 생성물
-// GUARD_PROTECTED_TOOL_RULES가 유일한 파생 지점이고, 여기서는 런타임 룰
-// 상수 필드(type/matcher/source)만 덧붙인다.
-export const SYSTEM_PROTECTED_TOOL_RULES: readonly MergedToolRule[] =
-  GUARD_PROTECTED_TOOL_RULES.map((r) => ({
-    ...r,
-    type: 'mcp' as const,
-    matcher: 'exact' as const,
-    source: 'system' as const,
-  }));
-
-// 로컬 handler 이름과 MCP wire 이름을 모두 시스템 tool-rule 기준으로 해석한다.
-export function resolveProtectedToolRule(
-  toolName: string,
-  rules: readonly MergedToolRule[] = SYSTEM_PROTECTED_TOOL_RULES,
-): MergedToolRule | undefined {
-  return rules.find((r) => {
-    if (!ruleAppliesToHost(r)) return false;
-    if (r.name === toolName) return true;
-    if (
-      toolName.startsWith('mcp__') ||
-      toolName.includes(TRANSCODES_GUARD_TOOL_PREFIX)
-    ) {
-      return toolNameMatchesRule(toolName, r);
-    }
-    return false;
-  });
+function textResult(body: Record<string, unknown>): ToolTextResult {
+  return {
+    isError: true,
+    content: [{ type: 'text', text: JSON.stringify(body, null, 2) }],
+  };
 }
 
 // step-up이 필요한 상황을 에이전트가 바로 재시도 흐름으로 이어갈 수 있게 구조화한다.
 function stepupRequiredResult(
-  toolName: string,
-  rule: MergedToolRule,
-): {
-  isError: true;
-  content: { type: 'text'; text: string }[];
-} {
-  return {
-    isError: true,
-    content: [
-      {
-        type: 'text',
-        text: JSON.stringify(
-          {
-            ok: false,
-            blocked: true,
-            code: 'STEP_UP_REQUIRED',
-            message:
-              'Step-up MFA is required before running this protected MCP tool.',
-            tool: toolName,
-            rule: {
-              id: rule.id,
-              resource: rule.resource,
-              action: rule.action,
-            },
-            next_actions: [
-              'Use the host MCP tool path so the PreToolUse hook can create a step-up session.',
-              'Complete WebAuthn in the opened browser window.',
-              `When verification succeeds, retry ${toolName} with the same arguments.`,
-            ],
-          },
-          null,
-          2,
-        ),
-      },
+  def: ProtectedToolDefinition,
+  backendMessage: string | undefined,
+): ToolTextResult {
+  return textResult({
+    ok: false,
+    blocked: true,
+    code: 'STEP_UP_REQUIRED',
+    message:
+      backendMessage ??
+      'Step-up MFA is required before running this protected MCP tool.',
+    tool: def.name,
+    resource: def.stepUp.resource,
+    action: def.stepUp.action,
+    next_actions: [
+      `Call tc_create_stepup_session with resource "${def.stepUp.resource}", action "${def.stepUp.action}", and a one-sentence summary of what the user is confirming, then have the user complete WebAuthn in the opened browser window.`,
+      'Call tc_poll_stepup_session_wait with the same resource and action until it reports verified.',
+      `When verified, retry ${def.name} with the same arguments.`,
     ],
-  };
+  });
 }
 
-// 정의 데이터의 stepUp 선언을 execProtectedTool 래핑으로 이행하는 등록 루프 어댑터.
+// 권한 0 하드 거부 — step-up으로 풀리지 않으므로 인증 루프로 안내하지 않는다.
+function rbacDeniedResult(
+  def: ProtectedToolDefinition,
+  backendMessage: string | undefined,
+): ToolTextResult {
+  return textResult({
+    ok: false,
+    blocked: true,
+    code: 'RBAC_DENIED',
+    message:
+      backendMessage ??
+      `This action is denied by the project's RBAC policy (${def.stepUp.resource}/${def.stepUp.action} = 0).`,
+    tool: def.name,
+    resource: def.stepUp.resource,
+    action: def.stepUp.action,
+    next_actions: [
+      'Do not start a step-up session — step-up MFA only unlocks level-2 actions and cannot elevate a level-0 deny.',
+      `If this action should be allowed, ask a project admin to raise the RBAC level for ${def.stepUp.resource}/${def.stepUp.action}.`,
+    ],
+  });
+}
+
+// RBAC 등급 조회 실패 — 일시 장애/설정 문제이므로 인증이 아니라 재시도를 안내한다.
+function rbacUnresolvedResult(
+  def: ProtectedToolDefinition,
+  backendMessage: string | undefined,
+): ToolTextResult {
+  return textResult({
+    ok: false,
+    blocked: true,
+    code: 'RBAC_UNRESOLVED',
+    message:
+      backendMessage ??
+      'The backend could not resolve the RBAC permission for this action.',
+    tool: def.name,
+    resource: def.stepUp.resource,
+    action: def.stepUp.action,
+    next_actions: [
+      `Retry ${def.name} once after a short wait — this is a backend lookup failure, not a missing step-up.`,
+      'If it persists, report the backend message above to the project operator.',
+    ],
+  });
+}
+
+/** Machine-readable 403 discriminant set by the backend `StepUpSessionGuard`. */
+function extractErrorCode(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const errorCode = (data as { errorCode?: unknown }).errorCode;
+  return typeof errorCode === 'string' && errorCode.length > 0
+    ? errorCode
+    : undefined;
+}
+
+// 정의 데이터의 stepUp 선언을 403 번역 래핑으로 이행하는 등록 루프 어댑터.
 // config를 먼저 로드하는 순서는 전환 전 핸들러 형태(핸들러 선두 loadStepupConfig)를 보존한다.
 export function wrapProtectedTool(
   def: ProtectedToolDefinition,
 ): (args: never) => Promise<ToolTextResult> {
   return async (args) => {
     const config = loadStepupConfig();
-    return execProtectedTool(def.name, (sid) => def.run(config, args, sid));
-  };
-}
-
-// 보호된 MCP tool 실행 전 RBAC와 step-up verified record를 최종 방어선으로 재확인한다.
-export async function execProtectedTool(
-  toolName: string,
-  run: (sid: string | undefined) => Promise<string>,
-): Promise<{
-  isError: boolean;
-  content: { type: 'text'; text: string }[];
-}> {
-  const rule = resolveProtectedToolRule(toolName);
-
-  if (rule?.action !== undefined && rule.resource !== undefined) {
-    let level: RbacLevel = 2;
-    try {
-      const config = loadStepupConfig();
-      level = await getCachedRbacLevel(config, rule.resource, rule.action);
-    } catch {
-      level = 2;
+    const envelope: Envelope = await def.run(config, args);
+    if (envelope.status === 403) {
+      const message = extractFailureMessage(envelope.data);
+      switch (extractErrorCode(envelope.data)) {
+        case 'RBAC_DENIED':
+          return rbacDeniedResult(def, message);
+        case 'RBAC_UNRESOLVED':
+          return rbacUnresolvedResult(def, message);
+        default:
+          // STEP_UP_REQUIRED, or a legacy backend that sends no errorCode —
+          // step-up guidance is the recoverable default either way.
+          return stepupRequiredResult(def, message);
+      }
     }
-
-    if (level === 0) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: 'text',
-            text: `transcodes-guard: BLOCKED (by-policy ${rule.resource}/${rule.action}) — ${toolName}`,
-          },
-        ],
-      };
-    }
-
-    // Level 1 = allowed without step-up: the backend guard resolves RBAC itself
-    // and requires no sid. Level 2 requires a backend-verified sid, consumed
-    // single-shot from the in-memory verified set.
-    if (level === 1) {
-      return {
-        isError: false,
-        content: [{ type: 'text', text: await run(undefined) }],
-      };
-    }
-    const sid = claimStepupVerified();
-    if (!sid) return stepupRequiredResult(toolName, rule);
     return {
       isError: false,
-      content: [{ type: 'text', text: await run(sid) }],
+      content: [{ type: 'text', text: JSON.stringify(envelope, null, 2) }],
     };
-  }
-
-  const sid = claimStepupVerified();
-  if (!sid) {
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(
-            {
-              ok: false,
-              blocked: true,
-              code: 'STEP_UP_VERIFIED_RECORD_MISSING',
-              message:
-                'This protected MCP tool has no verified step-up record and no matching tool-rule was found.',
-              tool: toolName,
-              next_actions: [
-                'Use the IDE MCP tool path so the PreToolUse hook can create a step-up session.',
-                'If this keeps happening, check that the system tool-rule name matches the installed MCP wire name.',
-              ],
-            },
-            null,
-            2,
-          ),
-        },
-      ],
-    };
-  }
-  return {
-    isError: false,
-    content: [{ type: 'text', text: await run(sid) }],
   };
 }

@@ -66,11 +66,6 @@ export const MCP_RESOURCES = [
     description:
       'Returns the running plugin version. Use this to confirm which build is currently loaded after an update.',
   },
-  {
-    uri: 'tc-tool-rules://list',
-    description:
-      'Read-only list of system MCP tool-rules derived from the tool definition data (stepUp coordinates). These gate built-in transcodes-guard MCP tools via execProtectedTool — external mcp__* tools use POST /guard/evaluate instead.',
-  },
 ] as const;
 
 export interface CatalogRow {
@@ -195,14 +190,9 @@ export function renderGuardToolNamesTs(): string {
   const metaNames = ALL_TOOL_DEFINITIONS.filter((d) => d.meta)
     .map((d) => d.name)
     .sort();
-  const rules = ALL_TOOL_DEFINITIONS.flatMap((d) =>
-    d.stepUp === undefined ? [] : [{ name: d.name, stepUp: d.stepUp }],
-  );
 
   const lines: string[] = [];
   lines.push(GENERATED_HEADER);
-  lines.push(`import type { RbacAction } from './rbac.js';`);
-  lines.push('');
   lines.push(
     '/** Every registered built-in transcodes-guard MCP tool name (bare form). */',
   );
@@ -226,37 +216,6 @@ export function renderGuardToolNamesTs(): string {
   );
   for (const name of metaNames) lines.push(`  ${q(name)},`);
   lines.push(']);');
-  lines.push('');
-  lines.push('/** System step-up rule derived from a `stepUp` declaration. */');
-  lines.push('export interface GuardProtectedToolRule {');
-  lines.push('  id: string;');
-  lines.push('  name: string;');
-  lines.push('  label: string;');
-  lines.push('  description: string;');
-  lines.push('  action: RbacAction;');
-  lines.push('  resource: string;');
-  lines.push('}');
-  lines.push('');
-  lines.push('/**');
-  lines.push(
-    ' * Step-up coordinates of every protected tool, in registration order —',
-  );
-  lines.push(' * the system MCP rule table, derived from the definition data.');
-  lines.push(' */');
-  lines.push(
-    'export const GUARD_PROTECTED_TOOL_RULES: readonly GuardProtectedToolRule[] = [',
-  );
-  for (const { name, stepUp } of rules) {
-    lines.push('  {');
-    lines.push(prop('    ', 'id', q(name.replace(/_/g, '-'))));
-    lines.push(prop('    ', 'name', q(name)));
-    lines.push(prop('    ', 'label', q(stepUp.label)));
-    lines.push(prop('    ', 'description', q(stepUp.ruleDescription)));
-    lines.push(prop('    ', 'action', q(stepUp.action)));
-    lines.push(prop('    ', 'resource', q(stepUp.resource)));
-    lines.push('  },');
-  }
-  lines.push('];');
   lines.push('');
   return lines.join('\n');
 }

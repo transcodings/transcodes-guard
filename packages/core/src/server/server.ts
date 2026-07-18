@@ -6,10 +6,6 @@ import {
   getGateBackend,
   registerToolDefinitions,
 } from '../contract/index.js';
-import {
-  GUARD_PROTECTED_TOOL_RULES,
-  type GuardProtectedToolRule,
-} from '../patterns/index.js';
 import { TRANSCODES_ROUTER_BODY } from './router-body.js';
 import { coreToolDefinitions } from './tool-definitions.js';
 
@@ -26,26 +22,6 @@ function transcodesRouterBody(request?: string): string {
       ? trimmed
       : '(no request given — show the menu and ask what they want)',
   );
-}
-
-function formatToolRulesMarkdown(
-  rules: readonly GuardProtectedToolRule[],
-): string {
-  const lines: string[] = [
-    '# Step-up-protected MCP tool rules (system)',
-    '',
-    `${rules.length} system rule(s) gate built-in transcodes-guard MCP tools via the execProtectedTool handler backstop.`,
-    'External mcp__* tools are gated via POST /guard/evaluate in the PreToolUse hook — not listed here.',
-    '',
-    '| id | tool name / pattern | description | action | resource |',
-    '| -- | ------------------- | ----------- | ------ | -------- |',
-  ];
-  for (const r of rules) {
-    lines.push(
-      `| \`${r.id}\` | \`${r.name}\` | ${r.description} | ${r.action} | ${r.resource} |`,
-    );
-  }
-  return lines.join('\n');
 }
 
 export function createServer(
@@ -126,28 +102,6 @@ export function createServer(
   );
 
   backend.registerBackendTools(server);
-
-  server.registerResource(
-    'tc_tool_rules',
-    // Scheme must be WHATWG-legal (no underscore) — the MCP SDK parses the
-    // URI with `new URL()` on every resources/read.
-    'tc-tool-rules://list',
-    {
-      title: 'Step-up-protected MCP tool rules (system)',
-      description:
-        'Read-only list of system MCP tool-rules derived from the tool definition data (stepUp coordinates). These gate built-in transcodes-guard MCP tools via execProtectedTool — external mcp__* tools use POST /guard/evaluate instead.',
-      mimeType: 'text/markdown',
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.href,
-          mimeType: 'text/markdown',
-          text: formatToolRulesMarkdown(GUARD_PROTECTED_TOOL_RULES),
-        },
-      ],
-    }),
-  );
 
   return server;
 }

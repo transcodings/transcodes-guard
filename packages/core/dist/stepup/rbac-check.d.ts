@@ -7,15 +7,10 @@
  * RBAC matrix the single authority for the decision; the local rule only maps a
  * command/tool onto a coordinate.
  *
- * Backend route: POST /v1/auth/role/check-permission
- *   body  { member_id, resource, action, project_id }
- *   reply { data: { payload: [ { permission: 0|1|2, resource, action } ] } }
- *
- * `checkRbacPermission` returns `null` when the decision cannot be determined
- * (network/parse failure). `evaluateAction` instead returns a
- * `GuardEvaluateFailure` carrying the HTTP status + backend error text, so the
- * hook can surface WHY the gate failed (issue #189). Callers MUST fail-closed
- * either way — treat any failure as step-up required (2), never as allow.
+ * `evaluateAction` returns a `GuardEvaluateFailure` carrying the HTTP status +
+ * backend error text on failure, so the hook can surface WHY the gate failed
+ * (issue #189). Callers MUST fail-closed — treat any failure as step-up
+ * required (2), never as allow.
  */
 import { type GuardProvider } from '../patterns/index.js';
 import type { StepupConfig } from './config.js';
@@ -57,6 +52,13 @@ export type GuardEvaluateResult = {
     verdict: GuardVerdict;
 } | GuardEvaluateFailure;
 /**
+ * Pull human-readable failure text out of the backend error envelope.
+ * Handles the exception-filter shape (`error` + `logId`), NestJS validation
+ * arrays (`message: string[]`), and sanitizes/caps the result. Also consumed
+ * by gate-backend's 403 → `STEP_UP_REQUIRED` translation (`wrapProtectedTool`).
+ */
+export declare function extractFailureMessage(data: unknown): string | undefined;
+/**
  * POST /v1/guard/evaluate — one round-trip: backend classifies the raw hook
  * payload, applies the matrix, and (for level 2) creates or reuses the
  * member-scoped coordinate step-up session. Every tool call (except built-in
@@ -71,4 +73,3 @@ export declare function evaluateAction(config: StepupConfig, body: {
     cwd?: string | undefined;
     provider?: GuardProvider | undefined;
 }): Promise<GuardEvaluateResult>;
-export declare function checkRbacPermission(config: StepupConfig, resource: string, action: string): Promise<RbacLevel | null>;

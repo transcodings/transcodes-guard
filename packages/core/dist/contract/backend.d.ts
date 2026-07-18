@@ -45,11 +45,6 @@ export interface GateBackend {
         intervalMs?: number | undefined;
     }): Promise<WaitStepupResult>;
     inspectStepupState(): StepupStateInspection;
-    /** Record a backend-verified sid in the server's in-memory verified set so the
-     * `execProtectedTool` handler backstop can consume it (single-shot). Called
-     * by the poll tools on `verified`.
-     */
-    markStepupVerified(sid: string): void;
     assertRbacCoordinate(resource: string, action: string): Promise<void>;
     isRbacCoordinateError(e: unknown): e is Error;
     registerBackendTools(server: McpServer): void;

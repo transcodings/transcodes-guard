@@ -5,7 +5,7 @@
 import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
 import { z } from 'zod';
 import { defineProtectedBackendTool } from './define.js';
-import { req } from './transcodes-client.js';
+import { reqEnvelope } from './transcodes-client.js';
 
 export const auditToolDefinitions: readonly GuardToolDefinition[] = [
   defineProtectedBackendTool({
@@ -13,7 +13,7 @@ export const auditToolDefinitions: readonly GuardToolDefinition[] = [
     title: 'Get security logs',
     description:
       'List project audit logs with pagination and filters. Use for security investigations, login/admin activity review, compliance. Returns tag, severity, IP, user_agent, member_id, metadata. Filter by `tag`; `start_date`/`end_date` are ISO 8601 range filters. ' +
-      'RBAC-gated via tool-rule `tc-get-security-logs` (system/read).',
+      'RBAC-gated by the backend StepUpSessionGuard (system/read).',
     summary: 'Paginated project audit logs with tag and date filters.',
     category: 'Audit',
     access: 'api',
@@ -23,8 +23,6 @@ export const auditToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'read',
       resource: 'system',
-      label: 'Get security logs',
-      ruleDescription: 'Project audit log access',
     },
     inputSchema: {
       page: z.number().optional(),
@@ -33,8 +31,8 @@ export const auditToolDefinitions: readonly GuardToolDefinition[] = [
       start_date: z.string().optional(),
       end_date: z.string().optional(),
     },
-    run: (config, { page, limit, tag, start_date, end_date }, sid) =>
-      req(
+    run: (config, { page, limit, tag, start_date, end_date }) =>
+      reqEnvelope(
         config,
         {
           method: 'GET',
@@ -46,7 +44,6 @@ export const auditToolDefinitions: readonly GuardToolDefinition[] = [
             start_date,
             end_date,
           },
-          stepUpSid: sid,
         },
         'get_security_logs',
       ),

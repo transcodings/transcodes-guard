@@ -25,9 +25,10 @@ export function defineProtectedTool(def) {
 }
 /**
  * Generic registration loop — the single `registerTool` call site per
- * package. Protected definitions require `wrapProtected` (the
- * `execProtectedTool` adapter); registering one without it throws loudly at
- * startup rather than shipping an unwrapped protected tool.
+ * package. Protected definitions require `wrapProtected` (the 403 →
+ * `STEP_UP_REQUIRED` translation adapter); registering one without it throws
+ * loudly at startup rather than shipping a protected tool with no recovery
+ * guidance.
  */
 export function registerToolDefinitions(server, defs, wrapProtected) {
     for (const def of defs) {

@@ -6,7 +6,8 @@
  * (`get_roles`, `get_resources`, `check_rbac_permission`).
  *
  * Protected tools declare their step-up coordinate via `stepUp`; the
- * registration loop wraps `run` in `execProtectedTool`.
+ * registration loop wraps `run` in the 403 → STEP_UP_REQUIRED translation
+ * (enforcement is backend-owned).
  */
 import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
 export declare const rbacToolDefinitions: readonly GuardToolDefinition[];

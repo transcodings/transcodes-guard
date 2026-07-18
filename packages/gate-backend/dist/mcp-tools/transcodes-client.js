@@ -3,11 +3,11 @@
  * step-up-protected toolset.
  *
  * Adapted from transcodes-mcp-server/src/constants.ts (endpoint map) and
- * src/tools/tool-utils.ts (`req` helper). Step-up enforcement is NOT here
- * — the PreToolUse hook gates protected calls via `hooks/tool-rules.json`
- * before this layer runs, and tool handlers thread the verified sid
- * through `withStepupVerifiedSid` so `request()` can attach the
- * `X-Step-Up-Session-Id` header.
+ * src/tools/tool-utils.ts (`req` helper). Step-up enforcement is NOT here —
+ * the backend `StepUpSessionGuard` enforces it on the API call itself,
+ * accepting a verified coordinate cache entry; the client sends no step-up
+ * header. A 403 from a protected call is translated to `STEP_UP_REQUIRED`
+ * by `wrapProtectedTool` (stepup-helper.ts).
  */
 import { request, } from '@transcodes-guard/core/stepup';
 /** Tool name → API path under `/v1`. Scoped to this plugin's ported toolset. */
@@ -57,6 +57,27 @@ const ENDPOINT_MAP = {
     user_get_current: '/user',
     user_find: '/user',
 };
+/**
+ * Typed variant of `req` for step-up-protected `run` handlers: returns the
+ * HTTP `Envelope` itself so `wrapProtectedTool` branches on `status` as a
+ * typed field and owns serialization. An endpoint-map miss (programming
+ * error — every protected tool name is in the map) degrades to a non-403
+ * error envelope instead of throwing.
+ */
+export async function reqEnvelope(config, input, toolName, pathSuffix) {
+    const base = ENDPOINT_MAP[toolName];
+    if (!base) {
+        return {
+            ok: false,
+            status: 0,
+            data: {
+                error: `Tool '${toolName}' is not in this plugin's endpoint map.`,
+            },
+        };
+    }
+    const path = pathSuffix ? `${base}${pathSuffix}` : base;
+    return request(config, { ...input, path });
+}
 /**
  * Resolve the tool's base path from ENDPOINT_MAP + optional `pathSuffix`
  * and call the backend. Returns a JSON-stringified envelope so the model

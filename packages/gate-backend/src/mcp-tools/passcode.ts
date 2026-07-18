@@ -2,13 +2,13 @@
  * Recovery passcode MCP tool — ported from transcodes-mcp-server's
  * `src/tools/passcode.ts`.
  *
- * Step-up enforcement is via the PreToolUse hook (tool-rule
- * `tc-passcode-create`); the registration loop threads the verified sid.
+ * Protected: declares its step-up coordinate via `stepUp`; enforcement is
+ * backend-owned (StepUpSessionGuard + coordinate verified cache).
  */
 import type { GuardToolDefinition } from '@transcodes-guard/core/contract';
 import { z } from 'zod';
 import { defineProtectedBackendTool } from './define.js';
-import { req } from './transcodes-client.js';
+import { reqEnvelope } from './transcodes-client.js';
 
 export const passcodeToolDefinitions: readonly GuardToolDefinition[] = [
   defineProtectedBackendTool({
@@ -16,7 +16,7 @@ export const passcodeToolDefinitions: readonly GuardToolDefinition[] = [
     title: 'Create recovery passcode',
     description:
       'Create a recovery passcode (CreatePasscodeDto in body). ' +
-      'RBAC-gated via tool-rule `tc-passcode-create` (0=block, 1=allow, 2=step-up MFA). ' +
+      'RBAC-gated by the backend StepUpSessionGuard (0=block, 1=allow, 2=step-up MFA). ' +
       'Use for onboarding, support, or admin provisioning.',
     summary: 'Create a recovery passcode for a member (support/onboarding).',
     category: 'Passcode',
@@ -27,19 +27,16 @@ export const passcodeToolDefinitions: readonly GuardToolDefinition[] = [
     stepUp: {
       action: 'create',
       resource: 'system',
-      label: 'Passcode create',
-      ruleDescription: 'Recovery passcode generation',
     },
     inputSchema: {
       body: z.object({ member_id: z.string() }),
     },
-    run: (config, { body }, sid) =>
-      req(
+    run: (config, { body }) =>
+      reqEnvelope(
         config,
         {
           method: 'POST',
           body: { ...body, project_id: config.projectId },
-          stepUpSid: sid,
         },
         'passcode_create',
       ),

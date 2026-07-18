@@ -12,7 +12,7 @@ TOOL ACCESS RULES (all items):
 - Every tool named below lives on the `transcodes-guard` MCP server — call by exact MCP tool name (e.g. `get_member`), NOT as a slash command.
 - Before calling any tool, confirm `transcodes-guard` MCP is connected on THIS host. If disconnected, REFUSE and tell the user to enable/reload the plugin MCP server.
 - Never invent MCP tool wire names or resource keys; use `simulate_tool_call` for MCP gating checks before explaining hook behaviour to the user.
-- Mutating Admin API calls: confirm intent + required ids with the user first; some are RBAC-gated or step-up-protected by system tool-rules.
+- Mutating Admin API calls: confirm intent + required ids with the user first; some are RBAC-gated or step-up-protected (enforced by the backend on the API call).
 - If the request is empty or ambiguous, show this full menu and ask what they want.
 
 ## Console surfaces (do not conflate)
@@ -25,8 +25,7 @@ TOOL ACCESS RULES (all items):
 MENU — Guard & SDK
 1) Check whether a Bash command or MCP tool call would trigger step-up (read-only)
    - Bash: ALL commands reach POST /guard/evaluate in the PreToolUse hook. Call `simulate_command` with the command string.
-   - External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP skips the hook (handler backstop only). Call `simulate_tool_call` with the full wire name from the host tool list.
-   - System MCP tool-rules (handler backstop): read `tc-tool-rules://list`.
+   - External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP skips the hook — the backend enforces step-up on the API call itself. Call `simulate_tool_call` with the full wire name from the host tool list.
 2) Step-up MFA state (read-only)
    - `inspect_stepup_state`; summarize pending/verified. If a session is pending, the user completes WebAuthn in the browser, then call `poll_stepup_session_wait`.
 3) Integrate / install the Transcodes SDK into the app (frontend)
@@ -76,11 +75,10 @@ Always resume from the resource/action (or sid) the hook reported.
 **RBAC:** Step-up MFA only unlocks actions already at level 2; it cannot elevate level 0 → 2.
 Level 0 requires an admin at https://app.transcodes.io → RBAC → Roles; `get_console_url` cannot edit RBAC.
 
-TOOL CATALOG — all 52 MCP tools + 2 resources on transcodes-guard. Match the user request to a workflow MENU item above OR to an exact tool/resource below, then call it by its exact name.
+TOOL CATALOG — all 52 MCP tools + 1 resources on transcodes-guard. Match the user request to a workflow MENU item above OR to an exact tool/resource below, then call it by its exact name.
 
 Resources (read by URI, not tools):
 - `version://info` — Returns the running plugin version. Use this to confirm which build is currently loaded after an update.
-- `tc-tool-rules://list` — Read-only list of system MCP tool-rules derived from the tool definition data (stepUp coordinates). These gate built-in transcodes-guard MCP tools via execProtectedTool — external mcp__* tools use POST /guard/evaluate instead.
 
 Gate & Policies (8):
 1) `create_stepup_session` — Open a WebAuthn step-up session; returns sid and browser URL. [mutating]
