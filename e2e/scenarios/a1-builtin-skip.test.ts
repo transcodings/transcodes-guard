@@ -20,15 +20,14 @@ import antigravityExempt from '../../packages/core/src/patterns/data/builtin-exe
 import claudeExempt from '../../packages/core/src/patterns/data/builtin-exempt/claude.json' with { type: 'json' };
 import codexExempt from '../../packages/core/src/patterns/data/builtin-exempt/codex.json' with { type: 'json' };
 import cursorExempt from '../../packages/core/src/patterns/data/builtin-exempt/cursor.json' with { type: 'json' };
+import { GUARD_META_TOOL_NAMES } from '../../packages/core/src/patterns/guard-tool-names.generated.js';
 import { type HostId, runHook } from '../harness/hook-runner.js';
 import { MockBackend } from '../harness/mock-backend.js';
 import { makeWorld } from '../harness/state.js';
 import { ALL_HOSTS, antigravityCallMcpStdin, wire } from '../harness/wire.js';
 
 const BUILTIN_NAMES = [
-  'tc_poll_stepup_session_wait', // deny-recovery poll tool — gating it = deadlock
-  'tc_create_stepup_session',
-  'tc_inspect_stepup_state',
+  ...GUARD_META_TOOL_NAMES, // deny-recovery meta set — gating any of these = deadlock
   'mcp__plugin_mcp_plugin_transcodes_guard__tc_poll_stepup_session_wait',
 ];
 
