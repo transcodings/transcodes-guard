@@ -1,11 +1,15 @@
 /**
- * A1 — built-in transcodes-guard MCP names skip the gate entirely: silent
- * pass (empty stdout), exit 0, ZERO backend requests, ZERO state files.
+ * A1 — step-up meta tools and the host's builtin-exempt list skip the gate
+ * entirely: silent pass (empty stdout), exit 0, ZERO backend requests, ZERO
+ * state files.
  *
  * Token is PRESENT on purpose — a token-less run would pass these names for
  * the wrong reason path; with a token, only the skip predicate explains the
  * silence. The deadlock direction matters most: gating
  * `tc_poll_stepup_session_wait` would make deny-recovery circular.
+ *
+ * t9 narrowed the built-in skip from the full registered tc_* set to the
+ * 4-name meta set — non-meta tc_* names are now gated (pinned in A2).
  *
  * t2 landed: the per-host builtin-exempt data files are iterated below, so
  * every list entry is pinned end-to-end (list → dist bundle → silent pass).
@@ -23,7 +27,8 @@ import { ALL_HOSTS, antigravityCallMcpStdin, wire } from '../harness/wire.js';
 
 const BUILTIN_NAMES = [
   'tc_poll_stepup_session_wait', // deny-recovery poll tool — gating it = deadlock
-  'tc_retire_member',
+  'tc_create_stepup_session',
+  'tc_inspect_stepup_state',
   'mcp__plugin_mcp_plugin_transcodes_guard__tc_poll_stepup_session_wait',
 ];
 

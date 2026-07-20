@@ -6,7 +6,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { denyByDefaultBackend } from '../src/contract/noop.js';
-import { GUARD_TOOL_NAMES, isGuardToolName } from '../src/patterns/tool-rules.js';
+import {
+  GUARD_META_TOOL_NAMES,
+  GUARD_TOOL_NAMES,
+  isGuardMetaToolName,
+  isGuardToolName,
+} from '../src/patterns/tool-rules.js';
 import { coreToolDefinitions } from '../src/server/tool-definitions.js';
 
 // GUARD_TOOL_NAMES is generated from the definition data; the full 1:1 union
@@ -70,5 +75,42 @@ describe('isGuardToolName', () => {
   it('rejects bare non-registered names (fail-safe default)', () => {
     assert.equal(isGuardToolName('get_member'), false);
     assert.equal(isGuardToolName(''), false);
+  });
+});
+
+describe('isGuardMetaToolName (t9 skip predicate)', () => {
+  it('accepts every meta name, bare and host-wrapped', () => {
+    for (const name of GUARD_META_TOOL_NAMES) {
+      assert.equal(isGuardMetaToolName(name), true, name);
+      assert.equal(
+        isGuardMetaToolName(`mcp__plugin_mcp_plugin_transcodes_guard__${name}`),
+        true,
+        `wrapped ${name}`,
+      );
+      assert.equal(
+        isGuardMetaToolName(`mcp__mcp_plugin_transcodes_guard__${name}`),
+        true,
+        `bare-ns wrapped ${name}`,
+      );
+    }
+  });
+
+  it('rejects every non-meta registered name (delegation direction)', () => {
+    for (const name of GUARD_TOOL_NAMES) {
+      if (GUARD_META_TOOL_NAMES.has(name)) continue;
+      assert.equal(isGuardMetaToolName(name), false, name);
+      assert.equal(
+        isGuardMetaToolName(`mcp__plugin_mcp_plugin_transcodes_guard__${name}`),
+        false,
+        `wrapped ${name}`,
+      );
+    }
+  });
+
+  it('rejects a meta name under a foreign namespace (impersonation)', () => {
+    assert.equal(
+      isGuardMetaToolName('mcp__some_other_server__tc_poll_stepup_session_wait'),
+      false,
+    );
   });
 });

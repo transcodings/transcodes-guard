@@ -84,6 +84,35 @@ for (const host of ALL_HOSTS) {
       assertOnlyEvaluateTraffic(mock);
     });
 
+    test('non-meta built-in tc_* wire name reaches evaluate and denies (t9)', async (t) => {
+      const world = makeWorld();
+      t.after(() => world.dispose());
+      const mock = await MockBackend.start();
+      t.after(() => mock.close());
+      world.writeToken();
+
+      const mfaUrl = `${mock.url}/mfa`;
+      mock.onEvaluate(challenge({ provider: spec.providerSlug, url: mfaUrl, exist: false }));
+
+      const res = await runHook({
+        host,
+        hook: 'pre-tool-use',
+        // Skipping this instead of gating it would bypass the backend
+        // classifier + matrix for a real mutation (t9 delegation direction).
+        stdin: spec.mcpStdin(
+          'mcp__plugin_mcp_plugin_transcodes_guard__tc_retire_member',
+          { member_id: 'e2e' },
+          world.home,
+        ),
+        env: world.env(mock.url),
+        cwd: world.home,
+      });
+
+      spec.assertDeny(res);
+      assert.equal(mock.evaluateRequests().length, 1);
+      assertOnlyEvaluateTraffic(mock);
+    });
+
     test('reused coordinate (exist:true) denies without launching the browser', async (t) => {
       const world = makeWorld();
       t.after(() => world.dispose());

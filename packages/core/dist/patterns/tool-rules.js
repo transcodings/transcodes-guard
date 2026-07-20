@@ -19,7 +19,7 @@ import builtinExemptCursor from './data/builtin-exempt/cursor.json' with {
     type: 'json'
 };
 import systemToolRulesData from './data/tool-rules.json' with { type: 'json' };
-import { GUARD_TOOL_NAMES } from './guard-tool-names.generated.js';
+import { GUARD_META_TOOL_NAMES, GUARD_TOOL_NAMES, } from './guard-tool-names.generated.js';
 import { coerceRbacAction, coerceRbacResource, isRbacAction, } from './rbac.js';
 export { GUARD_META_TOOL_NAMES, GUARD_TOOL_NAMES, } from './guard-tool-names.generated.js';
 export const GUARD_PROVIDERS = [
@@ -96,19 +96,32 @@ export function isMcpWireToolName(toolName) {
  */
 const TRANSCODES_NS_REGEX = /^(plugin_)?mcp_plugin_transcodes_guard$/;
 /**
- * Built-in transcodes-guard MCP — PreToolUse skips /guard/evaluate.
- * Exact set membership only (no substring/prefix heuristics): bare
- * registered name, or host-namespaced form whose namespace AND tool part
- * both match. Anything else → not ours → gated (fail-safe).
+ * Exact-set membership against a registered tc_* name set: bare registered
+ * name, or host-namespaced form whose namespace AND tool part both match.
+ * No substring/prefix heuristics — anything else is not ours (fail-safe).
  */
-export function isGuardToolName(toolName) {
+function isRegisteredGuardName(toolName, names) {
     const lower = toolName.toLowerCase();
-    if (GUARD_TOOL_NAMES.has(lower))
+    if (names.has(lower))
         return true;
     const m = /^mcp__([a-z0-9_-]+)__(tc_[a-z0-9_]+)$/.exec(lower);
     if (!m)
         return false;
-    return TRANSCODES_NS_REGEX.test(m[1]) && GUARD_TOOL_NAMES.has(m[2]);
+    return TRANSCODES_NS_REGEX.test(m[1]) && names.has(m[2]);
+}
+/** Built-in transcodes-guard MCP — the full registered tc_* set. */
+export function isGuardToolName(toolName) {
+    return isRegisteredGuardName(toolName, GUARD_TOOL_NAMES);
+}
+/**
+ * Step-up meta (infrastructure) tools — the only built-ins PreToolUse skips
+ * (toolgate t9). Gating one of these would make deny-recovery circular: the
+ * poll tools are how an agent completes the step-up the gate demanded.
+ * Every other tc_* name goes to POST /guard/evaluate like any external
+ * mcp__* wire name.
+ */
+export function isGuardMetaToolName(toolName) {
+    return isRegisteredGuardName(toolName, GUARD_META_TOOL_NAMES);
 }
 const BUILTIN_EXEMPT_BY_PROVIDER = {
     claude: builtinExemptClaude,
