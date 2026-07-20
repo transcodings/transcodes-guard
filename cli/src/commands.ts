@@ -15,6 +15,16 @@ export type CliCommandSpec = {
 
 export const CLI_COMMAND_SPECS: readonly CliCommandSpec[] = [
   {
+    usage: 'transcodes install',
+    description:
+      'Guided setup: pick host plugins to install, save a token, then open the dashboard (--all / <platforms>)',
+  },
+  {
+    usage: 'transcodes update',
+    description:
+      'Update installed host plugins in place and bump this CLI from npm (--cli-only / --plugins-only / --all)',
+  },
+  {
     usage: 'transcodes',
     description:
       'Open the local dashboard (URL printed in terminal; default port 3847; --port N / --no-open)',

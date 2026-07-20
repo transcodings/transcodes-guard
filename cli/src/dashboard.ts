@@ -5,13 +5,14 @@
  * `transcodes set` / `reset`. RBAC create/update/delete is console-only.
  */
 
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   createServer,
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
+import { promisify } from 'node:util';
 import { TRANSCODES_GUARD_REPO_URL } from '@transcodes-guard/core/contract';
 import {
   clearTokenFile,
@@ -36,9 +37,13 @@ import { CLI_VERSION } from './version.js';
 
 const DEFAULT_PORT = 3847;
 const HOST = '127.0.0.1';
+/** How many consecutive ports to try (preferred … preferred+N-1). */
+const PORT_ATTEMPTS = 10;
 /** Temporary Mux playback id for the Guideline onboarding video. */
 const GUIDELINE_MUX_PLAYBACK_ID =
   'h1vOCPmFDA02fGhcout01FZWD4lpKNTzLFk7vybxvrc3M';
+
+const execFileAsync = promisify(execFile);
 
 type TokenEntry = {
   /** Short fingerprint — used as the client-side id so full JWTs need not be
@@ -119,7 +124,7 @@ async function buildActiveMemberInfo(): Promise<ActiveMemberInfo | null> {
   const { token, source } = resolveToken();
   if (source === 'none' || !token) return null;
 
-  let claims;
+  let claims: ReturnType<typeof parseMemberAccessToken>['claims'];
   try {
     claims = parseMemberAccessToken(token).claims;
   } catch {
@@ -290,6 +295,24 @@ function dashboardHtml(): string {
       font-weight: 600;
       line-height: 1.45;
     }
+    .header-token-empty-title { margin: 0; }
+    .header-token-empty-cmds {
+      margin: 10px 0 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .header-token-empty-cmds code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: var(--text-2xs);
+      font-weight: 600;
+      color: var(--accent);
+      background: #fff;
+      border: 1px solid #f5c6cb;
+      padding: 3px 9px;
+      border-radius: 7px;
+    }
     .header-profile {
       display: flex;
       align-items: center;
@@ -325,6 +348,9 @@ function dashboardHtml(): string {
     }
     .btn-manage-auth {
       flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       border: none;
       border-radius: 10px;
       padding: 10px 16px;
@@ -334,6 +360,11 @@ function dashboardHtml(): string {
       background: var(--accent);
       cursor: pointer;
       transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .btn-manage-auth svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
     }
     .btn-manage-auth:hover:not(:disabled) { opacity: 0.92; }
     .btn-manage-auth:disabled {
@@ -686,8 +717,8 @@ function dashboardHtml(): string {
     .list-label {
       margin: 26px 0 10px;
       font-size: var(--text-sm);
-      font-weight: 600;
-      color: var(--muted);
+      font-weight: 700;
+      color: var(--ink);
       letter-spacing: 0.01em;
     }
     .token-list { display: flex; flex-direction: column; gap: 10px; }
@@ -987,8 +1018,34 @@ function dashboardHtml(): string {
       line-height: 1.5;
       margin: 0;
     }
-    .guide-video {
+    .guide-video-wrap {
       margin: 0 0 22px;
+    }
+    .guide-video-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--ink);
+      background: #fff;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .guide-video-toggle:hover {
+      background: #f7f7f9;
+      border-color: #d8d8de;
+    }
+    .guide-video-toggle[aria-expanded="true"] {
+      color: var(--accent);
+      border-color: rgba(91, 84, 230, 0.35);
+      background: var(--accent-soft);
+    }
+    .guide-video {
+      margin: 10px 0 0;
       border-radius: 14px;
       overflow: hidden;
       border: 1px solid var(--line);
@@ -996,6 +1053,7 @@ function dashboardHtml(): string {
       aspect-ratio: 16 / 9;
       box-shadow: 0 8px 28px rgba(22, 22, 26, 0.08);
     }
+    .guide-video[hidden] { display: none !important; }
     .guide-video mux-player {
       width: 100%;
       height: 100%;
@@ -1061,6 +1119,37 @@ function dashboardHtml(): string {
       border: 1px solid var(--line);
       border-radius: 14px;
     }
+    .guide-step--accordion {
+      display: block;
+      padding: 0;
+      overflow: hidden;
+    }
+    .guide-step-summary {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .guide-step-summary::-webkit-details-marker { display: none; }
+    .guide-step-summary::marker { content: ''; }
+    .guide-step-summary:hover { background: #f7f7f9; }
+    .guide-step--accordion[open] .guide-step-summary {
+      border-bottom: 1px solid var(--line);
+    }
+    .guide-step-chevron {
+      margin-left: auto;
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+      transition: transform 0.15s ease;
+    }
+    .guide-step--accordion[open] .guide-step-chevron {
+      transform: rotate(180deg);
+    }
     .guide-step-num {
       flex: 0 0 28px;
       width: 28px;
@@ -1075,12 +1164,16 @@ function dashboardHtml(): string {
       justify-content: center;
     }
     .guide-step-body { min-width: 0; }
+    .guide-step--accordion > .guide-step-body {
+      padding: 12px 16px 14px 58px;
+    }
     .guide-step-title {
       font-size: var(--text-sm);
       font-weight: 700;
       color: var(--ink);
       margin: 0 0 4px;
     }
+    .guide-step-summary .guide-step-title { margin: 0; flex: 1; min-width: 0; }
     .guide-step-desc {
       font-size: var(--text-sm);
       color: var(--muted);
@@ -1180,11 +1273,55 @@ function dashboardHtml(): string {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: var(--text-xs);
     }
+    .guide-prefix-note {
+      margin: 0 0 14px;
+      font-size: var(--text-sm);
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .guide-prefix-note code.cli-cmd { white-space: nowrap; }
     .guide-help-examples {
       margin: 10px 0 0;
       display: flex;
       flex-direction: column;
       gap: 8px;
+    }
+    .guide-cmd-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .guide-cmd-hosts {
+      font-size: var(--text-2xs);
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .guide-classify-list {
+      margin: 10px 0 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .guide-classify-list li {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: var(--text-sm);
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .guide-classify-prompt { color: var(--ink); }
+    .guide-classify-arrow { color: var(--muted); }
+    .guide-classify-note {
+      margin: 10px 0 0;
+      font-size: var(--text-sm);
+      color: var(--muted);
+      line-height: 1.55;
     }
     .guide-help-examples code.cli-cmd {
       display: block;
@@ -1245,11 +1382,26 @@ function dashboardHtml(): string {
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-wrap: wrap;
       gap: 8px;
       font-size: var(--text-2xs);
       color: var(--muted);
       text-align: center;
       line-height: 1.6;
+    }
+    .dashboard-footer a {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .dashboard-footer a:hover { text-decoration: underline; }
+    .dashboard-footer-github-icon {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
     }
   </style>
   <script type="module" src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
@@ -1272,14 +1424,26 @@ function dashboardHtml(): string {
           <p class="header-tagline">Manage credentials and view RBAC from one panel — no CLI typing required</p>
         </div>
       </div>
-      <p id="header-token-empty" class="header-token-empty" hidden>Please register a token first</p>
+      <div id="header-token-empty" class="header-token-empty" hidden>
+        <p class="header-token-empty-title">Invalid Token Configuration. Please register a Transcodes Member Access Token</p>
+        <p class="header-token-empty-title">To get started, run the following commands:</p>
+        <div class="header-token-empty-cmds">
+          <code>npm install -g @bigstrider/transcodes-cli</code>
+          <code>transcodes install</code>
+        </div>
+      </div>
       <div class="header-profile" id="header-profile" hidden>
         <div class="header-profile-info">
           <div class="header-profile-name" id="header-profile-name"></div>
           <div class="header-profile-meta" id="header-profile-meta"></div>
         </div>
         <div class="header-profile-actions">
-          <button type="button" class="btn-manage-auth" id="manage-auth-btn">Manage Auth</button>
+          <button type="button" class="btn-manage-auth" id="manage-auth-btn" aria-label="Open Transcodes console">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33" />
+            </svg>
+            Console
+          </button>
           <p class="header-profile-cli-hint"><code>transcodes console</code></p>
         </div>
       </div>
@@ -1293,98 +1457,147 @@ function dashboardHtml(): string {
 
     <div class="panel active" id="panel-guideline">
       <p class="section-title">Getting Started</p>
-      <p class="section-sub">New to Transcodes? Watch the walkthrough, then follow the steps below</p>
-      <div class="guide-help">
-        <p class="guide-help-line"><strong>For LLM agents</strong> — prefix prompts with <code class="cli-cmd">/transcodes</code> or <code class="cli-cmd">$transcodes</code> to reduce hallucinations</p>
-        <div class="guide-help-examples">
-          <code class="cli-cmd">/transcodes add signin / stepup / console in our admin dashboard</code>
-          <code class="cli-cmd">/transcodes summarize member audit logs for the past 2 weeks</code>
+      <p class="section-sub">Transcodes CLI Dashboard,Set it up visually — no terminal required. New to Transcodes? Watch the video.</p>
+      <div class="guide-video-wrap">
+        <button type="button" class="guide-video-toggle" id="guide-video-toggle" aria-expanded="false" aria-controls="guide-video">
+          Watch Intro Video
+        </button>
+        <div class="guide-video" id="guide-video" hidden>
+          <mux-player
+            playback-id="${GUIDELINE_MUX_PLAYBACK_ID}"
+            stream-type="on-demand"
+            accent-color="#5b54e6"
+            primary-color="#ffffff"
+            metadata-video-title="Transcodes CLI onboarding"
+          ></mux-player>
         </div>
       </div>
-      <div class="guide-video">
-        <mux-player
-          playback-id="${GUIDELINE_MUX_PLAYBACK_ID}"
-          stream-type="on-demand"
-          accent-color="#5b54e6"
-          primary-color="#ffffff"
-          metadata-video-title="Transcodes CLI onboarding"
-        ></mux-player>
-      </div>
-      <p class="list-label">Quick setup</p>
+      <p class="list-label">Quick Demo</p>
+      <p class="guide-prefix-note">Try the quick demo to see how Transcodes works</p>
+      <p class="guide-prefix-note">Prefix prompts with <code class="cli-cmd">/transcodes</code> on Claude, Cursor, and Antigravity — use <code class="cli-cmd">$transcodes</code> on ChatGPT (Codex).</p>
       <div class="guide-groups">
-        <section class="guide-group guide-group--console">
-          <a class="guide-group-label" href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Transcodes Console<span class="guide-group-link-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span></a>
+        <section class="guide-group guide-group--panel">
           <ol class="guide-steps">
             <li class="guide-step">
               <span class="guide-step-num">1</span>
               <div class="guide-step-body">
-                <p class="guide-step-title">Set up project, auth cluster &amp; member</p>
-                <p class="guide-step-desc">Create a project, add an authentication cluster for how members sign in, then invite or add a member so they can be issued an access token</p>
+                <p class="guide-step-title">Open your CLI or desktop app (Claude, Cursor, Antigravity, ChatGPT)</p>
+                <p class="guide-step-desc">If it's already running, restart it so the latest plugin and token are loaded</p>
               </div>
             </li>
             <li class="guide-step">
               <span class="guide-step-num">2</span>
               <div class="guide-step-body">
-                <p class="guide-step-title">Issue an access token</p>
-                <p class="guide-step-desc">Open the member detail page and issue a Member Access Token (MAT) for the agent</p>
-              </div>
-            </li>
-          </ol>
-        </section>
-
-        <section class="guide-group guide-group--panel">
-          <p class="guide-group-label">This CLI panel</p>
-          <ol class="guide-steps">
-            <li class="guide-step">
-              <span class="guide-step-num">3</span>
-              <div class="guide-step-body">
-                <p class="guide-step-title">Save the token</p>
-                <p class="guide-step-desc">Paste the token in the Tokens tab with a label (e.g. <code>transcodes-myapp-dev</code>) — the plugin reads it from <code>{{HOME_DIR}}/.transcodes/config.json</code></p>
-              </div>
-            </li>
-            <li class="guide-step">
-              <span class="guide-step-num">4</span>
-              <div class="guide-step-body">
-                <p class="guide-step-title">Configure &amp; view RBAC</p>
-                <p class="guide-step-desc">In the Transcodes app Role Management, add resources (key, name, description), create roles, and set the permission matrix — 0 deny · 1 allow · 2 step-up MFA. Then open the RBAC tab here to inspect them read-only — create, update, and delete stay in the app (logo or Transcodes at the top)</p>
-              </div>
-            </li>
-          </ol>
-        </section>
-
-        <section class="guide-group guide-group--agent">
-          <a class="guide-group-label" href="${TRANSCODES_GUARD_REPO_URL}" target="_blank" rel="noopener noreferrer">LLM Agent or Admin Back Office<span class="guide-group-link-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span></a>
-          <ol class="guide-steps">
-            <li class="guide-step">
-              <span class="guide-step-num">5</span>
-              <div class="guide-step-body">
-                <p class="guide-step-title">Add the transcodes-guard plugin</p>
-                <p class="guide-step-desc">Install the transcodes-guard plugin on Claude, Codex, Cursor (beta), and Antigravity (beta). For more plugins info, visit the repository</p>
-                <p class="guide-step-opensource">
-                  <a class="guide-opensource-link" href="${TRANSCODES_GUARD_REPO_URL}" target="_blank" rel="noopener noreferrer" aria-label="transcodes-guard on GitHub">
-                    <svg class="guide-opensource-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-                    We support Open Source, <span class="guide-opensource-accent">More Info</span>
-                  </a>
-                </p>
-              </div>
-            </li>
-            <li class="guide-step">
-              <span class="guide-step-num">6</span>
-              <div class="guide-step-body">
-                <p class="guide-step-title">Prompt-driven permissions</p>
-                <p class="guide-step-desc">Once installed, when you give the agent a command, Transcodes AI interprets the prompt using the role, resource, and action settings you configured and determines the permission — deny, allow, or step-up MFA</p>
-              </div>
-            </li>
-            <li class="guide-step">
-              <span class="guide-step-num">7</span>
-              <div class="guide-step-body">
-                <p class="guide-step-title">Ask the agent for log history</p>
-                <p class="guide-step-desc">After setup, ask your installed AI agent — such as Claude, ChatGPT, or Antigravity — to pull member audit / security log history. Transcodes AI maps the prompt to the right resource and enforces RBAC</p>
+                <p class="guide-step-title">Trigger a step-up test</p>
+                <p class="guide-step-desc">Ask the agent to run a protected action — it should prompt for step-up authentication</p>
                 <div class="guide-help-examples">
-                  <code class="cli-cmd">/transcodes show log history for the past 2 weeks</code>
-                  <code class="cli-cmd">/transcodes summarize member audit logs for the past 2 weeks</code>
+                  <div class="guide-cmd-row">
+                    <span class="guide-cmd-hosts">Claude · Cursor · Antigravity</span>
+                    <code class="cli-cmd">/transcodes open step-up authentication for testing</code>
+                  </div>
+                  <div class="guide-cmd-row">
+                    <span class="guide-cmd-hosts">ChatGPT (Codex)</span>
+                    <code class="cli-cmd">$transcodes open step-up authentication for testing</code>
+                  </div>
                 </div>
               </div>
+            </li>
+          </ol>
+        </section>
+      </div>
+
+      <p class="list-label">Steps</p>
+      <div class="guide-groups">
+        <section class="guide-group guide-group--panel">
+          <ol class="guide-steps">
+            <li>
+              <details class="guide-step guide-step--accordion">
+                <summary class="guide-step-summary">
+                  <span class="guide-step-num">1</span>
+                  <span class="guide-step-title">Configure RBAC in the Transcodes app</span>
+                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="guide-step-body">
+                  <p class="guide-step-desc">Set up resources, actions, and roles in the Transcodes app. You can review the resulting RBAC permissions read-only in this CLI panel's RBAC tab</p>
+                </div>
+              </details>
+            </li>
+            <li>
+              <details class="guide-step guide-step--accordion">
+                <summary class="guide-step-summary">
+                  <span class="guide-step-num">2</span>
+                  <span class="guide-step-title">Register a passkey or biometrics</span>
+                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="guide-step-body">
+                  <p class="guide-step-desc">Click the <strong>Console</strong> button (or run <code class="cli-cmd">transcodes console</code> in your terminal), sign in, then register a passkey or biometrics — these are used for step-up authentication</p>
+                </div>
+              </details>
+            </li>
+            <li>
+              <details class="guide-step guide-step--accordion">
+                <summary class="guide-step-summary">
+                  <span class="guide-step-num">3</span>
+                  <span class="guide-step-title">Open your CLI or desktop app (Claude, Cursor, Antigravity, ChatGPT)</span>
+                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="guide-step-body">
+                  <p class="guide-step-desc">If it's already running, restart it so the latest plugin and token are loaded</p>
+                </div>
+              </details>
+            </li>
+            <li>
+              <details class="guide-step guide-step--accordion">
+                <summary class="guide-step-summary">
+                  <span class="guide-step-num">4</span>
+                  <span class="guide-step-title">Run an action from the agent</span>
+                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="guide-step-body">
+                  <p class="guide-step-desc">Try an action in your CLI or desktop app. Transcodes classifies each prompt into a <code>resource:action</code> pair, then applies the permission matrix — <strong>0 deny</strong> · <strong>1 allow (pass)</strong> · <strong>2 step-up MFA</strong>.</p>
+                  <ul class="guide-classify-list">
+                    <li><span class="guide-classify-prompt">"Create a Google Calendar event"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">google:create</code></li>
+                    <li><span class="guide-classify-prompt">"Change James's role in Transcodes"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">transcodes:update</code></li>
+                    <li><span class="guide-classify-prompt">"Delete files on my computer"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">system:delete</code></li>
+                  </ul>
+                  <p class="guide-classify-note">No matching resource? It falls back to <code class="cli-cmd">system</code> automatically — e.g. if there's no <code>google</code> resource, "Create a Google Calendar event" becomes <code class="cli-cmd">system:create</code>.</p>
+                </div>
+              </details>
+            </li>
+            <li>
+              <details class="guide-step guide-step--accordion">
+                <summary class="guide-step-summary">
+                  <span class="guide-step-num">5</span>
+                  <span class="guide-step-title">Pull the audit log report</span>
+                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="guide-step-body">
+                  <p class="guide-step-desc">Ask the agent for a member audit / security log report — Transcodes maps the prompt to the right resource and enforces RBAC</p>
+                  <p class="guide-step-desc">Every action is logged — whether it was 0 deny, 1 allow, or 2 step-up MFA.</p>
+                  <div class="guide-help-examples">
+                    <div class="guide-cmd-row">
+                      <span class="guide-cmd-hosts">Claude · Cursor · Antigravity</span>
+                      <code class="cli-cmd">/transcodes show audit logs report</code>
+                    </div>
+                    <div class="guide-cmd-row">
+                      <span class="guide-cmd-hosts">ChatGPT (Codex)</span>
+                      <code class="cli-cmd">$transcodes show audit logs report</code>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </li>
+            <li>
+              <details class="guide-step guide-step--accordion">
+                <summary class="guide-step-summary">
+                  <span class="guide-step-num">6</span>
+                  <span class="guide-step-title">Receive step-up links and notifications on Slack or Discord</span>
+                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="guide-step-body">
+                  <p class="guide-step-desc">Want step-up links delivered to Slack or Discord? Go to <a href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">app.transcodes.io</a> and set up a webhook. (More channels coming soon.)</p>
+                </div>
+              </details>
             </li>
           </ol>
         </section>
@@ -1436,7 +1649,7 @@ function dashboardHtml(): string {
     </div>
 
     <div class="panel" id="panel-rbac">
-      <p id="rbac-token-warning" class="rbac-token-warning" hidden>Save a token on the Tokens tab first</p>
+      <p id="rbac-token-warning" class="rbac-token-warning" hidden>Save a Transcodes token(MAT) first</p>
       <div class="guide-help">
         <p class="guide-help-heading">How it works</p>
         <p class="guide-help-line">Transcodes AI interprets the prompt and maps it to a resource / action pair. Based on the member's role, it applies deny / allow / step-up from the permission matrix. Resources are matched by name and description — if nothing matches, it falls back to <code>system</code>. When integrating with your own back office, you can pass <code>resource</code> and <code>action</code> as params to control permissions directly.</p>
@@ -1494,7 +1707,14 @@ function dashboardHtml(): string {
     </div>
   </div>
 
-  <p class="dashboard-footer">Ver ${CLI_VERSION} <code class="cli-cmd">transcodes version</code></p>
+  <p class="dashboard-footer">
+    Ver ${CLI_VERSION} <code class="cli-cmd">transcodes version</code>
+    <span aria-hidden="true">·</span>
+    <a href="${TRANSCODES_GUARD_REPO_URL}" target="_blank" rel="noopener noreferrer">
+      <svg class="dashboard-footer-github-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </p>
   <script>
     const tokenEl = document.getElementById("token");
     const labelEl = document.getElementById("label");
@@ -1523,6 +1743,20 @@ function dashboardHtml(): string {
         return;
       }
       renderHeaderProfile(lastStatus);
+    }
+
+    const guideVideoToggle = document.getElementById("guide-video-toggle");
+    const guideVideo = document.getElementById("guide-video");
+    if (guideVideoToggle && guideVideo) {
+      guideVideoToggle.addEventListener("click", () => {
+        const open = guideVideoToggle.getAttribute("aria-expanded") === "true";
+        const next = !open;
+        guideVideoToggle.setAttribute("aria-expanded", String(next));
+        guideVideo.hidden = !next;
+        guideVideoToggle.textContent = next
+          ? "Hide Intro Video"
+          : "Watch Intro Video";
+      });
     }
 
     document.querySelectorAll(".tab[data-tab]").forEach((tab) => {
@@ -2145,18 +2379,83 @@ function waitForDashboardShutdown(
   });
 }
 
-export async function runDashboard(options: {
-  port?: number;
-  open?: boolean;
-}): Promise<void> {
-  const preferred = options.port ?? DEFAULT_PORT;
-  let server: ReturnType<typeof createServer> | undefined;
-  let port = preferred;
+/** Collect PIDs listening on any port in [from, to] (best-effort). */
+async function pidsListeningOnPorts(
+  from: number,
+  to: number,
+): Promise<number[]> {
+  const pids = new Set<number>();
+  if (process.platform === 'win32') {
+    for (let port = from; port <= to; port++) {
+      try {
+        const { stdout } = await execFileAsync(
+          'powershell',
+          [
+            '-NoProfile',
+            '-Command',
+            `(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue).OwningProcess`,
+          ],
+          { timeout: 5000 },
+        );
+        for (const line of stdout.split(/\r?\n/)) {
+          const pid = Number(line.trim());
+          if (Number.isInteger(pid) && pid > 0) pids.add(pid);
+        }
+      } catch {
+        // port free or PowerShell unavailable
+      }
+    }
+    return [...pids];
+  }
 
-  for (let attempt = 0; attempt < 10; attempt++) {
+  for (let port = from; port <= to; port++) {
     try {
-      server = await listen(port);
-      break;
+      const { stdout } = await execFileAsync(
+        'lsof',
+        ['-ti', `tcp:${port}`, '-sTCP:LISTEN'],
+        { timeout: 5000 },
+      );
+      for (const token of stdout.trim().split(/\s+/)) {
+        const pid = Number(token);
+        if (Number.isInteger(pid) && pid > 0) pids.add(pid);
+      }
+    } catch {
+      // port free or lsof unavailable
+    }
+  }
+  return [...pids];
+}
+
+/**
+ * Kill listeners on [from, to] once so a stuck previous dashboard can be
+ * replaced. Best-effort — never throws.
+ */
+async function freePortRange(from: number, to: number): Promise<void> {
+  process.stdout.write(`Freeing ports ${from}–${to} …\n`);
+  const pids = await pidsListeningOnPorts(from, to);
+  if (pids.length === 0) {
+    process.stdout.write('  (no listeners found)\n');
+    return;
+  }
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 'SIGKILL');
+      process.stdout.write(`  killed pid ${pid}\n`);
+    } catch {
+      // already gone / permission denied
+    }
+  }
+}
+
+/** Try preferred … preferred+PORT_ATTEMPTS-1; returns bound server + port. */
+async function tryBindPortRange(
+  preferred: number,
+): Promise<{ server: ReturnType<typeof createServer>; port: number } | null> {
+  let port = preferred;
+  for (let attempt = 0; attempt < PORT_ATTEMPTS; attempt++) {
+    try {
+      const server = await listen(port);
+      return { server, port };
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
       if (code === 'EADDRINUSE') {
@@ -2166,9 +2465,24 @@ export async function runDashboard(options: {
       throw err;
     }
   }
+  return null;
+}
 
-  if (!server) {
-    const last = preferred + 9;
+export async function runDashboard(options: {
+  port?: number;
+  open?: boolean;
+}): Promise<void> {
+  const preferred = options.port ?? DEFAULT_PORT;
+  const last = preferred + PORT_ATTEMPTS - 1;
+
+  let bound = await tryBindPortRange(preferred);
+  if (!bound) {
+    // One recovery pass: free the scanned range, then retry the same window.
+    await freePortRange(preferred, last);
+    bound = await tryBindPortRange(preferred);
+  }
+
+  if (!bound) {
     throw new Error(
       `could not find a free port in ${preferred}-${last} (all in use).\n` +
         '  A previous dashboard is probably still running.\n' +
@@ -2182,6 +2496,7 @@ export async function runDashboard(options: {
     );
   }
 
+  const { server, port } = bound;
   const url = `http://${HOST}:${port}/`;
   process.stdout.write(
     `Transcodes dashboard running at ${url}\n` +

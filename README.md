@@ -28,6 +28,49 @@ Node.js >= 20 is required for all hosts.
 
 Do this **in order**. Without a token the plugin can still DENY danger commands, but it cannot open a step-up session.
 
+### Quickstart — `transcodes install` (recommended)
+
+The fastest path is the guided installer — plugins, token, then dashboard in one flow:
+
+```bash
+npm install -g @bigstrider/transcodes-cli
+transcodes install
+```
+
+What `transcodes install` does:
+
+1. **Prerequisites** — checks for **Node.js LTS (>= 20)** and installs it if missing.
+2. **Pick platforms** — arrow-key checklist for Claude Code / ChatGPT (Codex) / Cursor / Antigravity.
+   - `↑`/`↓` move · `space` select · `a` all/none · `enter` install selection · `Next Step →` continue · `q` quit
+   - Already-installed hosts show `[Installed ✓]`. Selecting them again updates in place.
+   - For each selected host it ensures the host CLI (`claude` / `codex` / `cursor-agent` / `agy`) — installing the vendor one-liner when needed — then installs the plugin (Claude/Codex via native host CLIs; Cursor/Antigravity via a temporary repo clone).
+3. **Token setup** — three choices:
+   - **Yes** — paste a Member Access Token (MAT) + label (saved to `~/.transcodes/config.json`)
+   - **No** — press ENTER to open [app.transcodes.io](https://app.transcodes.io), create a project/member, issue a MAT, then paste it back in the terminal
+   - **Skip — token already configured** — keep the existing token and continue
+4. **Finish** — after a token is saved, restart your CLI/desktop app so plugins pick it up, then press ENTER to open the local dashboard (`transcodes`).
+
+Non-interactive: `transcodes install --all` or `transcodes install claude codex cursor antigravity`.
+
+Once the dashboard is open, use **Quick Demo** for a one-prompt step-up test, or expand **Steps** for RBAC / passkey / audit / Slack·Discord webhook guidance.
+
+### Update — `transcodes update`
+
+Refresh whatever is already installed (detected host plugins + this CLI from npm):
+
+```bash
+transcodes update
+```
+
+- Detects installed plugins and re-runs each host’s install path in place (same as Cursor/Antigravity one-liners / Claude·Codex marketplace install).
+- Then runs `npm install -g @bigstrider/transcodes-cli@latest`.
+
+Useful flags: `--cli-only`, `--plugins-only`, `--all` (update every platform even if not detected), or list platforms: `transcodes update claude cursor`.
+
+### Manual install
+
+Prefer to do each step by hand? Follow §1–§3 below. The guided installer above is optional.
+
 ### 1. Install the CLI
 
 ```bash
@@ -35,12 +78,12 @@ npm install -g @bigstrider/transcodes-cli
 transcodes
 ```
 
-`transcodes` opens the local dashboard (default port 3847). Or: `npx @bigstrider/transcodes-cli`.
+`transcodes` opens the local dashboard (default port 3847; if busy it tries the next free port, and frees the range once if all are taken). Or: `npx @bigstrider/transcodes-cli`.
 
 ### 2. Create a project in Transcodes Console and save the token
 
-1. In the [Transcodes Console](https://app.transcodes.io), create a project, set up an auth cluster and member, then issue an access token (member MCP JWT) from the member detail page. The dashboard **Getting Started** guide walks through the same steps.
-2. In the dashboard **Tokens** tab, paste the token, set a required label (e.g. `transcodes-{project}-{env}`), and **Save**.
+1. In the [Transcodes Console](https://app.transcodes.io), create a project, set up an auth cluster and member, then issue an access token (member MCP JWT / MAT) from the member detail page. The dashboard **Getting Started** guide (**Quick Demo** + **Steps**) walks through what to do after install.
+2. In the dashboard **Tokens** tab, paste the token, set a required label (e.g. `transcodes-{project}-{env}`), and **Save**. Or click **Console** / run `transcodes console` to sign in and register a passkey/biometrics for step-up.
 
 The token is stored at `~/.transcodes/config.json` and shared by every host plugin. Non-interactive: `transcodes set <token> -l <label>`.
 
@@ -48,7 +91,14 @@ The token is stored at `~/.transcodes/config.json` and shared by every host plug
 
 #### Claude Code
 
-Claude Code is the primary host. The marketplace **is** this repo. Run two lines in a Claude Code session:
+Claude Code is the primary host. The marketplace **is** this repo. Install from the terminal (non-interactive CLI — requires Claude Code >= 1.0.33):
+
+```bash
+claude plugin marketplace add transcodings/transcodes-guard
+claude plugin install transcodes-guard@bigstrider --scope user
+```
+
+Or, inside a Claude Code session:
 
 ```
 /plugin marketplace add transcodings/transcodes-guard

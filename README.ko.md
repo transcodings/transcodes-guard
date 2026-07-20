@@ -28,6 +28,49 @@
 
 **순서대로** 진행하세요. 토큰이 없으면 플러그인은 위험 명령을 DENY할 수는 있지만 step-up 세션은 열지 못합니다.
 
+### 빠른 시작 — `transcodes install` (권장)
+
+가장 빠른 방법은 대화형 설치 마법사입니다. 플러그인 → 토큰 → 대시보드까지 한 번에 진행합니다.
+
+```bash
+npm install -g @bigstrider/transcodes-cli
+transcodes install
+```
+
+`transcodes install`이 하는 일:
+
+1. **사전 요구사항** — **Node.js LTS(>= 20)** 가 있는지 확인하고, 없으면 설치합니다.
+2. **플랫폼 선택** — Claude Code / ChatGPT (Codex) / Cursor / Antigravity를 화살표 체크리스트로 고릅니다.
+   - `↑`/`↓` 이동 · `space` 선택 · `a` 전체/해제 · `enter` 선택분 설치 · `Next Step →` 다음 · `q` 종료
+   - 이미 설치된 호스트는 `[Installed ✓]`로 표시됩니다. 다시 선택하면 in-place 업데이트입니다.
+   - 선택한 각 호스트에 대해 호스트 CLI(`claude` / `codex` / `cursor-agent` / `agy`)를 확인하고, 없으면 공식 원라이너로 설치한 뒤 플러그인을 설치합니다(Claude·Codex는 네이티브 CLI, Cursor·Antigravity는 임시 저장소 클론).
+3. **토큰 설정** — 세 가지 선택지:
+   - **Yes** — Member Access Token(MAT) + label을 붙여넣어 저장(`~/.transcodes/config.json`)
+   - **No** — ENTER로 [app.transcodes.io](https://app.transcodes.io)를 열고, 프로젝트/멤버·MAT 발급 후 터미널에 다시 붙여넣기
+   - **Skip — token already configured** — 이미 저장된 토큰을 쓰고 계속 진행
+4. **완료** — 토큰 저장 후 CLI/데스크톱 앱을 재시작해 플러그인이 반영되게 한 다음, ENTER로 로컬 대시보드(`transcodes`)를 엽니다.
+
+비대화형: `transcodes install --all` 또는 `transcodes install claude codex cursor antigravity`.
+
+대시보드가 열리면 **Quick Demo**로 step-up을 바로 시험하거나, **Steps**를 펼쳐 RBAC / 패스키 / 감사 로그 / Slack·Discord webhook 안내를 따라가면 됩니다.
+
+### 업데이트 — `transcodes update`
+
+이미 설치된 항목을 갱신합니다(감지된 호스트 플러그인 + npm CLI):
+
+```bash
+transcodes update
+```
+
+- 설치된 플러그인을 감지한 뒤 각 호스트의 설치 경로를 다시 실행합니다(Cursor/Antigravity 원라이너·Claude·Codex 마켓플레이스 설치와 동일, in-place 업데이트).
+- 이어서 `npm install -g @bigstrider/transcodes-cli@latest`를 실행합니다.
+
+유용한 플래그: `--cli-only`, `--plugins-only`, `--all`(미감지 플랫폼까지 전부), 또는 플랫폼 지정: `transcodes update claude cursor`.
+
+### 수동 설치
+
+단계별로 직접 하려면 아래 §1–§3을 따르세요. 위 대화형 설치는 선택 사항입니다.
+
 ### 1. CLI 설치
 
 ```bash
@@ -35,12 +78,12 @@ npm install -g @bigstrider/transcodes-cli
 transcodes
 ```
 
-`transcodes`는 로컬 대시보드를 엽니다(기본 포트 3847). 또는: `npx @bigstrider/transcodes-cli`.
+`transcodes`는 로컬 대시보드를 엽니다(기본 포트 3847; 사용 중이면 다음 빈 포트를 찾고, 구간이 모두 차면 한 번 정리 후 재시도). 또는: `npx @bigstrider/transcodes-cli`.
 
 ### 2. Transcodes Console에서 프로젝트 생성 후 토큰 입력
 
-1. [Transcodes Console](https://app.transcodes.io)에서 프로젝트를 만들고, auth cluster·멤버를 설정한 뒤 멤버 상세 페이지에서 access token(멤버 MCP JWT)을 발급합니다. 대시보드 **Getting Started** 가이드도 같은 흐름입니다.
-2. 대시보드 **Tokens** 탭에 토큰을 붙여넣고, 필수 label(예: `transcodes-{project}-{env}`)을 입력한 뒤 **Save**합니다.
+1. [Transcodes Console](https://app.transcodes.io)에서 프로젝트를 만들고, auth cluster·멤버를 설정한 뒤 멤버 상세 페이지에서 access token(멤버 MCP JWT / MAT)을 발급합니다. 대시보드 **Getting Started**(**Quick Demo** + **Steps**)가 설치 이후 흐름을 안내합니다.
+2. 대시보드 **Tokens** 탭에 토큰을 붙여넣고, 필수 label(예: `transcodes-{project}-{env}`)을 입력한 뒤 **Save**합니다. 또는 **Console** 버튼 / `transcodes console`로 로그인 후 step-up용 패스키·생체인증을 등록합니다.
 
 토큰은 `~/.transcodes/config.json`에 저장되며 모든 호스트 플러그인이 공유합니다. 비대화형: `transcodes set <token> -l <label>`.
 
@@ -48,7 +91,14 @@ transcodes
 
 #### Claude Code
 
-Claude Code가 기본 호스트입니다. 이 저장소가 곧 마켓플레이스이므로, Claude Code 세션에서 다음 두 줄만 실행하면 됩니다.
+Claude Code가 기본 호스트입니다. 이 저장소가 곧 마켓플레이스입니다. 터미널에서 비대화형 CLI로 설치할 수 있습니다(Claude Code 1.0.33 이상 필요).
+
+```bash
+claude plugin marketplace add transcodings/transcodes-guard
+claude plugin install transcodes-guard@bigstrider --scope user
+```
+
+또는 Claude Code 세션 안에서:
 
 ```
 /plugin marketplace add transcodings/transcodes-guard

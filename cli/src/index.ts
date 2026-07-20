@@ -15,6 +15,8 @@
  *   transcodes status          Show the active token source + expiry.
  *   transcodes tokens          List all saved tokens (active marked with *).
  *   transcodes console         Open auth settings for the active token.
+ *   transcodes install         Guided plugin + token setup.
+ *   transcodes update          Update installed plugins and this CLI.
  *   transcodes version         Print the installed CLI npm package version.
  *   transcodes help            Usage.
  *
@@ -33,6 +35,7 @@ import {
 } from '@transcodes-guard/core/stepup';
 import { formatCliUsage } from './commands.js';
 import { runDashboard } from './dashboard.js';
+import { cmdInstall, cmdUpdate } from './install.js';
 import { CLI_PACKAGE_NAME, CLI_VERSION } from './version.js';
 
 function fail(message: string): never {
@@ -205,6 +208,12 @@ function main(): void {
   const [command, ...rest] = process.argv.slice(2);
 
   switch (command) {
+    case 'install':
+      void cmdInstall(rest);
+      break;
+    case 'update':
+      void cmdUpdate(rest);
+      break;
     case 'set':
       cmdSet(rest);
       break;
