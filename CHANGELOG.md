@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [0.60.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.59.0...transcodes-guard-v0.60.0) (2026-07-20)
+
+
+### Features
+
+* **gate:** narrow hook skip to step-up meta tools (t9) ([d286fc6](https://github.com/transcodings/transcodes-guard/commit/d286fc6191ad7b707dfde7d155e0b6a952cb7fa3))
+* **gate:** narrow hook skip to step-up meta tools (t9) ([c237a67](https://github.com/transcodings/transcodes-guard/commit/c237a67c84f06d69d57f3441a4a4fc76cb3e2965))
+
 ## [0.59.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.58.0...transcodes-guard-v0.59.0) (2026-07-20)
 
 
