@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.59.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.58.0...transcodes-guard-v0.59.0) (2026-07-20)
+
+
+### Features
+
+* **cli:** add guided install/update flow and refresh dashboard guide ([fb28dc2](https://github.com/transcodings/transcodes-guard/commit/fb28dc249c5144921295c12411fc0fa120501cb2))
+
 ## [0.58.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.57.0...transcodes-guard-v0.58.0) (2026-07-18)
 
 
