@@ -46,13 +46,16 @@ export interface ToolRuleMatch {
 export declare const TRANSCODES_GUARD_TOOL_PREFIX = "tc_";
 /** Wire names emitted by host PreToolUse hooks for MCP tool calls. */
 export declare function isMcpWireToolName(toolName: string): boolean;
-/**
- * Built-in transcodes-guard MCP — PreToolUse skips /guard/evaluate.
- * Exact set membership only (no substring/prefix heuristics): bare
- * registered name, or host-namespaced form whose namespace AND tool part
- * both match. Anything else → not ours → gated (fail-safe).
- */
+/** Built-in transcodes-guard MCP — the full registered tc_* set. */
 export declare function isGuardToolName(toolName: string): boolean;
+/**
+ * Step-up meta (infrastructure) tools — the only built-ins PreToolUse skips
+ * (toolgate t9). Gating one of these would make deny-recovery circular: the
+ * poll tools are how an agent completes the step-up the gate demanded.
+ * Every other tc_* name goes to POST /guard/evaluate like any external
+ * mcp__* wire name.
+ */
+export declare function isGuardMetaToolName(toolName: string): boolean;
 export interface BuiltinExemptEntry {
     name: string;
     reason: string;

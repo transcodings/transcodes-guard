@@ -162,7 +162,7 @@ jobs:
       # Claude Code plugin smoke tests (8 scenarios, Guard v3 semantics).
       # The CI runner has NO Transcodes token and NO reachable backend, so the
       # states a smoke can reach are: no-token fail-closed deny, hook-skip
-      # (built-in transcodes-guard MCP), backend-unreachable fail-closed deny,
+      # (step-up meta tools only), backend-unreachable fail-closed deny,
       # and the token-free Stop no-op path. Allow (permission 1) and challenge
       # (permission 2 + sid/url) need a mock /guard/evaluate — deliberately out
       # of scope here (PRD smoke-suite-v3-respec P2).
@@ -192,32 +192,29 @@ jobs:
             echo "::error::Canonical transcodes-guard MCP must skip the hook"; exit 1
           fi
 
-      - name: claude-code · built-in transcodes-guard MCP skips the hook (retire_member)
+      - name: claude-code · non-meta built-in MCP is gated, no-token deny (retire_member)
         run: |
           set -e
-          # Guard v3: built-in transcodes-guard MCP wire names are classified out
-          # of the hook (evaluate.ts → isGuardToolName, exact-set). The handler
-          # (execProtectedTool + in-memory verified set) is the backstop, so the
-          # hook must pass with no permissionDecision — even for a protected tool
-          # like retire_member. No on-disk state is involved (v3).
+          # Only the step-up meta set skips the hook (evaluate.ts →
+          # isGuardMetaToolName). Non-meta built-in tc_* names are classified
+          # into the gate like any other tool, and with no token the gate
+          # fails closed.
           OUT=$(echo '{"tool_name":"tc_retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
             | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for built-in MCP tool"; exit 1; }
-          if echo "$OUT" | grep -q '"permissionDecision"'; then
-            echo "::error::Built-in transcodes-guard MCP must skip the hook, but a permissionDecision was emitted"; exit 1
-          fi
+          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Non-meta built-in MCP must be gated (no-token deny JSON missing)"; exit 1; }
 
-      - name: claude-code · unprotected MCP tool passes (get_member)
+      - name: claude-code · non-meta built-in MCP is gated, no-token deny (get_member)
         run: |
           set -e
+          # Read-only built-ins are non-meta too: same gate path, same
+          # no-token fail-closed deny.
           OUT=$(echo '{"tool_name":"tc_get_member","tool_input":{"member_id":"x"}}' \
             | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not allow unprotected MCP tool"; exit 1; }
-          if echo "$OUT" | grep -q '"permissionDecision"'; then
-            echo "::error::Unexpected permissionDecision output for unprotected MCP tool"; exit 1
-          fi
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for built-in MCP tool"; exit 1; }
+          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Non-meta built-in MCP must be gated (no-token deny JSON missing)"; exit 1; }
 
       # Stop hook: local latch reminders removed. Coordinate SSOT is backend-only;
       # Stop must exit 0 with no reminder payload (agents recover via deny + poll wait).

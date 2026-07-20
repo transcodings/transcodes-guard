@@ -12,6 +12,7 @@ import { describe, it } from 'node:test';
 import type { GuardProvider } from '../src/patterns/tool-rules.js';
 import {
   builtinExemptEntries,
+  GUARD_META_TOOL_NAMES,
   GUARD_TOOL_NAMES,
 } from '../src/patterns/tool-rules.js';
 import { classifyToolCall, type ToolCallInput } from '../src/stepup/evaluate.js';
@@ -28,10 +29,20 @@ function input(toolName: string): ToolCallInput {
 }
 
 describe('classifyToolCall — skip side', () => {
-  it('registered tc_* names skip on every provider and on unknown provider', () => {
+  // Deadlock direction (t9): gating a meta tool would make deny-recovery
+  // circular — the poll tools are how the agent completes the step-up the
+  // gate demanded. Meta skips on every provider AND on unknown provider,
+  // bare and in both host-namespaced wire forms.
+  it('step-up meta tools skip on every provider and on unknown provider', () => {
     for (const provider of [...HOOK_PROVIDERS, undefined]) {
-      for (const name of GUARD_TOOL_NAMES) {
-        assert.equal(classifyToolCall(input(name), provider), null, `${provider}:${name}`);
+      for (const name of GUARD_META_TOOL_NAMES) {
+        for (const wire of [
+          name,
+          `mcp__plugin_mcp_plugin_transcodes_guard__${name}`,
+          `mcp__mcp_plugin_transcodes_guard__${name}`,
+        ]) {
+          assert.equal(classifyToolCall(input(wire), provider), null, `${provider}:${wire}`);
+        }
       }
     }
   });
@@ -50,6 +61,24 @@ describe('classifyToolCall — skip side', () => {
 });
 
 describe('classifyToolCall — gated side (fail-safe)', () => {
+  // Delegation direction (t9): every non-meta built-in goes to
+  // POST /guard/evaluate like any external mcp__* wire name. A skip here
+  // would bypass the backend classifier + matrix for a real mutation.
+  it('every non-meta registered tc_* name is gated, bare and wrapped', () => {
+    for (const provider of [...HOOK_PROVIDERS, undefined]) {
+      for (const name of GUARD_TOOL_NAMES) {
+        if (GUARD_META_TOOL_NAMES.has(name)) continue;
+        for (const wire of [
+          name,
+          `mcp__plugin_mcp_plugin_transcodes_guard__${name}`,
+          `mcp__mcp_plugin_transcodes_guard__${name}`,
+        ]) {
+          assert.notEqual(classifyToolCall(input(wire), provider), null, `${provider}:${wire}`);
+        }
+      }
+    }
+  });
+
   it('false-positive trio of the old substring predicate is gated', () => {
     for (const name of ['get_utc_time', 'btc_transfer', 'publish_version']) {
       for (const provider of HOOK_PROVIDERS) {

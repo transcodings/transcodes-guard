@@ -15,7 +15,7 @@ Three layers can decide things about a tool call. Putting a decision in the wron
 
 | Decision | Layer | Why there |
 |---|---|---|
-| **built-in skip** (our `tc_*` registered set + the host's static list) | **script** — static data in the bundle, exact-match | Getting it wrong is a security hole or a recovery deadlock. Delegating to the backend puts the recovery plane inside the failure radius: the tool you poll to recover would itself need the backend that is down |
+| **built-in skip** (our step-up meta 4-name set + the host's static list — t9 narrowed it from the full `tc_*` registered set) | **script** — static data in the bundle, exact-match | Getting it wrong is a security hole or a recovery deadlock. Delegating to the backend puts the recovery plane inside the failure radius: the tool you poll to recover would itself need the backend that is down |
 | **risk classification + verified** | **backend** (`/guard/evaluate` + cache) | The 07-11 model's core — judgement is backend-owned. See [[gate-security-model]] |
 | **coarse category prefilter** | **matcher** (superset, no decision power) | An external contract we cannot verify — paid for with drift watch, not trust |
 
@@ -50,7 +50,7 @@ The table is the **eligibility bar, not an inventory**: it says which grades *ma
 
 - `simulate_hook_invocation` is **not** a dry run — it spawns the real hook binary, which calls the backend and may create a step-up session and open a browser tab. By contrast `inspect_stepup_state` and `simulate_tool_call` are strictly read-only.
 - `inspect_stepup_state` answers "what step-up state does this client hold?" with `client_state_files: []` — **the emptiness is the answer, not a failure to look** (t3). To find out whether a coordinate is verified, poll the backend.
-- `simulate_tool_call` reports whether an external `mcp__*` wire name would reach `POST /guard/evaluate` in the PreToolUse hook. Built-in transcodes-guard MCP skips the hook. The full-fidelity oracle is `simulate_hook_invocation`.
+- `simulate_tool_call` reports whether a wire name would reach `POST /guard/evaluate` in the PreToolUse hook. Only the step-up meta tools skip; external `mcp__*` names and non-meta built-in `tc_*` names are gated. The full-fidelity oracle is `simulate_hook_invocation`.
 - `simulate_hook_invocation` resolves the hook binary **only** from `CLAUDE_PLUGIN_ROOT` (or `PLUGIN_ROOT` for Codex) and fails loudly if neither is set — it must not fall back to a path relative to the package dist, because the server now lives in a workspace package, not the plugin tree.
 
 ## Per-host wire-format divergence (lives only here)

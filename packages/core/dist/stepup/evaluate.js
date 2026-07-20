@@ -20,7 +20,7 @@
  *    `block-stepup-create-failed`, carrying the HTTP status / backend error
  *    text in `failure.detail` so the deny is diagnosable (issue #189).
  */
-import { currentHostProvider, DEFAULT_RBAC_RESOURCE, isBuiltinExemptToolName, isGuardToolName, } from '../patterns/index.js';
+import { currentHostProvider, DEFAULT_RBAC_RESOURCE, isBuiltinExemptToolName, isGuardMetaToolName, } from '../patterns/index.js';
 import { loadStepupConfig } from './config.js';
 import { openBrowser } from './gate.js';
 import { evaluateAction } from './rbac-check.js';
@@ -72,16 +72,17 @@ function summarizePayload(payload) {
     }
 }
 /**
- * The built-in binary decision (toolgate t2): a call is skipped iff its wire
- * name is ours (registered tc_* set) or in the host's static builtin-exempt
- * list — everything else goes to POST /guard/evaluate.
+ * The built-in binary decision (toolgate t2, narrowed by t9): a call is
+ * skipped iff its wire name is a step-up meta tool (the 4-name recovery
+ * loop) or in the host's static builtin-exempt list — everything else,
+ * non-meta tc_* tools included, goes to POST /guard/evaluate.
  * Exported for the §3 acceptance-matrix unit tests; production callers go
  * through `evaluatePreToolUse`.
  */
 export function classifyToolCall(input, provider) {
     const name = wireToolName(input);
     if (name &&
-        (isGuardToolName(name) || isBuiltinExemptToolName(provider, name))) {
+        (isGuardMetaToolName(name) || isBuiltinExemptToolName(provider, name))) {
         return null;
     }
     const payload = resolvePayload(input);

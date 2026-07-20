@@ -18,10 +18,14 @@ import {
   type GateBackend,
   type GuardToolDefinition,
 } from '../contract/index.js';
-import { isGuardToolName, isMcpWireToolName } from '../patterns/index.js';
+import {
+  isGuardMetaToolName,
+  isGuardToolName,
+  isMcpWireToolName,
+} from '../patterns/index.js';
 
 const MCP_TOOL_LOOKUP_NAME_GUIDANCE =
-  'MCP full wire name from the host PreToolUse hook (e.g. mcp__mongodb__list_collections). External mcp__* names are gated via POST /guard/evaluate; built-in transcodes-guard MCP skips the hook (the backend StepUpSessionGuard enforces step-up on the API call itself).';
+  'MCP full wire name from the host PreToolUse hook (e.g. mcp__mongodb__list_collections). External mcp__* names and non-meta built-in tc_* names are gated via POST /guard/evaluate; only the step-up meta tools skip the hook (the backend StepUpSessionGuard enforces step-up on built-in API calls either way).';
 
 function textResult(text: string, isError = false) {
   return {
@@ -536,7 +540,7 @@ export function coreToolDefinitions(
       name: 'tc_simulate_tool_call',
       title: 'Simulate MCP hook gating',
       description:
-        'Given a full MCP wire tool name from a PreToolUse hook, report whether the hook would gate it. External mcp__* wire names are gated via POST /guard/evaluate. Built-in transcodes-guard MCP (registered tc_* names, exact set — bare or host-namespaced) skips the hook — the backend StepUpSessionGuard enforces step-up on the API call itself. Read-only — does not invoke the hook or call the backend.',
+        'Given a full MCP wire tool name from a PreToolUse hook, report whether the hook would gate it. External mcp__* wire names and non-meta built-in tc_* names are gated via POST /guard/evaluate (for built-ins the backend StepUpSessionGuard additionally enforces step-up on the API call itself). Only the step-up meta tools (exact 4-name set — bare or host-namespaced) skip the hook: gating them would make deny-recovery circular. Read-only — does not invoke the hook or call the backend.',
       summary:
         'Report whether a full MCP wire tool name would be gated by the PreToolUse hook (POST /guard/evaluate).',
       category: 'Gate & Policies',
@@ -549,15 +553,30 @@ export function coreToolDefinitions(
         tool_input: z.unknown().optional(),
       },
       handler: async ({ tool_name }) => {
-        if (isGuardToolName(tool_name)) {
+        if (isGuardMetaToolName(tool_name)) {
           return textResult(
             JSON.stringify(
               {
                 tool_name,
                 matched: false,
                 will_trigger_hook: false,
-                matched_by: 'transcodes-guard-builtin',
-                note: 'Built-in transcodes-guard MCP skips PreToolUse /guard/evaluate; the backend StepUpSessionGuard enforces step-up on the API call itself.',
+                matched_by: 'transcodes-guard-meta',
+                note: 'Step-up meta tools skip PreToolUse /guard/evaluate — gating the recovery loop would be circular.',
+              },
+              null,
+              2,
+            ),
+          );
+        }
+        if (isGuardToolName(tool_name)) {
+          return textResult(
+            JSON.stringify(
+              {
+                tool_name,
+                matched: true,
+                will_trigger_hook: true,
+                matched_by: 'guard-evaluate',
+                note: 'Non-meta built-in tc_* names reach POST /guard/evaluate like external MCP; the backend StepUpSessionGuard additionally enforces step-up on the API call itself.',
               },
               null,
               2,

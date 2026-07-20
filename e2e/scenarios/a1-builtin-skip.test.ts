@@ -1,11 +1,15 @@
 /**
- * A1 — built-in transcodes-guard MCP names skip the gate entirely: silent
- * pass (empty stdout), exit 0, ZERO backend requests, ZERO state files.
+ * A1 — step-up meta tools and the host's builtin-exempt list skip the gate
+ * entirely: silent pass (empty stdout), exit 0, ZERO backend requests, ZERO
+ * state files.
  *
  * Token is PRESENT on purpose — a token-less run would pass these names for
  * the wrong reason path; with a token, only the skip predicate explains the
  * silence. The deadlock direction matters most: gating
  * `tc_poll_stepup_session_wait` would make deny-recovery circular.
+ *
+ * t9 narrowed the built-in skip from the full registered tc_* set to the
+ * 4-name meta set — non-meta tc_* names are now gated (pinned in A2).
  *
  * t2 landed: the per-host builtin-exempt data files are iterated below, so
  * every list entry is pinned end-to-end (list → dist bundle → silent pass).
@@ -16,14 +20,14 @@ import antigravityExempt from '../../packages/core/src/patterns/data/builtin-exe
 import claudeExempt from '../../packages/core/src/patterns/data/builtin-exempt/claude.json' with { type: 'json' };
 import codexExempt from '../../packages/core/src/patterns/data/builtin-exempt/codex.json' with { type: 'json' };
 import cursorExempt from '../../packages/core/src/patterns/data/builtin-exempt/cursor.json' with { type: 'json' };
+import { GUARD_META_TOOL_NAMES } from '../../packages/core/src/patterns/guard-tool-names.generated.js';
 import { type HostId, runHook } from '../harness/hook-runner.js';
 import { MockBackend } from '../harness/mock-backend.js';
 import { makeWorld } from '../harness/state.js';
 import { ALL_HOSTS, antigravityCallMcpStdin, wire } from '../harness/wire.js';
 
 const BUILTIN_NAMES = [
-  'tc_poll_stepup_session_wait', // deny-recovery poll tool — gating it = deadlock
-  'tc_retire_member',
+  ...GUARD_META_TOOL_NAMES, // deny-recovery meta set — gating any of these = deadlock
   'mcp__plugin_mcp_plugin_transcodes_guard__tc_poll_stepup_session_wait',
 ];
 

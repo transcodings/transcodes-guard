@@ -25,7 +25,7 @@ import {
   DEFAULT_RBAC_RESOURCE,
   type GuardProvider,
   isBuiltinExemptToolName,
-  isGuardToolName,
+  isGuardMetaToolName,
   type RbacAction,
 } from '../patterns/index.js';
 import { loadStepupConfig } from './config.js';
@@ -165,9 +165,10 @@ function summarizePayload(payload: unknown): string {
 }
 
 /**
- * The built-in binary decision (toolgate t2): a call is skipped iff its wire
- * name is ours (registered tc_* set) or in the host's static builtin-exempt
- * list — everything else goes to POST /guard/evaluate.
+ * The built-in binary decision (toolgate t2, narrowed by t9): a call is
+ * skipped iff its wire name is a step-up meta tool (the 4-name recovery
+ * loop) or in the host's static builtin-exempt list — everything else,
+ * non-meta tc_* tools included, goes to POST /guard/evaluate.
  * Exported for the §3 acceptance-matrix unit tests; production callers go
  * through `evaluatePreToolUse`.
  */
@@ -178,7 +179,7 @@ export function classifyToolCall(
   const name = wireToolName(input);
   if (
     name &&
-    (isGuardToolName(name) || isBuiltinExemptToolName(provider, name))
+    (isGuardMetaToolName(name) || isBuiltinExemptToolName(provider, name))
   ) {
     return null;
   }

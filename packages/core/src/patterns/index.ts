@@ -38,6 +38,7 @@ export {
   type GuardMatcher,
   type GuardProvider,
   isBuiltinExemptToolName,
+  isGuardMetaToolName,
   isGuardToolName,
   isMcpWireToolName,
   loadMergedToolRules,
