@@ -42,7 +42,7 @@ describe('isGuardToolName', () => {
     }
   });
 
-  it('deadlock direction: the step-up recovery poll tool always skips', () => {
+  it('the step-up recovery poll tool is a registered name (skip itself is isGuardMetaToolName)', () => {
     assert.equal(isGuardToolName('tc_poll_stepup_session_wait'), true);
     assert.equal(
       isGuardToolName(
