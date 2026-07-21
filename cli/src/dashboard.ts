@@ -42,6 +42,8 @@ const PORT_ATTEMPTS = 10;
 /** Temporary Mux playback id for the Guideline onboarding video. */
 const GUIDELINE_MUX_PLAYBACK_ID =
   'h1vOCPmFDA02fGhcout01FZWD4lpKNTzLFk7vybxvrc3M';
+/** Console org page — CLI deep-links append `?pid=&tab=`. */
+const APP_ORG_URL = 'https://app.transcodes.io/en/org';
 
 const execFileAsync = promisify(execFile);
 
@@ -1180,6 +1182,19 @@ function dashboardHtml(): string {
       line-height: 1.5;
       margin: 0;
     }
+    .guide-step-desc a,
+    .guide-console-link {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: underline;
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      cursor: pointer;
+    }
+    .guide-step-desc a:hover,
+    .guide-console-link:hover { opacity: 0.88; }
     .guide-step-desc code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: var(--text-2xs);
@@ -1438,7 +1453,7 @@ function dashboardHtml(): string {
           <div class="header-profile-meta" id="header-profile-meta"></div>
         </div>
         <div class="header-profile-actions">
-          <button type="button" class="btn-manage-auth" id="manage-auth-btn" aria-label="Open Transcodes console">
+          <button type="button" class="btn-manage-auth" id="manage-auth-btn" data-console-open aria-label="Open Transcodes console">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33" />
             </svg>
@@ -1518,7 +1533,7 @@ function dashboardHtml(): string {
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">Set up resources, actions, and roles in the Transcodes app. You can review the resulting RBAC permissions read-only in this CLI panel's RBAC tab</p>
+                  <p class="guide-step-desc">Set up resources, actions, and roles in the <a href="${APP_ORG_URL}" data-app-tab="rbac" target="_blank" rel="noopener noreferrer">Transcodes app</a>. You can review the resulting RBAC permissions read-only in this CLI panel's RBAC tab</p>
                 </div>
               </details>
             </li>
@@ -1530,7 +1545,7 @@ function dashboardHtml(): string {
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">Click the <strong>Console</strong> button (or run <code class="cli-cmd">transcodes console</code> in your terminal), sign in, then register a passkey or biometrics — these are used for step-up authentication</p>
+                  <p class="guide-step-desc">Click the <button type="button" class="guide-console-link" data-console-open>Console</button> button (or run <code class="cli-cmd">transcodes console</code> in your terminal), sign in, then register a passkey or biometrics — these are used for step-up authentication</p>
                 </div>
               </details>
             </li>
@@ -1595,7 +1610,7 @@ function dashboardHtml(): string {
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">Want step-up links delivered to Slack or Discord? Go to <a href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">app.transcodes.io</a> and set up a webhook. (More channels coming soon.)</p>
+                  <p class="guide-step-desc">Want step-up links delivered to Slack or Discord? Go to <a href="${APP_ORG_URL}" data-app-tab="settings" target="_blank" rel="noopener noreferrer">Transcodes Settings</a> and set up a webhook. (More channels coming soon.)</p>
                 </div>
               </details>
             </li>
@@ -1674,7 +1689,7 @@ function dashboardHtml(): string {
         <button type="button" class="tab" data-rbac="roles" role="tab">Roles</button>
       </div>
       <div class="rbac-pane active" id="rbac-pane-resources">
-        <p class="section-sub">Configure resources, roles, and permissions. <a href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Edit RBAC permissions</a></p>
+        <p class="section-sub">Configure resources, roles, and permissions. <a href="${APP_ORG_URL}" data-app-tab="rbac" target="_blank" rel="noopener noreferrer">Edit RBAC Permissions</a></p>
         <div class="rbac-table-wrap">
           <table class="rbac-table" id="resources-table">
             <thead><tr><th>Resource</th><th>Description</th></tr></thead>
@@ -1683,7 +1698,7 @@ function dashboardHtml(): string {
         </div>
       </div>
       <div class="rbac-pane" id="rbac-pane-roles">
-        <p class="section-sub">Select a role to view its permission matrix · <a href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Configure RBAC permissions</a></p>
+        <p class="section-sub">Select a role to view its permission matrix · <a href="${APP_ORG_URL}" data-app-tab="rbac" target="_blank" rel="noopener noreferrer">Edit RBAC Permissions</a></p>
         <div class="role-picker" id="role-picker"></div>
         <div id="matrix-wrap" hidden>
           <p class="list-label" id="matrix-role-label"></p>
@@ -1726,7 +1741,7 @@ function dashboardHtml(): string {
     const headerProfileEl = document.getElementById("header-profile");
     const headerProfileNameEl = document.getElementById("header-profile-name");
     const headerProfileMetaEl = document.getElementById("header-profile-meta");
-    const manageAuthBtn = document.getElementById("manage-auth-btn");
+    const APP_ORG_URL = ${JSON.stringify(APP_ORG_URL)};
 
     let lastStatus = { tokens: [], activeMember: null };
     let editingId = null;
@@ -1735,14 +1750,44 @@ function dashboardHtml(): string {
       return Array.isArray(s.tokens) && s.tokens.length > 0;
     }
 
+    function updateAppDeepLinks(s) {
+      const pid = s && s.activeMember && s.activeMember.projectId;
+      document.querySelectorAll("[data-app-tab]").forEach((a) => {
+        const tab = a.getAttribute("data-app-tab");
+        if (pid && tab) {
+          a.href = APP_ORG_URL + "?pid=" + encodeURIComponent(pid) + "&tab=" + encodeURIComponent(tab);
+        } else {
+          a.href = APP_ORG_URL;
+        }
+      });
+    }
+
     function updateTokenEmptyState() {
       const empty = !hasSavedTokens(lastStatus);
       headerTokenEmptyEl.hidden = !empty;
       if (empty) {
         headerProfileEl.hidden = true;
+        updateAppDeepLinks(lastStatus);
         return;
       }
       renderHeaderProfile(lastStatus);
+      updateAppDeepLinks(lastStatus);
+    }
+
+    async function openConsole() {
+      const consoleBtns = document.querySelectorAll("[data-console-open]");
+      consoleBtns.forEach((btn) => { btn.disabled = true; });
+      try {
+        const res = await fetch("/api/console/open", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not open auth settings");
+        if (data.browserUrl) window.open(data.browserUrl, "_blank", "noopener,noreferrer");
+        showToast("Opening auth settings in your browser", "success");
+      } catch (e) {
+        showToast(e.message || "Failed to open auth settings", "error");
+      } finally {
+        consoleBtns.forEach((btn) => { btn.disabled = false; });
+      }
     }
 
     const guideVideoToggle = document.getElementById("guide-video-toggle");
@@ -1867,19 +1912,8 @@ function dashboardHtml(): string {
       renderTokens(lastStatus);
     }
 
-    manageAuthBtn.addEventListener("click", async () => {
-      manageAuthBtn.disabled = true;
-      try {
-        const res = await fetch("/api/console/open", { method: "POST" });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Could not open auth settings");
-        if (data.browserUrl) window.open(data.browserUrl, "_blank", "noopener,noreferrer");
-        showToast("Opening auth settings in your browser", "success");
-      } catch (e) {
-        showToast(e.message || "Failed to open auth settings", "error");
-      } finally {
-        manageAuthBtn.disabled = false;
-      }
+    document.querySelectorAll("[data-console-open]").forEach((btn) => {
+      btn.addEventListener("click", () => { openConsole(); });
     });
 
     async function saveLabel(id) {
