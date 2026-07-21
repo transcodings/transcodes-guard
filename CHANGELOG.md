@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.61.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.60.0...transcodes-guard-v0.61.0) (2026-07-21)
+
+
+### Features
+
+* **cli:** deep-link dashboard guide to app org tabs ([8e95dc7](https://github.com/transcodings/transcodes-guard/commit/8e95dc702728b298b1f11f16997a3bf5d099bf7c))
+
 ## [0.60.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.59.0...transcodes-guard-v0.60.0) (2026-07-20)
 
 
