@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.62.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.61.0...transcodes-guard-v0.62.0) (2026-07-25)
+
+
+### Features
+
+* **cli:** browser login, daemon dashboard, and v0.10.0 release ([1189867](https://github.com/transcodings/transcodes-guard/commit/1189867215b00557ac686d04fb7dd2de6aa2838a))
+
 ## [0.61.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.60.0...transcodes-guard-v0.61.0) (2026-07-21)
 
 
