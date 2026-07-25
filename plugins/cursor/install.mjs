@@ -449,7 +449,7 @@ function printPostInstall(isLocal) {
   console.log('Next steps:');
   console.log('  1. Restart Cursor (Developer: Reload Window).');
   console.log('  2. Command palette → "Cursor: Review Hooks" → trust transcodes-guard.');
-  console.log('  3. Save your token: npm install -g @bigstrider/transcodes-cli && transcodes');
+  console.log('  3. Save your token: curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes  (Windows: irm …/install.ps1 | iex)');
   console.log('  4. Use the local IDE Agent (not Cloud Agent) for gate testing.');
   if (!isLocal) {
     console.log(

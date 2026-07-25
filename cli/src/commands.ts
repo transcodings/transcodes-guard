@@ -17,7 +17,7 @@ export const CLI_COMMAND_SPECS: readonly CliCommandSpec[] = [
   {
     usage: 'transcodes install',
     description:
-      'Guided setup: pick host plugins to install, save a token, then open the dashboard (--all / <platforms>)',
+      'Guided setup: pick host plugins to install, sign in, then open the dashboard (--all / <platforms>)',
   },
   {
     usage: 'transcodes update',
@@ -27,7 +27,16 @@ export const CLI_COMMAND_SPECS: readonly CliCommandSpec[] = [
   {
     usage: 'transcodes',
     description:
-      'Open the local dashboard (URL printed in terminal; default port 3847; --port N / --no-open)',
+      'Open the local dashboard in the background (reuses a running server; default port 3847; --port N / --no-open)',
+  },
+  {
+    usage: 'transcodes stop',
+    description: 'Stop the background local dashboard daemon',
+  },
+  {
+    usage: 'transcodes login',
+    description:
+      'Sign in with Google in your browser, choose an organization, and save the issued member token (-l <label> / --no-open)',
   },
   {
     usage: 'transcodes set <token> -l <label>',

@@ -10,7 +10,7 @@ Claude Code용 위험 셸 인터셉터(`PreToolUse`) + 스텝업 MFA 감사 MCP 
 
 - **Claude Code** (플러그인 지원 버전).
 - `PATH`에 **Node.js ≥ 20** (hook과 MCP 서버는 `node` 하위 프로세스로 실행됩니다).
-- 스텝업용 **멤버 MCP JWT** — CLI로 저장 권장 (`npm install -g @bigstrider/transcodes-cli` 후 `transcodes`; [토큰 저장](#2-토큰-저장) 참고).
+- 스텝업용 **멤버 MCP JWT** — CLI로 저장 권장 (`curl …/install.sh | bash` 또는 Windows `irm …/install.ps1 | iex` 후 `transcodes`; [토큰 저장](#2-토큰-저장) 참고).
 
 ## 설치
 
@@ -28,8 +28,10 @@ Claude Code가 런타임에 `${CLAUDE_PLUGIN_ROOT}`를 설정하고, 매니페�
 MCP 서버와 스텝업 hook은 둘 다 멤버 MCP JWT로 Transcodes 백엔드에 인증합니다. **권장** — CLI 컨트롤 플레인을 한 번 설치한 뒤 대시보드에서 토큰을 입력하세요. `~/.transcodes/config.json`에 영구 저장되어 모든 에이전트 세션이 읽습니다(환경 변수 불필요):
 
 ```bash
-npm install -g @bigstrider/transcodes-cli
-transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출력됩니다(기본 포트 3847, `--port N`으로 변경 가능)
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
+# Windows (PowerShell):
+# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 비대화형 대안(같은 저장소): `transcodes set <token> -l <label>`.

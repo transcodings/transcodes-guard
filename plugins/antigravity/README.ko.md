@@ -42,8 +42,10 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 MCP 서버와 스텝업 hook은 둘 다 멤버 MCP JWT로 Transcodes 백엔드에 인증합니다. **권장** — CLI 컨트롤 플레인을 한 번 설치한 뒤 대시보드에서 토큰을 입력하세요. `~/.transcodes/config.json`에 영구 저장되어 모든 에이전트 세션이 읽습니다(환경 변수 불필요, 호스트 간 유지):
 
 ```bash
-npm install -g @bigstrider/transcodes-cli
-transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출력됩니다(기본 포트 3847, `--port N`으로 변경 가능)
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
+# Windows (PowerShell):
+# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 비대화형 대안(같은 저장소): `transcodes set <token> -l <label>`.

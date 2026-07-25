@@ -10,7 +10,7 @@ When the agent is about to run a risky Bash command (or a protected MCP tool cal
 
 - **Claude Code** with plugin support.
 - **Node.js ≥ 20** on `PATH` (hooks and the MCP server run as `node` subprocesses).
-- A **member MCP JWT** for step-up — save via the CLI (`npm install -g @bigstrider/transcodes-cli`, then `transcodes`; see [Save your token](#2-save-your-token)).
+- A **member MCP JWT** for step-up — save via the CLI (`curl …/install.sh | bash` or Windows `irm …/install.ps1 | iex`, then `transcodes`; see [Save your token](#2-save-your-token)).
 
 ## Installation
 
@@ -28,8 +28,10 @@ Claude Code sets `${CLAUDE_PLUGIN_ROOT}` at runtime; the manifest (`.claude-plug
 The MCP server and the step-up hook both authenticate against the Transcodes backend with a member MCP JWT. **Recommended** — install the CLI control plane once, then enter the token in the dashboard. It persists in `~/.transcodes/config.json` and every agent session reads it (no env var needed):
 
 ```bash
-npm install -g @bigstrider/transcodes-cli
-transcodes   # opens the local dashboard — URL is printed in the terminal (default port 3847; `--port N` to override)
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
+# Windows (PowerShell):
+# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.

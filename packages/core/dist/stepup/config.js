@@ -6,6 +6,7 @@
  * organizationId, and the verified-state cache live elsewhere (constants
  * are baked into the session module; verified state lives in store.ts).
  */
+import { CLI_INSTALL_HINT_UNIX, CLI_INSTALL_HINT_WIN, } from '../contract/messages.js';
 import { parseMemberAccessToken } from './jwt.js';
 import { resolveToken } from './token-store.js';
 /**
@@ -38,9 +39,9 @@ export function loadStepupConfig() {
     const { token: tokenRaw } = resolveToken();
     if (!tokenRaw) {
         throw new Error('No Transcodes token found. Install the CLI ' +
-            '(`npm install -g @bigstrider/transcodes-cli`), run `transcodes` to open ' +
-            'the dashboard, and paste a token from the Transcodes console (member ' +
-            'detail page, https://app.transcodes.io). Non-interactive: ' +
+            `(macOS/Linux: \`${CLI_INSTALL_HINT_UNIX}\`; Windows: \`${CLI_INSTALL_HINT_WIN}\`), ` +
+            'then run `transcodes login` to sign in and choose an organization. ' +
+            'Manual fallback: ' +
             '`transcodes set <token> -l <label>`.');
     }
     const parsed = parseMemberAccessToken(tokenRaw);

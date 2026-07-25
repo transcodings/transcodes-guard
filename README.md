@@ -30,12 +30,20 @@ Do this **in order**. Without a token the plugin can still DENY danger commands,
 
 ### Quickstart — `transcodes install` (recommended)
 
-The fastest path is the guided installer — plugins, token, then dashboard in one flow:
+The fastest path is the guided installer — plugins, token, then dashboard in one flow.
+Node is optional for this step: the bootstrap script installs an LTS if missing.
 
 ```bash
-npm install -g @bigstrider/transcodes-cli
-transcodes install
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
 ```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
+```
+
+Already have Node ≥ 20? `npm install -g @bigstrider/transcodes-cli` works too.
 
 What `transcodes install` does:
 
@@ -74,11 +82,18 @@ Prefer to do each step by hand? Follow §1–§3 below. The guided installer abo
 ### 1. Install the CLI
 
 ```bash
-npm install -g @bigstrider/transcodes-cli
-transcodes
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash
 ```
 
-`transcodes` opens the local dashboard (default port 3847; if busy it tries the next free port, and frees the range once if all are taken). Or: `npx @bigstrider/transcodes-cli`.
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
+```
+
+Then: `transcodes` — opens the local dashboard (default port 3847; if busy it tries the next free port, and frees the range once if all are taken).
+
+Fallback if you already have Node ≥ 20: `npm install -g @bigstrider/transcodes-cli` or `npx @bigstrider/transcodes-cli`.
 
 ### 2. Create a project in Transcodes Console and save the token
 

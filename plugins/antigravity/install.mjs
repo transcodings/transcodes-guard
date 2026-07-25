@@ -411,7 +411,7 @@ function printPostInstall(isLocal) {
       '  2. Confirm: `agy plugin list` no longer shows a duplicate source=claude-code entry.',
     );
   }
-  console.log('  3. Save your token: npm install -g @bigstrider/transcodes-cli && transcodes');
+  console.log('  3. Save your token: curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes  (Windows: irm …/install.ps1 | iex)');
   if (!isLocal) {
     console.log(
       '  4. Review ~/.gemini/antigravity-cli/settings.json — installer sets toolPermission',

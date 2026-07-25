@@ -47,8 +47,10 @@ Cursor prompts a one-time trust review the first time a hook fires. Approve once
 The MCP server and the step-up hook authenticate against the Transcodes backend using a member MCP JWT. **Recommended** — install the CLI control plane once, then enter the token in the dashboard. It persists in `~/.transcodes/config.json` and every agent session reads it (no env var needed):
 
 ```bash
-npm install -g @bigstrider/transcodes-cli
-transcodes   # opens the local dashboard — URL is printed in the terminal (default port 3847; `--port N` to override)
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
+# Windows (PowerShell):
+# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
@@ -153,7 +155,7 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 ## Troubleshooting
 
 - **Hook doesn't fire.** Run `install.mjs` (creates/merges `~/.cursor/hooks.json` and fixes `cli-config.json` when present). Settings → Hooks → trust transcodes-guard. Re-check `~/.cursor/cli-config.json`: installer sets `allowlist` and removes broad allows, but narrow Shell/Mcp allows still bypass hooks. Test with the **local IDE Agent**, not Cloud Agent. Ensure `node` is in Cursor's `PATH`.
-- **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`).
+- **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash` or Windows: `irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`).
 - **MCP tool calls hang.** Check `~/.cursor/mcp.json` includes `transcodes-guard` and `~/.cursor/plugins/local/transcodes-guard/dist/src/stdio.js` exists. Cursor logs MCP failures to the Output panel.
 
 ## License

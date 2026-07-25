@@ -31,11 +31,19 @@
 ### 빠른 시작 — `transcodes install` (권장)
 
 가장 빠른 방법은 대화형 설치 마법사입니다. 플러그인 → 토큰 → 대시보드까지 한 번에 진행합니다.
+이 단계에서는 Node가 없어도 됩니다. 부트스트랩 스크립트가 없으면 LTS를 설치합니다.
 
 ```bash
-npm install -g @bigstrider/transcodes-cli
-transcodes install
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
 ```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
+```
+
+이미 Node ≥ 20이 있다면 `npm install -g @bigstrider/transcodes-cli`도 됩니다.
 
 `transcodes install`이 하는 일:
 
@@ -74,11 +82,18 @@ transcodes update
 ### 1. CLI 설치
 
 ```bash
-npm install -g @bigstrider/transcodes-cli
-transcodes
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash
 ```
 
-`transcodes`는 로컬 대시보드를 엽니다(기본 포트 3847; 사용 중이면 다음 빈 포트를 찾고, 구간이 모두 차면 한 번 정리 후 재시도). 또는: `npx @bigstrider/transcodes-cli`.
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
+```
+
+그다음 `transcodes` — 로컬 대시보드를 엽니다(기본 포트 3847; 사용 중이면 다음 빈 포트를 찾고, 구간이 모두 차면 한 번 정리 후 재시도).
+
+이미 Node ≥ 20이 있다면: `npm install -g @bigstrider/transcodes-cli` 또는 `npx @bigstrider/transcodes-cli`.
 
 ### 2. Transcodes Console에서 프로젝트 생성 후 토큰 입력
 

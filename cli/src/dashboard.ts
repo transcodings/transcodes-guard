@@ -35,15 +35,26 @@ import { LOGO_DATA_URI } from './logo.js';
 import { fetchRbacSnapshot, loadRbacConfig } from './rbac-api.js';
 import { CLI_VERSION } from './version.js';
 
-const DEFAULT_PORT = 3847;
-const HOST = '127.0.0.1';
+export const DEFAULT_DASHBOARD_PORT = 3847;
+export const DASHBOARD_HOST = '127.0.0.1';
 /** How many consecutive ports to try (preferred … preferred+N-1). */
-const PORT_ATTEMPTS = 10;
+export const DASHBOARD_PORT_ATTEMPTS = 10;
+
+const DEFAULT_PORT = DEFAULT_DASHBOARD_PORT;
+const HOST = DASHBOARD_HOST;
+const PORT_ATTEMPTS = DASHBOARD_PORT_ATTEMPTS;
+/** Value of `X-Transcodes-Dashboard` on /health — used by ensure/stop. */
+const DASHBOARD_HEALTH_MARKER = 'transcodes-dashboard';
 /** Temporary Mux playback id for the Guideline onboarding video. */
 const GUIDELINE_MUX_PLAYBACK_ID =
   'h1vOCPmFDA02fGhcout01FZWD4lpKNTzLFk7vybxvrc3M';
-/** Console org page — CLI deep-links append `?pid=&tab=`. */
+/**
+ * Console org base — deep-links append
+ * `/{organizationId}/project/{projectId}/{members|permissions|logs|settings}`.
+ */
 const APP_ORG_URL = 'https://app.transcodes.io/en/org';
+/** Fallback when no MCP token / organization id is available. */
+const APP_HOME_URL = 'https://app.transcodes.io';
 
 const execFileAsync = promisify(execFile);
 
@@ -373,6 +384,28 @@ function dashboardHtml(): string {
       opacity: 0.55;
       cursor: not-allowed;
     }
+    .btn-manage-tokens {
+      margin-left: auto;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+    .btn-manage-tokens svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .btn-manage-tokens:hover { opacity: 0.92; }
     .header-profile-actions {
       flex-shrink: 0;
       display: flex;
@@ -449,6 +482,18 @@ function dashboardHtml(): string {
       margin: 0 0 4px;
       letter-spacing: -0.01em;
     }
+    .section-title--spaced {
+      margin: 26px 0 4px;
+    }
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 4px;
+    }
+    .section-title-row .section-title { margin: 0; }
+    .section-title-row .guide-video-toggle { flex-shrink: 0; }
     .section-sub {
       font-size: var(--text-base);
       color: var(--muted);
@@ -1021,7 +1066,7 @@ function dashboardHtml(): string {
       margin: 0;
     }
     .guide-video-wrap {
-      margin: 0 0 22px;
+      margin: 0;
     }
     .guide-video-toggle {
       display: inline-flex;
@@ -1047,7 +1092,7 @@ function dashboardHtml(): string {
       background: var(--accent-soft);
     }
     .guide-video {
-      margin: 10px 0 0;
+      margin: 0 0 22px;
       border-radius: 14px;
       overflow: hidden;
       border: 1px solid var(--line);
@@ -1248,13 +1293,49 @@ function dashboardHtml(): string {
     }
     .guide-help {
       margin: 0 0 18px;
-      padding: 16px 18px;
+      padding: 0;
       background: var(--accent-soft);
       border: 1px solid rgba(91, 84, 230, 0.18);
       border-radius: 14px;
+      overflow: hidden;
+    }
+    .guide-help-accordion { margin: 0; }
+    .guide-help-summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .guide-help-summary::-webkit-details-marker { display: none; }
+    .guide-help-summary::marker { content: ''; }
+    .guide-help-summary:hover { background: rgba(91, 84, 230, 0.06); }
+    .guide-help-summary .guide-help-heading {
+      margin: 0;
+      flex: 1;
+      min-width: 0;
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .guide-help-chevron {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      color: var(--muted);
+      transition: transform 0.15s ease;
+    }
+    .guide-help-accordion[open] .guide-help-chevron {
+      transform: rotate(180deg);
+    }
+    .guide-help-body {
+      padding: 0 18px 16px;
+      border-top: 1px solid rgba(91, 84, 230, 0.12);
     }
     .guide-help-line {
-      margin: 0;
+      margin: 12px 0 0;
       font-size: var(--text-sm);
       color: #4a4a52;
       line-height: 1.6;
@@ -1274,7 +1355,7 @@ function dashboardHtml(): string {
       color: #4a4a52;
       line-height: 1.6;
     }
-    .guide-help-heading:first-child { margin-top: 0; }
+    .guide-help-body > .guide-help-heading:first-child { margin-top: 12px; }
     .guide-help-list {
       margin: 6px 0 0;
       padding-left: 18px;
@@ -1440,11 +1521,10 @@ function dashboardHtml(): string {
         </div>
       </div>
       <div id="header-token-empty" class="header-token-empty" hidden>
-        <p class="header-token-empty-title">Invalid Token Configuration. Please register a Transcodes Member Access Token</p>
-        <p class="header-token-empty-title">To get started, run the following commands:</p>
+        <p class="header-token-empty-title">No Transcodes CLI authorization found</p>
+        <p class="header-token-empty-title">Sign in with Google and choose an organization:</p>
         <div class="header-token-empty-cmds">
-          <code>npm install -g @bigstrider/transcodes-cli</code>
-          <code>transcodes install</code>
+          <code>transcodes login</code>
         </div>
       </div>
       <div class="header-profile" id="header-profile" hidden>
@@ -1471,12 +1551,14 @@ function dashboardHtml(): string {
     </div>
 
     <div class="panel active" id="panel-guideline">
-      <p class="section-title">Getting Started</p>
-      <p class="section-sub">Transcodes CLI Dashboard,Set it up visually — no terminal required. New to Transcodes? Watch the video.</p>
-      <div class="guide-video-wrap">
+      <div class="section-title-row">
+        <p class="section-title">Getting Started</p>
         <button type="button" class="guide-video-toggle" id="guide-video-toggle" aria-expanded="false" aria-controls="guide-video">
           Watch Intro Video
         </button>
+      </div>
+      <p class="section-sub">Transcodes CLI Dashboard,Set it up visually — no terminal required. New to Transcodes? Watch the video.</p>
+      <div class="guide-video-wrap">
         <div class="guide-video" id="guide-video" hidden>
           <mux-player
             playback-id="${GUIDELINE_MUX_PLAYBACK_ID}"
@@ -1487,41 +1569,51 @@ function dashboardHtml(): string {
           ></mux-player>
         </div>
       </div>
-      <p class="list-label">Quick Demo</p>
+      <p class="section-title section-title--spaced">Quick Demo</p>
       <p class="guide-prefix-note">Try the quick demo to see how Transcodes works</p>
       <p class="guide-prefix-note">Prefix prompts with <code class="cli-cmd">/transcodes</code> on Claude, Cursor, and Antigravity — use <code class="cli-cmd">$transcodes</code> on ChatGPT (Codex).</p>
       <div class="guide-groups">
         <section class="guide-group guide-group--panel">
           <ol class="guide-steps">
-            <li class="guide-step">
-              <span class="guide-step-num">1</span>
-              <div class="guide-step-body">
-                <p class="guide-step-title">Open your CLI or desktop app (Claude, Cursor, Antigravity, ChatGPT)</p>
-                <p class="guide-step-desc">If it's already running, restart it so the latest plugin and token are loaded</p>
-              </div>
+            <li>
+              <details class="guide-step guide-step--accordion">
+                <summary class="guide-step-summary">
+                  <span class="guide-step-num">1</span>
+                  <span class="guide-step-title">Open your CLI or desktop app (Claude, Cursor, Antigravity, ChatGPT)</span>
+                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="guide-step-body">
+                  <p class="guide-step-desc">If it's already running, restart it so the latest plugin and token are loaded</p>
+                </div>
+              </details>
             </li>
-            <li class="guide-step">
-              <span class="guide-step-num">2</span>
-              <div class="guide-step-body">
-                <p class="guide-step-title">Trigger a step-up test</p>
-                <p class="guide-step-desc">Ask the agent to run a protected action — it should prompt for step-up authentication</p>
-                <div class="guide-help-examples">
-                  <div class="guide-cmd-row">
-                    <span class="guide-cmd-hosts">Claude · Cursor · Antigravity</span>
-                    <code class="cli-cmd">/transcodes open step-up authentication for testing</code>
-                  </div>
-                  <div class="guide-cmd-row">
-                    <span class="guide-cmd-hosts">ChatGPT (Codex)</span>
-                    <code class="cli-cmd">$transcodes open step-up authentication for testing</code>
+            <li>
+              <details class="guide-step guide-step--accordion">
+                <summary class="guide-step-summary">
+                  <span class="guide-step-num">2</span>
+                  <span class="guide-step-title">Trigger a step-up test</span>
+                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="guide-step-body">
+                  <p class="guide-step-desc">Ask the agent to run a protected action — it should prompt for step-up authentication</p>
+                  <div class="guide-help-examples">
+                    <div class="guide-cmd-row">
+                      <span class="guide-cmd-hosts">Claude · Cursor · Antigravity</span>
+                      <code class="cli-cmd">/transcodes open step-up authentication for testing</code>
+                    </div>
+                    <div class="guide-cmd-row">
+                      <span class="guide-cmd-hosts">ChatGPT (Codex)</span>
+                      <code class="cli-cmd">$transcodes open step-up authentication for testing</code>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </details>
             </li>
           </ol>
         </section>
       </div>
 
-      <p class="list-label">Steps</p>
+      <p class="section-title section-title--spaced">Steps</p>
       <div class="guide-groups">
         <section class="guide-group guide-group--panel">
           <ol class="guide-steps">
@@ -1627,8 +1719,14 @@ function dashboardHtml(): string {
       <p class="cli-map-row cli-map-row--section">
         <span class="cli-map-label cli-map-label--title">MCP Access Token</span>
         <code>transcodes set &lt;token&gt; -l &lt;label&gt;</code>
+        <button type="button" class="btn-manage-tokens" id="manage-tokens-btn" aria-label="Open Transcodes members page">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+          </svg>
+          Manage Tokens
+        </button>
       </p>
-      <p class="section-sub">Paste the token from your Transcodes console member detail page</p>
+      <p class="section-sub">Browser login is recommended: <code>transcodes login</code>. Manual token entry remains available for scripts and recovery.</p>
       <textarea id="token" placeholder="eyJhbGciOi…" spellcheck="false" autocomplete="off"></textarea>
       <input type="text" id="label" class="label-input" placeholder="Label (required) — e.g. transcodes-{project_name}-{env}" autocomplete="off" required />
       <div class="actions">
@@ -1651,7 +1749,7 @@ function dashboardHtml(): string {
         </div>
         <button type="button" class="btn-danger" id="reset-all">Reset all</button>
       </div>
-      <p class="hint">Saved to <code>{{HOME_DIR}}/.transcodes/config.json</code><br />Press Ctrl+C in the terminal to stop</p>
+      <p class="hint">Please read the Guideline tab to learn how to use Transcodes CLI.<br />Stop the background dashboard with <code>transcodes stop</code>.</p>
     </div>
 
     <div class="panel" id="panel-cli">
@@ -1660,21 +1758,40 @@ function dashboardHtml(): string {
       <div class="cmd-list">
         ${renderCliCommandsHtml()}
       </div>
-      <p class="hint">Token file: <code>{{HOME_DIR}}/.transcodes/config.json</code></p>
+      <p class="hint">Please read the Guideline tab first if you are new to Transcodes CLI.</p>
     </div>
 
     <div class="panel" id="panel-rbac">
       <p id="rbac-token-warning" class="rbac-token-warning" hidden>Save a Transcodes token(MAT) first</p>
       <div class="guide-help">
-        <p class="guide-help-heading">How it works</p>
-        <p class="guide-help-line">Transcodes AI interprets the prompt and maps it to a resource / action pair. Based on the member's role, it applies deny / allow / step-up from the permission matrix. Resources are matched by name and description — if nothing matches, it falls back to <code>system</code>. When integrating with your own back office, you can pass <code>resource</code> and <code>action</code> as params to control permissions directly.</p>
-        <p class="guide-help-heading">Action Classification</p>
-        <ul class="guide-help-list">
-          <li><strong>read</strong> — inspect data without changing it (list, get, query, cat, grep, status, describe)</li>
-          <li><strong>update</strong> — modify existing data (edit, patch, set, rename, move, config change)</li>
-          <li><strong>delete</strong> — remove or destroy data (rm, drop, truncate, purge)</li>
-          <li><strong>create</strong> — any other state-changing action (new records, sends, posts, uploads, installs)</li>
-        </ul>
+        <details class="guide-help-accordion">
+          <summary class="guide-help-summary">
+            <span class="guide-help-heading">How it works</span>
+            <svg class="guide-help-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="guide-help-body">
+            <p class="guide-help-line">Try an action in your CLI or desktop app. Transcodes classifies each prompt into a <code class="cli-cmd">resource:action</code> pair, then applies the permission matrix — <strong>0 deny</strong> · <strong>1 allow (pass)</strong> · <strong>2 step-up MFA</strong>.</p>
+            <p class="guide-help-line">Resources are matched by <strong>name</strong> and <strong>description</strong>. If nothing matches, it falls back to <code class="cli-cmd">system</code>. Write a concrete description (what the resource covers — e.g. tools, domains, verbs) so the classifier can match accurately. When integrating with your own back office, you can pass <code>resource</code> and <code>action</code> as params to control permissions directly.</p>
+            <p class="guide-help-heading">Action Classification</p>
+            <ul class="guide-help-list">
+              <li><strong>read</strong> — inspect data without changing it (list, get, query, cat, grep, status, describe)</li>
+              <li><strong>update</strong> — modify existing data (edit, patch, set, rename, move, config change)</li>
+              <li><strong>delete</strong> — remove or destroy data (rm, drop, truncate, purge). Also used for destructive / irreversible mutations (force-push, reset --hard, DROP/TRUNCATE, prod overwrite)</li>
+              <li><strong>create</strong> — any other state-changing action (new records, sends, posts, uploads, installs)</li>
+            </ul>
+            <p class="guide-help-heading">Examples</p>
+            <ul class="guide-classify-list">
+              <li><span class="guide-classify-prompt">"Create a Google Calendar event"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">google:create</code> <span class="guide-classify-arrow">if <code>google</code> is registered</span> · otherwise <code class="cli-cmd">system:create</code></li>
+              <li><span class="guide-classify-prompt">"Post a message to #eng on Slack"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">slack:create</code> <span class="guide-classify-arrow">if <code>slack</code> is registered</span> · otherwise <code class="cli-cmd">system:create</code></li>
+              <li><span class="guide-classify-prompt">"Change James's role in Transcodes"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">transcodes:update</code></li>
+              <li><span class="guide-classify-prompt">"Retire a Transcodes member"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">transcodes:delete</code></li>
+              <li><span class="guide-classify-prompt">"Push this branch to GitHub"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">github:update</code> <span class="guide-classify-arrow">if <code>github</code> is registered</span> · otherwise <code class="cli-cmd">system:update</code></li>
+              <li><span class="guide-classify-prompt">"Delete files on my computer"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">system:delete</code></li>
+              <li><span class="guide-classify-prompt">"Bash/Shell cat .env" / "read ~/.ssh/id_rsa"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">system:update</code></li>
+            </ul>
+            <p class="guide-classify-note">Registered resources only. Name/description must match — if the project has no <code>google</code> / <code>slack</code> / <code>github</code> resource, that prompt is classified under <code class="cli-cmd">system</code> instead.</p>
+          </div>
+        </details>
       </div>
       <div class="rbac-legend">
         <p class="rbac-legend-title">Permission matrix</p>
@@ -1742,6 +1859,7 @@ function dashboardHtml(): string {
     const headerProfileNameEl = document.getElementById("header-profile-name");
     const headerProfileMetaEl = document.getElementById("header-profile-meta");
     const APP_ORG_URL = ${JSON.stringify(APP_ORG_URL)};
+    const APP_HOME_URL = ${JSON.stringify(APP_HOME_URL)};
 
     let lastStatus = { tokens: [], activeMember: null };
     let editingId = null;
@@ -1750,12 +1868,33 @@ function dashboardHtml(): string {
       return Array.isArray(s.tokens) && s.tokens.length > 0;
     }
 
+    function appTabToSegment(tab) {
+      if (tab === "rbac") return "permissions";
+      if (tab === "settings" || tab === "logs" || tab === "members") return tab;
+      return "members";
+    }
+
+    function appWorkspaceUrl(organizationId, projectId, tab) {
+      return (
+        APP_ORG_URL +
+        "/" +
+        encodeURIComponent(organizationId) +
+        "/project/" +
+        encodeURIComponent(projectId) +
+        "/" +
+        encodeURIComponent(appTabToSegment(tab))
+      );
+    }
+
     function updateAppDeepLinks(s) {
+      const oid = s && s.activeMember && s.activeMember.organizationId;
       const pid = s && s.activeMember && s.activeMember.projectId;
       document.querySelectorAll("[data-app-tab]").forEach((a) => {
         const tab = a.getAttribute("data-app-tab");
-        if (pid && tab) {
-          a.href = APP_ORG_URL + "?pid=" + encodeURIComponent(pid) + "&tab=" + encodeURIComponent(tab);
+        if (oid && pid && tab) {
+          a.href = appWorkspaceUrl(oid, pid, tab);
+        } else if (oid) {
+          a.href = APP_ORG_URL + "/" + encodeURIComponent(oid);
         } else {
           a.href = APP_ORG_URL;
         }
@@ -1788,6 +1927,19 @@ function dashboardHtml(): string {
       } finally {
         consoleBtns.forEach((btn) => { btn.disabled = false; });
       }
+    }
+
+    function openManageTokens() {
+      const member = lastStatus && lastStatus.activeMember;
+      const oid = member && member.organizationId;
+      const pid = member && member.projectId;
+      const url =
+        oid && pid
+          ? appWorkspaceUrl(oid, pid, "members")
+          : oid
+            ? APP_ORG_URL + "/" + encodeURIComponent(oid)
+            : APP_HOME_URL;
+      window.open(url, "_blank", "noopener,noreferrer");
     }
 
     const guideVideoToggle = document.getElementById("guide-video-toggle");
@@ -1915,6 +2067,11 @@ function dashboardHtml(): string {
     document.querySelectorAll("[data-console-open]").forEach((btn) => {
       btn.addEventListener("click", () => { openConsole(); });
     });
+
+    const manageTokensBtn = document.getElementById("manage-tokens-btn");
+    if (manageTokensBtn) {
+      manageTokensBtn.addEventListener("click", () => { openManageTokens(); });
+    }
 
     async function saveLabel(id) {
       const input = listEl.querySelector('[data-edit-input="' + id + '"]');
@@ -2181,7 +2338,7 @@ function dashboardHtml(): string {
 </html>`;
 }
 
-function openBrowser(url: string): void {
+export function openDashboardBrowser(url: string): void {
   const opener =
     process.platform === 'darwin'
       ? 'open'
@@ -2216,6 +2373,17 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
       }
 
       try {
+        if (method === 'GET' && url === '/health') {
+          res.writeHead(200, {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-store',
+            Connection: 'close',
+            'X-Transcodes-Dashboard': DASHBOARD_HEALTH_MARKER,
+          });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+
         if (method === 'GET' && (url === '/' || url === '/index.html')) {
           res.writeHead(200, {
             'Content-Type': 'text/html; charset=utf-8',
@@ -2358,61 +2526,6 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
   });
 }
 
-/** Wait for Ctrl+C / SIGTERM; force-exit on a second signal or after a timeout. */
-function waitForDashboardShutdown(
-  server: ReturnType<typeof createServer>,
-): Promise<void> {
-  return new Promise((resolve) => {
-    let shuttingDown = false;
-    let forceTimer: NodeJS.Timeout | undefined;
-
-    const cleanup = () => {
-      if (forceTimer) clearTimeout(forceTimer);
-      process.removeListener('SIGINT', onSignal);
-      process.removeListener('SIGTERM', onSignal);
-    };
-
-    const finish = () => {
-      cleanup();
-      resolve();
-    };
-
-    const forceExit = () => {
-      cleanup();
-      process.stderr.write('\nForce stopping dashboard.\n');
-      process.exit(0);
-    };
-
-    const onSignal = () => {
-      if (shuttingDown) {
-        forceExit();
-        return;
-      }
-      shuttingDown = true;
-      process.stderr.write('\nStopping dashboard…\n');
-
-      forceTimer = setTimeout(forceExit, 1500);
-      forceTimer.unref();
-
-      // Idle keep-alive tabs can otherwise leave close() pending forever.
-      server.closeAllConnections?.();
-      server.close((err) => {
-        if (err) {
-          process.stderr.write(
-            `Shutdown error: ${
-              err instanceof Error ? err.message : String(err)
-            }\n`,
-          );
-        }
-        finish();
-      });
-    };
-
-    process.on('SIGINT', onSignal);
-    process.on('SIGTERM', onSignal);
-  });
-}
-
 /** Collect PIDs listening on any port in [from, to] (best-effort). */
 async function pidsListeningOnPorts(
   from: number,
@@ -2502,16 +2615,18 @@ async function tryBindPortRange(
   return null;
 }
 
-export async function runDashboard(options: {
+/**
+ * Bind the dashboard HTTP server (daemon use). Does not open a browser and
+ * does not wait for Ctrl+C — caller owns process lifetime / pid file.
+ */
+export async function serveDashboardHttp(options: {
   port?: number;
-  open?: boolean;
-}): Promise<void> {
+}): Promise<{ server: ReturnType<typeof createServer>; port: number }> {
   const preferred = options.port ?? DEFAULT_PORT;
   const last = preferred + PORT_ATTEMPTS - 1;
 
   let bound = await tryBindPortRange(preferred);
   if (!bound) {
-    // One recovery pass: free the scanned range, then retry the same window.
     await freePortRange(preferred, last);
     bound = await tryBindPortRange(preferred);
   }
@@ -2519,28 +2634,11 @@ export async function runDashboard(options: {
   if (!bound) {
     throw new Error(
       `could not find a free port in ${preferred}-${last} (all in use).\n` +
-        '  A previous dashboard is probably still running.\n' +
-        '  Tip: Ctrl+Z only suspends the process (port stays taken) — run `kill %1` or `fg` then Ctrl+C.\n' +
-        '  Free the ports and retry:\n' +
+        '  Stop a previous dashboard with:  transcodes stop\n' +
         `    macOS/Linux:  lsof -ti tcp:${preferred}-${last} | xargs kill -9\n` +
-        `    any platform: npx kill-port ${preferred} ${
-          preferred + 1
-        }  # repeat per port\n` +
         '  Or choose another port:  transcodes --port <N>',
     );
   }
 
-  const { server, port } = bound;
-  const url = `http://${HOST}:${port}/`;
-  process.stdout.write(
-    `Transcodes dashboard running at ${url}\n` +
-      `  Config file: ${transcodesConfigFile()}\n` +
-      '  Press Ctrl+C to stop\n',
-  );
-
-  if (options.open !== false) {
-    openBrowser(url);
-  }
-
-  await waitForDashboardShutdown(server);
+  return bound;
 }

@@ -32,8 +32,10 @@ The first time the hook is about to fire, Codex prompts a trust review (`/hooks`
 The MCP server and the step-up hook both authenticate against the Transcodes backend using a member MCP JWT. **Recommended** — install the CLI control plane once, then enter the token in the dashboard. It persists in `~/.transcodes/config.json` and every agent session reads it (no env var needed):
 
 ```bash
-npm install -g @bigstrider/transcodes-cli
-transcodes   # opens the local dashboard — URL is printed in the terminal (default port 3847; `--port N` to override)
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
+# Windows (PowerShell):
+# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
@@ -91,7 +93,7 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 
 - **Hook does not fire.** Check the plugin is installed/enabled, then verify trust with `codex` → `/hooks`.
 - **`$transcodes` not available.** Check the plugin is installed/enabled and listed by `codex plugin list`; Codex exposes bundled skills through `/skills` and `$` mentions.
-- **`permissionDecision: deny` but no step-up URL.** The hook is blocking without a token — install the CLI (`npm install -g @bigstrider/transcodes-cli`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`).
+- **`permissionDecision: deny` but no step-up URL.** The hook is blocking without a token — install the CLI (`curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash` or Windows: `irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`).
 - **`simulate_hook_invocation` reports "CLAUDE_PLUGIN_ROOT (or PLUGIN_ROOT for Codex) must be set".** `PLUGIN_ROOT` is not set — this happens when the MCP server is invoked outside a plugin (e.g. `codex mcp add` with an absolute path). Export `PLUGIN_ROOT` to the plugin directory before invoking.
 
 ## License

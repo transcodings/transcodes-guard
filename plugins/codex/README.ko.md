@@ -32,8 +32,10 @@ hook이 처음 발동하려 할 때 Codex가 신뢰 검토를 요청합니다(`/
 MCP 서버와 스텝업 hook은 둘 다 멤버 MCP JWT로 Transcodes 백엔드에 인증합니다. **권장** — CLI 컨트롤 플레인을 한 번 설치한 뒤 대시보드에서 토큰을 입력하세요. `~/.transcodes/config.json`에 영구 저장되어 모든 에이전트 세션이 읽습니다(환경 변수 불필요):
 
 ```bash
-npm install -g @bigstrider/transcodes-cli
-transcodes   # 로컬 대시보드가 열립니다 — 터미널에 URL이 출력됩니다(기본 포트 3847, `--port N`으로 변경 가능)
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
+# Windows (PowerShell):
+# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 비대화형 대안(같은 저장소): `transcodes set <token> -l <label>`.
@@ -91,7 +93,7 @@ $transcodes is "git push --force" blocked?
 
 - **hook이 발동하지 않음.** 플러그인이 설치/활성화되어 있는지 확인한 뒤, `codex` → `/hooks`로 신뢰를 확인하세요.
 - **`$transcodes`를 사용할 수 없음.** `codex plugin list`에서 플러그인이 설치/활성화되어 있는지 확인하세요. Codex는 번들 스킬을 `/skills`와 `$` 멘션으로 노출합니다.
-- **`permissionDecision: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — CLI를 설치(`npm install -g @bigstrider/transcodes-cli`)한 뒤 `transcodes`로 대시보드에서 토큰을 저장하세요(또는 `transcodes set <token> -l <label>`).
+- **`permissionDecision: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — CLI를 설치(`curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash` 또는 Windows: `irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex`)한 뒤 `transcodes`로 대시보드에서 토큰을 저장하세요(또는 `transcodes set <token> -l <label>`).
 - **`simulate_hook_invocation`이 "CLAUDE_PLUGIN_ROOT (or PLUGIN_ROOT for Codex) must be set"을 보고함.** `PLUGIN_ROOT`가 설정되지 않은 경우입니다 — MCP 서버를 플러그인 밖에서 실행할 때(예: 절대 경로로 `codex mcp add`) 발생합니다. 실행 전에 `PLUGIN_ROOT`를 플러그인 디렉터리로 내보내세요.
 
 ## 라이선스

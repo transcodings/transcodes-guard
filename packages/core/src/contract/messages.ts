@@ -20,7 +20,25 @@ import {
 export const TRANSCODES_GUARD_REPO_URL =
   'https://github.com/transcodings/transcodes-guard';
 
+/** Bootstrap installers (Node optional). Served from the public prod branch. */
+export const CLI_INSTALL_SH_URL =
+  'https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh';
+export const CLI_INSTALL_PS1_URL =
+  'https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1';
+
+/** One-line install hints for agent-facing "no token" guidance. */
+export const CLI_INSTALL_HINT_UNIX = `curl -fsSL ${CLI_INSTALL_SH_URL} | bash && transcodes install`;
+export const CLI_INSTALL_HINT_WIN = `irm ${CLI_INSTALL_PS1_URL} | iex; transcodes install`;
+
 const APP_CONSOLE_RBAC_LOCATION = 'https://app.transcodes.io → RBAC → Roles';
+
+/** Short install blurb used in deny / session-start messages. */
+function cliInstallBlurb(): string {
+  return (
+    `Install the CLI (macOS/Linux: \`${CLI_INSTALL_HINT_UNIX}\`; ` +
+    `Windows PowerShell: \`${CLI_INSTALL_HINT_WIN}\`).`
+  );
+}
 
 function appendBackendReasoning(text: string, reasoning?: string): string {
   const trimmed = reasoning?.trim();
@@ -40,17 +58,17 @@ export function formatNoTokenSessionNotice(): string {
     'transcodes-guard: no Transcodes token is configured.',
     'Danger commands will be BLOCKED and step-up MFA cannot start until a token is set.',
     '',
-    'How to fix (guide the user — the token must NOT be pasted into this chat,',
-    'it would leak into the transcript):',
+    'How to fix:',
     '',
-    '  RECOMMENDED — install the CLI once, then enter the token in the dashboard:',
-    '    1. npm install -g @bigstrider/transcodes-cli',
-    '    2. transcodes        (opens the dashboard at your local device browser)',
-    '    3. Paste the token from the Transcodes console → member detail page',
-    '       (https://app.transcodes.io) into the dashboard.',
+    '  RECOMMENDED — install the CLI, then authenticate in your browser:',
+    `    1. macOS/Linux: ${CLI_INSTALL_HINT_UNIX}`,
+    `       Windows:    ${CLI_INSTALL_HINT_WIN}`,
+    '    2. Run `transcodes login`, sign in with Google, and choose an organization.',
     '  Saved to ~/.transcodes/config.json so every agent session can find it.',
     '',
-    '  Non-interactive alternative (same store, e.g. for scripts):',
+    '  Already have Node ≥ 20? `npm install -g @bigstrider/transcodes-cli` also works.',
+    '',
+    '  Manual alternative (same store, e.g. for scripts):',
     '    transcodes set <token> -l <label>',
   ].join('\n');
 }
@@ -71,10 +89,10 @@ export function formatNoTokenReason(block: BlockResult): string {
   return (
     `Bash blocked by transcodes-guard: ${block.reason}. ` +
     'Step-up MFA gate is not configured (no Transcodes token found). ' +
-    'Tell the user to install the CLI (`npm install -g @bigstrider/transcodes-cli`) ' +
-    'and run `transcodes` to open the dashboard and paste a token from the Transcodes ' +
-    'console (member detail page, https://app.transcodes.io). Non-interactive: ' +
-    '`transcodes set <token> -l <label>`. Or run the command outside the agent.'
+    `Tell the user to ${cliInstallBlurb()} ` +
+    'Run `transcodes login`, sign in with Google, and choose an organization. ' +
+    'Manual fallback: `transcodes set <token> -l <label>`. ' +
+    'Or run the command outside the agent.'
   );
 }
 
@@ -82,10 +100,10 @@ export function formatNoTokenSystemMessage(block: BlockResult): string {
   return (
     `${formatBlockedSummary(block)}\n\n` +
     'Step-up MFA gate is not configured (no Transcodes token found).\n' +
-    'Ask the user to install the CLI (`npm install -g @bigstrider/transcodes-cli`), run\n' +
-    '`transcodes` to open the dashboard, and paste a token from the Transcodes console →\n' +
-    'member detail page (https://app.transcodes.io). Non-interactive: `transcodes set <token>\n' +
-    '-l <label>`. Then retry. Do not have the user paste the token into this chat.'
+    `Ask the user to ${cliInstallBlurb()}\n` +
+    'Run `transcodes login`, sign in with Google, and choose an organization.\n' +
+    'Manual fallback: `transcodes set <token> -l <label>`.\n' +
+    'Then retry. Do not have the user paste the token into this chat.'
   );
 }
 
@@ -134,7 +152,7 @@ export function formatStepupCreateFailedDetail(
 ): string {
   const { failure } = decision;
   return failure.reason === 'no-token'
-    ? 'No Transcodes token found — step-up MFA gate is unavailable. Install the CLI (`npm install -g @bigstrider/transcodes-cli`), run `transcodes` to open the dashboard, and paste a token from the Transcodes console (https://app.transcodes.io member detail page). Non-interactive: `transcodes set <token> -l <label>`.'
+    ? `No Transcodes token found — step-up MFA gate is unavailable. ${cliInstallBlurb()} Run \`transcodes login\`, sign in with Google, and choose an organization. Manual fallback: \`transcodes set <token> -l <label>\`.`
     : failure.reason === 'create-failed'
       ? `Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ''}.`
       : `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ''}.`;

@@ -10,8 +10,8 @@
  * Before each plugin install it ensures the host CLI is on PATH (installs it
  * if missing). Node.js LTS (>= 20) is checked first.
  *
- * Nothing here duplicates the gate; it only wires hosts and writes the token
- * via the shared `writeTokenToFile` (same source of truth as `transcodes set`).
+ * Nothing here duplicates the gate; it only wires hosts and delegates browser
+ * authentication + token persistence to the shared `transcodes login` flow.
  */
 
 import { spawn } from 'node:child_process';
@@ -19,19 +19,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createInterface, moveCursor } from 'node:readline';
-import {
-  parseMemberAccessToken,
-  transcodesConfigFile,
-  writeTokenToFile,
-} from '@transcodes-guard/core/stepup';
-import { runDashboard } from './dashboard.js';
+import { ensureDashboard } from './dashboard-lifecycle.js';
+import { readSavedLocale, setLocale, t } from './i18n.js';
+import { cmdLogin } from './login.js';
 import { CLI_PACKAGE_NAME, CLI_VERSION } from './version.js';
 
 const REPO_SLUG = 'transcodings/transcodes-guard';
 const REPO_GIT_URL = 'https://github.com/transcodings/transcodes-guard.git';
 const MARKETPLACE = 'bigstrider';
 const PLUGIN_NAME = 'transcodes-guard';
-const APP_CONSOLE_URL = 'https://app.transcodes.io';
 /** Matches package engines + host plugin requirements. */
 const MIN_NODE_MAJOR = 20;
 
@@ -75,6 +71,61 @@ function log(line = ''): void {
 function clearScreen(): void {
   // CSI 2J = erase display, CSI H = cursor home. Works in most IDE TTYs.
   process.stdout.write('\x1b[2J\x1b[H');
+}
+
+/**
+ * Terminal display columns for a string. Hangul/CJK glyphs are double-width,
+ * so `string.length` undercounts and in-place menu redraws overlap when lines
+ * wrap (the bug that mashed Korean platform-select headers together).
+ */
+function displayWidth(s: string): number {
+  let w = 0;
+  for (const ch of s) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (
+      (code >= 0x1100 && code <= 0x115f) ||
+      (code >= 0x2e80 && code <= 0xa4cf) ||
+      (code >= 0xac00 && code <= 0xd7a3) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xfe10 && code <= 0xfe6f) ||
+      (code >= 0xff00 && code <= 0xff60) ||
+      (code >= 0xffe0 && code <= 0xffe6)
+    ) {
+      w += 2;
+    } else {
+      w += 1;
+    }
+  }
+  return w;
+}
+
+/** Physical terminal rows a list of logical lines will occupy (wrap-aware). */
+function physicalRowCount(lines: readonly string[]): number {
+  const cols = Math.max(1, process.stdout.columns || 80);
+  let rows = 0;
+  for (const line of lines) {
+    const w = Math.max(1, displayWidth(line));
+    rows += Math.ceil(w / cols);
+  }
+  return rows;
+}
+
+/**
+ * Redraw a multi-line block in place. Uses wrap-aware row counts + clear-to-
+ * end-of-screen so CJK-wrapped lines do not leave garbage above the menu.
+ */
+function redrawBlock(
+  stdout: NodeJS.WriteStream,
+  lines: readonly string[],
+  previousPhysicalRows: number,
+): number {
+  if (previousPhysicalRows > 0) {
+    moveCursor(stdout, 0, -previousPhysicalRows);
+    // CSI J = erase from cursor to end of screen (drops stale wrapped rows).
+    stdout.write('\x1b[J');
+  }
+  stdout.write(`${lines.map((line) => `${line}\x1b[K`).join('\n')}\n`);
+  return physicalRowCount(lines);
 }
 
 function isTty(): boolean {
@@ -459,30 +510,130 @@ function isPluginInstalled(id: PlatformId): boolean {
   }
 }
 
+/** Sync PATH lookup (menu render must stay synchronous). */
+function commandExistsSync(cmd: string): boolean {
+  const pathEnv = process.env.PATH ?? '';
+  const exts =
+    process.platform === 'win32' ? ['.exe', '.cmd', '.bat', '.ps1', ''] : [''];
+  for (const dir of pathEnv.split(path.delimiter)) {
+    if (!dir) continue;
+    for (const ext of exts) {
+      if (safeExists(path.join(dir, `${cmd}${ext}`))) return true;
+    }
+  }
+  return false;
+}
+
+/** Desktop app bundles / install dirs (host product on the machine). */
+function hostDesktopPresent(id: PlatformId): boolean {
+  const home = os.homedir();
+  if (process.platform === 'darwin') {
+    const candidates: Record<PlatformId, readonly string[]> = {
+      claude: [
+        '/Applications/Claude.app',
+        '/Applications/Claude Code.app',
+        path.join(home, 'Applications', 'Claude.app'),
+        path.join(home, 'Applications', 'Claude Code.app'),
+      ],
+      cursor: [
+        '/Applications/Cursor.app',
+        path.join(home, 'Applications', 'Cursor.app'),
+      ],
+      codex: [
+        '/Applications/ChatGPT.app',
+        '/Applications/Codex.app',
+        path.join(home, 'Applications', 'ChatGPT.app'),
+        path.join(home, 'Applications', 'Codex.app'),
+      ],
+      antigravity: [
+        '/Applications/Antigravity.app',
+        '/Applications/Google Antigravity.app',
+        path.join(home, 'Applications', 'Antigravity.app'),
+        path.join(home, 'Applications', 'Google Antigravity.app'),
+      ],
+    };
+    return candidates[id].some(safeExists);
+  }
+  if (process.platform === 'win32') {
+    const local = process.env.LOCALAPPDATA ?? '';
+    const prog = process.env.PROGRAMFILES ?? 'C:\\Program Files';
+    const candidates: Record<PlatformId, readonly string[]> = {
+      claude: [
+        path.join(local, 'Programs', 'Claude', 'Claude.exe'),
+        path.join(local, 'AnthropicClaude', 'claude.exe'),
+      ],
+      cursor: [
+        path.join(local, 'Programs', 'cursor', 'Cursor.exe'),
+        path.join(prog, 'Cursor', 'Cursor.exe'),
+      ],
+      codex: [
+        path.join(local, 'Programs', 'ChatGPT', 'ChatGPT.exe'),
+        path.join(local, 'Programs', 'codex', 'Codex.exe'),
+      ],
+      antigravity: [
+        path.join(local, 'Programs', 'Antigravity', 'Antigravity.exe'),
+        path.join(local, 'Programs', 'Google Antigravity', 'Antigravity.exe'),
+      ],
+    };
+    return candidates[id].some(safeExists);
+  }
+  return false;
+}
+
+/**
+ * Is the host product already on this machine (CLI on PATH and/or desktop
+ * app)? Not whether the Transcodes plugin is installed.
+ */
+function isHostAppInstalled(id: PlatformId): boolean {
+  refreshPathHints();
+  if (HOST_CLIS[id].binaries.some(commandExistsSync)) return true;
+  return hostDesktopPresent(id);
+}
+
 type MenuChoice =
   | { kind: 'install'; ids: PlatformId[] }
   | { kind: 'next' }
   | { kind: 'cancel' };
 
-/** Numbered menu — reprints each round with live [Installed ✓] marks. */
+/** Short names for the "currently installed" summary line. */
+function platformShortName(id: PlatformId): string {
+  switch (id) {
+    case 'claude':
+      return 'Claude';
+    case 'codex':
+      return 'ChatGPT';
+    case 'cursor':
+      return 'Cursor';
+    case 'antigravity':
+      return 'Antigravity';
+  }
+}
+
+function installedAppsHint(): string {
+  const names = PLATFORMS.filter((p) => isHostAppInstalled(p.id)).map((p) =>
+    platformShortName(p.id),
+  );
+  if (names.length === 0) return t('platformInstalledNone');
+  return t('platformInstalledApps', { list: names.join(', ') });
+}
+
+/** Numbered menu — host apps already on the device get ● + [Installed ✓]. */
 function renderMenu(): void {
   log('');
-  log('Please select platforms that you want to install:');
-  log('Installing a plugin enables both its CLI and desktop app.');
-  log('(Claude only supports the Claude Code tab)');
+  log(t('platformTitle'));
+  log(t('platformHint1'));
+  log(installedAppsHint());
   log('');
   PLATFORMS.forEach((p, i) => {
-    const mark = isPluginInstalled(p.id) ? '   [Installed ✓]' : '';
-    log(`  ${i + 1}. ${p.label}${mark}`);
+    const onDevice = isHostAppInstalled(p.id);
+    const dot = onDevice ? '●' : '○';
+    const mark = onDevice ? `   ${t('installed')}` : '';
+    log(`  ${i + 1}. ${dot} ${p.label}${mark}`);
   });
-  log(`  ${PLATFORMS.length + 1}. Next Step →`);
+  log(`  ${PLATFORMS.length + 1}. ${t('nextStep')}`);
   log('');
-  log('Enter numbers to install (e.g. 1,2), "all" or Enter to install all.');
-  log(
-    `Type ${
-      PLATFORMS.length + 1
-    } (or "next") for Next Step, "exit"/"q" to quit.`,
-  );
+  log(t('platformNumberedHint'));
+  log(t('platformNumberedNext', { n: String(PLATFORMS.length + 1) }));
 }
 
 async function promptMenu(): Promise<MenuChoice> {
@@ -537,29 +688,23 @@ function arrowSelect(checked: Set<PlatformId>): Promise<MenuChoice> {
 
     const draw = () => {
       const lines: string[] = [];
-      lines.push('Please select platforms that you want to install:');
-      lines.push('Installing a plugin enables both its CLI and desktop app.');
-      lines.push('(Claude only supports the Claude Code tab)');
+      lines.push(t('platformTitle'));
+      lines.push(t('platformHint1'));
+      lines.push(installedAppsHint());
       lines.push('');
       PLATFORMS.forEach((p, i) => {
         const pointer = cursor === i ? '❯' : ' ';
-        const box = checked.has(p.id) ? '◉' : '◯';
-        const mark = isPluginInstalled(p.id) ? '   [Installed ✓]' : '';
+        const onDevice = isHostAppInstalled(p.id);
+        // ● = selected for plugin install; [Installed ✓] = host app on device.
+        const box = checked.has(p.id) ? '●' : '◯';
+        const mark = onDevice ? `   ${t('installed')}` : '';
         lines.push(`${pointer} ${box} ${p.label}${mark}`);
       });
       const nextPointer = cursor === PLATFORMS.length ? '❯' : ' ';
-      lines.push(`${nextPointer}   Next Step →`);
+      lines.push(`${nextPointer}   ${t('nextStep')}`);
       lines.push('');
-      lines.push(
-        '↑/↓ move · space select · a all/none · enter confirm · q quit/exit',
-      );
-      // Overwrite in place: move to the block top, then redraw each line with
-      // "clear to end of line" (\x1b[K). Row count is constant, so we never
-      // blank the whole region — that avoids the flash/flicker on each move.
-      if (rendered > 0) moveCursor(stdout, 0, -rendered);
-      const frame = lines.map((line) => `${line}\x1b[K`).join('\n');
-      stdout.write(`${frame}\n`);
-      rendered = lines.length;
+      lines.push(t('platformKeys'));
+      rendered = redrawBlock(stdout, lines, rendered);
     };
 
     const cleanup = () => {
@@ -638,10 +783,8 @@ function arrowChoose(
         lines.push(`${pointer} ${radio} ${opt}`);
       });
       lines.push('');
-      lines.push('↑/↓ move · enter select');
-      if (rendered > 0) moveCursor(stdout, 0, -rendered);
-      stdout.write(`${lines.map((line) => `${line}\x1b[K`).join('\n')}\n`);
-      rendered = lines.length;
+      lines.push(t('chooseKeys'));
+      rendered = redrawBlock(stdout, lines, rendered);
     };
 
     const cleanup = () => {
@@ -682,32 +825,6 @@ function arrowChoose(
   });
 }
 
-type TokenAction = 'yes' | 'no' | 'skip';
-
-/**
- * Three-way token prompt: Yes (paste a token), No (open console to get one),
- * or Skip (a token is already configured — go straight to the dashboard).
- * Arrow-selectable when the terminal supports it, else numbered fallback.
- */
-async function chooseTokenAction(question: string): Promise<TokenAction> {
-  const options = ['Yes', 'No', 'Skip — token already configured'];
-  if (supportsArrowSelect()) {
-    const idx = await arrowChoose(question, options, 0);
-    return idx === 2 ? 'skip' : idx === 0 ? 'yes' : 'no';
-  }
-  for (;;) {
-    log(question);
-    for (let i = 0; i < options.length; i++) {
-      log(`  ${i + 1}. ${options[i]}`);
-    }
-    const answer = (await promptLine('> ')).trim().toLowerCase();
-    if (answer === '1' || answer === 'y' || answer === 'yes') return 'yes';
-    if (answer === '2' || answer === 'n' || answer === 'no') return 'no';
-    if (answer === '3' || answer === 'skip' || answer === 's') return 'skip';
-    log('  Please choose 1, 2, or 3.');
-  }
-}
-
 /** Ensure host CLI + install plugin for each selected platform, then summarize. */
 async function runInstalls(ids: readonly PlatformId[]): Promise<void> {
   const clonedRepoDir = await cloneRepoIfNeeded(ids);
@@ -724,7 +841,7 @@ async function runInstalls(ids: readonly PlatformId[]): Promise<void> {
     }
   }
 
-  log('\n── Install summary ──');
+  log(`\n${t('installSummary')}`);
   for (const id of ids) {
     const label = PLATFORMS.find((p) => p.id === id)?.label ?? id;
     log(`  ${results.get(id) ? '✓' : '✗'} ${label}`);
@@ -804,51 +921,14 @@ async function cloneRepoIfNeeded(
   return tmpDir;
 }
 
-/** Prompt for token + label and save. Returns true when saved. */
-async function registerToken(): Promise<boolean> {
-  log('');
-  log('── Register MAT token ───────────────────────────────');
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const token = (await promptLine('Paste your token: ')).trim();
-    if (!token) {
-      log('  Token is required.');
-      continue;
-    }
-    try {
-      parseMemberAccessToken(token);
-    } catch (err) {
-      log(
-        `  Token rejected: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      continue;
-    }
-    let label = '';
-    while (!label) {
-      label = (
-        await promptLine('Label (e.g. transcodes-myproject-prod): ')
-      ).trim();
-      if (!label) log('  Label is required.');
-    }
-    writeTokenToFile(token, label);
-    log(`\nSaved token to ${transcodesConfigFile()} (label=${label}).`);
-    log('');
-    log(
-      'Please restart your CLI or desktop app to activate transcodes plugins.',
-    );
-    return true;
-  }
-  log('\nToo many invalid attempts — run `transcodes install` again later.');
-  return false;
-}
-
 function printSetupComplete(): void {
   clearScreen();
-  log('────────────────────────────────────────────────────');
-  log('  Congratulations!');
-  log('  All setup is completed.');
-  log('────────────────────────────────────────────────────');
+  log(t('congratsBar'));
+  log(`  ${t('congrats1')}`);
+  log(`  ${t('congrats2')}`);
+  log(t('congratsBar'));
   log('');
-  log('Plugins are installed and your MAT token is saved.');
+  log(t('congratsBody'));
   log('');
 }
 
@@ -858,41 +938,67 @@ function printSetupComplete(): void {
  */
 async function tokenFlow(): Promise<boolean> {
   log('');
-  log('── Token setup ──────────────────────────────────────');
-  const choice = await chooseTokenAction(
-    'Do you have a Transcodes project MAT (Member Access Token)?',
-  );
-
-  // Already configured elsewhere — nothing to save, but proceed to dashboard.
-  if (choice === 'skip') {
-    log('');
-    log('Skipping token setup — using the token already configured.');
+  try {
+    await cmdLogin([]);
     return true;
+  } catch (error) {
+    log(`  ${error instanceof Error ? error.message : String(error)}`);
+    return false;
+  }
+}
+
+/**
+ * First screen of interactive install: English / 한국어.
+ * Arrow (or numbered) picker; persists choice to ~/.transcodes/locale.
+ */
+async function promptLocale(): Promise<void> {
+  if (!isTty()) {
+    setLocale(readSavedLocale() ?? 'en');
+    return;
   }
 
-  if (choice === 'no') {
-    log('');
-    log(
-      'You can create a MAT (Member Access Token) in the Transcodes console.',
-    );
-    log(
-      "If you don't have access, ask your project administrator to issue one for you.",
-    );
-    log('');
-    await promptLine(`Press ENTER to open the console (${APP_CONSOLE_URL}) … `);
+  const saved = readSavedLocale();
+  const defaultIndex = saved === 'ko' ? 1 : 0;
+  const options = ['English', '한국어'] as const;
 
-    log(`\nOpening ${APP_CONSOLE_URL} …`);
-    openUrl(APP_CONSOLE_URL);
+  if (supportsArrowSelect()) {
+    const idx = await arrowChoose(t('langTitle'), [...options], defaultIndex);
+    if (idx < 0) {
+      setLocale(saved ?? 'en');
+      return;
+    }
+    setLocale(idx === 1 ? 'ko' : 'en');
     log('');
-    log('  1) After sign-in, create a new project on the dashboard.');
-    log('  2) Open the "Members & Tokens" tab and add a new member.');
-    log(
-      '  3) Generate a new token for that member, or ask your manager to get a token.',
-    );
-    log('  4) Paste it here.');
+    return;
   }
 
-  return registerToken();
+  for (;;) {
+    log(t('langTitle'));
+    log('  1. English');
+    log('  2. 한국어');
+    const answer = (await promptLine('> ')).trim().toLowerCase();
+    if (answer === '1' || answer === 'en' || answer === 'english') {
+      setLocale('en');
+      log('');
+      return;
+    }
+    if (
+      answer === '2' ||
+      answer === 'ko' ||
+      answer === 'kr' ||
+      answer === '한국어'
+    ) {
+      setLocale('ko');
+      log('');
+      return;
+    }
+    if (answer === '' && saved) {
+      setLocale(saved);
+      log('');
+      return;
+    }
+    log('  1 or 2 / 1 또는 2');
+  }
 }
 
 /** Parse `install` args: platform ids and/or `--all`, else interactive. */
@@ -915,7 +1021,10 @@ function parseSelection(args: string[]): PlatformId[] | 'interactive' {
 }
 
 export async function cmdInstall(args: string[]): Promise<void> {
-  log('transcodes install — set up plugins, token, and dashboard.\n');
+  // Language first — before Node check / platform menu — so every following
+  // prompt is already localized.
+  await promptLocale();
+  log(`${t('installBanner')}\n`);
 
   if (!(await ensureNode())) {
     process.exit(1);
@@ -927,22 +1036,22 @@ export async function cmdInstall(args: string[]): Promise<void> {
 
   if (selection === 'interactive') {
     if (!isTty()) {
-      log(
-        'Non-interactive shell detected. Specify platforms explicitly, e.g.:',
-      );
+      log(t('nonInteractive'));
       log('  transcodes install --all');
       log('  transcodes install claude codex cursor antigravity');
       process.exit(1);
     }
-    // Select → install → clear → same menu (with live Installed marks),
+    // Select → install → clear → same menu (host apps on device stay marked),
     // repeating until the user picks Next Step. Arrow-key checkbox when the
     // terminal supports raw mode, else a numbered-input fallback.
     const useArrows = supportsArrowSelect();
-    const checked = new Set<PlatformId>();
-    let firstMenu = true;
+    // Pre-select host apps already on this machine (CLI and/or desktop app).
+    const checked = new Set<PlatformId>(
+      PLATFORMS.filter((p) => isHostAppInstalled(p.id)).map((p) => p.id),
+    );
     for (;;) {
-      if (!firstMenu) clearScreen();
-      firstMenu = false;
+      // Always clear — CJK wrap + prior language screen leave garbage otherwise.
+      clearScreen();
       let choice: MenuChoice;
       if (useArrows) {
         choice = await arrowSelect(checked);
@@ -952,9 +1061,7 @@ export async function cmdInstall(args: string[]): Promise<void> {
       }
       if (choice.kind === 'cancel') {
         log('');
-        log(
-          'If you want to manage tokens directly, please type `transcodes` to open the dashboard',
-        );
+        log(t('cancelHint'));
         process.exit(0);
       }
       if (choice.kind === 'next') {
@@ -962,7 +1069,7 @@ export async function cmdInstall(args: string[]): Promise<void> {
         break;
       }
       if (choice.ids.length === 0) {
-        log('  Nothing selected.');
+        log(`  ${t('nothingSelected')}`);
         continue;
       }
       // Remember the selection so the next round re-checks the same boxes.
@@ -972,13 +1079,15 @@ export async function cmdInstall(args: string[]): Promise<void> {
     }
   } else {
     if (selection.length === 0) {
-      log('No platforms selected — nothing to install.');
+      log(t('noPlatforms'));
       process.exit(0);
     }
     log(
-      `\nInstalling: ${selection
-        .map((id) => PLATFORMS.find((p) => p.id === id)?.label ?? id)
-        .join(', ')}`,
+      `\n${t('installing', {
+        list: selection
+          .map((id) => PLATFORMS.find((p) => p.id === id)?.label ?? id)
+          .join(', '),
+      })}`,
     );
     await runInstalls(selection);
     clearScreen();
@@ -991,9 +1100,9 @@ export async function cmdInstall(args: string[]): Promise<void> {
   }
 
   printSetupComplete();
-  await promptLine('Press ENTER to open the transcodes CLI dashboard … ');
-  // Same as bare `transcodes` — local dashboard on 127.0.0.1.
-  await runDashboard({});
+  await promptLine(t('pressEnterDashboard'));
+  // Same as bare `transcodes` — background dashboard on 127.0.0.1.
+  await ensureDashboard({});
   process.exit(0);
 }
 

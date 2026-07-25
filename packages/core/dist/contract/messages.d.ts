@@ -13,6 +13,12 @@
 import { type BlockResult, GATE_DECISION_KIND, type GateDecision } from './types.js';
 /** Public GitHub repository — link in agent-facing protocol docs. */
 export declare const TRANSCODES_GUARD_REPO_URL = "https://github.com/transcodings/transcodes-guard";
+/** Bootstrap installers (Node optional). Served from the public prod branch. */
+export declare const CLI_INSTALL_SH_URL = "https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh";
+export declare const CLI_INSTALL_PS1_URL = "https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1";
+/** One-line install hints for agent-facing "no token" guidance. */
+export declare const CLI_INSTALL_HINT_UNIX = "curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install";
+export declare const CLI_INSTALL_HINT_WIN = "irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install";
 /**
  * Session-start notice text shown when no Transcodes token is configured.
  *

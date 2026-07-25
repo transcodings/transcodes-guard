@@ -42,8 +42,10 @@ If **`agy plugin list` still shows transcodes-guard twice** (`antigravity` + `cl
 The MCP server and the step-up hook both authenticate against the Transcodes backend using a member MCP JWT. **Recommended** — install the CLI control plane once, then enter the token in the dashboard. It persists in `~/.transcodes/config.json` and every agent session reads it (no env var needed, survives across hosts):
 
 ```bash
-npm install -g @bigstrider/transcodes-cli
-transcodes   # opens the local dashboard — URL is printed in the terminal (default port 3847; `--port N` to override)
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
+# Windows (PowerShell):
+# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 Non-interactive alternative (same store): `transcodes set <token> -l <label>`.

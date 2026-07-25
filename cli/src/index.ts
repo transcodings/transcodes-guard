@@ -9,11 +9,13 @@
  * this file is just an argv front-end.
  *
  * Commands:
- *   transcodes                 Open the local web UI dashboard (default, no args).
+ *   transcodes                 Open the local web UI dashboard in the background.
+ *   transcodes stop            Stop the background dashboard daemon.
  *   transcodes set <token> -l <label> Validate and save the token (0600); label required.
  *   transcodes reset           Delete all saved tokens.
  *   transcodes status          Show the active token source + expiry.
  *   transcodes tokens          List all saved tokens (active marked with *).
+ *   transcodes login           Sign in in a browser and save the issued MAT.
  *   transcodes console         Open auth settings for the active token.
  *   transcodes install         Guided plugin + token setup.
  *   transcodes update          Update installed plugins and this CLI.
@@ -34,8 +36,13 @@ import {
   writeTokenToFile,
 } from '@transcodes-guard/core/stepup';
 import { formatCliUsage } from './commands.js';
-import { runDashboard } from './dashboard.js';
+import {
+  ensureDashboard,
+  serveDashboard,
+  stopDashboard,
+} from './dashboard-lifecycle.js';
 import { cmdInstall, cmdUpdate } from './install.js';
+import { cmdLogin } from './login.js';
 import { CLI_PACKAGE_NAME, CLI_VERSION } from './version.js';
 
 function fail(message: string): never {
@@ -179,9 +186,13 @@ async function cmdConsole(args: string[]): Promise<void> {
   process.exit(0);
 }
 
-async function cmdDashboard(args: string[]): Promise<void> {
+function parseDashboardFlags(
+  args: string[],
+  usage: string,
+): { port?: number; open: boolean; daemon: boolean } {
   let port: number | undefined;
   let open = true;
+  let daemon = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--port' && args[i + 1]) {
       port = Number(args[++i]);
@@ -190,14 +201,53 @@ async function cmdDashboard(args: string[]): Promise<void> {
       }
     } else if (args[i] === '--no-open') {
       open = false;
+    } else if (args[i] === '--daemon') {
+      daemon = true;
     } else {
-      fail(
-        `unknown flag "${args[i]}". Usage: transcodes [--port N] [--no-open]`,
-      );
+      fail(`unknown flag "${args[i]}". Usage: ${usage}`);
     }
   }
+  return { port, open, daemon };
+}
+
+async function cmdDashboard(args: string[]): Promise<void> {
+  const { port, open, daemon } = parseDashboardFlags(
+    args,
+    'transcodes [--port N] [--no-open]',
+  );
+  if (daemon) {
+    fail('use `transcodes dashboard --daemon` to run the server process');
+  }
   try {
-    await runDashboard({ port, open });
+    await ensureDashboard({ port, open });
+  } catch (err) {
+    fail(err instanceof Error ? err.message : String(err));
+  }
+  process.exit(0);
+}
+
+/** Internal / advanced: `transcodes dashboard --daemon` or ensure+open. */
+async function cmdDashboardSub(args: string[]): Promise<void> {
+  const { port, open, daemon } = parseDashboardFlags(
+    args,
+    'transcodes dashboard [--daemon] [--port N] [--no-open]',
+  );
+  try {
+    if (daemon) {
+      await serveDashboard({ port });
+      process.exit(0);
+      return;
+    }
+    await ensureDashboard({ port, open });
+  } catch (err) {
+    fail(err instanceof Error ? err.message : String(err));
+  }
+  process.exit(0);
+}
+
+async function cmdStop(): Promise<void> {
+  try {
+    await stopDashboard();
   } catch (err) {
     fail(err instanceof Error ? err.message : String(err));
   }
@@ -226,8 +276,19 @@ function main(): void {
     case 'tokens':
       cmdTokens();
       break;
+    case 'login':
+      void cmdLogin(rest).catch((error: unknown) => {
+        fail(error instanceof Error ? error.message : String(error));
+      });
+      break;
     case 'console':
       void cmdConsole(rest);
+      break;
+    case 'dashboard':
+      void cmdDashboardSub(rest);
+      break;
+    case 'stop':
+      void cmdStop();
       break;
     case 'version':
     case '--version':
