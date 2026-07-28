@@ -33,7 +33,7 @@
  * host branching beyond the additional toolName check it has for
  * `run_command`.
  */
-import { closeSync, openSync, readSync, statSync } from 'node:fs';
+import { tailJsonlLines } from './transcript.js';
 import type {
   HookAdapter,
   InjectStep,
@@ -145,51 +145,6 @@ function unwrapMcpDispatch(
     toolArgs:
       innerArgs !== null && typeof innerArgs === 'object' ? innerArgs : rawArgs,
   };
-}
-
-/**
- * Tail the last `maxBytes` of a JSONL file and parse each line. Best-effort:
- * malformed lines and read errors are swallowed (returns empty array).
- * Used by the PreInvocation entry to inspect recent transcript messages
- * without loading the whole file.
- */
-function tailJsonlLines(filePath: string, maxBytes = 32_768): unknown[] {
-  let size: number;
-  try {
-    size = statSync(filePath).size;
-  } catch {
-    return [];
-  }
-  if (size === 0) return [];
-
-  const readSize = Math.min(size, maxBytes);
-  const buf = Buffer.alloc(readSize);
-
-  try {
-    const fd = openSync(filePath, 'r');
-    try {
-      readSync(fd, buf, 0, readSize, size - readSize);
-    } finally {
-      closeSync(fd);
-    }
-  } catch {
-    return [];
-  }
-
-  const text = buf.toString('utf8');
-  const lines = text.split('\n').filter((line) => line.length > 0);
-  // If we started mid-line (size > readSize), drop the partial first line.
-  if (size > readSize && lines.length > 1) lines.shift();
-
-  const out: unknown[] = [];
-  for (const line of lines) {
-    try {
-      out.push(JSON.parse(line));
-    } catch {
-      // malformed line — ignore
-    }
-  }
-  return out;
 }
 
 /**

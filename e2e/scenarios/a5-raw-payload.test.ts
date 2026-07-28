@@ -9,6 +9,8 @@
  * object as received.
  */
 import assert from 'node:assert/strict';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { runHook } from '../harness/hook-runner.js';
 import { assertOnlyEvaluateTraffic, MockBackend, type VerdictPayload } from '../harness/mock-backend.js';
@@ -108,6 +110,73 @@ for (const host of ALL_HOSTS) {
       // The transcript path is read locally to build `tasks`; it must never ship.
       assert.ok(!('transcript_path' in body), 'the transcript path must never reach the backend');
       assertOnlyEvaluateTraffic(mock);
+    });
+
+    test('tasks is built from the transcript and the transcript itself stays home', async (t) => {
+      const world = makeWorld();
+      t.after(() => world.dispose());
+      const mock = await MockBackend.start();
+      t.after(() => mock.close());
+      world.writeToken();
+      mock.onEvaluate(ALLOW);
+
+      const transcriptPath = join(world.home, 'e2e-transcript.jsonl');
+      writeFileSync(
+        transcriptPath,
+        `${JSON.stringify({ type: 'ai-title', aiTitle: 'auditing the gate' })}\n` +
+          `${JSON.stringify({ type: 'last-prompt', lastPrompt: 'list the deny paths' })}\n`,
+      );
+
+      const stdinObj = JSON.parse(spec.shellStdin('echo e2e', world.home)) as Record<string, unknown>;
+      stdinObj[host === 'antigravity' ? 'transcriptPath' : 'transcript_path'] = transcriptPath;
+
+      const res = await runHook({
+        host,
+        hook: 'pre-tool-use',
+        stdin: JSON.stringify(stdinObj),
+        env: world.env(mock.url),
+        cwd: world.home,
+      });
+
+      spec.assertPass(res);
+      const [req] = mock.evaluateRequests();
+      assert.ok(req, 'evaluate request must have been sent');
+      const body = req.body as Record<string, unknown>;
+      assert.equal(body.tasks, 'auditing the gate · list the deny paths');
+      // The summary is what i1 adds; the path is not promoted to a field of its
+      // own. It does still reach the backend inside the verbatim `payload`, as
+      // it has since before this ticket — every prod document carries one.
+      assert.ok(!('transcript_path' in body), 'the path is not promoted to a first-class field');
+      // What must never travel is the transcript's contents.
+      assert.ok(
+        !JSON.stringify(body).includes('list the deny paths\n'),
+        'only the derived summary ships, never transcript lines',
+      );
+    });
+
+    test('an unreadable transcript drops tasks and leaves the gate untouched', async (t) => {
+      const world = makeWorld();
+      t.after(() => world.dispose());
+      const mock = await MockBackend.start();
+      t.after(() => mock.close());
+      world.writeToken();
+      mock.onEvaluate(ALLOW);
+
+      const stdinObj = JSON.parse(spec.shellStdin('echo e2e', world.home)) as Record<string, unknown>;
+      stdinObj[host === 'antigravity' ? 'transcriptPath' : 'transcript_path'] = join(world.home, 'does-not-exist.jsonl');
+
+      const res = await runHook({
+        host,
+        hook: 'pre-tool-use',
+        stdin: JSON.stringify(stdinObj),
+        env: world.env(mock.url),
+        cwd: world.home,
+      });
+
+      spec.assertPass(res); // the verdict is unchanged — tasks is not load-bearing
+      const [req] = mock.evaluateRequests();
+      assert.ok(req, 'evaluate request must have been sent');
+      assert.ok(!('tasks' in (req.body as object)), 'an unbuildable summary must be omitted, never nulled');
     });
 
     test('a host that reports no model omits agent_model rather than nulling it', async (t) => {

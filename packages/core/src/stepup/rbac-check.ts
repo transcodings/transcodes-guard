@@ -127,6 +127,8 @@ export async function evaluateAction(
     promptId?: string | undefined;
     /** Model driving the calling agent — not the backend classifier's model. */
     agentModel?: string | undefined;
+    /** Client-built summary of the work in flight. DATA, like `payload`. */
+    tasks?: string | undefined;
   },
 ): Promise<GuardEvaluateResult> {
   const env = await request(config, {
@@ -144,6 +146,7 @@ export async function evaluateAction(
       tool_use_id: body.toolUseId,
       prompt_id: body.promptId,
       agent_model: body.agentModel,
+      tasks: body.tasks,
     },
   });
   if (!env.ok) {

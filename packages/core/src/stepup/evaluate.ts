@@ -20,6 +20,7 @@
  *    `block-stepup-create-failed`, carrying the HTTP status / backend error
  *    text in `failure.detail` so the deny is diagnosable (issue #189).
  */
+import { summarizeTasks } from '../hosts/index.js';
 import {
   currentHostProvider,
   DEFAULT_RBAC_RESOURCE,
@@ -54,6 +55,11 @@ export interface ToolCallInput {
   promptId?: string | undefined;
   /** Model driving the calling agent. Claude Code reports none. */
   agentModel?: string | undefined;
+  /**
+   * Host transcript file, read locally to summarize the work in flight. The
+   * path and the transcript both stay on the machine — only the summary ships.
+   */
+  transcriptPath?: string | undefined;
 }
 
 export interface BlockResult {
@@ -260,6 +266,7 @@ export async function evaluatePreToolUse(
       toolUseId: input.toolUseId,
       promptId: input.promptId,
       agentModel: input.agentModel,
+      tasks: summarizeTasks(input.transcriptPath),
     });
     if (result.ok) {
       verdict = result.verdict;
