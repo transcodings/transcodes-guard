@@ -102,6 +102,27 @@ function messageText(message: unknown): string | undefined {
 }
 
 /**
+ * Slash-command invocations reach the transcript as an XML-ish envelope
+ * (`<command-name>…`, and the command's own output as `<local-command-stdout>…`)
+ * filed under the same `type: "user"` as a real instruction. Summarizing one
+ * reports the markup instead of what the person asked for — the same failure
+ * `messageText` skips `tool_result` blocks to avoid, in a different record.
+ */
+const COMMAND_ENVELOPE =
+  /^<(command-(name|message|args)|local-command-std(out|err))>/;
+
+/**
+ * Host-injected records (caveats, reminders) also ride under `type: "user"`.
+ * Claude Code marks them `isMeta`; they are never a user instruction.
+ */
+function isMetaRecord(r: Record<string, unknown>): boolean {
+  return (
+    r.isMeta === true ||
+    (r.message as { isMeta?: unknown } | undefined)?.isMeta === true
+  );
+}
+
+/**
  * Summarize what the agent was working on when it made this call, as
  * `"<session title> · <latest instruction>"`.
  *
@@ -153,14 +174,15 @@ export function summarizeTasks(
       readString(r.role) ??
       readString((r.message as { role?: unknown } | undefined)?.role) ??
       readString(r.type);
-    if (role === 'user' || role === 'user_message') {
-      prompt =
-        messageText(r.message) ??
-        readString(r.content) ??
-        readString(r.text) ??
-        readString(r.message) ??
-        prompt;
-    }
+    if (role !== 'user' && role !== 'user_message') continue;
+    if (isMetaRecord(r)) continue;
+    const text =
+      messageText(r.message) ??
+      readString(r.content) ??
+      readString(r.text) ??
+      readString(r.message);
+    // A record that yields nothing usable leaves the previous prompt standing.
+    if (text && !COMMAND_ENVELOPE.test(text)) prompt = text;
   }
 
   const parts = [title, prompt].filter(

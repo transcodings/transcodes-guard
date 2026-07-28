@@ -100,6 +100,54 @@ describe('summarizeTasks — tool results must not be mistaken for instructions'
   });
 });
 
+describe('summarizeTasks — host bookkeeping must not be mistaken for instructions', () => {
+  // Tool results are one of several things Claude Code files under
+  // `type: "user"`. Slash-command envelopes and `isMeta` caveats are the
+  // others, and both are plain text — the tool_result guard does not see them.
+  it('keeps the real instruction when a slash command follows it', () => {
+    const path = transcript(
+      { type: 'user', message: { role: 'user', content: 'audit the deny paths' } },
+      {
+        type: 'user',
+        message: {
+          role: 'user',
+          content:
+            '<command-name>/clear</command-name>\n<command-message>clear</command-message>\n<command-args></command-args>',
+        },
+      },
+    );
+    assert.equal(summarizeTasks(path), 'audit the deny paths');
+  });
+
+  it('skips a command output record', () => {
+    const path = transcript(
+      { type: 'user', message: { role: 'user', content: 'audit the deny paths' } },
+      { type: 'user', message: { role: 'user', content: '<local-command-stdout>78 tests passed</local-command-stdout>' } },
+    );
+    assert.equal(summarizeTasks(path), 'audit the deny paths');
+  });
+
+  it('skips a host-injected meta record', () => {
+    const path = transcript(
+      { type: 'user', message: { role: 'user', content: 'audit the deny paths' } },
+      {
+        type: 'user',
+        isMeta: true,
+        message: { role: 'user', content: 'Caveat: The messages below were generated while running local commands.' },
+      },
+    );
+    assert.equal(summarizeTasks(path), 'audit the deny paths');
+  });
+
+  it('summarizes nothing when the only user record is a command envelope', () => {
+    const path = transcript({
+      type: 'user',
+      message: { role: 'user', content: '<command-name>/clear</command-name>' },
+    });
+    assert.equal(summarizeTasks(path), undefined);
+  });
+});
+
 describe('summarizeTasks — degradation', () => {
   it('returns undefined without a path', () => {
     assert.equal(summarizeTasks(undefined), undefined);
