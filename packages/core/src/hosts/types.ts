@@ -19,6 +19,24 @@ export interface PreToolUseInput {
   sessionId?: string | undefined;
   /** Optional, host-dependent invocation id (Codex `tool_use_id`). */
   toolUseId?: string | undefined;
+  /**
+   * One user instruction, normalized from whichever name the host uses:
+   * `prompt_id` (Claude Code) / `turn_id` (Codex) / `generation_id` (Cursor) /
+   * `stepIdx` (Antigravity). Groups the chain of tool calls one instruction
+   * produced. `stepIdx` is an ordinal rather than an opaque id, so it only
+   * identifies a turn when paired with `sessionId`.
+   */
+  promptId?: string | undefined;
+  /**
+   * Model driving the agent that issued the call — never the classifier model.
+   * Claude Code alone reports none (it sends `effort` instead).
+   */
+  agentModel?: string | undefined;
+  /**
+   * Host transcript file. Read locally to summarize what the agent was doing;
+   * never sent to the backend — only the derived summary goes on the wire.
+   */
+  transcriptPath?: string | undefined;
   /** Echo of the hook event name when the host includes it. */
   hookEventName?: string | undefined;
 }

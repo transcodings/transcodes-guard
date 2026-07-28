@@ -40,6 +40,20 @@ export interface ToolCallInput {
   rawPayload?: unknown;
   cwd: string;
   hookEventName?: string;
+  /**
+   * Host-dependent identifiers forwarded as first-class evaluate fields so the
+   * backend can index and aggregate them — inside `rawPayload` they are only
+   * unstructured text. The adapters have always parsed these into
+   * `PreToolUseInput`; structural typing carried them here at runtime while
+   * this interface omitted them, so they never reached the wire (i1).
+   */
+  sessionId?: string | undefined;
+  /** Absent on Antigravity and on part of Cursor's traffic. */
+  toolUseId?: string | undefined;
+  /** One user instruction, normalized across the four host field names. */
+  promptId?: string | undefined;
+  /** Model driving the calling agent. Claude Code reports none. */
+  agentModel?: string | undefined;
 }
 
 export interface BlockResult {
@@ -242,6 +256,10 @@ export async function evaluatePreToolUse(
       toolName: wireToolName(input),
       cwd: input.cwd,
       provider: currentHostProvider(),
+      sessionId: input.sessionId,
+      toolUseId: input.toolUseId,
+      promptId: input.promptId,
+      agentModel: input.agentModel,
     });
     if (result.ok) {
       verdict = result.verdict;

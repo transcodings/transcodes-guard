@@ -58,6 +58,131 @@ for (const host of ALL_HOSTS) {
       assertOnlyEvaluateTraffic(mock);
     });
 
+    // Each host names the turn identifier differently; all four normalize onto
+    // `prompt_id`. Model: Claude Code alone reports none (it sends `effort`).
+    const turnIdKey = { 'claude-code': 'prompt_id', codex: 'turn_id', cursor: 'generation_id', antigravity: 'stepIdx' }[host];
+    const modelKey = host === 'antigravity' ? 'modelName' : 'model';
+
+    test('host identifiers ride as first-class fields, absent ones are omitted', async (t) => {
+      const world = makeWorld();
+      t.after(() => world.dispose());
+      const mock = await MockBackend.start();
+      t.after(() => mock.close());
+      world.writeToken();
+      mock.onEvaluate(ALLOW);
+
+      const stdinObj = JSON.parse(spec.shellStdin('echo e2e', world.home)) as Record<string, unknown>;
+      // Antigravity sends no per-invocation id at all; the other three do.
+      if (host !== 'antigravity') stdinObj.tool_use_id = 'e2e-tool-use';
+      // Antigravity's `stepIdx` is a number the adapter stringifies; the rest are opaque strings.
+      stdinObj[turnIdKey] = host === 'antigravity' ? 7 : 'e2e-turn';
+      stdinObj[modelKey] = 'e2e-model';
+
+      const res = await runHook({
+        host,
+        hook: 'pre-tool-use',
+        stdin: JSON.stringify(stdinObj),
+        env: world.env(mock.url),
+        cwd: world.home,
+      });
+
+      spec.assertPass(res);
+      const [req] = mock.evaluateRequests();
+      assert.ok(req, 'evaluate request must have been sent');
+      const body = req.body as Record<string, unknown>;
+
+      // Antigravity names the session `conversationId`; the adapter normalizes it.
+      const expectedSession =
+        host === 'antigravity' ? stdinObj.conversationId : stdinObj.session_id;
+      assert.equal(body.session_id, expectedSession, 'session_id must reach the wire');
+      assert.equal(body.prompt_id, host === 'antigravity' ? '7' : 'e2e-turn', `${turnIdKey} must normalize onto prompt_id`);
+      assert.equal(body.agent_model, 'e2e-model');
+
+      if (host === 'antigravity') {
+        // Absent, not null — the backend stores missing signals as absent so
+        // `{$exists: false}` keeps meaning "the host never sent this".
+        assert.ok(!('tool_use_id' in body), 'an absent id must be omitted, never nulled');
+      } else {
+        assert.equal(body.tool_use_id, 'e2e-tool-use');
+      }
+      // The transcript path is read locally to build `tasks`; it must never ship.
+      assert.ok(!('transcript_path' in body), 'the transcript path must never reach the backend');
+      assertOnlyEvaluateTraffic(mock);
+    });
+
+    test('a host that reports no model omits agent_model rather than nulling it', async (t) => {
+      const world = makeWorld();
+      t.after(() => world.dispose());
+      const mock = await MockBackend.start();
+      t.after(() => mock.close());
+      world.writeToken();
+      mock.onEvaluate(ALLOW);
+
+      // Real Claude Code stdin carries `effort`, never `model` — the shape the
+      // 154 genuinely-Claude-Code documents in prod have.
+      const res = await runHook({
+        host,
+        hook: 'pre-tool-use',
+        stdin: spec.shellStdin('echo e2e', world.home),
+        env: world.env(mock.url),
+        cwd: world.home,
+      });
+
+      spec.assertPass(res);
+      const [req] = mock.evaluateRequests();
+      assert.ok(req, 'evaluate request must have been sent');
+      assert.ok(!('agent_model' in (req.body as object)), 'a missing model must be omitted, never nulled');
+    });
+
+    if (host === 'claude-code') {
+      // Measured on prod: 1,225 of the 1,379 `provider=claude` documents carry
+      // Cursor-shaped stdin (`cursor_version` / `generation_id` / `user_email`)
+      // against 154 genuinely Claude Code ones — the claude-code plugin
+      // installed inside Cursor. The cursor adapter never runs for that
+      // traffic, so this parser must recognize Cursor's field names itself.
+      test('Cursor-shaped stdin reaching the claude-code plugin still normalizes', async (t) => {
+        const world = makeWorld();
+        t.after(() => world.dispose());
+        const mock = await MockBackend.start();
+        t.after(() => mock.close());
+        world.writeToken();
+        mock.onEvaluate(ALLOW);
+
+        const stdinObj = {
+          tool_name: 'Bash',
+          tool_input: { command: 'echo e2e' },
+          cwd: world.home,
+          session_id: 'e2e-session',
+          conversation_id: 'e2e-conversation',
+          generation_id: 'e2e-generation',
+          tool_use_id: 'e2e-tool-use',
+          model: 'e2e-cursor-model',
+          cursor_version: '1.0.0',
+          workspace_roots: [world.home],
+          user_email: 'e2e@example.com',
+          transcript_path: `${world.home}/agent-transcripts/e2e.jsonl`,
+          hook_event_name: 'PreToolUse',
+        };
+
+        const res = await runHook({
+          host,
+          hook: 'pre-tool-use',
+          stdin: JSON.stringify(stdinObj),
+          env: world.env(mock.url),
+          cwd: world.home,
+        });
+
+        spec.assertPass(res);
+        const [req] = mock.evaluateRequests();
+        assert.ok(req, 'evaluate request must have been sent');
+        const body = req.body as Record<string, unknown>;
+        assert.equal(body.prompt_id, 'e2e-generation', "Cursor's generation_id must normalize onto prompt_id");
+        assert.equal(body.agent_model, 'e2e-cursor-model');
+        assert.equal(body.session_id, 'e2e-session');
+        assert.equal(body.tool_use_id, 'e2e-tool-use');
+      });
+    }
+
     if (host === 'antigravity') {
       test('call_mcp_tool: tool_name unwrapped, payload stays the wrapper', async (t) => {
         const world = makeWorld();

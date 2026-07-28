@@ -50,6 +50,8 @@ interface RawAntigravityPreToolUsePayload {
   };
   stepIdx?: unknown;
   conversationId?: unknown;
+  /** Present on roughly two thirds of prod Antigravity traffic. */
+  modelName?: unknown;
   workspacePaths?: unknown;
   transcriptPath?: unknown;
   artifactDirectoryPath?: unknown;
@@ -269,6 +271,12 @@ export const antigravityAdapter: HookAdapter = {
       rawPayload: payload,
       cwd: workspacePaths?.[0] ?? process.cwd(),
       sessionId: readString(payload.conversationId),
+      // `stepIdx` is an ordinal, not an opaque id — it repeats across
+      // conversations, so it only pins a turn together with `sessionId`.
+      // Antigravity sends no per-invocation id at all, so `toolUseId` stays absent.
+      promptId: readNumber(payload.stepIdx)?.toString(),
+      agentModel: readString(payload.modelName),
+      transcriptPath: readString(payload.transcriptPath),
       hookEventName: 'PreToolUse',
     };
   },
