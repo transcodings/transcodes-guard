@@ -72,4 +72,14 @@ export declare function evaluateAction(config: StepupConfig, body: {
     toolName?: string | undefined;
     cwd?: string | undefined;
     provider?: GuardProvider | undefined;
+    /** Host conversation/session id — groups one work session. */
+    sessionId?: string | undefined;
+    /** Host id for this single tool invocation. Absent on Antigravity. */
+    toolUseId?: string | undefined;
+    /** One user instruction, normalized across the four host field names. */
+    promptId?: string | undefined;
+    /** Model driving the calling agent — not the backend classifier's model. */
+    agentModel?: string | undefined;
+    /** Client-built summary of the work in flight. DATA, like `payload`. */
+    tasks?: string | undefined;
 }): Promise<GuardEvaluateResult>;

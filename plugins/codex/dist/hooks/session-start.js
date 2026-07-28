@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 import {
-  codexAdapter
-} from "../chunk-DABWMHTT.js";
-import {
+  codexAdapter,
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-7KOLQSWU.js";
+} from "../chunk-TRF7QBKZ.js";
 
 // hooks/session-start.ts
 async function main() {

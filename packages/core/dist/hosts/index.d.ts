@@ -9,4 +9,5 @@ export { antigravityAdapter, COMPLETION_PATTERN, detectUserDoneFromTranscript, }
 export { claudeCodeAdapter } from './claude-code.js';
 export { codexAdapter } from './codex.js';
 export { cursorAdapter } from './cursor.js';
+export { summarizeTasks, tailJsonlLines } from './transcript.js';
 export type { HookAdapter, InjectStep, PreInvocationInput, PreToolUseDecision, PreToolUseInput, UserPromptSubmitInput, } from './types.js';

@@ -1,25 +1,3 @@
-/**
- * Host-agnostic PreToolUse gate decision (Guard v3, backend-as-SSOT).
- *
- * Every host's hook entrypoint is a thin shell: parse stdin → call
- * `evaluatePreToolUse` → emit via that host's adapter. The same decision shape
- * drives Claude Code, Codex, Cursor, and Antigravity.
- *
- * Guard v3: every host tool call (except built-in transcodes-guard MCP and host
- * meta-tool bypass sets below) → `POST /guard/evaluate` with the raw hook stdin
- * JSON as `payload`. Backend reuses MFA via Redis
- * `stepup:{projectId}:{memberId}:{resource}:{action}`. Client opens the browser
- * only when `exist:false` (fresh mint); no local latch / prompt group.
- *
- * Fail policy:
- *  - Before classify (stdin parse) → `proceed-ungated` (fail-open); the caller
- *    exits 0 with no JSON.
- *  - After classify, no token → `block-no-token` (fail-closed).
- *  - After classify, backend unreachable / unparseable → permission 2
- *    (step-up); a failed evaluate without a session becomes
- *    `block-stepup-create-failed`, carrying the HTTP status / backend error
- *    text in `failure.detail` so the deny is diagnosable (issue #189).
- */
 import { type GuardProvider, type RbacAction } from '../patterns/index.js';
 export interface ToolCallInput {
     toolName: string;
@@ -28,6 +6,25 @@ export interface ToolCallInput {
     rawPayload?: unknown;
     cwd: string;
     hookEventName?: string;
+    /**
+     * Host-dependent identifiers forwarded as first-class evaluate fields so the
+     * backend can index and aggregate them — inside `rawPayload` they are only
+     * unstructured text. The adapters have always parsed these into
+     * `PreToolUseInput`; structural typing carried them here at runtime while
+     * this interface omitted them, so they never reached the wire (i1).
+     */
+    sessionId?: string | undefined;
+    /** Absent on Antigravity and on part of Cursor's traffic. */
+    toolUseId?: string | undefined;
+    /** One user instruction, normalized across the four host field names. */
+    promptId?: string | undefined;
+    /** Model driving the calling agent. Claude Code reports none. */
+    agentModel?: string | undefined;
+    /**
+     * Host transcript file, read locally to summarize the work in flight. The
+     * path and the transcript both stay on the machine — only the summary ships.
+     */
+    transcriptPath?: string | undefined;
 }
 export interface BlockResult {
     /** One-line summary surfaced in reason/systemMessage. */
