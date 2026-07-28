@@ -13,8 +13,15 @@ import type {
   UserPromptSubmitInput,
 } from './types.js';
 
+/**
+ * Blank is absent. A host that sends `model: ""` means "no model", but an
+ * empty string on the wire is a present field — `{$exists: false}` stays true
+ * for it, so the backend cannot tell the two apart. Matches transcript.ts.
+ */
 function readString(v: unknown): string | undefined {
-  return typeof v === 'string' ? v : undefined;
+  if (typeof v !== 'string') return undefined;
+  const trimmed = v.trim();
+  return trimmed ? trimmed : undefined;
 }
 
 function parsePreToolUsePayload(raw: string): PreToolUseInput {
