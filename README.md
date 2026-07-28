@@ -292,6 +292,16 @@ Matching runs each compiled regex against the full command string (comments, quo
 
 Known limits (briefly): shell quoting is not understood (`echo "rm -rf /"` can match → a possible false positive); regex bypass is partially possible (this is the first line of defense); the semantic check is skipped in non-git directories.
 
+### What the gate sends
+
+On a gated call the hook makes exactly one outbound request — `POST /guard/evaluate` — and it carries:
+
+- the host's hook payload verbatim (tool name and arguments) plus the working directory;
+- the host's own identifiers for the session, the turn, and the tool call, and the model driving the agent;
+- **`tasks`** — a one-line summary of what the agent was working on, built locally from the transcript the host points the hook at. It is the host's session title and an excerpt of your most recent instruction, each clipped to 300 characters.
+
+The transcript file itself never leaves the machine; only that summary does. Note what this implies: **an excerpt of your prompts is transmitted on every gated call**, so treat chat prompts the way you treat anything else you send to the backend — secrets pasted into a prompt can travel with it. Nothing is written to disk on the client (see `inspect_stepup_state`, whose empty answer is the answer).
+
 ## Community & Support
 
 - **Discord:** For questions and support, reach out on **[Discord](https://discord.gg/YA4y3WdBr)**.

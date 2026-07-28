@@ -20,6 +20,7 @@
  *    `block-stepup-create-failed`, carrying the HTTP status / backend error
  *    text in `failure.detail` so the deny is diagnosable (issue #189).
  */
+import { summarizeTasks } from '../hosts/index.js';
 import {
   currentHostProvider,
   DEFAULT_RBAC_RESOURCE,
@@ -40,6 +41,25 @@ export interface ToolCallInput {
   rawPayload?: unknown;
   cwd: string;
   hookEventName?: string;
+  /**
+   * Host-dependent identifiers forwarded as first-class evaluate fields so the
+   * backend can index and aggregate them — inside `rawPayload` they are only
+   * unstructured text. The adapters have always parsed these into
+   * `PreToolUseInput`; structural typing carried them here at runtime while
+   * this interface omitted them, so they never reached the wire (i1).
+   */
+  sessionId?: string | undefined;
+  /** Absent on Antigravity and on part of Cursor's traffic. */
+  toolUseId?: string | undefined;
+  /** One user instruction, normalized across the four host field names. */
+  promptId?: string | undefined;
+  /** Model driving the calling agent. Claude Code reports none. */
+  agentModel?: string | undefined;
+  /**
+   * Host transcript file, read locally to summarize the work in flight. The
+   * path and the transcript both stay on the machine — only the summary ships.
+   */
+  transcriptPath?: string | undefined;
 }
 
 export interface BlockResult {
@@ -227,6 +247,17 @@ export async function evaluatePreToolUse(
     return { kind: GATE_DECISION_KIND.BLOCK_NO_TOKEN, block };
   }
 
+  // Built OUTSIDE the fail-closed try below, on purpose. `tasks` is a signal,
+  // not a gate input: a summary is worth strictly less than the gate it rides
+  // on, so a throw while collecting it must drop the field, never fall into
+  // the catch that sets `verdict = null` (→ permission 2, a machine-wide deny).
+  let tasks: string | undefined;
+  try {
+    tasks = summarizeTasks(input.transcriptPath);
+  } catch {
+    tasks = undefined;
+  }
+
   // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) step-up.
   // On failure `verdict` stays null (fail-closed → permission 2) and
   // `failureDetail` records WHY, so the deny message is diagnosable (#189).
@@ -242,6 +273,11 @@ export async function evaluatePreToolUse(
       toolName: wireToolName(input),
       cwd: input.cwd,
       provider: currentHostProvider(),
+      sessionId: input.sessionId,
+      toolUseId: input.toolUseId,
+      promptId: input.promptId,
+      agentModel: input.agentModel,
+      tasks,
     });
     if (result.ok) {
       verdict = result.verdict;
