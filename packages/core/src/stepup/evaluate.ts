@@ -247,6 +247,17 @@ export async function evaluatePreToolUse(
     return { kind: GATE_DECISION_KIND.BLOCK_NO_TOKEN, block };
   }
 
+  // Built OUTSIDE the fail-closed try below, on purpose. `tasks` is a signal,
+  // not a gate input: a summary is worth strictly less than the gate it rides
+  // on, so a throw while collecting it must drop the field, never fall into
+  // the catch that sets `verdict = null` (→ permission 2, a machine-wide deny).
+  let tasks: string | undefined;
+  try {
+    tasks = summarizeTasks(input.transcriptPath);
+  } catch {
+    tasks = undefined;
+  }
+
   // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) step-up.
   // On failure `verdict` stays null (fail-closed → permission 2) and
   // `failureDetail` records WHY, so the deny message is diagnosable (#189).
@@ -266,7 +277,7 @@ export async function evaluatePreToolUse(
       toolUseId: input.toolUseId,
       promptId: input.promptId,
       agentModel: input.agentModel,
-      tasks: summarizeTasks(input.transcriptPath),
+      tasks,
     });
     if (result.ok) {
       verdict = result.verdict;
