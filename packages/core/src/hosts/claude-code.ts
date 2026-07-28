@@ -36,14 +36,17 @@ function parsePreToolUsePayload(raw: string): PreToolUseInput {
       toolInput,
       rawPayload: payload,
       cwd: readString(payload.cwd) ?? process.cwd(),
-      sessionId: readString(payload.session_id),
-      toolUseId: readString(payload.tool_use_id),
-      // The turn identifier is read as a union of all three names this parser
+      // Both identifiers below are read as a union of every name this parser
       // actually sees, not just Claude Code's. Codex and Cursor delegate here,
       // and — measured on prod — 89% of `provider=claude` traffic is Cursor
       // stdin (the claude-code plugin installed inside Cursor). Normalizing in
       // each host's own adapter would therefore miss the majority of Cursor
-      // turns, since the cursor adapter never runs for that traffic.
+      // turns, since the cursor adapter never runs for that traffic. Cursor
+      // names the session `conversation_id` (see cursor.ts), and a turn id
+      // without the session it belongs to groups nothing.
+      sessionId:
+        readString(payload.session_id) ?? readString(payload.conversation_id),
+      toolUseId: readString(payload.tool_use_id),
       promptId:
         readString(payload.prompt_id) ??
         readString(payload.turn_id) ??

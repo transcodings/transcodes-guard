@@ -226,10 +226,13 @@ export const antigravityAdapter: HookAdapter = {
       rawPayload: payload,
       cwd: workspacePaths?.[0] ?? process.cwd(),
       sessionId: readString(payload.conversationId),
-      // `stepIdx` is an ordinal, not an opaque id — it repeats across
-      // conversations, so it only pins a turn together with `sessionId`.
-      // Antigravity sends no per-invocation id at all, so `toolUseId` stays absent.
-      promptId: readNumber(payload.stepIdx)?.toString(),
+      // No `promptId`. Antigravity's PreToolUse payload carries no per-turn id:
+      // `stepIdx` is "the 0-based index of the current step in the trajectory"
+      // (antigravity.google/docs/hooks) — an action counter that advances
+      // *within* one user instruction, so mapping it onto `prompt_id` would
+      // split every instruction into one bucket per tool call. An absent field
+      // reads as "the host never sent this"; a wrong one reads as a real group.
+      // Antigravity sends no per-invocation id either, so `toolUseId` stays absent.
       agentModel: readString(payload.modelName),
       transcriptPath: readString(payload.transcriptPath),
       hookEventName: 'PreToolUse',
