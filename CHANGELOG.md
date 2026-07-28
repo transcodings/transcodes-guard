@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [0.62.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.62.0...transcodes-guard-v0.62.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* **ci:** point the plugin CLI peer range at the CLI the workspace ships ([c22967b](https://github.com/transcodings/transcodes-guard/commit/c22967b4823dccf4b7abdca6d3a7cb1bff7eec40))
+* **ci:** 플러그인 CLI peer 범위를 워크스페이스가 싣는 CLI에 맞춤 ([5e7133b](https://github.com/transcodings/transcodes-guard/commit/5e7133bbf726852c7cc1c4b8f916ec1736255c72))
+
 ## [0.62.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.61.0...transcodes-guard-v0.62.0) (2026-07-25)
 
 
