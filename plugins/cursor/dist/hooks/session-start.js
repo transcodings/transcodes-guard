@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 import {
-  cursorAdapter
-} from "../chunk-P2JI7X56.js";
-import {
+  cursorAdapter,
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-XJN3TZYP.js";
+} from "../chunk-FVBB2UTV.js";
 
 // hooks/session-start.ts
 async function main() {

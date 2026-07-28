@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.63.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.62.1...transcodes-guard-v0.63.0) (2026-07-28)
+
+
+### Features
+
+* **hosts:** i1 클라이언트 신호 보강 — 식별자 승격과 작업 맥락 요약 ([46b6e50](https://github.com/transcodings/transcodes-guard/commit/46b6e507762d6605eb12679c8879e68de5f4e92d))
+
 ## [0.62.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.62.0...transcodes-guard-v0.62.1) (2026-07-28)
 
 
