@@ -54,6 +54,6 @@
     "node": ">=20"
   },
   "license": "FSL-1.1-ALv2",
-  "version": "0.63.0",
+  "version": "0.64.0",
   "description": "Risky-shell interceptor (PreToolUse hook) and step-up MFA audit MCP server — Claude Code plugin"
 }
