@@ -6,8 +6,7 @@
  * (PreToolUse / PostToolUse / PreInvocation / PostInvocation / Stop is the
  * complete event list). PreInvocation fires before every model call; on the
  * first call (`invocationNum === 0`) it injects a static step-up MFA primer plus
- * the no-token notice when no token is configured. Because Antigravity has no
- * prompt hook, the latest transcript user message is cached here instead.
+ * the no-token notice when no token is configured.
  *
  * Guard v3: step-up status lives in the backend (SSOT), so there is no
  * carry-over/pending state to surface — and no user-"done" bridge, because the
@@ -25,38 +24,11 @@ import {
 } from '@transcodes-guard/core/contract';
 import {
   antigravityAdapter,
-  capturePrompt,
   type InjectStep,
-  latestUserPromptFromTranscript,
 } from '@transcodes-guard/core/hosts';
 
 function primerMessage(): string {
   return formatStepupProtocolPrimer();
-}
-
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function captureLatestPrompt(
-  input: ReturnType<
-    NonNullable<typeof antigravityAdapter.parsePreInvocationStdin>
-  >,
-): Promise<void> {
-  if (!input.conversationId || !input.transcriptPath) return;
-  const delays = input.invocationNum === 0 ? [0, 25, 75] : [0];
-  for (const delay of delays) {
-    if (delay > 0) await wait(delay);
-    const prompt = latestUserPromptFromTranscript(input.transcriptPath);
-    if (!prompt) continue;
-    capturePrompt({
-      host: 'antigravity',
-      sessionId: input.conversationId,
-      prompt,
-      forceRefresh: input.invocationNum === 0,
-    });
-    return;
-  }
 }
 
 async function main(): Promise<void> {
@@ -82,8 +54,6 @@ async function main(): Promise<void> {
 
   const backend = getGateBackend();
   const injectSteps: InjectStep[] = [];
-
-  await captureLatestPrompt(input);
 
   // SessionStart-equivalent: primer + no-token notice on first invocation only.
   if (input.invocationNum === 0) {

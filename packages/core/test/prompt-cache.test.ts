@@ -95,6 +95,10 @@ describe('prompt cache', () => {
       readFileSync(path.join(promptCacheDir(), files[0] ?? ''), 'utf8'),
       /sensitive-session-id/,
     );
+    assert.doesNotMatch(
+      readFileSync(path.join(promptCacheDir(), files[0] ?? ''), 'utf8'),
+      /turn-1/,
+    );
   });
 
   it('does not use an uncorrelated cached prompt when the tool event has no turn id', () => {
@@ -177,7 +181,38 @@ describe('prompt cache', () => {
     );
   });
 
+  it('matches an oversized opaque turn id without exhausting the file budget', () => {
+    resetCache();
+    const promptId = 'opaque-turn-id-'.repeat(1_024);
+    for (let i = 0; i < 4; i += 1) {
+      capturePrompt({
+        host: 'codex',
+        sessionId: 'long-id',
+        promptId: `${promptId}${i}`,
+        prompt: '"'.repeat(32 * 1024),
+        capturedAt: 20_000 + i,
+      });
+    }
+    assert.deepEqual(
+      resolvePromptContext({
+        host: 'codex',
+        sessionId: 'long-id',
+        promptId: `${promptId}3`,
+        now: 20_005,
+      }),
+      { tasks: '"'.repeat(299) + '…', source: 'prompt_hook' },
+    );
+  });
+
   it('preserves the transcript session title for a cached current prompt', () => {
+    resetCache();
+    capturePrompt({
+      host: 'codex',
+      sessionId: 'titled-session',
+      promptId: 'titled-turn',
+      prompt: 'cached current prompt',
+      capturedAt: 10_005,
+    });
     const transcript = path.join(root, 'title.jsonl');
     writeFileSync(
       transcript,
@@ -186,13 +221,13 @@ describe('prompt cache', () => {
     assert.deepEqual(
       resolvePromptContext({
         host: 'codex',
-        sessionId: 'escaped',
-        promptId: 'turn-3',
+        sessionId: 'titled-session',
+        promptId: 'titled-turn',
         transcriptPath: transcript,
         now: 10_005,
       }),
       {
-        tasks: `release audit · ${'"'.repeat(299)}…`,
+        tasks: 'release audit · cached current prompt',
         source: 'prompt_hook',
       },
     );

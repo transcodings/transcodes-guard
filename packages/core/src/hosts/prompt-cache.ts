@@ -49,6 +49,18 @@ interface PromptCacheFile {
   entries: PromptEntry[];
 }
 
+/**
+ * Store a fixed-size digest rather than a host-provided opaque turn id. Apart
+ * from avoiding needless persistence of that identifier, this prevents an
+ * oversized payload field from consuming the bounded cache-file budget.
+ */
+function cachePromptId(promptId?: string): string | undefined {
+  const normalized = promptId?.trim();
+  return normalized
+    ? createHash('sha256').update(normalized).digest('hex')
+    : undefined;
+}
+
 export interface CapturePromptInput {
   sessionId?: string | undefined;
   promptId?: string | undefined;
@@ -236,6 +248,7 @@ function appendEntry(
 
 function capturePromptUnsafe(input: CapturePromptInput): void {
   const sessionId = input.sessionId?.trim();
+  const promptId = cachePromptId(input.promptId);
   const prompt = boundedUtf8(input.prompt ?? '');
   if (!sessionId || !prompt) return;
 
@@ -247,7 +260,7 @@ function capturePromptUnsafe(input: CapturePromptInput): void {
   const entries = appendEntry(
     freshEntries(filePath, now),
     {
-      promptId: input.promptId?.trim() || undefined,
+      promptId,
       prompt,
       capturedAt: now,
     },
@@ -300,7 +313,7 @@ function readCachedTasks(
     if (!sessionId || !root) return undefined;
     const filePath = path.join(root, cacheFileName(host, sessionId));
     const fresh = freshEntries(filePath, now);
-    const promptId = input.promptId?.trim();
+    const promptId = cachePromptId(input.promptId);
     // A cache entry is safe only when both hook events carry the same opaque
     // turn id. In particular Antigravity has no such id; choosing its latest
     // session entry can attach a previous user turn to the current tool call.

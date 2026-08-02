@@ -1,10 +1,6 @@
 /** B7 — host prompt capture remains fail-soft and preserves host stdout. */
 import assert from 'node:assert/strict';
-import {
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { promptHook, runHook } from '../harness/hook-runner.js';
@@ -100,7 +96,7 @@ describe('B7 prompt capture [antigravity]', () => {
     world.dispose();
   });
 
-  it('recovers the latest transcript prompt on invocation zero', async () => {
+  it('injects the primer without persisting an uncorrelatable prompt', async () => {
     const transcript = join(world.home, 'transcript.jsonl');
     writeFileSync(
       transcript,
@@ -122,15 +118,7 @@ describe('B7 prompt capture [antigravity]', () => {
     assert.equal(res.exitCode, 0);
     const out = res.json() as { injectSteps?: unknown[] };
     assert.ok(Array.isArray(out.injectSteps), 'invocation zero injects the primer');
-    const files = promptCacheFiles(world.home);
-    assert.equal(files.length, 1);
-    assert.match(
-      readFileSync(
-        join(world.home, '.transcodes', 'cache', 'prompts', files[0] ?? ''),
-        'utf8',
-      ),
-      /Antigravity 현재 요청/,
-    );
+    assert.deepEqual(promptCacheFiles(world.home), []);
   });
 
   it('does not inject the primer again on invocation one', async () => {
@@ -149,14 +137,6 @@ describe('B7 prompt capture [antigravity]', () => {
       cwd: world.home,
     });
     assert.equal(res.stdout, '{}');
-    const files = promptCacheFiles(world.home);
-    assert.equal(files.length, 1);
-    const cache = JSON.parse(
-      readFileSync(
-        join(world.home, '.transcodes', 'cache', 'prompts', files[0] ?? ''),
-        'utf8',
-      ),
-    ) as { entries: unknown[] };
-    assert.equal(cache.entries.length, 1, 'the same transcript turn is idempotent');
+    assert.deepEqual(promptCacheFiles(world.home), []);
   });
 });
