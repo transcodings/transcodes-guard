@@ -5,14 +5,8 @@
  *  - Backend unreachable (closed loopback port) → fail-CLOSED:
  *    create-failed deny, exit 0, one-line stderr tag. Never a crash, never a
  *    silent pass.
- *  - Garbage stdin → ALSO fail-closed into the gate. The PRD row
- *    "garbage stdin → fail-open silent pass" is STALE for v3: every adapter's
- *    parse failure is caught and normalized to `toolName:'Unknown'`
- *    (hosts/*.ts), which still classifies, so the run proceeds to the gate
- *    (here: no-token deny). The pre-classify fail-open branch survives only
- *    for a throw inside classify itself, which normalized input can no longer
- *    trigger. These tests pin the ACTUAL contract; the PRD correction rides
- *    the same PR.
+ *  - No token → fail-open before evaluate, including garbage stdin normalized
+ *    to `toolName:'Unknown'`. The hook is inactive until the user signs in.
  */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
@@ -50,12 +44,12 @@ for (const host of ALL_HOSTS) {
     });
 
     for (const [i, garbage] of GARBAGE_STDINS.entries()) {
-      test(`garbage stdin #${i} → fail-closed into the gate (no-token deny), no crash`, async (t) => {
+      test(`garbage stdin #${i} → no-token pass, no crash`, async (t) => {
         const world = makeWorld();
         t.after(() => world.dispose());
         const mock = await MockBackend.start();
         t.after(() => mock.close());
-        // no token: unparseable input must NOT slip past the gate
+        // no token: the hook is intentionally inactive
 
         const res = await runHook({
           host,
@@ -65,7 +59,7 @@ for (const host of ALL_HOSTS) {
           cwd: world.home,
         });
 
-        spec.assertDeny(res);
+        spec.assertPass(res);
         assert.equal(res.exitCode, 0);
         assert.equal(mock.requests.length, 0);
       });

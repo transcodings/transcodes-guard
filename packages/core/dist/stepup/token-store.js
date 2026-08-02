@@ -12,16 +12,17 @@
  *
  * Token resolution (resolveToken):
  *   1. ~/.transcodes/config.json     — written by the CLI, the only source
- *   2. null                          — caller fail-safes (hook → block)
+ *   2. null                          — hook remains inactive
  *
  * The config file is the single source of truth. There is no environment-
- * variable path: a stray env token used to silently shadow whatever
- * `transcodes set` wrote, so config edits appeared to have no effect (the
- * hooks have no stdout to warn on). The CLI-managed file is now the only way
- * to supply a token.
+ * variable path: a stray env token used to silently shadow whatever the CLI
+ * wrote, so config edits appeared to have no effect (the hooks have no stdout
+ * to warn on). `transcodes login` is now the only supported way to supply a
+ * token.
  *
  * File schema (multi-token, labelled):
  *   {
+ *     "guard_enabled": true,                     // explicit activation; default false
  *     "token": "<active token>",                 // the one resolveToken() returns
  *     "token_list": [                            // pool the user can switch between
  *       { "token": "<t1>", "label": "prod" },
@@ -170,6 +171,20 @@ export function readTokenRecords() {
     return readConfig().tokenList;
 }
 /**
+ * Whether PreToolUse permission evaluation is active.
+ * Missing or malformed values default to disabled; activation must be explicit.
+ */
+export function isGuardEnabled() {
+    return readRawConfig()?.guard_enabled === true;
+}
+/** Persist the local PreToolUse permission-evaluation toggle. */
+export function setGuardEnabled(enabled) {
+    writeRawConfig({
+        ...(readRawConfig() ?? {}),
+        guard_enabled: enabled,
+    });
+}
+/**
  * Persist `token` as the active token, adding it to the pool if new
  * (dir 0700, file 0600). Existing tokens in the pool are preserved.
  *
@@ -240,11 +255,15 @@ export function removeTokenFromFile(token) {
     writeConfig({ token: active, tokenList });
 }
 /**
- * Remove all saved tokens (CLI `reset`). Deletes the config file entirely.
- * Best-effort.
+ * Remove all saved tokens (CLI `reset`). A disabled guard setting is retained
+ * so signing out does not silently reactivate permission evaluation.
  */
 export function clearTokenFile() {
     try {
+        if (!isGuardEnabled()) {
+            writeRawConfig({ guard_enabled: false });
+            return;
+        }
         rmSync(transcodesConfigFile(), { force: true });
     }
     catch {

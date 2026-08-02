@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.64.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.63.0...transcodes-guard-v0.64.0) (2026-08-02)
+
+
+### Features
+
+* **cli:** add agent-driven Persona create, edit, and global apply ([b2598fe](https://github.com/transcodings/transcodes-guard/commit/b2598fe7e14d868b589eea53708363b030cf7c67))
+
 ## [0.63.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.62.1...transcodes-guard-v0.63.0) (2026-07-28)
 
 

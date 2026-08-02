@@ -48,7 +48,7 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 # irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
-Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
+Sign in with `transcodes login`.
 
 Without a token, the hook still **denies** danger commands but cannot start a step-up session — Antigravity will surface a reason telling you to provide a token.
 
@@ -107,11 +107,13 @@ The step-up response protocol the agent must follow on a step-up deny lives in [
 
 ## Enabling / disabling
 
-There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via Antigravity's native mechanism (`agy plugin uninstall` or equivalent). Enabling the gate is safe for an agent; disabling it is a human-only action.
+Use the **Permission checks** toggle in the local `transcodes` dashboard. When
+Off, hooks skip step-up authentication and permission evaluation before any
+backend request, so those tool calls are not recorded in Transcodes Log History.
 
 ## Environment
 
-Token resolution: the token is read solely from `~/.transcodes/config.json` (via the `transcodes` dashboard or `transcodes set`).
+Token resolution: the token is read solely from `~/.transcodes/config.json` (via `transcodes login`).
 
 | Variable | Required | Purpose |
 |---|---|---|
@@ -131,7 +133,7 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 
 - **Hook doesn't fire (agy CLI).** Re-run `install.mjs`. Check `~/.gemini/antigravity-cli/settings.json` — installer sets `request-review` and removes broad allows when the file exists. Do not use `--dangerously-skip-permissions`. Confirm `node` is in `PATH`.
 - **Hook doesn't fire (desktop).** Confirm plugin exists under `~/.gemini/config/plugins/transcodes-guard/`. Review Settings → Advanced → Terminal — Turbo auto-runs most commands. Matcher only covers `run_command|mcp_.*|call_mcp_tool`.
-- **`decision: deny` but no step-up URL.** No Transcodes token — install CLI and run `transcodes` (or `transcodes set <token> -l <label>`).
+- **`decision: deny` but no step-up URL.** No Transcodes token — install CLI and run `transcodes login`.
 
 ## License
 

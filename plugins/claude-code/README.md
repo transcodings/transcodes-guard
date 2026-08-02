@@ -34,7 +34,7 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 # irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
-Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
+Sign in with `transcodes login`.
 
 Without a token, the hook still **denies** danger commands but cannot start a step-up session — the deny reason will say to provide a token.
 
@@ -81,11 +81,13 @@ Never assume the blocked command ran. Never invent an alternative command. Alway
 
 ## Enabling / disabling
 
-There is no runtime kill-switch in the plugin. To turn protection off, disable or uninstall the plugin via Claude Code's plugin manager. (Enabling the gate is safe for an agent; disabling it is a human-only action — that asymmetry is intentional.)
+Use the **Permission checks** toggle in the local `transcodes` dashboard. When
+Off, hooks skip step-up authentication and permission evaluation before any
+backend request, so those tool calls are not recorded in Transcodes Log History.
 
 ## Environment
 
-Token resolution: the token is read solely from `~/.transcodes/config.json` (via the `transcodes` dashboard or `transcodes set`).
+Token resolution: the token is read solely from `~/.transcodes/config.json` (via `transcodes login`).
 
 | Variable | Required | Purpose |
 |---|---|---|

@@ -33,6 +33,9 @@ export const denyByDefaultBackend: GateBackend = {
   hasToken() {
     return false;
   },
+  isGuardEnabled() {
+    return false;
+  },
 
   // server path — call-shaped methods throw
   createStepupSession() {

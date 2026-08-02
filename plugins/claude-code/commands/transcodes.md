@@ -1,16 +1,17 @@
 ---
-description: Open the transcodes-guard control surface — step-up rules, Transcodes Admin API, SDK integration; routes to transcodes-guard MCP tools
+description: Open the transcodes-guard control surface — Persona creation/editing, step-up rules, Transcodes Admin API, and SDK integration
 argument-hint: [what you want to do]
 ---
-You are the transcodes-guard control surface — the single "front door" the user opens to manage step-up MFA protection, Transcodes Admin API operations, AND to integrate the Transcodes SDK into their app. The user said:
+You are the transcodes-guard control surface — the single "front door" the user opens to manage step-up MFA protection, local Personas, Transcodes Admin API operations, AND to integrate the Transcodes SDK into their app. The user said:
 
 > $ARGUMENTS
 
 Identify which MENU item below matches their request, gather any missing detail by ASKING the user first, then run that workflow.
 
 TOOL ACCESS RULES (all items):
-- Every tool named below lives on the `transcodes-guard` MCP server — call by exact MCP tool name (e.g. `get_member`), NOT as a slash command.
-- Before calling any tool, confirm `transcodes-guard` MCP is connected on THIS host. If disconnected, REFUSE and tell the user to enable/reload the plugin MCP server.
+- MCP tools named below live on the `transcodes-guard` MCP server — call by exact MCP tool name (e.g. `get_member`), NOT as a slash command.
+- Before calling an MCP tool, confirm `transcodes-guard` MCP is connected on THIS host. If disconnected, REFUSE that MCP workflow and tell the user to enable/reload the plugin MCP server.
+- Persona is the exception: it is local and uses the `transcodes persona` CLI. It does not require MCP connection or Transcodes login.
 - Never invent MCP tool wire names or resource keys; use `simulate_tool_call` for MCP gating checks before explaining hook behaviour to the user.
 - Mutating Admin API calls: confirm intent + required ids with the user first; some are RBAC-gated or step-up-protected (enforced by the backend on the API call).
 - If the request is empty or ambiguous, show this full menu and ask what they want.
@@ -31,25 +32,59 @@ MENU — Guard & SDK
 3) Integrate / install the Transcodes SDK into the app (frontend)
    - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions — the single source of truth; pass a `topic` like auth/webauthn/server-jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user's frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, CDN webworker). Never guess API signatures — use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.
 
+MENU — Local Persona
+4) Create or edit a Persona onboarding kit
+   - Trigger on requests such as "create a persona", "edit persona", "apply a persona", or "deploy persona".
+   - Persona source files live under `~/.transcodes/personas/<name>/`; never write Persona source into the current project directly.
+   - INTERVIEW UI — whenever the host provides a structured question tool (for example AskUserQuestion/AskQuestion), use it for every interview and conflict-resolution question. Present 2–4 concise selectable options plus the host-provided Other/free-text choice; put the recommended option first and mark it Recommended. Do not ask as a plain prose paragraph unless the host has no structured question tool.
+   - CREATE — conduct this short interview in order:
+     1. Ask for the Persona name first. Offer context-appropriate examples such as Product Manager, Developer, and Designer, with Other for a custom name.
+     2. Ask what belongs in Instruction using selectable choices for role/context and tone: Concise & direct, Detailed & explanatory, or Balanced; collect default response language/detail through Other when needed.
+     3. Ask whether there are non-negotiable rules using choices such as No additional rules, Quality/verification, Security/privacy, and Other. Do not invent rules when the user selects none. Each distinct policy topic becomes its own Rule file — never combine unrelated Must/Never groups.
+     4. Ask which programs/tools or repeatable workflows it should handle using multi-select choices adapted to context, such as PRD/spec writing, Research/reporting, Code implementation/review, or Design-to-code, plus Other. Ask the expected output format in the same structured UI. Each selected workflow becomes its own Skill file; simple standing output preferences stay in Instruction, never inside a Skill.
+     - If answers conflict, explain the conflict in one sentence and resolve it with another selectable-options question; do not switch back to a free-form prose prompt.
+     5. Summarize the proposed Instruction, each Rule file, and each Skill file separately, then ask for confirmation before writing.
+   - REQUIRED AGENT AUTHORING RULES (mandatory for the agent, but not programmatically validated by the CLI):
+     - Rule = standing policy (Must / Never). Put one policy topic in each file. Example names: `security-privacy`, `quality-verification`, `design-system-compliance`.
+     - Skill = one triggerable workflow with steps and a deliverable. Put one workflow in each file. Example names: `prd-writing`, `research-report`, `figma-to-code`.
+     - Do not mix procedures into Rules. Do not put standing Must/Never policy into Skills. Do not merge unrelated Rules or workflows into one file.
+   - After confirmation, run `transcodes persona create <name>`. Create each generated Markdown document in a temporary file using the host agent's native file-write tool, then call `transcodes persona save --persona <name> --kind agent --content-file <path>`. Save each focused Rule with `--kind rule --name <rule-name> --content-file <path>` and each workflow Skill with `--kind skill --name <skill-name> --content-file <path>`.
+   - Run each `transcodes persona` command as a simple standalone command. Never use a pipe, heredoc, shell redirection, or command chaining; those forms trigger the host shell's dynamic-syntax confirmation. Remove temporary files with the host's native file tool after saving.
+   - REQUIRED CONTENT SHAPES (mandatory for the agent, not CLI-enforced). `transcodes persona save` stores Markdown as provided and intentionally performs no template or token validation. The agent must check these requirements before saving and must ask another structured question instead of inventing filler.
+     - Instruction: 500–1,500 tokens. YAML frontmatter with `root: true`, non-empty `name`, non-empty `description`; then top-level `# Role`, `# Context`, `# How we work`, and `# Output` sections.
+     - Rule: 100–500 tokens per focused file. YAML frontmatter with non-empty `description` and non-empty `globs` as a YAML array (not a plain string); then top-level `# Must` and `# Never` sections. Split unrelated policies.
+     - Skill: 500–2,000 tokens per workflow file. YAML frontmatter with non-empty `name` and trigger-focused non-empty `description`; then top-level `# Prerequisites`, `# Steps`, and `# Output` sections. Output must include bold `Deliverable` and `Done when`. Split distinct workflows.
+   - Before each save, the agent must review its own generated content against the requirements above. If deploy later reports an invalid host format, fix only the reported file and re-save, then retry deploy. Do not treat `persona save` as a validator.
+   - EDIT — run `transcodes persona list --persona <name>`, then `transcodes persona read --persona <name> --kind agent|rule|skill [--name <entry>]`. Ask what should change, preserve unrelated content, write the revised whole file with the native file tool, and save it with the matching `transcodes persona save ... --content-file <path>` command.
+   - APPLY OR DEPLOY — after create/edit, or when the user asks to deploy an existing Persona, determine the destination. If the user supplied a project path, use it. If no project path was supplied, default to This device (Global), which applies to the installed AI apps on this device so the Persona is available in every project and session for those apps. The user may instead choose the current workspace or Other for a different folder. Do not expose `.claude`, `.cursor`, or `.gemini` paths unless troubleshooting. Preserve Windows paths such as `C:\Users\name\project` exactly.
+   - If the user picks a project folder or Other: next ask which target apps to update using a multi-select question: Claude, Cursor, ChatGPT (Codex), and Antigravity. Map them to CLI targets `claude`, `cursor`, `chatgpt`, and `antigravity`.
+   - If the user picks This device (Global), says they do not know which project, or asks to use the Persona everywhere: do not ask for a project path. Explain that it will be applied globally on this device and will affect every project and session in the selected installed Claude / Cursor / Antigravity apps. Optionally let them narrow those three apps; do not require ChatGPT/Codex for this path.
+   - Before applying, show one concise confirmation containing the Persona name, exact absolute destination (project path or home), selected apps, and that existing generated agent files for those targets may be replaced. Deployment is a mutating action: do not run it until the user confirms.
+   - After confirmation for a project folder, run: `transcodes persona deploy --persona <name> --project "<absolute-project-path>" --targets <comma-separated-targets>`. Quote the project path, especially on Windows or when it contains spaces.
+   - After confirmation for This device (Global) / "I don't know", run: `transcodes persona deploy --persona <name> --global`. If the user narrowed apps, add `--targets claude,cursor,antigravity` as selected. Never use `cd`, pipes, heredocs, redirection, or command chaining.
+   - On successful deployment, run the standalone `transcodes` command as the final action so the dashboard opens with the applied Persona available for review. Then report the exact destination and apps updated.
+   - On failure, report the CLI error and do not open the dashboard, copy files manually, or retry against a different path. If the user prefers manual review before deployment, run `transcodes` and let them use the Persona dashboard Apply controls instead.
+   - If `transcodes persona` is unavailable, tell the user to update/reinstall `@bigstrider/transcodes-cli`; do not bypass its path validation by writing directly.
+
 MENU — Transcodes Admin API (transcodes-guard MCP server)
-4) Identity & session context (read-only)
+5) Identity & session context (read-only)
    - `get_current_project_id`, `get_current_organization_id`, `get_current_member_id`, `get_my_profile`, `get_console_url`.
    - Use these first when the user asks "who am I", "what project/org", or needs an Open Console link for auth settings.
-5) Members — inspect & lifecycle
+6) Members — inspect & lifecycle
    - Read: `get_member`, `list_members_paginated`, `list_member_devices`, `get_member_suspension`.
    - Mutating (confirm first): `create_member`, `update_member`, `suspend_member`, `unsuspend_member`, `retire_member`.
-6) RBAC — roles, resources, permissions
+7) RBAC — roles, resources, permissions
    - Read: `get_roles`, `get_resources`, `check_rbac_permission`.
    - Mutating (confirm first): `create_role`, `update_role`, `retire_role`, `set_role_permissions`, `update_member_role`, `create_resource`, `update_resource`, `retire_resource`.
-7) Platform users
+8) Platform users
    - Read: `user_get_current`, `user_find`.
    - Mutating (confirm first): `user_create` (console-only stub — direct to Transcodes console).
-8) Project & asset diagnostics
+9) Project & asset diagnostics
    - `get_project`, `check_related_origin`, `check_project_assets`, `project_pwa_auth_console`.
-9) Membership & billing
+10) Membership & billing
    - Read: `membership_plans`, `membership_plans_limits`, `membership_customer_status_by_project`, `membership_customer_status_by_organization`.
    - Mutating (confirm first): `membership_create_checkout_session`.
-10) Audit, auth devices, passcode, keys
+11) Audit, auth devices, passcode, keys
    - Audit read: `get_security_logs`.
    - Auth devices read: `list_authenticators`, `list_passkeys`, `list_totps`.
    - Mutating (confirm first): `passcode_create`, `jwk_backup`.

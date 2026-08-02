@@ -55,6 +55,7 @@ export type TestWorld = {
   binDir: string;
   browserLog: string;
   writeToken(claims?: FakeJwtClaims): string;
+  writeGuardEnabled(enabled: boolean): void;
   stateFiles(): string[];
   browserLaunches(): string[];
   /**
@@ -95,8 +96,25 @@ export function makeWorld(): TestWorld {
       const token = makeFakeJwt(claims);
       const dir = join(home, '.transcodes');
       mkdirSync(dir, { recursive: true, mode: 0o700 });
-      writeFileSync(join(dir, 'config.json'), JSON.stringify({ token }), { mode: 0o600 });
+      writeFileSync(
+        join(dir, 'config.json'),
+        JSON.stringify({ token, guard_enabled: true }),
+        { mode: 0o600 },
+      );
       return token;
+    },
+
+    writeGuardEnabled(enabled: boolean): void {
+      const dir = join(home, '.transcodes');
+      const file = join(dir, 'config.json');
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+      let config: Record<string, unknown> = {};
+      try {
+        config = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
+      } catch {}
+      writeFileSync(file, JSON.stringify({ ...config, guard_enabled: enabled }), {
+        mode: 0o600,
+      });
     },
 
     stateFiles(): string[] {

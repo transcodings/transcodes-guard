@@ -48,7 +48,7 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 # irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
-비대화형 대안(같은 저장소): `transcodes set <token> -l <label>`.
+브라우저에서 `transcodes login`으로 로그인하세요.
 
 토큰이 없으면 hook은 여전히 위험 명령을 **차단**하지만 스텝업 세션을 시작할 수 없습니다 — Antigravity가 토큰을 제공하라는 사유를 표시합니다.
 
@@ -99,7 +99,7 @@ hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실행(`run_comm
 
 ## 환경 변수
 
-토큰 해석: 토큰은 오직 `~/.transcodes/config.json`(`transcodes` 대시보드 또는 `transcodes set`)에서만 읽습니다.
+토큰 해석: 토큰은 오직 `~/.transcodes/config.json`(`transcodes login`)에서만 읽습니다.
 
 | 변수 | 필수 여부 | 용도 |
 |---|---|---|
@@ -119,7 +119,7 @@ hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실행(`run_comm
 
 - **hook이 발동하지 않음 (agy CLI).** `install.mjs` 재실행. `~/.gemini/antigravity-cli/settings.json` 확인 — 파일이 있으면 인스톨러가 `request-review`와 broad allow를 처리. `--dangerously-skip-permissions` 사용 금지. `node`가 `PATH`에 있는지 확인.
 - **hook이 발동하지 않음 (desktop).** `~/.gemini/config/plugins/transcodes-guard/` 존재 확인. Settings → Advanced → Terminal — Turbo는 대부분 명령 자동 실행. matcher는 `run_command|mcp_.*|call_mcp_tool`만 커버.
-- **`decision: deny`인데 스텝업 URL 없음.** Transcodes 토큰 없음 — CLI 설치 후 `transcodes`(또는 `transcodes set <token> -l <label>`).
+- **`decision: deny`인데 스텝업 URL 없음.** Transcodes 토큰 없음 — CLI 설치 후 `transcodes`.
 
 ## 라이선스
 

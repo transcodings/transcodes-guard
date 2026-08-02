@@ -70,7 +70,7 @@ for (const host of ALL_HOSTS) {
       spec.assertDeny(res);
     });
 
-    test('no token → deny in host shape without touching the backend', async (t) => {
+    test('no token → pass in host shape without touching the backend', async (t) => {
       const world = makeWorld();
       t.after(() => world.dispose());
       const mock = await MockBackend.start();
@@ -85,8 +85,28 @@ for (const host of ALL_HOSTS) {
         cwd: world.home,
       });
 
-      spec.assertDeny(res);
-      assert.equal(mock.requests.length, 0, 'no-token deny must be decided locally');
+      spec.assertPass(res);
+      assert.equal(mock.requests.length, 0, 'no-token pass must be decided locally');
+    });
+
+    test('guard disabled → pass without touching the backend', async (t) => {
+      const world = makeWorld();
+      t.after(() => world.dispose());
+      const mock = await MockBackend.start();
+      t.after(() => mock.close());
+      world.writeToken();
+      world.writeGuardEnabled(false);
+
+      const res = await runHook({
+        host,
+        hook: 'pre-tool-use',
+        stdin: spec.shellStdin('rm -rf /tmp/e2e-target', world.home),
+        env: world.env(mock.url),
+        cwd: world.home,
+      });
+
+      spec.assertPass(res);
+      assert.equal(mock.requests.length, 0, 'disabled guard must skip evaluate');
     });
 
     test('permission 1 (allow by policy) → per-host pass shape', async (t) => {

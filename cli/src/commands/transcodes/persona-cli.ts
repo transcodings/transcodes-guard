@@ -1,0 +1,334 @@
+import { readFile, stat } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
+import { detectInstalledHostConfigTargets } from './host-apps.js';
+import {
+  assertPersonaId,
+  createPersona,
+  deletePersona,
+  deletePersonaFile,
+  deployPersona,
+  listPersona,
+  type PersonaKind,
+  readPersonaFile,
+  resolvePersonaRoot,
+  savePersonaFile,
+} from './persona.js';
+
+const PERSONA_USAGE =
+  'transcodes persona <list|create|read|save|delete|delete-file|deploy>';
+
+const DEPLOY_TARGET_ALIASES = {
+  claude: 'claudecode',
+  claudecode: 'claudecode',
+  cursor: 'cursor',
+  chatgpt: 'codexcli',
+  codex: 'codexcli',
+  codexcli: 'codexcli',
+  antigravity: 'antigravity-ide',
+  'antigravity-ide': 'antigravity-ide',
+} as const;
+
+const ALL_DEPLOY_TARGETS = [
+  'claudecode',
+  'cursor',
+  'codexcli',
+  'antigravity-ide',
+] as const;
+
+const BOOLEAN_FLAGS = new Set(['global', 'installed']);
+
+type ParsedArgs = {
+  positionals: string[];
+  flags: Map<string, string>;
+  stdin: boolean;
+};
+
+function parseArgs(args: string[]): ParsedArgs {
+  const positionals: string[] = [];
+  const flags = new Map<string, string>();
+  let stdin = false;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]!;
+    if (arg === '--stdin') {
+      stdin = true;
+      continue;
+    }
+    if (arg.startsWith('--')) {
+      const key = arg.slice(2);
+      if (BOOLEAN_FLAGS.has(key)) {
+        flags.set(key, 'true');
+        continue;
+      }
+      const value = args[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error(`${arg} requires a value.`);
+      }
+      flags.set(key, value);
+      index += 1;
+      continue;
+    }
+    positionals.push(arg);
+  }
+
+  return { positionals, flags, stdin };
+}
+
+function requiredFlag(parsed: ParsedArgs, name: string): string {
+  const value = parsed.flags.get(name)?.trim();
+  if (!value) throw new Error(`--${name} is required.`);
+  return value;
+}
+
+function optionalFlag(parsed: ParsedArgs, name: string): string | undefined {
+  const value = parsed.flags.get(name)?.trim();
+  return value || undefined;
+}
+
+function personaKind(parsed: ParsedArgs): PersonaKind {
+  const kind = requiredFlag(parsed, 'kind');
+  if (kind !== 'agent' && kind !== 'rule' && kind !== 'skill') {
+    throw new Error('--kind must be agent, rule, or skill.');
+  }
+  return kind;
+}
+
+function deployTargets(parsed: ParsedArgs, fallback?: string[]): string[] {
+  const raw = optionalFlag(parsed, 'targets');
+  if (!raw) {
+    if (fallback && fallback.length > 0) return [...fallback];
+    throw new Error(
+      '--targets is required. Use claude, cursor, chatgpt, antigravity, all, or --global.',
+    );
+  }
+  if (raw.toLowerCase() === 'all') return [...ALL_DEPLOY_TARGETS];
+  if (raw.toLowerCase() === 'installed') {
+    const detected = detectInstalledHostConfigTargets();
+    if (detected.targets.length === 0) {
+      throw new Error(
+        'No installed .claude, .cursor, or Antigravity config root found under your home directory.',
+      );
+    }
+    return detected.targets;
+  }
+
+  const targets = raw
+    .split(',')
+    .map((target) => target.trim().toLowerCase())
+    .filter(Boolean)
+    .map((target) => {
+      const resolved =
+        DEPLOY_TARGET_ALIASES[target as keyof typeof DEPLOY_TARGET_ALIASES];
+      if (!resolved) {
+        throw new Error(
+          `Unsupported target "${target}". Use claude, cursor, chatgpt, codex, antigravity, installed, or all.`,
+        );
+      }
+      return resolved;
+    });
+  if (targets.length === 0) {
+    throw new Error('--targets requires at least one target app.');
+  }
+  return [...new Set(targets)];
+}
+
+async function deployRoot(parsed: ParsedArgs): Promise<string> {
+  const input = optionalFlag(parsed, 'project') ?? optionalFlag(parsed, 'root');
+  if (!input) {
+    throw new Error(
+      '--project <folder> is required. Ask which project should receive the Persona, or use --global to apply it on this device for all projects and sessions.',
+    );
+  }
+  const normalized =
+    input === '~' || input.toLowerCase() === 'home' ? os.homedir() : input;
+  const { root } = await resolvePersonaRoot(normalized);
+  let rootStat: Awaited<ReturnType<typeof stat>>;
+  try {
+    rootStat = await stat(root);
+  } catch {
+    throw new Error(`Project folder does not exist: ${root}`);
+  }
+  if (!rootStat.isDirectory()) {
+    throw new Error(`Project path is not a folder: ${root}`);
+  }
+  return root;
+}
+
+async function resolveDeployDestination(parsed: ParsedArgs): Promise<{
+  root: string;
+  targets: string[];
+  mode: 'project' | 'global';
+}> {
+  // `--installed` remains a compatibility alias for the former public syntax.
+  const global =
+    parsed.flags.get('global') === 'true' ||
+    parsed.flags.get('installed') === 'true';
+  if (global) {
+    const detected = detectInstalledHostConfigTargets();
+    if (detected.targets.length === 0) {
+      throw new Error(
+        'No installed .claude, .cursor, or Antigravity config root found under your home directory.',
+      );
+    }
+    return {
+      root: detected.root,
+      targets: deployTargets(parsed, detected.targets),
+      mode: 'global',
+    };
+  }
+  return {
+    root: await deployRoot(parsed),
+    targets: deployTargets(parsed),
+    mode: 'project',
+  };
+}
+
+function printJson(value: unknown): void {
+  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+async function checkedPersonaListing(
+  root: string | undefined,
+  requestedPersona: string | undefined,
+) {
+  const listing = await listPersona(root, requestedPersona);
+  if (
+    requestedPersona &&
+    listing.persona !== assertPersonaId(requestedPersona)
+  ) {
+    throw new Error(`Persona "${requestedPersona}" does not exist.`);
+  }
+  return listing;
+}
+
+async function readSaveContent(parsed: ParsedArgs): Promise<string> {
+  const contentFile = optionalFlag(parsed, 'content-file');
+  if (parsed.stdin === Boolean(contentFile)) {
+    throw new Error('Use exactly one of --stdin or --content-file <path>.');
+  }
+  if (contentFile) return readFile(contentFile, 'utf8');
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+export async function cmdPersona(args: string[]): Promise<void> {
+  const [operation, ...rest] = args;
+  if (!operation || operation === 'help' || operation === '--help') {
+    process.stdout.write(
+      `${PERSONA_USAGE}
+
+  transcodes persona list [--persona NAME] [--root PATH]
+  transcodes persona create NAME
+  transcodes persona read --persona NAME --kind agent|rule|skill [--name NAME]
+  transcodes persona save --persona NAME --kind agent|rule|skill [--name NAME] (--stdin | --content-file PATH)
+  transcodes persona delete NAME
+  transcodes persona delete-file --persona NAME --kind agent|rule|skill [--name NAME]
+  transcodes persona deploy --persona NAME --project FOLDER --targets claude,cursor,chatgpt,antigravity|all
+  transcodes persona deploy --persona NAME --global [--targets claude,cursor,antigravity]
+`,
+    );
+    return;
+  }
+
+  const parsed = parseArgs(rest);
+  switch (operation) {
+    case 'list': {
+      printJson(
+        await checkedPersonaListing(
+          optionalFlag(parsed, 'root'),
+          optionalFlag(parsed, 'persona'),
+        ),
+      );
+      return;
+    }
+    case 'create': {
+      const name = parsed.positionals[0] ?? optionalFlag(parsed, 'name');
+      if (!name) throw new Error('Persona name is required.');
+      printJson({ persona: await createPersona(name) });
+      return;
+    }
+    case 'read': {
+      const root = optionalFlag(parsed, 'root');
+      const persona = requiredFlag(parsed, 'persona');
+      await checkedPersonaListing(root, persona);
+      printJson(
+        await readPersonaFile({
+          root,
+          persona,
+          kind: personaKind(parsed),
+          name: optionalFlag(parsed, 'name'),
+        }),
+      );
+      return;
+    }
+    case 'save': {
+      const kind = personaKind(parsed);
+      const content = await readSaveContent(parsed);
+      printJson(
+        await savePersonaFile({
+          root: optionalFlag(parsed, 'root'),
+          persona: requiredFlag(parsed, 'persona'),
+          kind,
+          name: optionalFlag(parsed, 'name'),
+          content,
+        }),
+      );
+      return;
+    }
+    case 'delete': {
+      const name = parsed.positionals[0] ?? optionalFlag(parsed, 'persona');
+      if (!name) throw new Error('Persona name is required.');
+      printJson({ persona: await deletePersona(name), deleted: true });
+      return;
+    }
+    case 'delete-file': {
+      const root = optionalFlag(parsed, 'root');
+      const persona = requiredFlag(parsed, 'persona');
+      await checkedPersonaListing(root, persona);
+      printJson(
+        await deletePersonaFile({
+          root,
+          persona,
+          kind: personaKind(parsed),
+          name: optionalFlag(parsed, 'name'),
+        }),
+      );
+      return;
+    }
+    case 'deploy': {
+      const persona = requiredFlag(parsed, 'persona');
+      const { root, targets, mode } = await resolveDeployDestination(parsed);
+      await checkedPersonaListing(root, persona);
+      const result = await deployPersona({ root, persona, targets });
+      if (!result.ok) {
+        throw new Error(result.output || 'Persona deployment failed.');
+      }
+      printJson({
+        persona: assertPersonaId(persona),
+        root,
+        targets,
+        mode,
+        configDirs:
+          mode === 'global'
+            ? {
+                claude: path.join(root, '.claude'),
+                cursor: path.join(root, '.cursor'),
+                antigravity: path.join(root, '.gemini'),
+              }
+            : undefined,
+        ...result,
+      });
+      return;
+    }
+    default:
+      throw new Error(
+        `unknown Persona command "${operation}". ${PERSONA_USAGE}`,
+      );
+  }
+}

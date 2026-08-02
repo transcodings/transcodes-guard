@@ -18,6 +18,13 @@ export declare function readTokenList(): string[];
 /** All saved token records (token + optional label). Never throws. */
 export declare function readTokenRecords(): TokenRecord[];
 /**
+ * Whether PreToolUse permission evaluation is active.
+ * Missing or malformed values default to disabled; activation must be explicit.
+ */
+export declare function isGuardEnabled(): boolean;
+/** Persist the local PreToolUse permission-evaluation toggle. */
+export declare function setGuardEnabled(enabled: boolean): void;
+/**
  * Persist `token` as the active token, adding it to the pool if new
  * (dir 0700, file 0600). Existing tokens in the pool are preserved.
  *
@@ -45,8 +52,8 @@ export declare function setTokenLabel(token: string, label: string): void;
  */
 export declare function removeTokenFromFile(token: string): void;
 /**
- * Remove all saved tokens (CLI `reset`). Deletes the config file entirely.
- * Best-effort.
+ * Remove all saved tokens (CLI `reset`). A disabled guard setting is retained
+ * so signing out does not silently reactivate permission evaluation.
  */
 export declare function clearTokenFile(): void;
 export type TokenSource = 'file' | 'none';

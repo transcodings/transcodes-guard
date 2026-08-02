@@ -38,7 +38,7 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 # irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
-Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
+Sign in with `transcodes login`.
 
 Without a token, the hook still **denies** danger commands but cannot start a step-up session — Codex will surface a reason telling you to provide a token.
 
@@ -74,11 +74,13 @@ The step-up response protocol the agent must follow on a step-up deny lives in [
 
 ## Enabling / disabling
 
-There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (Codex: remove the plugin or disable it from the plugins UI). Enabling the gate is safe for an agent; disabling it is a human-only action.
+Use the **Permission checks** toggle in the local `transcodes` dashboard. When
+Off, hooks skip step-up authentication and permission evaluation before any
+backend request, so those tool calls are not recorded in Transcodes Log History.
 
 ## Environment
 
-Token resolution: the token is read solely from `~/.transcodes/config.json` (via the `transcodes` dashboard or `transcodes set`).
+Token resolution: the token is read solely from `~/.transcodes/config.json` (via `transcodes login`).
 
 | Variable | Required | Purpose |
 |---|---|---|
@@ -93,7 +95,7 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 
 - **Hook does not fire.** Check the plugin is installed/enabled, then verify trust with `codex` → `/hooks`.
 - **`$transcodes` not available.** Check the plugin is installed/enabled and listed by `codex plugin list`; Codex exposes bundled skills through `/skills` and `$` mentions.
-- **`permissionDecision: deny` but no step-up URL.** The hook is blocking without a token — install the CLI (`curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash` or Windows: `irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`).
+- **`permissionDecision: deny` but no step-up URL.** The hook is blocking without a token — install the CLI (`curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash` or Windows: `irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex`) and run `transcodes login`.
 - **`simulate_hook_invocation` reports "CLAUDE_PLUGIN_ROOT (or PLUGIN_ROOT for Codex) must be set".** `PLUGIN_ROOT` is not set — this happens when the MCP server is invoked outside a plugin (e.g. `codex mcp add` with an absolute path). Export `PLUGIN_ROOT` to the plugin directory before invoking.
 
 ## License

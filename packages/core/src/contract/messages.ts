@@ -56,7 +56,7 @@ function appendBackendReasoning(text: string, reasoning?: string): string {
 export function formatNoTokenSessionNotice(): string {
   return [
     'transcodes-guard: no Transcodes token is configured.',
-    'Danger commands will be BLOCKED and step-up MFA cannot start until a token is set.',
+    'The guard is inactive, so tool calls will pass without evaluation until a token is set.',
     '',
     'How to fix:',
     '',
@@ -64,12 +64,10 @@ export function formatNoTokenSessionNotice(): string {
     `    1. macOS/Linux: ${CLI_INSTALL_HINT_UNIX}`,
     `       Windows:    ${CLI_INSTALL_HINT_WIN}`,
     '    2. Run `transcodes login`, sign in with Google, and choose an organization.',
+    '    3. Open the Permission tab in `transcodes` and enable Permission checks.',
     '  Saved to ~/.transcodes/config.json so every agent session can find it.',
     '',
     '  Already have Node ≥ 20? `npm install -g @bigstrider/transcodes-cli` also works.',
-    '',
-    '  Manual alternative (same store, e.g. for scripts):',
-    '    transcodes set <token> -l <label>',
   ].join('\n');
 }
 
@@ -91,7 +89,6 @@ export function formatNoTokenReason(block: BlockResult): string {
     'Step-up MFA gate is not configured (no Transcodes token found). ' +
     `Tell the user to ${cliInstallBlurb()} ` +
     'Run `transcodes login`, sign in with Google, and choose an organization. ' +
-    'Manual fallback: `transcodes set <token> -l <label>`. ' +
     'Or run the command outside the agent.'
   );
 }
@@ -102,7 +99,6 @@ export function formatNoTokenSystemMessage(block: BlockResult): string {
     'Step-up MFA gate is not configured (no Transcodes token found).\n' +
     `Ask the user to ${cliInstallBlurb()}\n` +
     'Run `transcodes login`, sign in with Google, and choose an organization.\n' +
-    'Manual fallback: `transcodes set <token> -l <label>`.\n' +
     'Then retry. Do not have the user paste the token into this chat.'
   );
 }
@@ -152,7 +148,7 @@ export function formatStepupCreateFailedDetail(
 ): string {
   const { failure } = decision;
   return failure.reason === 'no-token'
-    ? `No Transcodes token found — step-up MFA gate is unavailable. ${cliInstallBlurb()} Run \`transcodes login\`, sign in with Google, and choose an organization. Manual fallback: \`transcodes set <token> -l <label>\`.`
+    ? `No Transcodes token found — step-up MFA gate is unavailable. ${cliInstallBlurb()} Run \`transcodes login\`, sign in with Google, and choose an organization.`
     : failure.reason === 'create-failed'
       ? `Step-up MFA session could not be started${failure.detail ? ` (${failure.detail})` : ''}.`
       : `Step-up MFA gate errored${failure.detail ? ` (${failure.detail})` : ''}.`;

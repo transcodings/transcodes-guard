@@ -209,6 +209,7 @@ async function waitForToken(params: {
   verifier: string;
   expiresAt: string;
   interval: number;
+  signal?: AbortSignal;
 }): Promise<CliTokenPoll> {
   const deadline = new Date(params.expiresAt).getTime();
   if (!Number.isFinite(deadline)) {
@@ -216,6 +217,9 @@ async function waitForToken(params: {
   }
 
   while (Date.now() < deadline) {
+    if (params.signal?.aborted) {
+      throw new Error('CLI authorization cancelled');
+    }
     try {
       const result = await pollToken({
         sid: params.sid,
@@ -231,36 +235,87 @@ async function waitForToken(params: {
   throw new Error('CLI authorization timed out');
 }
 
-export async function cmdLogin(args: string[]): Promise<void> {
-  const options = parseOptions(args);
+export type RunCliLoginOptions = {
+  /** Defaults to `transcodes-{hostname}`. */
+  label?: string;
+  /** Open the browser automatically (default true). */
+  open?: boolean;
+  /** When false, skip stdout prompts (dashboard / programmatic use). */
+  quiet?: boolean;
+  /** Cancels polling so a newer dashboard login attempt can replace this one. */
+  signal?: AbortSignal;
+};
+
+export type BegunCliLogin = {
+  completion: Promise<{ label: string }>;
+};
+
+/**
+ * Create a browser login session and return as soon as the browser is opened.
+ * The dashboard uses this so closing the auth tab never leaves its Login
+ * button blocked until the server-side session expires.
+ */
+export async function beginCliLogin(
+  options: RunCliLoginOptions = {},
+): Promise<BegunCliLogin> {
+  const label = options.label?.trim() || `transcodes-${os.hostname() || 'cli'}`;
+  const open = options.open !== false;
+  const quiet = options.quiet === true;
+
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
   const session = await createSession({
     code_challenge: challenge,
-    label: options.label,
+    label,
   });
 
   // Never print session.url — it embeds sid. Open the browser and guide the user.
-  process.stdout.write(`${t('loginPleaseSignIn')}\n`);
-  if (!options.open) {
-    process.stdout.write(`${t('loginNoOpenHint')}\n`);
-  } else if (!openBrowser(session.url)) {
-    process.stdout.write(`${t('loginBrowserOpenFailed')}\n`);
-  } else {
-    process.stdout.write(`${t('loginWaiting')}\n`);
+  if (!quiet) {
+    process.stdout.write(`${t('loginPleaseSignIn')}\n`);
+    if (!open) {
+      process.stdout.write(`${t('loginNoOpenHint')}\n`);
+    } else if (!openBrowser(session.url)) {
+      process.stdout.write(`${t('loginBrowserOpenFailed')}\n`);
+    } else {
+      process.stdout.write(`${t('loginWaiting')}\n`);
+    }
+  } else if (open) {
+    openBrowser(session.url);
   }
 
-  const result = await waitForToken({
-    sid: session.sid,
-    verifier,
-    expiresAt: session.expires_at,
-    interval: session.interval,
-  });
-  const token = result.token;
-  if (!token) throw new Error('CLI authorization completed without a token');
+  const completion = (async () => {
+    const result = await waitForToken({
+      sid: session.sid,
+      verifier,
+      expiresAt: session.expires_at,
+      interval: session.interval,
+      signal: options.signal,
+    });
+    const token = result.token;
+    if (!token) throw new Error('CLI authorization completed without a token');
 
-  const label = result.label || options.label;
-  parseMemberAccessToken(token);
-  writeTokenToFile(token, label);
-  process.stdout.write(`${t('loginTokenSaved')}\n`);
+    const savedLabel = result.label || label;
+    parseMemberAccessToken(token);
+    writeTokenToFile(token, savedLabel);
+    if (!quiet) process.stdout.write(`${t('loginTokenSaved')}\n`);
+    return { label: savedLabel };
+  })();
+
+  return { completion };
+}
+
+/**
+ * Browser CLI login → persist MAT as the active credential.
+ * Shared by the interactive `transcodes login` command.
+ */
+export async function runCliLogin(
+  options: RunCliLoginOptions = {},
+): Promise<{ label: string }> {
+  const login = await beginCliLogin(options);
+  return login.completion;
+}
+
+export async function cmdLogin(args: string[]): Promise<void> {
+  const options = parseOptions(args);
+  await runCliLogin({ label: options.label, open: options.open });
 }

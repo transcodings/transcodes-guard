@@ -36,6 +36,12 @@ async function main(): Promise<void> {
   const input = antigravityAdapter.parsePreToolUseStdin(raw);
 
   const backend = getGateBackend();
+  if (!backend.hasToken()) {
+    process.exit(0);
+  }
+  if (!backend.isGuardEnabled()) {
+    process.exit(0);
+  }
   const decision = await backend.evaluatePreToolUse(input);
 
   switch (decision.kind) {

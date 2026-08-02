@@ -1,0 +1,229 @@
+import { join } from 'node:path';
+
+import { z } from 'zod/mini';
+
+import { SKILL_FILE_NAME } from '../../constants/general.js';
+import type { ValidationResult } from '../../types/ai-dir.js';
+import type { ToolTarget } from '../../types/tool-targets.js';
+import { formatError } from '../../utils/error.js';
+import { fileExists, readFileContent } from '../../utils/file.js';
+import { parseFrontmatter } from '../../utils/frontmatter.js';
+import type { RulesyncSkill, SkillFile } from './rulesync-skill.js';
+import {
+  ToolSkill,
+  type ToolSkillForDeletionParams,
+  type ToolSkillFromDirParams,
+  type ToolSkillFromRulesyncSkillParams,
+  type ToolSkillSettablePaths,
+} from './tool-skill.js';
+
+export const SimulatedSkillFrontmatterSchema = z.looseObject({
+  name: z.string(),
+  description: z.string(),
+});
+
+export type SimulatedSkillFrontmatter = z.infer<
+  typeof SimulatedSkillFrontmatterSchema
+>;
+
+export type SimulatedSkillParams = {
+  outputRoot?: string;
+  relativeDirPath: string;
+  dirName: string;
+  frontmatter: SimulatedSkillFrontmatter;
+  body: string;
+  otherFiles?: SkillFile[];
+  validate?: boolean;
+};
+
+/**
+ * Abstract base class for simulated skill formats.
+ *
+ * Simulated skills are used for tools that don't have native skill support
+ * (e.g., Copilot, Cursor, CodexCLI). They provide a simplified skill format
+ * with minimal frontmatter (name and description only).
+ *
+ * Unlike native skills, simulated skills:
+ * - Cannot be converted back to RulesyncSkill (one-way conversion)
+ * - Have minimal frontmatter (no tool-specific options like allowed-tools)
+ */
+export abstract class SimulatedSkill extends ToolSkill {
+  private readonly frontmatter: SimulatedSkillFrontmatter;
+  private readonly body: string;
+
+  constructor({
+    outputRoot = process.cwd(),
+    relativeDirPath,
+    dirName,
+    frontmatter,
+    body,
+    otherFiles = [],
+    validate = true,
+  }: SimulatedSkillParams) {
+    super({
+      outputRoot,
+      relativeDirPath,
+      dirName,
+      mainFile: {
+        name: SKILL_FILE_NAME,
+        body,
+        frontmatter: { ...frontmatter },
+      },
+      otherFiles,
+      global: false, // Simulated skills are project mode only
+    });
+
+    if (validate) {
+      const result = SimulatedSkillFrontmatterSchema.safeParse(frontmatter);
+      if (!result.success) {
+        throw new Error(
+          `Invalid frontmatter in ${join(relativeDirPath, dirName)}: ${formatError(result.error)}`,
+        );
+      }
+    }
+
+    this.frontmatter = frontmatter;
+    this.body = body;
+  }
+
+  getBody(): string {
+    return this.body;
+  }
+
+  getFrontmatter(): SimulatedSkillFrontmatter {
+    return this.frontmatter;
+  }
+
+  toRulesyncSkill(): RulesyncSkill {
+    throw new Error('Not implemented because it is a SIMULATED skill.');
+  }
+
+  validate(): ValidationResult {
+    if (!this.frontmatter) {
+      return { success: true, error: null };
+    }
+
+    const result = SimulatedSkillFrontmatterSchema.safeParse(this.frontmatter);
+    if (result.success) {
+      return { success: true, error: null };
+    }
+    return {
+      success: false,
+      error: new Error(
+        `Invalid frontmatter in ${this.getDirPath()}: ${formatError(result.error)}`,
+      ),
+    };
+  }
+
+  protected static fromRulesyncSkillDefault({
+    outputRoot = process.cwd(),
+    rulesyncSkill,
+    validate = true,
+  }: ToolSkillFromRulesyncSkillParams): SimulatedSkillParams {
+    const rulesyncFrontmatter = rulesyncSkill.getFrontmatter();
+
+    // Simulated skills use minimal frontmatter
+    const simulatedFrontmatter: SimulatedSkillFrontmatter = {
+      name: rulesyncFrontmatter.name,
+      description: rulesyncFrontmatter.description,
+    };
+
+    return {
+      outputRoot,
+      relativeDirPath: SimulatedSkill.getSettablePaths().relativeDirPath,
+      dirName: rulesyncSkill.getDirName(),
+      frontmatter: simulatedFrontmatter,
+      body: rulesyncSkill.getBody(),
+      otherFiles: rulesyncSkill.getOtherFiles(),
+      validate,
+    };
+  }
+
+  protected static async fromDirDefault({
+    outputRoot = process.cwd(),
+    relativeDirPath,
+    dirName,
+  }: ToolSkillFromDirParams): Promise<SimulatedSkillParams> {
+    const settablePaths = SimulatedSkill.getSettablePaths();
+    const actualRelativeDirPath =
+      relativeDirPath ?? settablePaths.relativeDirPath;
+    const skillDirPath = join(outputRoot, actualRelativeDirPath, dirName);
+    const skillFilePath = join(skillDirPath, SKILL_FILE_NAME);
+
+    if (!(await fileExists(skillFilePath))) {
+      throw new Error(`${SKILL_FILE_NAME} not found in ${skillDirPath}`);
+    }
+
+    const fileContent = await readFileContent(skillFilePath);
+    const { frontmatter, body: content } = parseFrontmatter(
+      fileContent,
+      skillFilePath,
+    );
+
+    const result = SimulatedSkillFrontmatterSchema.safeParse(frontmatter);
+    if (!result.success) {
+      throw new Error(
+        `Invalid frontmatter in ${skillFilePath}: ${formatError(result.error)}`,
+      );
+    }
+
+    const otherFiles = await SimulatedSkill.collectOtherFiles(
+      outputRoot,
+      actualRelativeDirPath,
+      dirName,
+      SKILL_FILE_NAME,
+    );
+
+    return {
+      outputRoot,
+      relativeDirPath: actualRelativeDirPath,
+      dirName,
+      frontmatter: result.data,
+      body: content.trim(),
+      otherFiles,
+      validate: true,
+    };
+  }
+
+  /**
+   * Create minimal params for deletion purposes.
+   * This method does not read or parse directory content, making it safe to use
+   * even when skill files have old/incompatible formats.
+   */
+  protected static forDeletionDefault({
+    outputRoot = process.cwd(),
+    relativeDirPath,
+    dirName,
+  }: ToolSkillForDeletionParams): SimulatedSkillParams {
+    return {
+      outputRoot,
+      relativeDirPath,
+      dirName,
+      frontmatter: { name: '', description: '' },
+      body: '',
+      otherFiles: [],
+      validate: false,
+    };
+  }
+
+  /**
+   * Check if a RulesyncSkill should be converted to this simulated skill type.
+   * Deploy targets are chosen at Apply time (-t), not per-file frontmatter.
+   */
+  protected static isTargetedByRulesyncSkillDefault(_params: {
+    rulesyncSkill: RulesyncSkill;
+    toolTarget: ToolTarget;
+  }): boolean {
+    return true;
+  }
+
+  /**
+   * Get the settable paths for this tool's skill directories.
+   * Must be implemented by concrete subclasses.
+   */
+  static getSettablePaths(_options?: {
+    global?: boolean;
+  }): ToolSkillSettablePaths {
+    throw new Error('Please implement this method in the subclass.');
+  }
+}
