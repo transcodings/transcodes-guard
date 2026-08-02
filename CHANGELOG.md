@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.65.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.64.0...transcodes-guard-v0.65.0) (2026-08-02)
+
+
+### Features
+
+* 호스트 훅에서 현재 프롬프트 컨텍스트 캡처 ([#227](https://github.com/transcodings/transcodes-guard/issues/227)) ([3138f10](https://github.com/transcodings/transcodes-guard/commit/3138f10239a41ee2c0cf248cd059c2f42f7805b2))
+
 ## [0.64.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.63.0...transcodes-guard-v0.64.0) (2026-08-02)
 
 
