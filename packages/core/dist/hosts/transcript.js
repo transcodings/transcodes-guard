@@ -74,6 +74,11 @@ function clip(text) {
         ? flat
         : `${flat.slice(0, MAX_PART_CHARS - 1)}…`;
 }
+/** Flatten and bound one current prompt for the evaluate `tasks` field. */
+export function summarizePrompt(text) {
+    const normalized = readString(text);
+    return normalized ? clip(normalized) : undefined;
+}
 /**
  * Human-authored text of a chat message record.
  *
@@ -116,6 +121,43 @@ function isMetaRecord(r) {
     return (r.isMeta === true ||
         r.message?.isMeta === true);
 }
+/** Parse host records with a measured, dedicated schema. */
+function knownRecordContext(record) {
+    if (record.type === 'ai-title') {
+        return { title: readString(record.aiTitle) };
+    }
+    if (record.type === 'last-prompt') {
+        return { prompt: readString(record.lastPrompt) };
+    }
+    if (record.source === 'USER_EXPLICIT' && record.type === 'USER_INPUT') {
+        const content = readString(record.content);
+        if (!content)
+            return {};
+        const request = /<USER_REQUEST>\s*([\s\S]*?)\s*<\/USER_REQUEST>/.exec(content)?.[1];
+        return { prompt: readString(request) ?? content };
+    }
+    if (record.type !== 'event_msg')
+        return undefined;
+    const payload = record.payload;
+    return payload?.type === 'user_message'
+        ? { prompt: readString(payload.message) }
+        : {};
+}
+/** Duck-type a human-authored record for hosts without a measured schema. */
+function genericUserPrompt(record) {
+    const role = readString(record.role) ??
+        readString(record.message?.role) ??
+        readString(record.type);
+    if (role !== 'user' && role !== 'user_message')
+        return undefined;
+    if (isMetaRecord(record))
+        return undefined;
+    const text = messageText(record.message) ??
+        readString(record.content) ??
+        readString(record.text) ??
+        readString(record.message);
+    return text && !COMMAND_ENVELOPE.test(text) ? text : undefined;
+}
 /**
  * Summarize what the agent was working on when it made this call, as
  * `"<session title> · <latest instruction>"`.
@@ -129,7 +171,7 @@ function isMetaRecord(r) {
  * No model is called. Every host that has a summary already wrote one, and the
  * hook runs on every tool call — an LLM round-trip here is not on the table.
  */
-export function summarizeTasks(transcriptPath) {
+function readTranscriptContext(transcriptPath) {
     if (!transcriptPath)
         return undefined;
     let title;
@@ -139,42 +181,34 @@ export function summarizeTasks(transcriptPath) {
         if (!record || typeof record !== 'object')
             continue;
         const r = record;
-        // Claude Code writes both halves as dedicated records.
-        if (r.type === 'ai-title') {
-            title = readString(r.aiTitle) ?? title;
+        const known = knownRecordContext(r);
+        if (known) {
+            title = known.title ?? title;
+            prompt = known.prompt ?? prompt;
             continue;
         }
-        if (r.type === 'last-prompt') {
-            prompt = readString(r.lastPrompt) ?? prompt;
-            continue;
-        }
-        // Codex wraps the user's message in an event envelope.
-        if (r.type === 'event_msg') {
-            const payload = r.payload;
-            if (payload?.type === 'user_message') {
-                prompt = readString(payload.message) ?? prompt;
-            }
-            continue;
-        }
-        // Anything else: a user-authored record carrying plain text. This is the
-        // path for hosts whose record schema we have not measured, and for Claude
-        // Code subagent transcripts, which carry no title records at all.
-        const role = readString(r.role) ??
-            readString(r.message?.role) ??
-            readString(r.type);
-        if (role !== 'user' && role !== 'user_message')
-            continue;
-        if (isMetaRecord(r))
-            continue;
-        const text = messageText(r.message) ??
-            readString(r.content) ??
-            readString(r.text) ??
-            readString(r.message);
-        // A record that yields nothing usable leaves the previous prompt standing.
-        if (text && !COMMAND_ENVELOPE.test(text))
-            prompt = text;
+        prompt = genericUserPrompt(r) ?? prompt;
     }
-    const parts = [title, prompt].filter((part) => part !== undefined);
+    return { title, prompt };
+}
+/** Most recent human-authored instruction, without the host session title. */
+export function latestUserPromptFromTranscript(transcriptPath) {
+    return readTranscriptContext(transcriptPath)?.prompt;
+}
+/**
+ * Summarize a prompt captured by a hook while retaining the transcript title
+ * that has always been part of the audit-facing `tasks` context.
+ */
+export function summarizePromptWithTitle(transcriptPath, prompt) {
+    const title = readTranscriptContext(transcriptPath)?.title;
+    const parts = [title, prompt].filter((part) => readString(part) !== undefined);
+    return parts.length ? parts.map(clip).join(' · ') : undefined;
+}
+export function summarizeTasks(transcriptPath) {
+    const context = readTranscriptContext(transcriptPath);
+    if (!context)
+        return undefined;
+    const parts = [context.title, context.prompt].filter((part) => part !== undefined);
     return parts.length ? parts.map(clip).join(' · ') : undefined;
 }
 //# sourceMappingURL=transcript.js.map
