@@ -70,7 +70,8 @@ export type HookName =
   | 'pre-tool-use'
   | 'stop'
   | 'user-prompt-submit'
-  | 'before-submit-prompt';
+  | 'before-submit-prompt'
+  | 'pre-invocation';
 
 /**
  * The prompt-hook entry for a host, or null when the host has none.

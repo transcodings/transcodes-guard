@@ -16,8 +16,8 @@
  *  - UserPromptSubmit equivalent (`beforeSubmitPrompt`): has NO context
  *    injection channel — only `{ continue, user_message? }`. The
  *    `emitUserPromptSubmitContext` method below throws to surface wiring
- *    bugs; the matching hook entry is inert (t3 left it no local state to
- *    reconcile) and just emits `{ continue: true }`.
+ *    bugs; the matching hook entry captures telemetry directly and emits
+ *    `{ continue: true }`.
  *  - Stop stdout: `{ followup_message? }` — Claude Code's `{ decision: "block",
  *    reason }` semantic, different key name.
  *
@@ -66,13 +66,13 @@ export const cursorAdapter: HookAdapter = {
   emitUserPromptSubmitContext(_additionalContext: string): string {
     // Cursor's beforeSubmitPrompt has no additional_context channel — its
     // only outputs are `continue` (allow/block submission) and a
-    // user-facing toast. Since t3 the hook is inert: it drains stdin and
-    // emits `{ continue: true }`, with no state to reconcile. Reaching this
+    // user-facing toast. Prompt capture is a local side effect of the entry
+    // script; it still emits `{ continue: true }`. Reaching this
     // stub indicates the entry script wrongly routed an additionalContext
     // path.
     throw new Error(
       "Cursor's beforeSubmitPrompt has no additional_context channel. " +
-        'The hook is inert — emit `{ continue: true }` directly.',
+        'Capture locally, then emit `{ continue: true }` directly.',
     );
   },
 

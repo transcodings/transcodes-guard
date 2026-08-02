@@ -1,41 +1,31 @@
-/**
- * B7 — prompt-hook harmlessness (PR #204 review follow-up).
- *
- * t3 rewrote every prompt hook into an inert shell, but e2e coverage was zero:
- * A6 covers Stop only, and `wire.ts` had no prompt spec at all. That gap is
- * load-bearing in a specific way — the four hosts LOOK inconsistent (three exit
- * silently, cursor emits `{continue:true}`), so the natural "cleanup" is to
- * delete cursor's emit and make them uniform. That refactor is wrong: cursor's
- * beforeSubmitPrompt contract requires a verdict on stdout, and prompt hooks
- * fail open, so the breakage would be silent at runtime too.
- *
- * This suite pins the divergence itself. Antigravity is absent on purpose — it
- * has no prompt hook (PreInvocation is a SessionStart stand-in, a different
- * contract), so `promptHook()` returns null and the host is skipped.
- *
- * Inputs are the three stdin shapes a host can realistically deliver:
- * well-formed, empty (closed pipe), and garbage. All three must behave
- * identically — the hook has nothing to read stdin for.
- */
+/** B7 — host prompt capture remains fail-soft and preserves host stdout. */
 import assert from 'node:assert/strict';
+import {
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { promptHook, runHook } from '../harness/hook-runner.js';
 import { MockBackend } from '../harness/mock-backend.js';
 import { makeWorld, type TestWorld } from '../harness/state.js';
 import { ALL_HOSTS, wire } from '../harness/wire.js';
 
-const STDIN_SHAPES = ['well-formed', 'empty', 'garbage'] as const;
+function promptCacheFiles(home: string): string[] {
+  try {
+    return readdirSync(join(home, '.transcodes', 'cache', 'prompts'));
+  } catch {
+    return [];
+  }
+}
 
 for (const host of ALL_HOSTS) {
   const spec = wire[host];
   const hook = promptHook(host);
-
-  // Antigravity: no prompt hook to test.
   if (hook === null || spec.assertPromptInert === null) continue;
 
-  const assertInert = spec.assertPromptInert;
-
-  describe(`B7 prompt hook is inert [${host}]`, () => {
+  describe(`B7 prompt capture [${host}]`, () => {
     let world: TestWorld;
     let mock: MockBackend;
 
@@ -46,27 +36,38 @@ for (const host of ALL_HOSTS) {
     });
 
     after(async () => {
-      // The prompt hook must never call the backend at all — not even evaluate,
-      // so this is stricter than `assertOnlyEvaluateTraffic`: zero requests,
-      // not just zero non-evaluate ones.
-      assert.deepEqual(
-        mock.requests.map((r) => `${r.method} ${r.path}`),
-        [],
-        'prompt hook must send no backend traffic whatsoever',
-      );
+      assert.deepEqual(mock.requests, [], 'prompt hook must send no backend traffic');
       await mock.close();
       world.dispose();
     });
 
-    for (const shape of STDIN_SHAPES) {
-      it(`${shape} stdin → inert, no state, no traffic`, async () => {
-        const stdin =
-          shape === 'well-formed'
-            ? (spec.promptStdin('인증 완료했어', world.home) ?? '')
-            : shape === 'empty'
-              ? ''
-              : 'not json at all }{';
+    it('captures well-formed stdin and preserves the host continuation contract', async () => {
+      const res = await runHook({
+        host,
+        hook,
+        stdin: spec.promptStdin('현재 턴의 사용자 요청', world.home) ?? '',
+        env: world.env(mock.url),
+        cwd: world.home,
+      });
+      spec.assertPromptInert?.(res);
+      const files = promptCacheFiles(world.home);
+      assert.equal(files.length, 1);
+      const raw = readFileSync(
+        join(world.home, '.transcodes', 'cache', 'prompts', files[0] ?? ''),
+        'utf8',
+      );
+      assert.match(raw, /현재 턴의 사용자 요청/);
+      assert.doesNotMatch(raw, /e2e-session/);
+      assert.deepEqual(world.stateFiles(), []);
+      assert.deepEqual(world.browserLaunches(), []);
+    });
 
+    for (const [label, stdin] of [
+      ['empty', ''],
+      ['garbage', 'not json at all }{'],
+    ] as const) {
+      it(`${label} stdin is harmless`, async () => {
+        const beforeFiles = promptCacheFiles(world.home);
         const res = await runHook({
           host,
           hook,
@@ -74,18 +75,86 @@ for (const host of ALL_HOSTS) {
           env: world.env(mock.url),
           cwd: world.home,
         });
-
-        // Host-specific contract: silence (claude/codex) vs {continue:true}
-        // (cursor). The divergence is asserted, not smoothed over.
-        assertInert(res);
-
-        assert.deepEqual(
-          world.stateFiles(),
-          [],
-          'prompt hook must write no client state (t3)',
-        );
-        assert.deepEqual(world.browserLaunches(), [], 'prompt hook must open no browser');
+        spec.assertPromptInert?.(res);
+        assert.deepEqual(promptCacheFiles(world.home), beforeFiles);
       });
     }
   });
 }
+
+describe('B7 prompt capture [antigravity]', () => {
+  let world: TestWorld;
+  let mock: MockBackend;
+
+  before(async () => {
+    world = makeWorld();
+    mock = await MockBackend.start();
+    world.writeToken();
+  });
+
+  after(async () => {
+    assert.deepEqual(mock.requests, []);
+    await mock.close();
+    world.dispose();
+  });
+
+  it('recovers the latest transcript prompt on invocation zero', async () => {
+    const transcript = join(world.home, 'transcript.jsonl');
+    writeFileSync(
+      transcript,
+      `${JSON.stringify({ role: 'user', content: 'Antigravity 현재 요청' })}\n`,
+    );
+    const res = await runHook({
+      host: 'antigravity',
+      hook: 'pre-invocation',
+      stdin: JSON.stringify({
+        invocationNum: 0,
+        initialNumSteps: 0,
+        conversationId: 'e2e-conversation',
+        transcriptPath: transcript,
+        workspacePaths: [world.home],
+      }),
+      env: world.env(mock.url),
+      cwd: world.home,
+    });
+    assert.equal(res.exitCode, 0);
+    const out = res.json() as { injectSteps?: unknown[] };
+    assert.ok(Array.isArray(out.injectSteps), 'invocation zero injects the primer');
+    const files = promptCacheFiles(world.home);
+    assert.equal(files.length, 1);
+    assert.match(
+      readFileSync(
+        join(world.home, '.transcodes', 'cache', 'prompts', files[0] ?? ''),
+        'utf8',
+      ),
+      /Antigravity 현재 요청/,
+    );
+  });
+
+  it('does not inject the primer again on invocation one', async () => {
+    const transcript = join(world.home, 'transcript.jsonl');
+    const res = await runHook({
+      host: 'antigravity',
+      hook: 'pre-invocation',
+      stdin: JSON.stringify({
+        invocationNum: 1,
+        initialNumSteps: 1,
+        conversationId: 'e2e-conversation',
+        transcriptPath: transcript,
+        workspacePaths: [world.home],
+      }),
+      env: world.env(mock.url),
+      cwd: world.home,
+    });
+    assert.equal(res.stdout, '{}');
+    const files = promptCacheFiles(world.home);
+    assert.equal(files.length, 1);
+    const cache = JSON.parse(
+      readFileSync(
+        join(world.home, '.transcodes', 'cache', 'prompts', files[0] ?? ''),
+        'utf8',
+      ),
+    ) as { entries: unknown[] };
+    assert.equal(cache.entries.length, 1, 'the same transcript turn is idempotent');
+  });
+});
