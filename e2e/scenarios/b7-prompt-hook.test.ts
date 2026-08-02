@@ -77,6 +77,8 @@ for (const host of ALL_HOSTS) {
         });
         spec.assertPromptInert?.(res);
         assert.deepEqual(promptCacheFiles(world.home), beforeFiles);
+        assert.deepEqual(world.stateFiles(), []);
+        assert.deepEqual(world.browserLaunches(), []);
       });
     }
   });

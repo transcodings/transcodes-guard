@@ -97,14 +97,14 @@ describe('prompt cache', () => {
     );
   });
 
-  it('uses the latest fresh prompt when the tool event has no turn id', () => {
+  it('does not use an uncorrelated cached prompt when the tool event has no turn id', () => {
     assert.deepEqual(
       resolvePromptContext({
         host: 'codex',
         sessionId: 'sensitive-session-id',
         now: 2_001,
       }),
-      { tasks: '두 번째 작업', source: 'prompt_hook' },
+      { source: 'absent' },
     );
   });
 
@@ -153,6 +153,49 @@ describe('prompt cache', () => {
     assert.ok(Buffer.byteLength(parsed.entries.at(-1)?.prompt ?? '') <= 32 * 1024);
     assert.equal(lstatSync(promptCacheDir()).mode & 0o777, 0o700);
     assert.equal(lstatSync(file).mode & 0o777, 0o600);
+  });
+
+  it('reads a cache containing four fully bounded JSON-escaped prompts', () => {
+    resetCache();
+    for (let i = 0; i < 4; i += 1) {
+      capturePrompt({
+        host: 'codex',
+        sessionId: 'escaped',
+        promptId: `turn-${i}`,
+        prompt: '"'.repeat(32 * 1024),
+        capturedAt: 10_000 + i,
+      });
+    }
+    assert.deepEqual(
+      resolvePromptContext({
+        host: 'codex',
+        sessionId: 'escaped',
+        promptId: 'turn-3',
+        now: 10_005,
+      }),
+      { tasks: '"'.repeat(299) + '…', source: 'prompt_hook' },
+    );
+  });
+
+  it('preserves the transcript session title for a cached current prompt', () => {
+    const transcript = path.join(root, 'title.jsonl');
+    writeFileSync(
+      transcript,
+      `${JSON.stringify({ type: 'ai-title', aiTitle: 'release audit' })}\n`,
+    );
+    assert.deepEqual(
+      resolvePromptContext({
+        host: 'codex',
+        sessionId: 'escaped',
+        promptId: 'turn-3',
+        transcriptPath: transcript,
+        now: 10_005,
+      }),
+      {
+        tasks: `release audit · ${'"'.repeat(299)}…`,
+        source: 'prompt_hook',
+      },
+    );
   });
 
   it('bounds the global cache to 256 sessions and leaves no temp files', () => {

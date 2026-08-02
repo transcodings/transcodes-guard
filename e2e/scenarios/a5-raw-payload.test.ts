@@ -245,9 +245,17 @@ for (const host of ALL_HOSTS) {
       const [req] = mock.evaluateRequests();
       assert.ok(req);
       const body = req.body as Record<string, unknown>;
-      assert.match(String(body.tasks), /^current prompt x+/);
+      if (host === 'antigravity') {
+        // Antigravity exposes no stable per-turn id at PreToolUse, so an old
+        // cache entry must never outrank its transcript context.
+        assert.equal(body.tasks, 'stale transcript prompt');
+      } else {
+        assert.match(String(body.tasks), /^current prompt x+/);
+      }
       assert.ok(!String(body.tasks).includes('raw-tail-secret'));
-      assert.ok(!String(body.tasks).includes('stale transcript prompt'));
+      if (host !== 'antigravity') {
+        assert.ok(!String(body.tasks).includes('stale transcript prompt'));
+      }
       assert.ok(!('tasks_source' in body));
       const serialized = JSON.stringify(body);
       assert.ok(!serialized.includes('raw-tail-secret'));

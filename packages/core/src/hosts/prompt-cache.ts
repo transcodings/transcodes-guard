@@ -22,13 +22,17 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 import { detectHost, type HostName, promptCacheDir } from '../paths/index.js';
-import { summarizePrompt, summarizeTasks } from './transcript.js';
+import { summarizePromptWithTitle, summarizeTasks } from './transcript.js';
 
 const CACHE_VERSION = 1;
 const MAX_TURNS = 4;
 const MAX_PROMPT_BYTES = 32 * 1024;
 const MAX_SESSIONS = 256;
-const MAX_CACHE_FILE_BYTES = MAX_TURNS * MAX_PROMPT_BYTES + 8 * 1024;
+// JSON escaping can expand a UTF-8 prompt by up to six times (for example,
+// control characters become `\\u00XX`). Keep the read limit large enough for
+// every value accepted by boundedUtf8(), otherwise a valid write can poison
+// its own cache until TTL expiry.
+const MAX_CACHE_FILE_BYTES = MAX_TURNS * MAX_PROMPT_BYTES * 6 + 8 * 1024;
 const TTL_MS = 24 * 60 * 60 * 1000;
 const DIAGNOSTICS_ENV = 'TRANSCODES_GUARD_PROMPT_DIAGNOSTICS';
 
@@ -152,8 +156,12 @@ function writeCache(filePath: string, cache: PromptCacheFile): void {
   );
   let fd: number | undefined;
   try {
+    const serialized = JSON.stringify(cache);
+    if (Buffer.byteLength(serialized, 'utf8') > MAX_CACHE_FILE_BYTES) {
+      throw new Error('prompt cache exceeds its size limit');
+    }
     fd = openSync(tempPath, 'wx', 0o600);
-    writeFileSync(fd, JSON.stringify(cache), 'utf8');
+    writeFileSync(fd, serialized, 'utf8');
     fsyncSync(fd);
     closeSync(fd);
     fd = undefined;
@@ -293,11 +301,15 @@ function readCachedTasks(
     const filePath = path.join(root, cacheFileName(host, sessionId));
     const fresh = freshEntries(filePath, now);
     const promptId = input.promptId?.trim();
-    const entry = promptId
-      ? fresh.find((candidate) => candidate.promptId === promptId)
-      : fresh.at(-1);
+    // A cache entry is safe only when both hook events carry the same opaque
+    // turn id. In particular Antigravity has no such id; choosing its latest
+    // session entry can attach a previous user turn to the current tool call.
+    if (!promptId) return undefined;
+    const entry = fresh.find((candidate) => candidate.promptId === promptId);
     prune(root, now);
-    return entry ? summarizePrompt(entry.prompt) : undefined;
+    return entry
+      ? summarizePromptWithTitle(input.transcriptPath, entry.prompt)
+      : undefined;
   } catch {
     // Corrupt/unreadable cache falls through to the established transcript path.
     return undefined;

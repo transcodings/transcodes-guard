@@ -221,6 +221,21 @@ export function latestUserPromptFromTranscript(
   return readTranscriptContext(transcriptPath)?.prompt;
 }
 
+/**
+ * Summarize a prompt captured by a hook while retaining the transcript title
+ * that has always been part of the audit-facing `tasks` context.
+ */
+export function summarizePromptWithTitle(
+  transcriptPath: string | undefined,
+  prompt: string,
+): string | undefined {
+  const title = readTranscriptContext(transcriptPath)?.title;
+  const parts = [title, prompt].filter(
+    (part): part is string => readString(part) !== undefined,
+  );
+  return parts.length ? parts.map(clip).join(' · ') : undefined;
+}
+
 export function summarizeTasks(
   transcriptPath: string | undefined,
 ): string | undefined {

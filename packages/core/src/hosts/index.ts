@@ -23,6 +23,7 @@ export {
 export {
   latestUserPromptFromTranscript,
   summarizePrompt,
+  summarizePromptWithTitle,
   summarizeTasks,
   tailJsonlLines,
 } from './transcript.js';
