@@ -119,16 +119,34 @@ export async function evaluateAction(
     toolName?: string | undefined;
     cwd?: string | undefined;
     provider?: GuardProvider | undefined;
+    /** Host conversation/session id — groups one work session. */
+    sessionId?: string | undefined;
+    /** Host id for this single tool invocation. Absent on Antigravity. */
+    toolUseId?: string | undefined;
+    /** One user instruction, normalized across the four host field names. */
+    promptId?: string | undefined;
+    /** Model driving the calling agent — not the backend classifier's model. */
+    agentModel?: string | undefined;
+    /** Client-built summary of the work in flight. DATA, like `payload`. */
+    tasks?: string | undefined;
   },
 ): Promise<GuardEvaluateResult> {
   const env = await request(config, {
     method: 'POST',
     path: '/guard/evaluate',
+    // Absent signals are omitted, not nulled: `JSON.stringify` drops
+    // `undefined` values, and the backend stores missing fields as absent
+    // rather than BSON null so `{$exists: false}` stays meaningful.
     body: {
       payload: body.payload,
       tool_name: body.toolName,
       cwd: body.cwd,
       provider: body.provider,
+      session_id: body.sessionId,
+      tool_use_id: body.toolUseId,
+      prompt_id: body.promptId,
+      agent_model: body.agentModel,
+      tasks: body.tasks,
     },
   });
   if (!env.ok) {

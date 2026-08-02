@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 import {
-  antigravityAdapter
-} from "../chunk-LRHTS7LG.js";
-import {
+  antigravityAdapter,
   formatNoTokenSessionNotice,
   formatStepupProtocolPrimer,
   getGateBackend
-} from "../chunk-35K3VP4L.js";
+} from "../chunk-IMPLSQTY.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";

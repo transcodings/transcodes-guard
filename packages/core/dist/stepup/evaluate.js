@@ -20,6 +20,7 @@
  *    `block-stepup-create-failed`, carrying the HTTP status / backend error
  *    text in `failure.detail` so the deny is diagnosable (issue #189).
  */
+import { summarizeTasks } from '../hosts/index.js';
 import { currentHostProvider, DEFAULT_RBAC_RESOURCE, isBuiltinExemptToolName, isGuardMetaToolName, } from '../patterns/index.js';
 import { loadStepupConfig } from './config.js';
 import { openBrowser } from './gate.js';
@@ -128,6 +129,17 @@ export async function evaluatePreToolUse(input) {
     if (!resolveToken().token) {
         return { kind: GATE_DECISION_KIND.BLOCK_NO_TOKEN, block };
     }
+    // Built OUTSIDE the fail-closed try below, on purpose. `tasks` is a signal,
+    // not a gate input: a summary is worth strictly less than the gate it rides
+    // on, so a throw while collecting it must drop the field, never fall into
+    // the catch that sets `verdict = null` (→ permission 2, a machine-wide deny).
+    let tasks;
+    try {
+        tasks = summarizeTasks(input.transcriptPath);
+    }
+    catch {
+        tasks = undefined;
+    }
     // Guard v3: POST /guard/evaluate classifies + matrix + (level 2) step-up.
     // On failure `verdict` stays null (fail-closed → permission 2) and
     // `failureDetail` records WHY, so the deny message is diagnosable (#189).
@@ -143,6 +155,11 @@ export async function evaluatePreToolUse(input) {
             toolName: wireToolName(input),
             cwd: input.cwd,
             provider: currentHostProvider(),
+            sessionId: input.sessionId,
+            toolUseId: input.toolUseId,
+            promptId: input.promptId,
+            agentModel: input.agentModel,
+            tasks,
         });
         if (result.ok) {
             verdict = result.verdict;

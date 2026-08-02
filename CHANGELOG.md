@@ -1,6 +1,28 @@
 # Changelog
 
 
+## [0.63.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.62.1...transcodes-guard-v0.63.0) (2026-07-28)
+
+
+### Features
+
+* **hosts:** i1 클라이언트 신호 보강 — 식별자 승격과 작업 맥락 요약 ([46b6e50](https://github.com/transcodings/transcodes-guard/commit/46b6e507762d6605eb12679c8879e68de5f4e92d))
+
+## [0.62.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.62.0...transcodes-guard-v0.62.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* **ci:** point the plugin CLI peer range at the CLI the workspace ships ([c22967b](https://github.com/transcodings/transcodes-guard/commit/c22967b4823dccf4b7abdca6d3a7cb1bff7eec40))
+* **ci:** 플러그인 CLI peer 범위를 워크스페이스가 싣는 CLI에 맞춤 ([5e7133b](https://github.com/transcodings/transcodes-guard/commit/5e7133bbf726852c7cc1c4b8f916ec1736255c72))
+
+## [0.62.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.61.0...transcodes-guard-v0.62.0) (2026-07-25)
+
+
+### Features
+
+* **cli:** browser login, daemon dashboard, and v0.10.0 release ([1189867](https://github.com/transcodings/transcodes-guard/commit/1189867215b00557ac686d04fb7dd2de6aa2838a))
+
 ## [0.61.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.60.0...transcodes-guard-v0.61.0) (2026-07-21)
 
 

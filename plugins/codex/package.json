@@ -30,7 +30,7 @@
     "zod": "^3.23.0"
   },
   "peerDependencies": {
-    "@bigstrider/transcodes-cli": ">=0.9.0 <0.10.0"
+    "@bigstrider/transcodes-cli": ">=0.10.0 <0.11.0"
   },
   "peerDependenciesMeta": {
     "@bigstrider/transcodes-cli": {
@@ -52,6 +52,6 @@
     "node": ">=20"
   },
   "license": "FSL-1.1-ALv2",
-  "version": "0.61.0",
+  "version": "0.63.0",
   "description": "Risky-shell interceptor + step-up MFA audit MCP server — OpenAI Codex CLI plugin"
 }

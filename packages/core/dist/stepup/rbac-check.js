@@ -68,11 +68,19 @@ export async function evaluateAction(config, body) {
     const env = await request(config, {
         method: 'POST',
         path: '/guard/evaluate',
+        // Absent signals are omitted, not nulled: `JSON.stringify` drops
+        // `undefined` values, and the backend stores missing fields as absent
+        // rather than BSON null so `{$exists: false}` stays meaningful.
         body: {
             payload: body.payload,
             tool_name: body.toolName,
             cwd: body.cwd,
             provider: body.provider,
+            session_id: body.sessionId,
+            tool_use_id: body.toolUseId,
+            prompt_id: body.promptId,
+            agent_model: body.agentModel,
+            tasks: body.tasks,
         },
     });
     if (!env.ok) {

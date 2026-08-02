@@ -33,7 +33,7 @@
  * host branching beyond the additional toolName check it has for
  * `run_command`.
  */
-import { closeSync, openSync, readSync, statSync } from 'node:fs';
+import { tailJsonlLines } from './transcript.js';
 import type {
   HookAdapter,
   InjectStep,
@@ -50,6 +50,8 @@ interface RawAntigravityPreToolUsePayload {
   };
   stepIdx?: unknown;
   conversationId?: unknown;
+  /** Present on roughly two thirds of prod Antigravity traffic. */
+  modelName?: unknown;
   workspacePaths?: unknown;
   transcriptPath?: unknown;
   artifactDirectoryPath?: unknown;
@@ -146,51 +148,6 @@ function unwrapMcpDispatch(
 }
 
 /**
- * Tail the last `maxBytes` of a JSONL file and parse each line. Best-effort:
- * malformed lines and read errors are swallowed (returns empty array).
- * Used by the PreInvocation entry to inspect recent transcript messages
- * without loading the whole file.
- */
-function tailJsonlLines(filePath: string, maxBytes = 32_768): unknown[] {
-  let size: number;
-  try {
-    size = statSync(filePath).size;
-  } catch {
-    return [];
-  }
-  if (size === 0) return [];
-
-  const readSize = Math.min(size, maxBytes);
-  const buf = Buffer.alloc(readSize);
-
-  try {
-    const fd = openSync(filePath, 'r');
-    try {
-      readSync(fd, buf, 0, readSize, size - readSize);
-    } finally {
-      closeSync(fd);
-    }
-  } catch {
-    return [];
-  }
-
-  const text = buf.toString('utf8');
-  const lines = text.split('\n').filter((line) => line.length > 0);
-  // If we started mid-line (size > readSize), drop the partial first line.
-  if (size > readSize && lines.length > 1) lines.shift();
-
-  const out: unknown[] = [];
-  for (const line of lines) {
-    try {
-      out.push(JSON.parse(line));
-    } catch {
-      // malformed line — ignore
-    }
-  }
-  return out;
-}
-
-/**
  * The Korean+English keyword set the agent should recognize as "user
  * reports step-up done". Host-agnostic — shared by every host's
  * user-prompt hook (Claude Code / Codex UserPromptSubmit, Cursor
@@ -269,6 +226,15 @@ export const antigravityAdapter: HookAdapter = {
       rawPayload: payload,
       cwd: workspacePaths?.[0] ?? process.cwd(),
       sessionId: readString(payload.conversationId),
+      // No `promptId`. Antigravity's PreToolUse payload carries no per-turn id:
+      // `stepIdx` is "the 0-based index of the current step in the trajectory"
+      // (antigravity.google/docs/hooks) — an action counter that advances
+      // *within* one user instruction, so mapping it onto `prompt_id` would
+      // split every instruction into one bucket per tool call. An absent field
+      // reads as "the host never sent this"; a wrong one reads as a real group.
+      // Antigravity sends no per-invocation id either, so `toolUseId` stays absent.
+      agentModel: readString(payload.modelName),
+      transcriptPath: readString(payload.transcriptPath),
       hookEventName: 'PreToolUse',
     };
   },
