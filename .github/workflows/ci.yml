@@ -389,8 +389,11 @@ jobs:
             | node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not exit 0 for no-token Shell"; exit 1; }
-          if echo "$OUT" | grep -q '"permission"\|"hookSpecificOutput"'; then
-            echo "::error::Cursor no-token hook unexpectedly emitted a decision"; exit 1
+          echo "$OUT" | grep -q '"permission":"allow"' || {
+            echo "::error::Cursor no-token hook must emit its required flat allow"; exit 1
+          }
+          if echo "$OUT" | grep -q '"hookSpecificOutput"'; then
+            echo "::error::Cursor no-token hook emitted a Claude Code wrapper"; exit 1
           fi
 
       - name: cursor · beforeShellExecution native stdin (command top-level, no tool_name)
