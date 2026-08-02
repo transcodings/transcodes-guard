@@ -247,7 +247,7 @@ jobs:
           # allow. A member token must exist or the hook short-circuits on no-token.
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
-          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          printf '{"token":"%s","guard_enabled":true}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"tool_name":"mcp__external_server__delete_thing","tool_input":{"id":"x"}}' \
             | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
@@ -282,7 +282,7 @@ jobs:
           # round-trip + the CREATE_FAILED deny formatting through the codex adapter.
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
-          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          printf '{"token":"%s","guard_enabled":true}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"tool_name":"mcp__external_server__delete_thing","tool_input":{"id":"x"}}' \
             | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
@@ -329,7 +329,7 @@ jobs:
           # deny through the antigravity adapter (top-level decision wire format).
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
-          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          printf '{"token":"%s","guard_enabled":true}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /tmp/x","Cwd":"'"$PWD"'"}},"stepIdx":0,"conversationId":"ag-ci","workspacePaths":["'"$PWD"'"]}' \
             | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/antigravity/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
@@ -409,7 +409,7 @@ jobs:
           # deny through the cursor adapter (flat permission wire format).
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
-          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          printf '{"token":"%s","guard_enabled":true}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"rm -rf /tmp/x"},"cwd":"'"$PWD"'"}' \
             | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
