@@ -24,6 +24,7 @@ import path from 'node:path';
 export type HostName = 'claude' | 'codex' | 'antigravity' | 'cursor';
 
 const HOST_ENV_VAR = 'TRANSCODES_GUARD_HOST';
+const PLUGIN_DATA_ENV = 'PLUGIN_DATA';
 const CLAUDE_PLUGIN_DATA_ENV = 'CLAUDE_PLUGIN_DATA';
 
 export function detectHost(): HostName | null {
@@ -94,6 +95,25 @@ export function dataDir(): string {
  */
 export function cacheDir(): string {
   return stateDir();
+}
+
+/**
+ * Short-lived user-prompt telemetry cache.
+ *
+ * This is deliberately separate from trusted gate state: installed plugins
+ * should use the host-provided writable data directory, while source/dev runs
+ * retain a stable fallback that users can inspect and wipe independently.
+ */
+export function promptCacheDir(): string {
+  const pluginData = process.env[PLUGIN_DATA_ENV]?.trim();
+  if (pluginData) return path.join(pluginData, 'prompt-cache');
+
+  const compatiblePluginData = process.env[CLAUDE_PLUGIN_DATA_ENV]?.trim();
+  if (compatiblePluginData) {
+    return path.join(compatiblePluginData, 'prompt-cache');
+  }
+
+  return path.join(transcodesDir(), 'cache', 'prompts');
 }
 
 /**

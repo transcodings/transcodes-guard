@@ -132,11 +132,15 @@ function snakeCaseStdin(toolName: string, toolInput: unknown, cwd: string): stri
 }
 
 /** Prompt-hook stdin (Claude Code UserPromptSubmit / Cursor beforeSubmitPrompt). */
-function promptSubmitStdin(text: string, cwd: string): string {
+function promptSubmitStdin(
+  text: string,
+  cwd: string,
+  ids: Record<string, string>,
+): string {
   return JSON.stringify({
     prompt: text,
     cwd,
-    session_id: 'e2e-session',
+    ...ids,
     hook_event_name: 'UserPromptSubmit',
   });
 }
@@ -164,7 +168,11 @@ const claudeCode: WireSpec = {
   assertDeny: (res) => claudeStyleDeny(res, claudeCodeForbidden),
   assertPass: assertNoOutput,
   assertStopNoop: assertNoOutput,
-  promptStdin: (text, cwd) => promptSubmitStdin(text, cwd),
+  promptStdin: (text, cwd) =>
+    promptSubmitStdin(text, cwd, {
+      session_id: 'e2e-session',
+      prompt_id: 'e2e-prompt',
+    }),
   assertPromptInert: assertNoOutput,
   forbiddenSubstrings: [],
 };
@@ -174,6 +182,11 @@ const codex: WireSpec = {
   ...claudeCode,
   host: 'codex',
   providerSlug: 'codex',
+  promptStdin: (text, cwd) =>
+    promptSubmitStdin(text, cwd, {
+      session_id: 'e2e-session',
+      turn_id: 'e2e-prompt',
+    }),
 };
 
 const cursorForbidden = ['hookSpecificOutput', 'permissionDecision'];
@@ -207,7 +220,11 @@ const cursor: WireSpec = {
     assert.equal(out.permission, 'allow', raw(res));
   },
   assertStopNoop: assertNoOutput,
-  promptStdin: (text, cwd) => promptSubmitStdin(text, cwd),
+  promptStdin: (text, cwd) =>
+    promptSubmitStdin(text, cwd, {
+      conversation_id: 'e2e-session',
+      generation_id: 'e2e-prompt',
+    }),
   assertPromptInert: assertCursorPromptContinue,
   forbiddenSubstrings: cursorForbidden,
 };

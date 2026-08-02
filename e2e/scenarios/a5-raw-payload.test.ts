@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { runHook } from '../harness/hook-runner.js';
+import { promptHook, runHook } from '../harness/hook-runner.js';
 import { assertOnlyEvaluateTraffic, MockBackend, type VerdictPayload } from '../harness/mock-backend.js';
 import { makeWorld } from '../harness/state.js';
 import { ALL_HOSTS, wire } from '../harness/wire.js';
@@ -171,6 +171,94 @@ for (const host of ALL_HOSTS) {
         !wire.includes('lastPrompt'),
         'only the derived summary ships, never transcript lines',
       );
+    });
+
+    test('current prompt cache wins over transcript without leaking raw prompt metadata', async (t) => {
+      const world = makeWorld();
+      t.after(() => world.dispose());
+      const mock = await MockBackend.start();
+      t.after(() => mock.close());
+      world.writeToken();
+      mock.onEvaluate(ALLOW);
+
+      const currentPrompt = `current prompt ${'x'.repeat(400)} raw-tail-secret`;
+      const transcriptPath = join(world.home, 'stale-transcript.jsonl');
+      writeFileSync(
+        transcriptPath,
+        `${JSON.stringify({ type: 'last-prompt', lastPrompt: 'stale transcript prompt' })}\n`,
+      );
+
+      if (host === 'antigravity') {
+        writeFileSync(
+          transcriptPath,
+          `${JSON.stringify({ role: 'user', content: currentPrompt })}\n`,
+        );
+        const capture = await runHook({
+          host,
+          hook: 'pre-invocation',
+          stdin: JSON.stringify({
+            invocationNum: 0,
+            initialNumSteps: 0,
+            conversationId: 'e2e-conversation',
+            transcriptPath,
+            workspacePaths: [world.home],
+          }),
+          env: world.env(mock.url),
+          cwd: world.home,
+        });
+        assert.equal(capture.exitCode, 0);
+        writeFileSync(
+          transcriptPath,
+          `${JSON.stringify({ role: 'user', content: 'stale transcript prompt' })}\n`,
+        );
+      } else {
+        const hook = promptHook(host);
+        assert.ok(hook);
+        const capture = await runHook({
+          host,
+          hook,
+          stdin: spec.promptStdin(currentPrompt, world.home) ?? '',
+          env: world.env(mock.url),
+          cwd: world.home,
+        });
+        spec.assertPromptInert?.(capture);
+      }
+
+      const stdinObj = JSON.parse(
+        spec.shellStdin('echo e2e', world.home),
+      ) as Record<string, unknown>;
+      stdinObj[host === 'antigravity' ? 'transcriptPath' : 'transcript_path'] =
+        transcriptPath;
+      if (host === 'claude-code') stdinObj.prompt_id = 'e2e-prompt';
+      if (host === 'codex') stdinObj.turn_id = 'e2e-prompt';
+      if (host === 'cursor') stdinObj.generation_id = 'e2e-prompt';
+
+      const res = await runHook({
+        host,
+        hook: 'pre-tool-use',
+        stdin: JSON.stringify(stdinObj),
+        env: world.env(mock.url),
+        cwd: world.home,
+      });
+
+      spec.assertPass(res);
+      const [req] = mock.evaluateRequests();
+      assert.ok(req);
+      const body = req.body as Record<string, unknown>;
+      if (host === 'antigravity') {
+        // Antigravity exposes no stable per-turn id at PreToolUse, so an old
+        // cache entry must never outrank its transcript context.
+        assert.equal(body.tasks, 'stale transcript prompt');
+      } else {
+        assert.match(String(body.tasks), /^current prompt x+/);
+      }
+      assert.ok(!String(body.tasks).includes('raw-tail-secret'));
+      if (host !== 'antigravity') {
+        assert.ok(!String(body.tasks).includes('stale transcript prompt'));
+      }
+      assert.ok(!('tasks_source' in body));
+      const serialized = JSON.stringify(body);
+      assert.ok(!serialized.includes('raw-tail-secret'));
     });
 
     test('an unreadable transcript drops tasks and leaves the gate untouched', async (t) => {

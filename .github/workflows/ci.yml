@@ -161,8 +161,8 @@ jobs:
       # ─────────────────────────────────────────────────────────
       # Claude Code plugin smoke tests (8 scenarios, Guard v3 semantics).
       # The CI runner has NO Transcodes token and NO reachable backend, so the
-      # states a smoke can reach are: no-token fail-closed deny, hook-skip
-      # (step-up meta tools only), backend-unreachable fail-closed deny,
+      # states a smoke can reach are: no-token hook-skip,
+      # backend-unreachable fail-closed deny,
       # and the token-free Stop no-op path. Allow (permission 1) and challenge
       # (permission 2 + sid/url) need a mock /guard/evaluate — deliberately out
       # of scope here (PRD smoke-suite-v3-respec P2).
@@ -170,16 +170,18 @@ jobs:
       # surface exists in this job.
       # ─────────────────────────────────────────────────────────
 
-      - name: claude-code · no-token fail-closed deny (Bash)
+      - name: claude-code · no-token skips hook (Bash)
         run: |
           set -e
-          # v3 has no local danger regex: EVERY Bash command is classified into
-          # the gate, and with no token the gate fails closed (BLOCK_NO_TOKEN).
+          # An unconfigured install must not gate local work. The hook exits
+          # before classification when no token is available.
           OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
             | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for no-token Bash"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::No-token deny JSON missing"; exit 1; }
+          if echo "$OUT" | grep -q '"permissionDecision"'; then
+            echo "::error::No-token hook unexpectedly emitted a decision"; exit 1
+          fi
 
       - name: claude-code · canonical transcodes-guard MCP name skips hook (poll wait)
         run: |
@@ -192,29 +194,30 @@ jobs:
             echo "::error::Canonical transcodes-guard MCP must skip the hook"; exit 1
           fi
 
-      - name: claude-code · non-meta built-in MCP is gated, no-token deny (retire_member)
+      - name: claude-code · no-token skips non-meta built-in MCP (retire_member)
         run: |
           set -e
-          # Only the step-up meta set skips the hook (evaluate.ts →
-          # isGuardMetaToolName). Non-meta built-in tc_* names are classified
-          # into the gate like any other tool, and with no token the gate
-          # fails closed.
+          # Token presence is checked before tool classification, so an
+          # unconfigured install skips non-meta built-ins too.
           OUT=$(echo '{"tool_name":"tc_retire_member","tool_input":{"body":{"member_id":"m_ci_test"}}}' \
             | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for built-in MCP tool"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Non-meta built-in MCP must be gated (no-token deny JSON missing)"; exit 1; }
+          if echo "$OUT" | grep -q '"permissionDecision"'; then
+            echo "::error::No-token built-in unexpectedly emitted a decision"; exit 1
+          fi
 
-      - name: claude-code · non-meta built-in MCP is gated, no-token deny (get_member)
+      - name: claude-code · no-token skips non-meta built-in MCP (get_member)
         run: |
           set -e
-          # Read-only built-ins are non-meta too: same gate path, same
-          # no-token fail-closed deny.
+          # Read-only built-ins follow the same pre-classification token check.
           OUT=$(echo '{"tool_name":"tc_get_member","tool_input":{"member_id":"x"}}' \
             | node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Hook did not exit 0 for built-in MCP tool"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Non-meta built-in MCP must be gated (no-token deny JSON missing)"; exit 1; }
+          if echo "$OUT" | grep -q '"permissionDecision"'; then
+            echo "::error::No-token built-in unexpectedly emitted a decision"; exit 1
+          fi
 
       # Stop hook: local latch reminders removed. Coordinate SSOT is backend-only;
       # Stop must exit 0 with no reminder payload (agents recover via deny + poll wait).
@@ -244,7 +247,7 @@ jobs:
           # allow. A member token must exist or the hook short-circuits on no-token.
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
-          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          printf '{"token":"%s","guard_enabled":true}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"tool_name":"mcp__external_server__delete_thing","tool_input":{"id":"x"}}' \
             | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/claude-code/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
@@ -259,14 +262,16 @@ jobs:
       # repeating every scenario from the claude-code suite.)
       # ─────────────────────────────────────────────────────────
 
-      - name: codex · no-token fail-closed deny (Bash)
+      - name: codex · no-token skips hook (Bash)
         run: |
           set -e
           OUT=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
             | node plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Codex hook did not exit 0 for no-token Bash"; exit 1; }
-          echo "$OUT" | grep -q '"permissionDecision":"deny"' || { echo "::error::Codex no-token deny JSON missing"; exit 1; }
+          if echo "$OUT" | grep -q '"permissionDecision"'; then
+            echo "::error::Codex no-token hook unexpectedly emitted a decision"; exit 1
+          fi
 
       - name: codex · backend unreachable → fail-closed deny (external MCP)
         run: |
@@ -277,7 +282,7 @@ jobs:
           # round-trip + the CREATE_FAILED deny formatting through the codex adapter.
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
-          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          printf '{"token":"%s","guard_enabled":true}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"tool_name":"mcp__external_server__delete_thing","tool_input":{"id":"x"}}' \
             | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/codex/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
@@ -306,16 +311,15 @@ jobs:
       # pending manual binary validation before public release.)
       # ─────────────────────────────────────────────────────────
 
-      - name: antigravity · no-token fail-closed deny (run_command)
+      - name: antigravity · no-token skips hook (run_command)
         run: |
           set -e
           OUT=$(echo '{"toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /","Cwd":"'"$PWD"'"}},"stepIdx":0,"conversationId":"ag-ci","workspacePaths":["'"$PWD"'"]}' \
             | node plugins/antigravity/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity hook did not exit 0 for no-token run_command"; exit 1; }
-          echo "$OUT" | grep -q '"decision":"deny"' || { echo "::error::Antigravity no-token deny JSON missing (expected top-level decision, not hookSpecificOutput)"; exit 1; }
-          if echo "$OUT" | grep -q '"hookSpecificOutput"'; then
-            echo "::error::Antigravity hook wrongly emitted hookSpecificOutput wrapper (Claude Code wire format leaked)"; exit 1
+          if echo "$OUT" | grep -q '"decision"\|"hookSpecificOutput"'; then
+            echo "::error::Antigravity no-token hook unexpectedly emitted a decision"; exit 1
           fi
 
       - name: antigravity · backend unreachable → fail-closed deny (run_command)
@@ -325,7 +329,7 @@ jobs:
           # deny through the antigravity adapter (top-level decision wire format).
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
-          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          printf '{"token":"%s","guard_enabled":true}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"toolCall":{"name":"run_command","args":{"CommandLine":"rm -rf /tmp/x","Cwd":"'"$PWD"'"}},"stepIdx":0,"conversationId":"ag-ci","workspacePaths":["'"$PWD"'"]}' \
             | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/antigravity/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
@@ -344,28 +348,28 @@ jobs:
             echo "::error::Antigravity Stop hook unexpectedly emitted a continue reminder on clean state"; exit 1
           fi
 
-      - name: antigravity · PreInvocation invocationNum=1 injects primer
+      - name: antigravity · PreInvocation invocationNum=0 injects primer
         run: |
           set -e
-          OUT=$(echo '{"invocationNum":1,"initialNumSteps":0,"conversationId":"ag-ci","transcriptPath":"/tmp/ag-ci-nonexistent.jsonl","workspacePaths":["'"$PWD"'"]}' \
+          OUT=$(echo '{"invocationNum":0,"initialNumSteps":0,"conversationId":"ag-ci","transcriptPath":"/tmp/ag-ci-nonexistent.jsonl","workspacePaths":["'"$PWD"'"]}' \
             | node plugins/antigravity/dist/hooks/pre-invocation.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0"; exit 1; }
-          echo "$OUT" | grep -q '"injectSteps"' || { echo "::error::Antigravity PreInvocation missed primer injectSteps on invocationNum=1"; exit 1; }
+          echo "$OUT" | grep -q '"injectSteps"' || { echo "::error::Antigravity PreInvocation missed primer injectSteps on invocationNum=0"; exit 1; }
           # Match the stable primer heading ("transcodes-guard step-up MFA
           # protocol:") — the old 'protocol primer' wording drifted while this
           # step was hidden behind the Stop-smoke failure (skipped on dev).
           echo "$OUT" | grep -q 'step-up MFA protocol' || { echo "::error::Antigravity PreInvocation primer content missing"; exit 1; }
 
-      - name: antigravity · PreInvocation invocationNum=5 no primer
+      - name: antigravity · PreInvocation invocationNum=1 no primer
         run: |
           set -e
-          OUT=$(echo '{"invocationNum":5,"initialNumSteps":10,"conversationId":"ag-ci"}' \
+          OUT=$(echo '{"invocationNum":1,"initialNumSteps":1,"conversationId":"ag-ci"}' \
             | node plugins/antigravity/dist/hooks/pre-invocation.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0 (n=5)"; exit 1; }
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0 (n=1)"; exit 1; }
           if echo "$OUT" | grep -q '"injectSteps"'; then
-            echo "::error::Antigravity PreInvocation should NOT inject primer on invocationNum=5"; exit 1
+            echo "::error::Antigravity PreInvocation should NOT inject primer on invocationNum=1"; exit 1
           fi
 
       # ─────────────────────────────────────────────────────────
@@ -378,26 +382,32 @@ jobs:
       # is left untouched.)
       # ─────────────────────────────────────────────────────────
 
-      - name: cursor · no-token fail-closed deny (Shell)
+      - name: cursor · no-token skips hook (Shell)
         run: |
           set -e
           OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"rm -rf /"},"cwd":"'"$PWD"'"}' \
             | node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor hook did not exit 0 for no-token Shell"; exit 1; }
-          echo "$OUT" | grep -q '"permission":"deny"' || { echo "::error::Cursor flat no-token deny JSON missing"; exit 1; }
+          echo "$OUT" | grep -q '"permission":"allow"' || {
+            echo "::error::Cursor no-token hook must emit its required flat allow"; exit 1
+          }
           if echo "$OUT" | grep -q '"hookSpecificOutput"'; then
-            echo "::error::Cursor hook wrongly emitted hookSpecificOutput wrapper (Claude Code wire format leaked)"; exit 1
+            echo "::error::Cursor no-token hook emitted a Claude Code wrapper"; exit 1
           fi
 
       - name: cursor · beforeShellExecution native stdin (command top-level, no tool_name)
         run: |
           set -e
+          mkdir -p "$HOME/.transcodes/state"
+          TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
+          printf '{"token":"%s","guard_enabled":true}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"command":"find /tmp","cwd":"'"$PWD"'","hook_event_name":"beforeShellExecution"}' \
-            | node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor native stdin hook did not exit 0"; exit 1; }
           echo "$OUT" | grep -q '"permission":"deny"' || { echo "::error::Cursor native stdin should reach gate (deny), not bypass"; exit 1; }
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state"/step-up.*.json "$HOME/.transcodes/state/grouping-session.json"
 
       - name: cursor · backend unreachable → fail-closed deny (Shell)
         run: |
@@ -406,7 +416,7 @@ jobs:
           # deny through the cursor adapter (flat permission wire format).
           mkdir -p "$HOME/.transcodes/state"
           TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
-          printf '{"token":"%s"}' "$TOKEN" > "$HOME/.transcodes/config.json"
+          printf '{"token":"%s","guard_enabled":true}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"tool_name":"Shell","tool_input":{"command":"rm -rf /tmp/x"},"cwd":"'"$PWD"'"}' \
             | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"

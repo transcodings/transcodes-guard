@@ -20,7 +20,7 @@
  *    `block-stepup-create-failed`, carrying the HTTP status / backend error
  *    text in `failure.detail` so the deny is diagnosable (issue #189).
  */
-import { summarizeTasks } from '../hosts/index.js';
+import { resolvePromptContext } from '../hosts/index.js';
 import {
   currentHostProvider,
   DEFAULT_RBAC_RESOURCE,
@@ -258,7 +258,11 @@ export async function evaluatePreToolUse(
   // the catch that sets `verdict = null` (→ permission 2, a machine-wide deny).
   let tasks: string | undefined;
   try {
-    tasks = summarizeTasks(input.transcriptPath);
+    tasks = resolvePromptContext({
+      sessionId: input.sessionId,
+      promptId: input.promptId,
+      transcriptPath: input.transcriptPath,
+    }).tasks;
   } catch {
     tasks = undefined;
   }
