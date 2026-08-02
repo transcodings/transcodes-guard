@@ -344,28 +344,28 @@ jobs:
             echo "::error::Antigravity Stop hook unexpectedly emitted a continue reminder on clean state"; exit 1
           fi
 
-      - name: antigravity · PreInvocation invocationNum=1 injects primer
+      - name: antigravity · PreInvocation invocationNum=0 injects primer
         run: |
           set -e
-          OUT=$(echo '{"invocationNum":1,"initialNumSteps":0,"conversationId":"ag-ci","transcriptPath":"/tmp/ag-ci-nonexistent.jsonl","workspacePaths":["'"$PWD"'"]}' \
+          OUT=$(echo '{"invocationNum":0,"initialNumSteps":0,"conversationId":"ag-ci","transcriptPath":"/tmp/ag-ci-nonexistent.jsonl","workspacePaths":["'"$PWD"'"]}' \
             | node plugins/antigravity/dist/hooks/pre-invocation.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0"; exit 1; }
-          echo "$OUT" | grep -q '"injectSteps"' || { echo "::error::Antigravity PreInvocation missed primer injectSteps on invocationNum=1"; exit 1; }
+          echo "$OUT" | grep -q '"injectSteps"' || { echo "::error::Antigravity PreInvocation missed primer injectSteps on invocationNum=0"; exit 1; }
           # Match the stable primer heading ("transcodes-guard step-up MFA
           # protocol:") — the old 'protocol primer' wording drifted while this
           # step was hidden behind the Stop-smoke failure (skipped on dev).
           echo "$OUT" | grep -q 'step-up MFA protocol' || { echo "::error::Antigravity PreInvocation primer content missing"; exit 1; }
 
-      - name: antigravity · PreInvocation invocationNum=5 no primer
+      - name: antigravity · PreInvocation invocationNum=1 no primer
         run: |
           set -e
-          OUT=$(echo '{"invocationNum":5,"initialNumSteps":10,"conversationId":"ag-ci"}' \
+          OUT=$(echo '{"invocationNum":1,"initialNumSteps":1,"conversationId":"ag-ci"}' \
             | node plugins/antigravity/dist/hooks/pre-invocation.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
-          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0 (n=5)"; exit 1; }
+          echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Antigravity PreInvocation did not exit 0 (n=1)"; exit 1; }
           if echo "$OUT" | grep -q '"injectSteps"'; then
-            echo "::error::Antigravity PreInvocation should NOT inject primer on invocationNum=5"; exit 1
+            echo "::error::Antigravity PreInvocation should NOT inject primer on invocationNum=1"; exit 1
           fi
 
       # ─────────────────────────────────────────────────────────
