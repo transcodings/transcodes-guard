@@ -143,6 +143,14 @@ function knownRecordContext(
   if (record.type === 'last-prompt') {
     return { prompt: readString(record.lastPrompt) };
   }
+  if (record.source === 'USER_EXPLICIT' && record.type === 'USER_INPUT') {
+    const content = readString(record.content);
+    if (!content) return {};
+    const request = /<USER_REQUEST>\s*([\s\S]*?)\s*<\/USER_REQUEST>/.exec(
+      content,
+    )?.[1];
+    return { prompt: readString(request) ?? content };
+  }
   if (record.type !== 'event_msg') return undefined;
   const payload = record.payload as Record<string, unknown> | undefined;
   return payload?.type === 'user_message'
