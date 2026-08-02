@@ -67,6 +67,12 @@ export const claudeCodeAdapter = {
         const payload = JSON.parse(raw);
         return {
             prompt: readString(payload.prompt) ?? '',
+            sessionId: readString(payload.session_id) ?? readString(payload.conversation_id),
+            promptId: readString(payload.prompt_id) ??
+                readString(payload.turn_id) ??
+                readString(payload.generation_id),
+            model: readString(payload.model),
+            transcriptPath: readString(payload.transcript_path),
             hookEventName: readString(payload.hook_event_name),
         };
     },

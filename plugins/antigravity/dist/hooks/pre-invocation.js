@@ -4,7 +4,7 @@ import {
   formatNoTokenSessionNotice,
   formatStepupProtocolPrimer,
   getGateBackend
-} from "../chunk-IMPLSQTY.js";
+} from "../chunk-UUGQSJAU.js";
 
 // hooks/pre-invocation.ts
 import { readFileSync } from "fs";
@@ -24,7 +24,7 @@ async function main() {
   }
   const backend = getGateBackend();
   const injectSteps = [];
-  if (input.invocationNum <= 1) {
+  if (input.invocationNum === 0) {
     injectSteps.push({ ephemeralMessage: primerMessage() });
     if (!backend.hasToken()) {
       injectSteps.push({ ephemeralMessage: formatNoTokenSessionNotice() });

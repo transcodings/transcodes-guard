@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-import "../chunk-RQSPZQX4.js";
+import {
+  capturePrompt,
+  cursorAdapter
+} from "../chunk-TQCF7A3Y.js";
 
 // hooks/before-submit-prompt.ts
 import { readFileSync } from "fs";
@@ -8,7 +11,15 @@ function emitContinue() {
   process.exit(0);
 }
 try {
-  readFileSync(0, "utf8");
+  const input = cursorAdapter.parseUserPromptSubmitStdin(
+    readFileSync(0, "utf8")
+  );
+  capturePrompt({
+    host: "cursor",
+    sessionId: input.sessionId,
+    promptId: input.promptId,
+    prompt: input.prompt
+  });
 } catch {
 }
 emitContinue();

@@ -27,6 +27,14 @@ export declare function dataDir(): string;
  */
 export declare function cacheDir(): string;
 /**
+ * Short-lived user-prompt telemetry cache.
+ *
+ * This is deliberately separate from trusted gate state: installed plugins
+ * should use the host-provided writable data directory, while source/dev runs
+ * retain a stable fallback that users can inspect and wipe independently.
+ */
+export declare function promptCacheDir(): string;
+/**
  * One-shot migration of a single file from any historical location into
  * `~/.transcodes/state/`.
  *

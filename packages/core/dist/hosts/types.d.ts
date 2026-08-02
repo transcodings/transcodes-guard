@@ -42,6 +42,10 @@ export interface PreToolUseInput {
 /** Parsed UserPromptSubmit stdin. */
 export interface UserPromptSubmitInput {
     prompt: string;
+    sessionId?: string | undefined;
+    promptId?: string | undefined;
+    model?: string | undefined;
+    transcriptPath?: string | undefined;
     hookEventName?: string | undefined;
 }
 /**
@@ -49,7 +53,7 @@ export interface UserPromptSubmitInput {
  *
  * Antigravity has no SessionStart / UserPromptSubmit hook events; their
  * roles are folded into PreInvocation which fires before every model call.
- * `invocationNum === 1` is the per-turn analogue of SessionStart, and the
+ * `invocationNum === 0` is the first model invocation, and the
  * `transcriptPath` (JSONL of prior messages) lets the hook tail the most
  * recent user message to recover the UserPromptSubmit detection role.
  */
