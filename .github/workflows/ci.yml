@@ -399,11 +399,15 @@ jobs:
       - name: cursor · beforeShellExecution native stdin (command top-level, no tool_name)
         run: |
           set -e
+          mkdir -p "$HOME/.transcodes/state"
+          TOKEN=$(node -e 'const p=Buffer.from(JSON.stringify({oid:"org-ci",pid:"proj-ci",mid:"m-ci",aud:["transcodes-mcp"],exp:Math.floor(Date.now()/1000)+3600})).toString("base64url");console.log("eyJhbGciOiJub25lIn0."+p+".x")')
+          printf '{"token":"%s","guard_enabled":true}' "$TOKEN" > "$HOME/.transcodes/config.json"
           OUT=$(echo '{"command":"find /tmp","cwd":"'"$PWD"'","hook_event_name":"beforeShellExecution"}' \
-            | node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
+            | TRANSCODES_BACKEND_URL=http://127.0.0.1:9 node plugins/cursor/dist/hooks/pre-tool-use.js 2>&1; printf '\nEXIT:%s' "$?")
           echo "$OUT"
           echo "$OUT" | grep -q "EXIT:0" || { echo "::error::Cursor native stdin hook did not exit 0"; exit 1; }
           echo "$OUT" | grep -q '"permission":"deny"' || { echo "::error::Cursor native stdin should reach gate (deny), not bypass"; exit 1; }
+          rm -f "$HOME/.transcodes/config.json" "$HOME/.transcodes/state"/step-up.*.json "$HOME/.transcodes/state/grouping-session.json"
 
       - name: cursor · backend unreachable → fail-closed deny (Shell)
         run: |
