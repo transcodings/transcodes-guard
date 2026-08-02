@@ -6,7 +6,7 @@
  * metadata rows + renderers for every generated artifact:
  *   - TOOL CATALOG section (scripts/router-body.mjs → command/skill files)
  *   - packages/core/src/patterns/guard-tool-names.generated.ts
- *   - cli/src/tool-catalog.generated.ts
+ *   - cli/src/commands/transcodes/tool-catalog.generated.ts
  *
  * Runs under tsx (`node --import tsx scripts/generate-router-files.mjs`).
  * Core definition modules are imported by RELATIVE path so tsx compiles the
@@ -220,7 +220,7 @@ export function renderGuardToolNamesTs(): string {
   return lines.join('\n');
 }
 
-/** cli/src/tool-catalog.generated.ts */
+/** cli/src/commands/transcodes/tool-catalog.generated.ts */
 export function renderCliCatalogTs(): string {
   // Stable-sort by TOOL_CATEGORY_ORDER so consumers that render the array
   // in order (buildAdminToolsPayload) show sections in display order.

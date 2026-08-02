@@ -14,7 +14,7 @@
 # hard prerequisite — this script's whole job is to get it in place for people
 # who do not already have npm.
 #
-# Mirror of the Node-bootstrap logic in `cli/src/install.ts` `ensureNode()`,
+# Mirror of the Node-bootstrap logic in `cli/src/commands/transcodes/install.ts` `ensureNode()`,
 # except this runs *before* any Node is present (that TS code cannot).
 
 set -euo pipefail

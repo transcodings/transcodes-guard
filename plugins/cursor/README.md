@@ -53,7 +53,7 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 # irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
-Non-interactive alternative (same store): `transcodes set <token> -l <label>`.
+Sign in with `transcodes login`.
 
 If neither is set, the hook still **denies** danger commands but cannot start a step-up session.
 
@@ -115,7 +115,9 @@ Never assume the blocked command ran. Never invent an alternative. Always resume
 
 ## Enabling / disabling
 
-There is no runtime kill-switch. To turn protection off, disable or uninstall the plugin via the host's native mechanism (e.g. Cursor: remove `~/.cursor/hooks.json` entries / `mcp.json` server; Claude Code: `/plugin disable transcodes-guard`). Enabling the gate is safe for an agent; disabling it is a human-only action.
+Use the **Permission checks** toggle in the local `transcodes` dashboard. When
+Off, hooks skip step-up authentication and permission evaluation before any
+backend request, so those tool calls are not recorded in Transcodes Log History.
 
 ## Wire-format quirks vs Claude Code
 
@@ -155,7 +157,7 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 ## Troubleshooting
 
 - **Hook doesn't fire.** Run `install.mjs` (creates/merges `~/.cursor/hooks.json` and fixes `cli-config.json` when present). Settings → Hooks → trust transcodes-guard. Re-check `~/.cursor/cli-config.json`: installer sets `allowlist` and removes broad allows, but narrow Shell/Mcp allows still bypass hooks. Test with the **local IDE Agent**, not Cloud Agent. Ensure `node` is in Cursor's `PATH`.
-- **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash` or Windows: `irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex`) and run `transcodes` to save a token in the dashboard (or `transcodes set <token> -l <label>`).
+- **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash` or Windows: `irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex`) and run `transcodes login`.
 - **MCP tool calls hang.** Check `~/.cursor/mcp.json` includes `transcodes-guard` and `~/.cursor/plugins/local/transcodes-guard/dist/src/stdio.js` exists. Cursor logs MCP failures to the Output panel.
 
 ## License

@@ -16,7 +16,7 @@
        the persistent User environment, so `transcodes` works in a new terminal.
 
   The CLI and the guard hooks both run on Node, so Node is the one hard
-  prerequisite. This is the pre-Node counterpart to `cli/src/install.ts`
+  prerequisite. This is the pre-Node counterpart to `cli/src/commands/transcodes/install.ts`
   ensureNode(), which cannot run until Node already exists.
 #>
 

@@ -60,9 +60,7 @@ export function loadStepupConfig(): StepupConfig {
     throw new Error(
       'No Transcodes token found. Install the CLI ' +
         `(macOS/Linux: \`${CLI_INSTALL_HINT_UNIX}\`; Windows: \`${CLI_INSTALL_HINT_WIN}\`), ` +
-        'then run `transcodes login` to sign in and choose an organization. ' +
-        'Manual fallback: ' +
-        '`transcodes set <token> -l <label>`.',
+        'then run `transcodes login` to sign in and choose an organization.',
     );
   }
 

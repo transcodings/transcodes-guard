@@ -186,6 +186,11 @@ export function classifyToolCall(
 
   const payload = resolvePayload(input);
   const cmd = shellCommand(input.toolInput);
+  // Persona CRUD is local-only and never needs Transcodes authentication or
+  // RBAC evaluation. Keep it outside the remote guard even when enabled.
+  if (cmd && /^\s*transcodes\s+persona(?:\s|$)/i.test(cmd)) {
+    return null;
+  }
   const label = name ?? 'tool';
   const blob = summarizePayload(payload);
   const summary = cmd ?? `${label} ${blob}`;

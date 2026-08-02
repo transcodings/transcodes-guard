@@ -1,49 +1,48 @@
 /**
- * Transcodes CLI — manages the transcodes-guard member MCP token.
+ * Transcodes CLI — manages the local member credential for transcodes-guard.
  *
- * The plugins (Claude Code / Codex / Cursor / Antigravity) and their hooks
- * read the token via `resolveToken()` (~/.transcodes/config.json → env).
- * This CLI is the safe way to populate that file: the token is pasted into
- * the terminal, never into the agent chat (which would leak it into the
- * transcript). All token logic lives in `@transcodes-guard/core/stepup`;
- * this file is just an argv front-end.
+ * Plugins/hooks read the credential via `resolveToken()` (~/.transcodes/config.json).
+ * The only supported way to obtain it is `transcodes login` (browser sign-in).
  *
  * Commands:
  *   transcodes                 Open the local web UI dashboard in the background.
  *   transcodes stop            Stop the background dashboard daemon.
- *   transcodes set <token> -l <label> Validate and save the token (0600); label required.
- *   transcodes reset           Delete all saved tokens.
- *   transcodes status          Show the active token source + expiry.
- *   transcodes tokens          List all saved tokens (active marked with *).
  *   transcodes login           Sign in in a browser and save the issued MAT.
- *   transcodes console         Open auth settings for the active token.
- *   transcodes install         Guided plugin + token setup.
+ *   transcodes logout          Remove the local credential.
+ *   transcodes status          Show the active credential source + expiry.
+ *   transcodes console         Open auth settings for the signed-in member.
+ *   transcodes install         Guided plugin setup, then open the dashboard.
  *   transcodes update          Update installed plugins and this CLI.
+ *   transcodes persona …       Create, edit, and deploy local Personas.
+ *   transcodes sync …          Sync .transcodes rules/skills to AI tool configs.
  *   transcodes version         Print the installed CLI npm package version.
  *   transcodes help            Usage.
  *
- * Command list SSOT: ./commands.ts (dashboard reads the same source).
+ * Command list SSOT: ./commands/ (help + dashboard).
+ * Command implementations: ./commands/transcodes/
  */
 
 import {
   clearTokenFile,
   openConsoleSession,
   parseMemberAccessToken,
-  readTokenFromFile,
-  readTokenRecords,
   resolveToken,
   transcodesConfigFile,
-  writeTokenToFile,
 } from '@transcodes-guard/core/stepup';
-import { formatCliUsage } from './commands.js';
+import { formatCliUsage } from './commands/index.js';
 import {
   ensureDashboard,
   serveDashboard,
   stopDashboard,
-} from './dashboard-lifecycle.js';
-import { cmdInstall, cmdUpdate } from './install.js';
-import { cmdLogin } from './login.js';
-import { CLI_PACKAGE_NAME, CLI_VERSION } from './version.js';
+} from './commands/transcodes/dashboard-lifecycle.js';
+import { cmdInstall, cmdUpdate } from './commands/transcodes/install.js';
+import { cmdLogin } from './commands/transcodes/login.js';
+import { cmdPersona } from './commands/transcodes/persona-cli.js';
+import { cmdSync } from './commands/transcodes/sync.js';
+import {
+  CLI_PACKAGE_NAME,
+  CLI_VERSION,
+} from './commands/transcodes/version.js';
 
 function fail(message: string): never {
   process.stderr.write(`transcodes: ${message}\n`);
@@ -70,92 +69,22 @@ function expiryLine(token: string): string {
   }
 }
 
-function cmdSet(args: string[]): void {
-  let token: string | undefined;
-  let label: string | undefined;
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === '-l' || arg === '--label') {
-      label = args[++i];
-    } else if (token === undefined) {
-      token = arg;
-    } else {
-      fail(
-        `unexpected argument "${arg}". Usage: transcodes set <token> -l <label>`,
-      );
-    }
-  }
-
-  if (!token?.trim()) {
-    fail('missing token. Usage: transcodes set <token> -l <label>');
-  }
-  if (!label?.trim()) {
-    fail('missing label. Usage: transcodes set <token> -l <label>');
-  }
-  const trimmed = (token as string).trim();
-  const trimmedLabel = (label as string).trim();
-
-  // Validate before persisting so the user gets immediate feedback on an
-  // expired or malformed token instead of a confusing 401 later.
-  try {
-    parseMemberAccessToken(trimmed);
-  } catch (err) {
-    fail(`token rejected: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  try {
-    writeTokenToFile(trimmed, trimmedLabel);
-  } catch (err) {
-    fail(
-      `could not write token file: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    );
-  }
-
-  process.stdout.write(
-    `Saved to ${transcodesConfigFile()}\n  label=${trimmedLabel} ${expiryLine(
-      trimmed,
-    )}\n`,
-  );
-}
-
-function cmdReset(): void {
+function cmdLogout(): void {
   clearTokenFile();
-  process.stdout.write(
-    `Removed all saved tokens (${transcodesConfigFile()})\n`,
-  );
+  process.stdout.write(`Signed out (${transcodesConfigFile()})\n`);
 }
 
 function cmdStatus(): void {
   const { token, source } = resolveToken();
   if (source === 'none' || !token) {
     process.stdout.write(
-      'No token configured. Run `transcodes set <token> -l <label>` or `transcodes` to set one.\n',
+      'Not signed in. Run `transcodes login` to authenticate.\n',
     );
     return;
   }
   process.stdout.write(
-    `Active token source: ${transcodesConfigFile()}\n  ${expiryLine(token)}\n`,
+    `Signed in (${transcodesConfigFile()})\n  ${expiryLine(token)}\n`,
   );
-}
-
-function cmdTokens(): void {
-  const records = readTokenRecords();
-  if (records.length === 0) {
-    process.stdout.write(
-      'No tokens saved. Run `transcodes set <token> -l <label>` or `transcodes` to add one.\n',
-    );
-    return;
-  }
-  const active = readTokenFromFile();
-  process.stdout.write(`Saved tokens (${transcodesConfigFile()}):\n`);
-  for (const { token, label } of records) {
-    const marker = token === active ? '*' : ' ';
-    process.stdout.write(`  ${marker} ${label ?? '(no label)'}\n`);
-    process.stdout.write(`      ${expiryLine(token)}\n`);
-  }
-  process.stdout.write('\n* = active token used by the plugins/hooks.\n');
 }
 
 async function cmdConsole(args: string[]): Promise<void> {
@@ -172,7 +101,7 @@ async function cmdConsole(args: string[]): Promise<void> {
   if (!result.ok) {
     const msg =
       result.reason === 'no-token'
-        ? 'No token configured. Run `transcodes set <token> -l <label>` or open the dashboard first.'
+        ? 'Not signed in. Run `transcodes login` first.'
         : (result.detail ?? result.reason);
     fail(msg);
   }
@@ -264,22 +193,24 @@ function main(): void {
     case 'update':
       void cmdUpdate(rest);
       break;
-    case 'set':
-      cmdSet(rest);
-      break;
-    case 'reset':
-      cmdReset();
-      break;
-    case 'status':
-      cmdStatus();
-      break;
-    case 'tokens':
-      cmdTokens();
-      break;
     case 'login':
       void cmdLogin(rest).catch((error: unknown) => {
         fail(error instanceof Error ? error.message : String(error));
       });
+      break;
+    case 'logout':
+    case 'reset':
+      // `reset` kept as an alias for older muscle memory.
+      cmdLogout();
+      break;
+    case 'status':
+      cmdStatus();
+      break;
+    case 'set':
+    case 'tokens':
+      fail(
+        `"${command}" was removed. Sign in with \`transcodes login\` (sign out with \`transcodes logout\`).`,
+      );
       break;
     case 'console':
       void cmdConsole(rest);
@@ -289,6 +220,16 @@ function main(): void {
       break;
     case 'stop':
       void cmdStop();
+      break;
+    case 'persona':
+      void cmdPersona(rest).catch((error: unknown) => {
+        fail(error instanceof Error ? error.message : String(error));
+      });
+      break;
+    case 'sync':
+      void cmdSync(rest).catch((error: unknown) => {
+        fail(error instanceof Error ? error.message : String(error));
+      });
       break;
     case 'version':
     case '--version':

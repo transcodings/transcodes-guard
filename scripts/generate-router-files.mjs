@@ -7,7 +7,7 @@
  *     consumed by server.ts — same generated-source pattern as build-info.ts)
  *   - packages/core/src/patterns/guard-tool-names.generated.ts
  *     (GUARD_TOOL_NAMES / GUARD_META_TOOL_NAMES)
- *   - cli/src/tool-catalog.generated.ts (CLI dashboard catalog)
+ *   - cli/src/commands/transcodes/tool-catalog.generated.ts (CLI dashboard catalog)
  *   - the four per-host command/skill markdown files (claude-code / cursor /
  *     antigravity / codex)
  *
@@ -92,7 +92,10 @@ const targets = [
     'packages/core/src/patterns/guard-tool-names.generated.ts',
     renderGuardToolNamesTs(),
   ],
-  ['cli/src/tool-catalog.generated.ts', renderCliCatalogTs()],
+  [
+    'cli/src/commands/transcodes/tool-catalog.generated.ts',
+    renderCliCatalogTs(),
+  ],
   ...HOSTS.map((host) => [host.out, renderHost(host)]),
 ];
 

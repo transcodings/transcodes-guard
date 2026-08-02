@@ -69,6 +69,7 @@ export {
 } from './session.js';
 export {
   clearTokenFile,
+  isGuardEnabled,
   type ResolvedToken,
   readTokenFromFile,
   readTokenList,
@@ -76,6 +77,7 @@ export {
   removeTokenFromFile,
   resolveToken,
   setActiveToken,
+  setGuardEnabled,
   setTokenLabel,
   type TokenRecord,
   type TokenSource,

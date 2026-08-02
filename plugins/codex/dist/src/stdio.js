@@ -14,7 +14,7 @@ import {
   isMcpWireToolName,
   objectType,
   registerToolDefinitions
-} from "../chunk-PUCYCLF6.js";
+} from "../chunk-5OVUQHCU.js";
 
 // ../../node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({

@@ -100,7 +100,7 @@ irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/ins
 1. [Transcodes Console](https://app.transcodes.io)에서 프로젝트를 만들고, auth cluster·멤버를 설정한 뒤 멤버 상세 페이지에서 access token(멤버 MCP JWT / MAT)을 발급합니다. 대시보드 **Getting Started**(**Quick Demo** + **Steps**)가 설치 이후 흐름을 안내합니다.
 2. 대시보드 **Tokens** 탭에 토큰을 붙여넣고, 필수 label(예: `transcodes-{project}-{env}`)을 입력한 뒤 **Save**합니다. 또는 **Console** 버튼 / `transcodes console`로 로그인 후 step-up용 패스키·생체인증을 등록합니다.
 
-토큰은 `~/.transcodes/config.json`에 저장되며 모든 호스트 플러그인이 공유합니다. 비대화형: `transcodes set <token> -l <label>`.
+토큰은 `~/.transcodes/config.json`에 저장되며 모든 호스트 플러그인이 공유합니다. 브라우저에서 `transcodes login`으로 로그인하세요.
 
 ### 3. 플러그인 설치
 

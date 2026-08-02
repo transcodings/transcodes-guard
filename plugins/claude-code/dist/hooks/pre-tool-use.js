@@ -16,7 +16,7 @@ import {
   formatStepupRejectedReason,
   formatStepupRejectedSystemMessage,
   getGateBackend
-} from "../chunk-Y6C6VORA.js";
+} from "../chunk-7Q2BDY2K.js";
 
 // hooks/pre-tool-use.ts
 import { readFileSync } from "fs";
@@ -24,6 +24,12 @@ async function main() {
   const raw = readFileSync(0, "utf8");
   const input = claudeCodeAdapter.parsePreToolUseStdin(raw);
   const backend = getGateBackend();
+  if (!backend.hasToken()) {
+    process.exit(0);
+  }
+  if (!backend.isGuardEnabled()) {
+    process.exit(0);
+  }
   const decision = await backend.evaluatePreToolUse(input);
   switch (decision.kind) {
     case GATE_DECISION_KIND.PROCEED_UNGATED:

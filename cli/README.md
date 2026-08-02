@@ -1,61 +1,91 @@
-# @bigstrider/transcodes-cli
+# `@bigstrider/transcodes-cli`
 
-Token manager for the **transcodes-guard** plugins (Claude Code / Codex / Cursor / Antigravity).
+Human control plane for [transcodes-guard](https://github.com/transcodings/transcodes-guard).
+Installs host plugins, signs you in with a browser (`transcodes login`), and
+runs a small local dashboard. Plugins/hooks read the credential from
+`~/.transcodes/config.json`.
 
-The plugins and their hooks authenticate to the Transcodes backend with a member MCP JWT. This CLI is the safe way to store that token: you paste it into your terminal, **never into the agent chat** (which would leak it into the transcript).
+Permission checks default to **off**. Open the dashboard's **Permission** tab
+and enable them explicitly; disabling them makes hooks skip backend evaluation.
 
 ## Install
 
-One line — no need to have `npm` (or even Node) already. The script installs
-an LTS Node if it is missing, then puts `transcodes` on your PATH.
-
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
-```
+curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash
 
-```powershell
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
+irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
 ```
 
-> Windows: if script execution is blocked by policy, prefix it once (this only
-> affects the current session):
->
-> ```powershell
-> Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
-> ```
-
-Already have Node ≥ 20? The plain npm route still works everywhere:
-
-```bash
-# no install needed — opens the dashboard
-npx @bigstrider/transcodes-cli
-
-# or global
-npm install -g @bigstrider/transcodes-cli
-transcodes
-```
-
-Node ≥ 20 is required (the CLI and the guard hooks both run on Node); the
-bootstrap scripts above install it for you if needed.
+Or: `npm install -g @bigstrider/transcodes-cli` (Node ≥ 20).
 
 ## Commands
 
 | Command | What it does |
 |---------|--------------|
-| `transcodes` | Opens the local dashboard in the background (restarts daemon from this CLI binary; default port 3847; `--port N` / `--no-open`). Shell returns immediately. |
+| `transcodes` | Opens the local dashboard in the background (default port 3847; `--port N` / `--no-open`). |
 | `transcodes stop` | Stops the background dashboard daemon. |
-| `transcodes set <token> -l <label>` | Validates the JWT and saves it (label required) to `~/.transcodes/config.json` (dir `0700`, file `0600`), making it active. |
-| `transcodes tokens` | Lists all saved tokens; the active one is marked with `*`. |
-| `transcodes status` | Shows the active token source and its expiry. |
-| `transcodes console` | Opens auth settings (passkeys, TOTP) for the active token in your browser. |
-| `transcodes reset` | Deletes all saved tokens. |
-| `transcodes policy refresh` | Force-refreshes the org policy bundle cache (same as MCP `refresh_rules`). |
-| `transcodes version` | Prints the installed `@bigstrider/transcodes-cli` npm version (also `--version`, `-V`). |
-| `transcodes help` | Shows the full command list and usage. |
+| `transcodes login` | Browser sign-in; saves the issued member credential as active. |
+| `transcodes logout` | Removes the local credential (`reset` is an alias). |
+| `transcodes status` | Shows whether a local credential is active and its expiry. |
+| `transcodes console` | Opens auth settings (passkeys, TOTP) for the signed-in member. |
+| `transcodes install` | Guided plugin install, then open the dashboard (sign in there). |
+| `transcodes update` | Update installed plugins and this CLI. |
+| `transcodes persona` | Create, inspect, edit, and delete local Persona bundles. |
+| `transcodes version` | Prints the installed npm version. |
+| `transcodes sync init` | Create `.transcodes/` SoT (rules + skills) in the current project. |
+| `transcodes sync generate` | Generate Claude / Codex / Cursor / Antigravity configs from `.transcodes/`. |
+| `transcodes sync add` | Scaffold a rule or skill under `.transcodes/`. |
+| `transcodes help` | Full command list. |
 
-Command descriptions are defined once in `cli/src/commands.ts` (SSOT) and shared with the dashboard CLI tab.
+Command descriptions are defined once in `cli/src/commands/` (SSOT) and shared with the dashboard CLI tab.
+
+### Persona automation
+
+Persona sources are stored under `~/.transcodes/personas/<name>/`. The
+`/transcodes` command (or `$transcodes` in Codex) can interview the user and
+drive these JSON-friendly commands:
+
+```bash
+transcodes persona list
+transcodes persona create developer
+transcodes persona read --persona developer --kind agent
+transcodes persona save --persona developer --kind agent --content-file /tmp/instruction.md
+transcodes persona save --persona developer --kind rule --name security --content-file /tmp/security.md
+transcodes persona deploy --persona developer --project "/path/to/project" --targets claude,cursor
+transcodes persona deploy --persona developer --global
+```
+
+Run `transcodes persona help` for the complete command list.
+`persona save` stores Markdown as provided. The `/transcodes` agent workflow
+must follow its authoring and token rules before saving, but the CLI
+intentionally does not validate or block the content.
+`persona deploy` needs either an existing project folder plus target apps, or
+`--global` to apply globally on this device. Global application makes the
+Persona available in every project and session for the selected installed
+Claude, Cursor, and Antigravity apps. Use it when the user does not know which
+project or wants the Persona everywhere. The `/transcodes` agent workflow asks
+for confirmation first.
+The dashboard Persona panel remains available for manual review and Apply.
+
+### Project rules / skills sync
+
+Keep a single source of truth under `.transcodes/`, then generate per-tool files:
+
+```bash
+cd /path/to/your-project
+transcodes sync init
+# edit .transcodes/agents/agents.md, .transcodes/rules/*.md, .transcodes/skills/*/SKILL.md
+transcodes sync generate -f rules,skills --simulate-skills
+# omit -t → auto-detect installed Claude / Cursor / Codex / Antigravity (+ agentsmd)
+# or pin: -t claudecode,cursor,agentsmd
+```
+
+`transcodes sync` is a first-class CLI command under `cli/src/commands/transcodes/`
+(same style as `login` / `install`). The generate engine is
+`cli/src/commands/sync/`. Host-app detection for default targets is in
+`cli/src/commands/transcodes/host-apps.ts`.
 
 ### Dashboard
 
@@ -65,23 +95,18 @@ npx @bigstrider/transcodes-cli
 npx @bigstrider/transcodes-cli stop
 ```
 
-Starts a small localhost server (127.0.0.1 only) as a **background daemon**, opens your browser, and returns the shell immediately. Each `transcodes` run restarts the daemon from the CLI binary you just invoked (so a local `npm run build` is picked up). Stop it with `transcodes stop`.
-
-Multiple tokens are kept in `~/.transcodes/config.json` under `token_list`, each with a label; the active one is stored as `token`. Pid/log live under `~/.transcodes/state/dashboard.pid` and `dashboard.log`.
+Starts a localhost server (127.0.0.1 only) as a **background daemon**, opens
+your browser, and returns the shell immediately. Pid/log live under
+`~/.transcodes/state/dashboard.pid` and `dashboard.log`.
 
 Options:
 
 - `--port N` — prefer a specific port (default `3847`; increments if busy)
 - `--no-open` — do not open the browser automatically
 
-## Token precedence
+## Credential store
 
-The plugins resolve the token from a single source (see `@transcodes-guard/core/stepup` `resolveToken()`):
+Plugins resolve the credential from a single source (`resolveToken()`):
 
-1. `~/.transcodes/config.json` — written by this CLI, the only source of truth
+1. `~/.transcodes/config.json` — written by `transcodes login`
 2. none → the hook fail-safes (blocks danger commands, cannot start step-up)
-
-## Notes
-
-- **Windows security**: the `0600` mode is a POSIX concept and is largely ignored on Windows. The file still lives under your user profile (`C:\Users\<you>\.transcodes\`) and is user-scoped by default. A hardware-backed OS keychain is not yet implemented.
-- The token never passes through the agent chat — this CLI writes the file directly.

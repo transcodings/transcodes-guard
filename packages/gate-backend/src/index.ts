@@ -21,6 +21,7 @@ import {
   createStepupSession,
   evaluatePreToolUse,
   inspectStepupState,
+  isGuardEnabled,
   loadStepupConfig,
   pollStepupByCoordinate,
   pollStepupSession,
@@ -38,6 +39,7 @@ export const transcodesGateBackend: GateBackend = {
   // hook path — direct bindings
   evaluatePreToolUse,
   hasToken: () => Boolean(resolveToken().token),
+  isGuardEnabled,
 
   // server path: step-up session — config loaded internally
   createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),

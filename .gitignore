@@ -271,3 +271,8 @@ cdn-dist/
 # Private working documents (PRD / planning / research) — never committed.
 # Public docs (README assets etc.) stay tracked under docs/.
 _docs/
+
+
+
+
+outsource/

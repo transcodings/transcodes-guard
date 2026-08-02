@@ -1,6 +1,6 @@
 /**
  * `transcodes install` — one interactive flow that installs the host plugins,
- * saves a member token, then opens the dashboard.
+ * then opens the dashboard (sign-in happens there, or via `transcodes login`).
  *
  * The published CLI package ships only `dist/` (no plugin bundles), so this
  * command orchestrates the SAME mechanisms the README documents:
@@ -10,8 +10,8 @@
  * Before each plugin install it ensures the host CLI is on PATH (installs it
  * if missing). Node.js LTS (>= 20) is checked first.
  *
- * Nothing here duplicates the gate; it only wires hosts and delegates browser
- * authentication + token persistence to the shared `transcodes login` flow.
+ * Nothing here duplicates the gate; it only wires hosts. Authentication is
+ * left to the dashboard / `transcodes login`.
  */
 
 import { spawn } from 'node:child_process';
@@ -21,7 +21,6 @@ import path from 'node:path';
 import { createInterface, moveCursor } from 'node:readline';
 import { ensureDashboard } from './dashboard-lifecycle.js';
 import { readSavedLocale, setLocale, t } from './i18n.js';
-import { cmdLogin } from './login.js';
 import { CLI_PACKAGE_NAME, CLI_VERSION } from './version.js';
 
 const REPO_SLUG = 'transcodings/transcodes-guard';
@@ -49,7 +48,7 @@ type HostCliSpec = {
 };
 
 const PLATFORMS: readonly Platform[] = [
-  { id: 'claude', label: 'Claude Code' },
+  { id: 'claude', label: 'Claude' },
   { id: 'codex', label: 'ChatGPT (Codex)' },
   {
     id: 'cursor',
@@ -622,6 +621,7 @@ function renderMenu(): void {
   log('');
   log(t('platformTitle'));
   log(t('platformHint1'));
+  log(t('platformHint2'));
   log(installedAppsHint());
   log('');
   PLATFORMS.forEach((p, i) => {
@@ -690,6 +690,7 @@ function arrowSelect(checked: Set<PlatformId>): Promise<MenuChoice> {
       const lines: string[] = [];
       lines.push(t('platformTitle'));
       lines.push(t('platformHint1'));
+      lines.push(t('platformHint2'));
       lines.push(installedAppsHint());
       lines.push('');
       PLATFORMS.forEach((p, i) => {
@@ -933,21 +934,6 @@ function printSetupComplete(): void {
 }
 
 /**
- * Token setup. Returns true when a token was saved (dashboard should open),
- * false when the user should exit (no token yet).
- */
-async function tokenFlow(): Promise<boolean> {
-  log('');
-  try {
-    await cmdLogin([]);
-    return true;
-  } catch (error) {
-    log(`  ${error instanceof Error ? error.message : String(error)}`);
-    return false;
-  }
-}
-
-/**
  * First screen of interactive install: English / 한국어.
  * Arrow (or numbered) picker; persists choice to ~/.transcodes/locale.
  */
@@ -1032,7 +1018,6 @@ export async function cmdInstall(args: string[]): Promise<void> {
   log('');
 
   const selection = parseSelection(args);
-  let openDashboard = false;
 
   if (selection === 'interactive') {
     if (!isTty()) {
@@ -1093,15 +1078,9 @@ export async function cmdInstall(args: string[]): Promise<void> {
     clearScreen();
   }
 
-  openDashboard = await tokenFlow();
-
-  if (!openDashboard) {
-    process.exit(0);
-  }
-
   printSetupComplete();
-  await promptLine(t('pressEnterDashboard'));
   // Same as bare `transcodes` — background dashboard on 127.0.0.1.
+  // Sign-in is done in the dashboard (or later via `transcodes login`).
   await ensureDashboard({});
   process.exit(0);
 }

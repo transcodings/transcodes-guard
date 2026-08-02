@@ -13,12 +13,13 @@
  * side. Error classes are wrapped in `is*Error` predicates for the same reason.
  */
 import { registerToolDefinitions, } from '@transcodes-guard/core/contract';
-import { createStepupSession, evaluatePreToolUse, inspectStepupState, loadStepupConfig, pollStepupByCoordinate, pollStepupSession, pollStepupSessionWait, resolveToken, } from '@transcodes-guard/core/stepup';
+import { createStepupSession, evaluatePreToolUse, inspectStepupState, isGuardEnabled, loadStepupConfig, pollStepupByCoordinate, pollStepupSession, pollStepupSessionWait, resolveToken, } from '@transcodes-guard/core/stepup';
 import { assertRbacCoordinate, backendToolDefinitions, RbacCoordinateError, wrapProtectedTool, } from './mcp-tools/index.js';
 export const transcodesGateBackend = {
     // hook path — direct bindings
     evaluatePreToolUse,
     hasToken: () => Boolean(resolveToken().token),
+    isGuardEnabled,
     // server path: step-up session — config loaded internally
     createStepupSession: (args) => createStepupSession(loadStepupConfig(), args),
     pollStepupSession: (sid) => pollStepupSession(loadStepupConfig(), sid),

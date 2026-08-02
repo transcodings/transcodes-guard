@@ -11,6 +11,9 @@ export const denyByDefaultBackend = {
     hasToken() {
         return false;
     },
+    isGuardEnabled() {
+        return false;
+    },
     // server path — call-shaped methods throw
     createStepupSession() {
         return notInstalled();

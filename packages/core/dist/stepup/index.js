@@ -19,5 +19,5 @@ export { inspectStepupState, } from './inspector.js';
 export { parseMemberAccessToken, REQUIRED_AUDIENCE, } from './jwt.js';
 export { extractFailureMessage, } from './rbac-check.js';
 export { createConsoleBrowserSession, createStepupSession, pollStepupByCoordinate, pollStepupSession, pollStepupSessionWait, } from './session.js';
-export { clearTokenFile, readTokenFromFile, readTokenList, readTokenRecords, removeTokenFromFile, resolveToken, setActiveToken, setTokenLabel, transcodesConfigDir, transcodesConfigFile, writeTokenToFile, } from './token-store.js';
+export { clearTokenFile, isGuardEnabled, readTokenFromFile, readTokenList, readTokenRecords, removeTokenFromFile, resolveToken, setActiveToken, setGuardEnabled, setTokenLabel, transcodesConfigDir, transcodesConfigFile, writeTokenToFile, } from './token-store.js';
 //# sourceMappingURL=index.js.map

@@ -39,6 +39,18 @@ async function main(): Promise<void> {
   const input = cursorAdapter.parsePreToolUseStdin(raw);
 
   const backend = getGateBackend();
+  if (!backend.hasToken()) {
+    process.stdout.write(
+      cursorAdapter.emitPreToolUse({ kind: 'allow', reason: '' }),
+    );
+    process.exit(0);
+  }
+  if (!backend.isGuardEnabled()) {
+    process.stdout.write(
+      cursorAdapter.emitPreToolUse({ kind: 'allow', reason: '' }),
+    );
+    process.exit(0);
+  }
   const decision = await backend.evaluatePreToolUse(input);
 
   switch (decision.kind) {

@@ -23,6 +23,8 @@ export interface GateBackend {
     evaluatePreToolUse(input: ToolCallInput): Promise<GateDecision>;
     /** Whether a Transcodes token is resolvable (session-start no-token notice). */
     hasToken(): boolean;
+    /** Whether local PreToolUse permission evaluation is enabled. */
+    isGuardEnabled(): boolean;
     createStepupSession(args: CreateStepupArgs): Promise<CreatedStepupSession>;
     pollStepupSession(sid: string): Promise<PollStepupResult>;
     /** Single poll by MAT + resource/action coordinate. */

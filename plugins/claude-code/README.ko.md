@@ -34,7 +34,7 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 # irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
-비대화형 대안(같은 저장소): `transcodes set <token> -l <label>`.
+브라우저에서 `transcodes login`으로 로그인하세요.
 
 토큰이 없으면 hook은 여전히 위험 명령을 **차단**하지만 스텝업 세션을 시작할 수 없습니다 — 차단 사유에 토큰을 제공하라는 안내가 표시됩니다.
 
@@ -73,7 +73,7 @@ Claude Code는 **두 가지** 트랜스포트를 모두 제공하는 유일한 �
 
 ## 환경 변수
 
-토큰 해석: 토큰은 오직 `~/.transcodes/config.json`(`transcodes` 대시보드 또는 `transcodes set`)에서만 읽습니다.
+토큰 해석: 토큰은 오직 `~/.transcodes/config.json`(`transcodes login`)에서만 읽습니다.
 
 | 변수 | 필수 여부 | 용도 |
 |---|---|---|

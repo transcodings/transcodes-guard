@@ -100,7 +100,7 @@ Fallback if you already have Node ≥ 20: `npm install -g @bigstrider/transcodes
 1. In the [Transcodes Console](https://app.transcodes.io), create a project, set up an auth cluster and member, then issue an access token (member MCP JWT / MAT) from the member detail page. The dashboard **Getting Started** guide (**Quick Demo** + **Steps**) walks through what to do after install.
 2. In the dashboard **Tokens** tab, paste the token, set a required label (e.g. `transcodes-{project}-{env}`), and **Save**. Or click **Console** / run `transcodes console` to sign in and register a passkey/biometrics for step-up.
 
-The token is stored at `~/.transcodes/config.json` and shared by every host plugin. Non-interactive: `transcodes set <token> -l <label>`.
+The token is stored at `~/.transcodes/config.json` and shared by every host plugin. Sign in with `transcodes login`.
 
 ### 3. Install a host plugin
 
