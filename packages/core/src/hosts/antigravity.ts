@@ -21,10 +21,9 @@
  *    similar UX intent but opposite verb. Antigravity's actual UX is
  *    pending e2e validation — see antigravity-e2e-findings.md #4.
  *  - No SessionStart / UserPromptSubmit hook events. PreInvocation (fires
- *    before every model call) takes both roles: `invocationNum===1` is the
- *    per-turn analogue of SessionStart, and tailing `transcriptPath` for
- *    user messages matching a completion pattern recovers the
- *    UserPromptSubmit detection.
+ *    before every model call) takes both roles: `invocationNum===0` is the
+ *    first-call analogue of SessionStart, and tailing `transcriptPath`
+ *    recovers current prompt telemetry.
  *
  * Tool-name normalization: Antigravity's shell tool is `run_command` (not
  * `Bash`), with args `CommandLine` / `Cwd` / `WaitMsBeforeAsync` instead of
@@ -286,10 +285,10 @@ export const antigravityAdapter: HookAdapter = {
 
   emitSessionStartContext(_additionalContext: string): string {
     // Antigravity has no SessionStart hook event. The "carry-over" notice
-    // path is folded into PreInvocation (invocationNum=1). Reaching this
+    // path is folded into PreInvocation (invocationNum=0). Reaching this
     // stub indicates a wiring bug in the calling hook entry script.
     throw new Error(
-      'Antigravity has no SessionStart hook event. Use PreInvocation with invocationNum=1.',
+      'Antigravity has no SessionStart hook event. Use PreInvocation with invocationNum=0.',
     );
   },
 

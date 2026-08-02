@@ -1,10 +1,21 @@
 #!/usr/bin/env node
-import "../chunk-3ZLIRSV5.js";
+import {
+  capturePrompt,
+  claudeCodeAdapter
+} from "../chunk-25Z2NLFB.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";
 try {
-  readFileSync(0, "utf8");
+  const input = claudeCodeAdapter.parseUserPromptSubmitStdin(
+    readFileSync(0, "utf8")
+  );
+  capturePrompt({
+    host: "claude",
+    sessionId: input.sessionId,
+    promptId: input.promptId,
+    prompt: input.prompt
+  });
 } catch {
 }
 process.exit(0);

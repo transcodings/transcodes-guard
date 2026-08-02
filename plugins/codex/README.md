@@ -49,7 +49,7 @@ Without a token, the hook still **denies** danger commands but cannot start a st
 | `PreToolUse` | Two-layer check on Bash (regex patterns + `git ls-files` semantic on `rm -rf`) plus exact-match tool-rules on MCP calls. Denies and triggers a step-up MFA flow when matched. |
 | MCP server (`transcodes-guard`) | **Diagnostic / simulation** tools (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`); **step-up lifecycle** tools (`create_stepup_session`, `poll_stepup_session_wait`); **Transcodes admin** tools (member / organization / RBAC / membership / passcode / auth-device / audit / project management). |
 | `SessionStart` hook | Injects a carry-over notice if a step-up session survived a session boundary. Static protocol primer lives in [`AGENTS.md`](./AGENTS.md). |
-| `UserPromptSubmit` hook | Detects user "auth done" prompts (`"완료"`, `"done"`, …) and surfaces the pending `sid` so the agent can poll. |
+| `UserPromptSubmit` hook | Caches the current prompt by Codex `session_id` + `turn_id` so the next gated tool call can send a short current-turn `tasks` summary. Silent and fail-open. |
 | `Stop` hook | No-op — drains stdin and exits silently. Step-up status is backend SSOT, so there is nothing local to reap or remind about; agents recover via the PreToolUse deny + `tc_poll_stepup_session_wait`. |
 
 ## `$`-mention: `$transcodes`

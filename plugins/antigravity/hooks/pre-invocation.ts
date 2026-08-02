@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 /**
- * Antigravity 2.0 PreInvocation hook — SessionStart-equivalent primer.
+ * Antigravity 2.0 PreInvocation hook — primer + prompt capture.
  *
  * Antigravity has no SessionStart or UserPromptSubmit hook events
  * (PreToolUse / PostToolUse / PreInvocation / PostInvocation / Stop is the
  * complete event list). PreInvocation fires before every model call; on the
- * first call (`invocationNum <= 1`, with a defensive fallback for a
- * missing/non-numeric field) it injects a static step-up MFA primer plus the
- * no-token notice when no token is configured.
+ * first call (`invocationNum === 0`) it injects a static step-up MFA primer plus
+ * the no-token notice when no token is configured.
  *
  * Guard v3: step-up status lives in the backend (SSOT), so there is no
  * carry-over/pending state to surface — and no user-"done" bridge, because the
@@ -44,7 +43,9 @@ async function main(): Promise<void> {
 
   const raw = readFileSync(0, 'utf8');
 
-  let input;
+  let input: ReturnType<
+    NonNullable<typeof antigravityAdapter.parsePreInvocationStdin>
+  >;
   try {
     input = antigravityAdapter.parsePreInvocationStdin(raw);
   } catch {
@@ -55,7 +56,7 @@ async function main(): Promise<void> {
   const injectSteps: InjectStep[] = [];
 
   // SessionStart-equivalent: primer + no-token notice on first invocation only.
-  if (input.invocationNum <= 1) {
+  if (input.invocationNum === 0) {
     injectSteps.push({ ephemeralMessage: primerMessage() });
     if (!backend.hasToken()) {
       injectSteps.push({ ephemeralMessage: formatNoTokenSessionNotice() });

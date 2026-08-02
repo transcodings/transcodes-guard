@@ -21,6 +21,7 @@ import { copyFileSync, existsSync, mkdirSync, renameSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 const HOST_ENV_VAR = 'TRANSCODES_GUARD_HOST';
+const PLUGIN_DATA_ENV = 'PLUGIN_DATA';
 const CLAUDE_PLUGIN_DATA_ENV = 'CLAUDE_PLUGIN_DATA';
 export function detectHost() {
     const raw = process.env[HOST_ENV_VAR]?.trim();
@@ -83,6 +84,23 @@ export function dataDir() {
  */
 export function cacheDir() {
     return stateDir();
+}
+/**
+ * Short-lived user-prompt telemetry cache.
+ *
+ * This is deliberately separate from trusted gate state: installed plugins
+ * should use the host-provided writable data directory, while source/dev runs
+ * retain a stable fallback that users can inspect and wipe independently.
+ */
+export function promptCacheDir() {
+    const pluginData = process.env[PLUGIN_DATA_ENV]?.trim();
+    if (pluginData)
+        return path.join(pluginData, 'prompt-cache');
+    const compatiblePluginData = process.env[CLAUDE_PLUGIN_DATA_ENV]?.trim();
+    if (compatiblePluginData) {
+        return path.join(compatiblePluginData, 'prompt-cache');
+    }
+    return path.join(transcodesDir(), 'cache', 'prompts');
 }
 /**
  * One-shot migration of a single file from any historical location into

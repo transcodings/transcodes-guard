@@ -49,7 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 | `PreToolUse` | Bash에 대해 2단계 검사(정규식 패턴 + `rm -rf`에 대한 `git ls-files` 의미 검사) + MCP 호출에 대한 정확 일치 tool-rule. 일치 시 차단하고 스텝업 MFA 흐름을 시작합니다. |
 | MCP 서버 (`transcodes-guard`) | **진단 / 시뮬레이션** 도구(`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), **스텝업 수명주기** 도구(`create_stepup_session`, `poll_stepup_session_wait`), **Transcodes 관리** 도구(멤버 / 조직 / RBAC / 멤버십 / passcode / auth-device / 감사 / 프로젝트 관리). |
 | `SessionStart` hook | 스텝업 세션이 세션 경계를 넘어 살아남았으면 carry-over 알림을 주입합니다. 정적 프로토콜 primer는 [`AGENTS.md`](./AGENTS.md)에 있습니다. |
-| `UserPromptSubmit` hook | 사용자의 "인증 완료" 프롬프트(`"완료"`, `"done"`, …)를 감지하고 대기 중인 `sid`를 노출해 에이전트가 폴링하게 합니다. |
+| `UserPromptSubmit` hook | Codex의 `session_id` + `turn_id`로 현재 프롬프트를 캐시하여 다음 게이트 대상 tool 호출이 현재 턴의 짧은 `tasks` 요약을 보낼 수 있게 합니다. 출력 없이 fail-open으로 동작합니다. |
 | `Stop` hook | no-op — stdin만 비우고 조용히 종료합니다. 스텝업 상태는 백엔드 SSOT라 회수하거나 상기시킬 로컬 상태가 없으며, 에이전트는 PreToolUse deny + `tc_poll_stepup_session_wait`로 복구합니다. |
 
 ## `$` 멘션: `$transcodes`

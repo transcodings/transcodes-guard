@@ -82,7 +82,7 @@ Config file path: `~/.cursor/cli-config.json` (global install) or `.cursor/cli.j
 | `beforeShellExecution` | Two-layer check on Shell commands (regex patterns + `git ls-files` semantic on `rm -rf`). Denies with `{ permission: "deny", user_message, agent_message }` and triggers step-up MFA when matched. |
 | `beforeMCPExecution` | Exact-match tool-rules (system + policy-bundle) against MCP tool calls. Served by the same hook binary as `beforeShellExecution`; the classifier accepts the `Shell` tool name alongside `Bash` / `run_command`. |
 | `sessionStart` | Emits `{ additional_context }` when no MCP token is configured. |
-| `beforeSubmitPrompt` | Inert — the client keeps no step-up state to reconcile. Cursor has no `additional_context` channel, so it just emits `{ continue: true }`. Step-up status is backend SSOT; use `tc_poll_stepup_session_wait`, not prompt-side ack. |
+| `beforeSubmitPrompt` | Caches the current prompt locally for the next gated tool call, then emits the mandatory `{ continue: true }`. Cache failure never blocks submission. |
 | `stop` | No-op — drains stdin and exits silently. Step-up status is backend SSOT, so there is nothing local to reap or remind about; agents recover via the PreToolUse deny + `tc_poll_stepup_session_wait`. |
 
 The two gate hooks (`beforeShellExecution` / `beforeMCPExecution`) are declared `failClosed: true`. Cursor's default is fail-open — a hook crash, timeout, or invalid JSON would let the action through — so the gate explicitly blocks the action when the hook itself fails, matching Cursor's recommendation for security-critical hooks. The lifecycle hooks (`sessionStart` / `beforeSubmitPrompt` / `stop`) stay fail-open: they observe rather than block, so a failure must never interrupt normal work.

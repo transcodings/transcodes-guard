@@ -298,9 +298,9 @@ On a gated call the hook makes exactly one outbound request — `POST /guard/eva
 
 - the host's hook payload verbatim (tool name and arguments) plus the working directory;
 - the host's own identifiers for the session, the turn, and the tool call, and the model driving the agent;
-- **`tasks`** — a one-line summary of what the agent was working on, built locally from the transcript the host points the hook at. It is the host's session title and an excerpt of your most recent instruction, each clipped to 300 characters.
+- **`tasks`** — a one-line summary of the current user prompt, clipped to 300 characters. The prompt hook's current-turn cache is preferred; the host transcript is a best-effort fallback and may add the host's session title.
 
-The transcript file itself never leaves the machine; only that summary does. Note what this implies: **an excerpt of your prompts is transmitted on every gated call**, so treat chat prompts the way you treat anything else you send to the backend — secrets pasted into a prompt can travel with it. Nothing is written to disk on the client (see `inspect_stepup_state`, whose empty answer is the answer).
+The transcript file and raw cache files never leave the machine; only that summary does. Note what this implies: **an excerpt of your prompts is transmitted on every gated call**, so treat chat prompts the way you treat anything else you send to the backend — secrets pasted into a prompt can travel with it. To join prompt and tool events, the client keeps at most four raw prompts per session for 24 hours (32 KiB each, 256 session files globally) in the host's `PLUGIN_DATA`/`CLAUDE_PLUGIN_DATA` directory, or `~/.transcodes/cache/prompts` for source/dev runs. The directory is mode `0700`, files are `0600`, and session ids are hashed into filenames. This telemetry cache is separate from trusted gate state; `inspect_stepup_state` still reports the latter only.
 
 ## Community & Support
 

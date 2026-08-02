@@ -3,9 +3,9 @@
  *
  * Record shapes come from real transcripts, not from a spec — no host ever
  * documented its transcript format for us. Claude Code and Codex were read off
- * local files; the Antigravity shape is the one this repo already duck-typed
- * for the retired user-"done" bridge. Cursor remains unmeasured, which is what
- * the generic fallback exists for.
+ * local files; the Antigravity CLI shape was measured from an installed client
+ * running language server 1.1.9. Cursor remains unmeasured, which is what the
+ * generic fallback exists for.
  *
  * The governing rule is that failure degrades to no summary. A transcript is
  * worth strictly less than the gate it rides on, so nothing here may throw.
@@ -62,6 +62,27 @@ describe('summarizeTasks — per-host record shapes', () => {
       { role: 'assistant', content: 'on it' },
     );
     assert.equal(summarizeTasks(path), 'deploy to staging');
+  });
+
+  it('reads the measured Antigravity CLI USER_INPUT envelope', () => {
+    const file = transcript(
+      {
+        step_index: 0,
+        source: 'USER_EXPLICIT',
+        type: 'USER_INPUT',
+        status: 'DONE',
+        content:
+          '<USER_REQUEST>\n현재 Antigravity 요청\n</USER_REQUEST>\n<ADDITIONAL_METADATA>ignore me</ADDITIONAL_METADATA>',
+      },
+      {
+        step_index: 1,
+        source: 'SYSTEM_SDK',
+        type: 'EPHEMERAL_MESSAGE',
+        status: 'DONE',
+        content: 'system text must not replace the prompt',
+      },
+    );
+    assert.equal(summarizeTasks(file), '현재 Antigravity 요청');
   });
 
   it('reads a Claude Code subagent transcript, which carries no title records', () => {
