@@ -220,6 +220,41 @@ async function copyIfExists(source: string, target: string): Promise<void> {
   });
 }
 
+async function stagePersonaInstruction(
+  source: string,
+  target: string,
+): Promise<void> {
+  let content: string;
+  try {
+    content = await readFile(source, 'utf-8');
+  } catch {
+    return;
+  }
+
+  const body = sanitizePersonaContent('agent', content).replace(/\s+$/, '');
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, `${body}\n`, 'utf-8');
+}
+
+async function stagePersonaSkills(
+  source: string,
+  target: string,
+): Promise<void> {
+  await copyIfExists(source, target);
+  for (const name of await readdirSafe(target)) {
+    const skillPath = path.join(target, name, SKILL_FILE_NAME);
+    if (!(await isFile(skillPath))) continue;
+    const content = await readFile(skillPath, 'utf-8');
+    const sanitized = sanitizePersonaContent('skill', content);
+    const synchronized = synchronizeSkillName(sanitized, name);
+    await writeFile(
+      skillPath,
+      `${synchronized.replace(/\s+$/, '')}\n`,
+      'utf-8',
+    );
+  }
+}
+
 async function ensurePersonaStorage(): Promise<void> {
   await mkdir(personasRoot(), { recursive: true });
 }
@@ -227,7 +262,30 @@ async function ensurePersonaStorage(): Promise<void> {
 export async function createPersona(name: string): Promise<string> {
   await ensurePersonaStorage();
   const persona = assertPersonaId(name);
-  await mkdir(personaDir(persona), { recursive: false });
+  const bundleDir = personaDir(persona);
+  try {
+    await mkdir(bundleDir, { recursive: false });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      throw new Error(`Persona "${persona}" already exists.`);
+    }
+    throw error;
+  }
+
+  try {
+    const instructionPath = path.join(
+      bundleDir,
+      PERSONA_INSTRUCTION_DIR_NAME,
+      RULESYNC_OVERVIEW_FILE_NAME,
+    );
+    const instruction = `${starterTemplate('agent', '').replace(/\s+$/, '')}\n`;
+    await mkdir(path.dirname(instructionPath), { recursive: true });
+    await writeFile(instructionPath, instruction, 'utf-8');
+  } catch (error) {
+    await rm(bundleDir, { recursive: true, force: true });
+    throw error;
+  }
+
   return persona;
 }
 
@@ -356,7 +414,7 @@ export async function readPersonaFile(params: {
       relativePath,
       absolutePath,
       exists: true,
-      content: stripLegacyTargetsFrontmatter(content),
+      content: sanitizePersonaContent(params.kind, content),
     };
   } catch {
     return {
@@ -368,6 +426,14 @@ export async function readPersonaFile(params: {
       content: starterTemplate(params.kind, name),
     };
   }
+}
+
+/** Keep Rulesync-only metadata out of user-facing Persona instructions. */
+function stripLeadingFrontmatter(content: string): string {
+  if (!content.startsWith('---')) return content;
+  const end = content.indexOf('\n---', 3);
+  if (end === -1) return content;
+  return content.slice(end + 4).replace(/^(?:\r?\n)+/, '');
 }
 
 /** Remove deprecated per-file `targets:` from YAML frontmatter (Apply -t is SSOT). */
@@ -384,12 +450,33 @@ function stripLegacyTargetsFrontmatter(content: string): string {
   return cleaned === fm ? content : cleaned + body;
 }
 
+function sanitizePersonaContent(kind: PersonaKind, content: string): string {
+  return kind === 'agent'
+    ? stripLeadingFrontmatter(content)
+    : stripLegacyTargetsFrontmatter(content);
+}
+
+/** Keep the Skill folder name and required frontmatter identity in sync. */
+function synchronizeSkillName(content: string, name: string): string {
+  if (!content.startsWith('---')) return content;
+  const end = content.indexOf('\n---', 3);
+  if (end === -1) return content;
+
+  const frontmatter = content.slice(0, end + 4);
+  const body = content.slice(end + 4);
+  const nameLine = /^name\s*:.*$/m;
+  const synchronized = nameLine.test(frontmatter)
+    ? frontmatter.replace(nameLine, `name: ${name}`)
+    : frontmatter.replace(/^---(?:\r?\n)?/, `---\nname: ${name}\n`);
+  return synchronized + body;
+}
+
 function starterTemplate(kind: PersonaKind, name: string): string {
   const scaffold = createFeatureScaffold({
     feature: kind === 'skill' ? 'skill' : 'rule',
     name: kind === 'agent' ? 'agents' : name,
   });
-  return scaffold.content;
+  return sanitizePersonaContent(kind, scaffold.content);
 }
 
 export async function savePersonaFile(params: {
@@ -412,7 +499,10 @@ export async function savePersonaFile(params: {
     personaBundleRelativePath(params.kind, name),
   );
 
-  const content = `${params.content.replace(/\s+$/, '')}\n`;
+  const sanitized = sanitizePersonaContent(params.kind, params.content);
+  const synchronized =
+    params.kind === 'skill' ? synchronizeSkillName(sanitized, name) : sanitized;
+  const content = `${synchronized.replace(/\s+$/, '')}\n`;
   await mkdir(path.dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, content, 'utf-8');
   await writeLastRoot(root);
@@ -490,7 +580,7 @@ export async function deployPersona(params?: {
   const stagingSot = path.join(stagingRoot, RULESYNC_RELATIVE_DIR_PATH);
   await mkdir(stagingSot, { recursive: true });
   await Promise.all([
-    copyIfExists(
+    stagePersonaInstruction(
       path.join(
         listing.personaDir,
         PERSONA_INSTRUCTION_DIR_NAME,
@@ -506,7 +596,7 @@ export async function deployPersona(params?: {
       path.join(listing.personaDir, 'rules'),
       path.join(stagingRoot, RULESYNC_RULES_RELATIVE_DIR_PATH),
     ),
-    copyIfExists(
+    stagePersonaSkills(
       path.join(listing.personaDir, 'skills'),
       path.join(stagingRoot, RULESYNC_SKILLS_RELATIVE_DIR_PATH),
     ),

@@ -22,6 +22,7 @@ import {
   fileExists,
   filterOutPathsInGitIgnoredDirectories,
   findFilesByGlobs,
+  readFileContent,
 } from '../../utils/file.js';
 import type { Logger } from '../../utils/logger.js';
 import { AgentsmdSkill } from '../skills/agentsmd-skill.js';
@@ -167,7 +168,10 @@ type ToolRuleFactory = {
         rootRule: ToolRule;
         content: string;
       }): ToolRule[];
-      getMirrorDeletionGlobs(params: { outputRoot: string }): {
+      getMirrorDeletionGlobs(params: {
+        outputRoot: string;
+        global?: boolean;
+      }): {
         primaryGlob: string;
         mirrorGlob: string;
       };
@@ -569,7 +573,7 @@ export class RulesProcessor extends FeatureProcessor {
     rootRule.setFileContent(newContent);
 
     const rootMirror = factory.class.getRootMirror?.();
-    if (rootMirror && !this.global) {
+    if (rootMirror) {
       toolRules.push(
         ...rootMirror.getMirrorFiles({
           outputRoot: this.outputRoot,
@@ -1009,10 +1013,23 @@ As this project's AI coding tool, you must follow the additional conventions bel
       RULESYNC_OVERVIEW_FILE_NAME,
     );
     if (await fileExists(agentsRootAbs)) {
-      const agentsRule = await RulesyncRule.fromFile({
+      const agentsContent = await readFileContent(agentsRootAbs);
+      const parsedAgentsRule = agentsContent.startsWith('---')
+        ? await RulesyncRule.fromFile({
+            outputRoot: this.inputRoot,
+            relativeDirPath: RULESYNC_AGENTS_RELATIVE_DIR_PATH,
+            relativeFilePath: RULESYNC_OVERVIEW_FILE_NAME,
+          })
+        : undefined;
+      const agentsRule = new RulesyncRule({
         outputRoot: this.inputRoot,
         relativeDirPath: RULESYNC_AGENTS_RELATIVE_DIR_PATH,
         relativeFilePath: RULESYNC_OVERVIEW_FILE_NAME,
+        frontmatter: {
+          ...parsedAgentsRule?.getFrontmatter(),
+          root: true,
+        },
+        body: parsedAgentsRule?.getBody() ?? agentsContent,
       });
       rulesyncRules = [
         agentsRule,
@@ -1040,7 +1057,7 @@ As this project's AI coding tool, you must follow the additional conventions bel
 
     if (targetedRootRules.length === 0 && rulesyncRules.length > 0) {
       this.logger.warn(
-        `No root rulesync rule file found for target '${this.toolTarget}'. Consider adding 'root: true' to ${join(RULESYNC_AGENTS_RELATIVE_DIR_PATH, RULESYNC_OVERVIEW_FILE_NAME)}.`,
+        `No Instruction file found for target '${this.toolTarget}'. Add ${join(RULESYNC_AGENTS_RELATIVE_DIR_PATH, RULESYNC_OVERVIEW_FILE_NAME)}.`,
       );
     }
 
@@ -1241,11 +1258,12 @@ As this project's AI coding tool, you must follow the additional conventions bel
 
       const rootMirrorDeletionRules = await (async () => {
         const rootMirror = factory.class.getRootMirror?.();
-        if (!forDeletion || this.global || !rootMirror) {
+        if (!forDeletion || !rootMirror) {
           return [];
         }
         const { primaryGlob, mirrorGlob } = rootMirror.getMirrorDeletionGlobs({
           outputRoot: this.outputRoot,
+          global: this.global,
         });
         const primaryPaths = await findFilesByGlobs(primaryGlob);
         if (primaryPaths.length === 0) {

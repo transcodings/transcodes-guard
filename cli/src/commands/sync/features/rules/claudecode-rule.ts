@@ -2,6 +2,7 @@ import { join } from 'node:path';
 
 import { z } from 'zod/mini';
 
+import { AGENTSMD_RULE_FILE_NAME } from '../../constants/agentsmd-paths.js';
 import {
   CLAUDECODE_DIR,
   CLAUDECODE_RULE_FILE_NAME,
@@ -15,6 +16,7 @@ import {
   parseFrontmatter,
   stringifyFrontmatter,
 } from '../../utils/frontmatter.js';
+import { AgentsMdRule } from './agentsmd-rule.js';
 import { RulesyncRule, type RulesyncRuleFrontmatter } from './rulesync-rule.js';
 import {
   buildToolPath,
@@ -26,6 +28,9 @@ import {
   type ToolRuleSettablePaths,
   type ToolRuleSettablePathsGlobal,
 } from './tool-rule.js';
+
+/** Claude Code import directive — keep AGENTS.md as the shared instruction body. */
+const CLAUDECODE_AGENTS_IMPORT = `@${AGENTSMD_RULE_FILE_NAME}\n`;
 
 /**
  * Frontmatter schema for Claude Code modular rules
@@ -42,6 +47,8 @@ export type ClaudecodeRuleFrontmatter = z.infer<
 export type ClaudecodeRuleParams = Omit<ToolRuleParams, 'fileContent'> & {
   frontmatter: ClaudecodeRuleFrontmatter;
   body: string;
+  /** Full Instruction body written to AGENTS.md when root CLAUDE.md only imports it. */
+  agentsBody?: string;
 };
 
 export type ClaudecodeRuleSettablePaths = Omit<
@@ -70,14 +77,17 @@ export type ClaudecodeRuleSettablePathsGlobal = ToolRuleSettablePathsGlobal;
  * Supports the Claude Code modular rules system.
  *
  * Modular rules format:
- * - {project}/CLAUDE.md (root: true)
- * - {project}/.claude/rules/*.md (root: false, with optional `paths` frontmatter)
+ * - {project}/AGENTS.md (shared Instruction body)
+ * - {project}/CLAUDE.md → `@AGENTS.md` import (root: true)
+ * - {project}/.claude/rules/*.md (root: false; no path/glob applicability)
  *
  * @see https://code.claude.com/docs/en/memory#modular-rules-with-clauderules
+ * @see https://code.claude.com/docs/en/memory#agents-md
  */
 export class ClaudecodeRule extends ToolRule {
   private readonly frontmatter: ClaudecodeRuleFrontmatter;
   private readonly body: string;
+  private readonly agentsBody: string;
 
   static getSettablePaths({
     global,
@@ -125,7 +135,12 @@ export class ClaudecodeRule extends ToolRule {
     };
   }
 
-  constructor({ frontmatter, body, ...rest }: ClaudecodeRuleParams) {
+  constructor({
+    frontmatter,
+    body,
+    agentsBody,
+    ...rest
+  }: ClaudecodeRuleParams) {
     // Validate frontmatter before calling super
     if (rest.validate) {
       const result = ClaudecodeRuleFrontmatterSchema.safeParse(frontmatter);
@@ -146,6 +161,65 @@ export class ClaudecodeRule extends ToolRule {
 
     this.frontmatter = frontmatter;
     this.body = body;
+    this.agentsBody = agentsBody ?? body;
+  }
+
+  getAgentsBody(): string {
+    return this.agentsBody;
+  }
+
+  /**
+   * Write the shared Instruction to AGENTS.md next to CLAUDE.md.
+   * CLAUDE.md itself only contains `@AGENTS.md`.
+   */
+  static getRootMirror() {
+    return {
+      getMirrorFiles({
+        outputRoot,
+        rootRule,
+      }: {
+        outputRoot: string;
+        rootRule: ToolRule;
+        content: string;
+      }): ToolRule[] {
+        const agentsBody =
+          rootRule instanceof ClaudecodeRule
+            ? rootRule.getAgentsBody()
+            : rootRule.getFileContent();
+        const normalized = agentsBody.replace(/\s+$/, '');
+        return [
+          new AgentsMdRule({
+            outputRoot,
+            relativeDirPath: rootRule.getRelativeDirPath(),
+            relativeFilePath: AGENTSMD_RULE_FILE_NAME,
+            fileContent: normalized ? `${normalized}\n` : '\n',
+            validate: false,
+            root: rootRule.getRelativeDirPath() === '.',
+          }),
+        ];
+      },
+      getMirrorDeletionGlobs({
+        outputRoot,
+        global = false,
+      }: {
+        outputRoot: string;
+        global?: boolean;
+      }) {
+        const paths = ClaudecodeRule.getSettablePaths({ global });
+        return {
+          primaryGlob: join(
+            outputRoot,
+            paths.root.relativeDirPath,
+            paths.root.relativeFilePath,
+          ),
+          mirrorGlob: join(
+            outputRoot,
+            paths.root.relativeDirPath,
+            AGENTSMD_RULE_FILE_NAME,
+          ),
+        };
+      },
+    };
   }
 
   private static generateFileContent(
@@ -174,13 +248,30 @@ export class ClaudecodeRule extends ToolRule {
       const fileContent = await readFileContent(
         join(outputRoot, rootDirPath, paths.root.relativeFilePath),
       );
+      const raw = fileContent.trim();
+      const isAgentsImport =
+        raw === `@${AGENTSMD_RULE_FILE_NAME}` ||
+        raw === CLAUDECODE_AGENTS_IMPORT.trim();
+      let agentsBody = raw;
+      if (isAgentsImport) {
+        try {
+          agentsBody = (
+            await readFileContent(
+              join(outputRoot, rootDirPath, AGENTSMD_RULE_FILE_NAME),
+            )
+          ).trim();
+        } catch {
+          // Keep the import text when AGENTS.md is missing.
+        }
+      }
 
       return new ClaudecodeRule({
         outputRoot,
         relativeDirPath: rootDirPath,
         relativeFilePath: paths.root.relativeFilePath,
         frontmatter: {},
-        body: fileContent.trim(),
+        body: isAgentsImport ? CLAUDECODE_AGENTS_IMPORT : raw,
+        agentsBody,
         validate,
         root: true,
       });
@@ -247,23 +338,18 @@ export class ClaudecodeRule extends ToolRule {
     const root = rulesyncFrontmatter.root ?? false;
     const paths = ClaudecodeRule.getSettablePaths({ global });
 
-    // Convert globs to paths format
-    // claudecode.paths takes precedence over globs
-    const claudecodePaths = rulesyncFrontmatter.claudecode?.paths;
-    const globs = rulesyncFrontmatter.globs;
-    const pathsValue = claudecodePaths ?? (globs?.length ? globs : undefined);
+    // Claude rules are always loaded without path/glob applicability.
+    // Keep SSOT globs available for targets that support scoped rules.
+    const claudecodeFrontmatter: ClaudecodeRuleFrontmatter = {};
 
-    const claudecodeFrontmatter: ClaudecodeRuleFrontmatter = {
-      paths: root ? undefined : pathsValue,
-    };
-
-    const body = rulesyncRule.getBody();
+    const agentsBody = rulesyncRule.getBody();
 
     if (root) {
       return new ClaudecodeRule({
         outputRoot,
         frontmatter: claudecodeFrontmatter,
-        body,
+        body: CLAUDECODE_AGENTS_IMPORT,
+        agentsBody,
         relativeDirPath: paths.root.relativeDirPath,
         relativeFilePath: paths.root.relativeFilePath,
         validate,
@@ -280,7 +366,7 @@ export class ClaudecodeRule extends ToolRule {
     return new ClaudecodeRule({
       outputRoot,
       frontmatter: claudecodeFrontmatter,
-      body,
+      body: agentsBody,
       relativeDirPath: paths.nonRoot.relativeDirPath,
       relativeFilePath: rulesyncRule.getRelativeFilePath(),
       validate,
@@ -310,7 +396,7 @@ export class ClaudecodeRule extends ToolRule {
     return new RulesyncRule({
       outputRoot: this.getOutputRoot(),
       frontmatter: rulesyncFrontmatter,
-      body: this.body,
+      body: this.isRoot() ? this.agentsBody : this.body,
       relativeDirPath: RULESYNC_RULES_RELATIVE_DIR_PATH,
       relativeFilePath: this.getRelativeFilePath(),
       validate: true,

@@ -2805,6 +2805,45 @@ function dashboardHtml(): string {
       text-decoration: none;
     }
     .guide-footer-line a:hover { text-decoration: underline; }
+    .toast-host {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      max-width: min(360px, calc(100vw - 32px));
+      pointer-events: none;
+    }
+    .toast-item {
+      pointer-events: auto;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: var(--text-sm);
+      font-weight: 500;
+      line-height: 1.4;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+      opacity: 0;
+      transform: translateX(12px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      word-break: break-word;
+    }
+    .toast-item.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .toast-item--success {
+      background: #effaf2;
+      color: #1a7f45;
+      border: none;
+    }
+    .toast-item--error {
+      background: #fdf0f0;
+      color: #c0392f;
+      border: none;
+    }
     .toast {
       margin-top: 14px;
       padding: 12px 16px;
@@ -2863,6 +2902,7 @@ function dashboardHtml(): string {
   <script type="module" src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
 </head>
 <body>
+  <div id="toast-host" class="toast-host" aria-live="polite" aria-relevant="additions"></div>
   <div class="card">
     <div class="header">
       <div class="header-top">
@@ -2975,6 +3015,21 @@ function dashboardHtml(): string {
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">1</span>
                   <span class="guide-step-heading">
+                    <span class="guide-step-title">After signing in, add biometrics or passkeys</span>
+                    <button type="button" class="guide-step-time" data-seek="60" aria-label="Jump to video at 1:00">1:00</button>
+                  </span>
+                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="guide-step-body">
+                  <p class="guide-step-desc">After signing in, open the <strong>Profile</strong> tab and click <button type="button" class="guide-console-link" data-console-open>Console</button> (or run <code class="cli-cmd">transcodes console</code>), then add biometrics or passkeys — used when Transcodes asks for an extra security check</p>
+                </div>
+              </details>
+            </li>
+            <li>
+              <details class="guide-step guide-step--accordion">
+                <summary class="guide-step-summary">
+                  <span class="guide-step-num">2</span>
+                  <span class="guide-step-heading">
                     <span class="guide-step-title">Set permissions in the Transcodes app</span>
                     <button type="button" class="guide-step-time" data-seek="30" aria-label="Jump to video at 0:30">0:30</button>
                   </span>
@@ -2988,24 +3043,9 @@ function dashboardHtml(): string {
             <li>
               <details class="guide-step guide-step--accordion">
                 <summary class="guide-step-summary">
-                  <span class="guide-step-num">2</span>
-                  <span class="guide-step-heading">
-                    <span class="guide-step-title">Add a passkey or biometrics</span>
-                    <button type="button" class="guide-step-time" data-seek="60" aria-label="Jump to video at 1:00">1:00</button>
-                  </span>
-                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                </summary>
-                <div class="guide-step-body">
-                  <p class="guide-step-desc">Open the <strong>Profile</strong> tab and click <button type="button" class="guide-console-link" data-console-open>Console</button> (or run <code class="cli-cmd">transcodes console</code>), sign in, then add a passkey or biometrics — used when Transcodes asks for an extra security check</p>
-                </div>
-              </details>
-            </li>
-            <li>
-              <details class="guide-step guide-step--accordion">
-                <summary class="guide-step-summary">
                   <span class="guide-step-num">3</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">Open your AI app and try a security check</span>
+                    <span class="guide-step-title">(Demo) Open your AI app and try a security check</span>
                     <button type="button" class="guide-step-time" data-seek="90" aria-label="Jump to video at 1:30">1:30</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -3052,6 +3092,21 @@ function dashboardHtml(): string {
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">5</span>
                   <span class="guide-step-heading">
+                    <span class="guide-step-title">Get notifications on channels</span>
+                    <button type="button" class="guide-step-time" data-seek="180" aria-label="Jump to video at 3:00">3:00</button>
+                  </span>
+                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="guide-step-body">
+                  <p class="guide-step-desc">If you want to get notifications, open <a href="${APP_ORG_URL}/settings" data-app-tab="webhooks" target="_blank" rel="noopener noreferrer">Transcodes Settings</a>, connect channels. (More channels coming soon.)</p>
+                </div>
+              </details>
+            </li>
+            <li>
+              <details class="guide-step guide-step--accordion">
+                <summary class="guide-step-summary">
+                  <span class="guide-step-num">6</span>
+                  <span class="guide-step-heading">
                     <span class="guide-step-title">View activity histories / security log</span>
                     <button type="button" class="guide-step-time" data-seek="150" aria-label="Jump to video at 2:30">2:30</button>
                   </span>
@@ -3073,21 +3128,6 @@ function dashboardHtml(): string {
                 </div>
               </details>
             </li>
-            <li>
-              <details class="guide-step guide-step--accordion">
-                <summary class="guide-step-summary">
-                  <span class="guide-step-num">6</span>
-                  <span class="guide-step-heading">
-                    <span class="guide-step-title">Get notifications on channels</span>
-                    <button type="button" class="guide-step-time" data-seek="180" aria-label="Jump to video at 3:00">3:00</button>
-                  </span>
-                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                </summary>
-                <div class="guide-step-body">
-                  <p class="guide-step-desc">If you want to get notifications, open <a href="${APP_ORG_URL}/settings" data-app-tab="webhooks" target="_blank" rel="noopener noreferrer">Transcodes Settings</a>, connect channels. (More channels coming soon.)</p>
-                </div>
-              </details>
-            </li>
           </ol>
         </section>
       </div>
@@ -3103,7 +3143,6 @@ function dashboardHtml(): string {
         <code>transcodes login</code>
       </p>
       <p class="section-sub">Your sign-in on this computer. To switch organization, log out and sign in again.</p>
-      <div id="toast" class="toast"></div>
       <div id="profile-empty" class="profile-empty" hidden>
         Not signed in — use <strong>Login</strong> in the header (or run <code>transcodes login</code>).
       </div>
@@ -3219,10 +3258,6 @@ function dashboardHtml(): string {
               <select id="persona-template-select" class="label-input persona-template-select" aria-label="Choose a template">
                 <option value="">Choose a template…</option>
                 <option value="general">General</option>
-                <option value="research" data-kind="skill">Research</option>
-                <option value="implement" data-kind="skill">Implement</option>
-                <option value="growth" data-kind="skill">Growth</option>
-                <option value="marketing-copy" data-kind="skill">Marketing</option>
               </select>
             </div>
             <div class="persona-content-stats" id="persona-content-stats" aria-live="polite">
@@ -3414,7 +3449,27 @@ function dashboardHtml(): string {
     </a>
   </p>
   <script>
-    const toastEl = document.getElementById("toast");
+    const toastHost = document.getElementById("toast-host");
+
+    function showToast(msg, kind) {
+      const host = toastHost || document.getElementById("toast-host");
+      if (!host || !msg) return;
+      const el = document.createElement("div");
+      el.className = "toast-item toast-item--" + (kind || "success");
+      el.setAttribute("role", kind === "error" ? "alert" : "status");
+      el.textContent = String(msg);
+      host.appendChild(el);
+      requestAnimationFrame(() => {
+        el.classList.add("show");
+      });
+      setTimeout(() => {
+        el.classList.remove("show");
+        setTimeout(() => {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        }, 200);
+      }, 4000);
+    }
+
     const profileEmptyEl = document.getElementById("profile-empty");
     const profileCardEl = document.getElementById("profile-card");
     const profileEmailEl = document.getElementById("profile-email");
@@ -3519,7 +3574,12 @@ function dashboardHtml(): string {
           deferredInstallPrompt.prompt();
           const choice = await deferredInstallPrompt.userChoice;
           deferredInstallPrompt = null;
-          if (choice && choice.outcome === "accepted") markPwaInstalled();
+          if (choice && choice.outcome === "accepted") {
+            markPwaInstalled();
+            showToast("App installed", "success");
+          } else {
+            showToast("Install cancelled", "error");
+          }
         } catch {
           showToast(
             "Run transcodes, then refresh this page to install.",
@@ -3939,12 +3999,11 @@ function dashboardHtml(): string {
     }
 
     function showPersonaSaveError(msg) {
-      if (!personaSaveError) {
-        showToast(msg, "error");
-        return;
+      if (personaSaveError) {
+        personaSaveError.textContent = msg;
+        personaSaveError.hidden = false;
       }
-      personaSaveError.textContent = msg;
-      personaSaveError.hidden = false;
+      showToast(msg, "error");
     }
 
     function isCreatingPersonaEntry() {
@@ -3996,6 +4055,7 @@ function dashboardHtml(): string {
     function setPersonaHint(msg, isError) {
       personaRootHint.textContent = msg;
       personaRootHint.classList.toggle("error", !!isError);
+      if (isError && msg) showToast(msg, "error");
     }
 
     function clearPersonaDeployError() {
@@ -4005,21 +4065,15 @@ function dashboardHtml(): string {
     }
 
     function showPersonaDeployError(msg) {
-      if (!personaDeployError) return;
-      personaDeployError.textContent = msg;
-      personaDeployError.hidden = false;
+      if (personaDeployError) {
+        personaDeployError.textContent = msg;
+        personaDeployError.hidden = false;
+      }
+      showToast(msg, "error");
     }
 
     function personaDeployReady(listing) {
-      return !!(
-        listing &&
-        listing.agent &&
-        listing.agent.exists &&
-        listing.rules &&
-        listing.rules.length > 0 &&
-        listing.skills &&
-        listing.skills.length > 0
-      );
+      return !!(listing && listing.initialized);
     }
 
     function selectedPersonaTargets() {
@@ -4383,17 +4437,10 @@ function dashboardHtml(): string {
 
     function renderPersonaTemplateOptions() {
       if (!personaTemplateSelect) return;
-      const kind = personaState.kind;
       const prev = personaTemplateSelect.value;
       personaTemplateSelect.innerHTML =
         '<option value="">Choose a template…</option>' +
-        '<option value="general">General</option>' +
-        (kind === "skill"
-          ? '<option value="research">Research</option>' +
-            '<option value="implement">Implement</option>' +
-            '<option value="growth">Growth</option>' +
-            '<option value="marketing-copy">Marketing</option>'
-          : "");
+        '<option value="general">General</option>';
       if (
         prev &&
         [...personaTemplateSelect.options].some((o) => o.value === prev)
@@ -4405,17 +4452,6 @@ function dashboardHtml(): string {
     async function applyPersonaTemplate() {
       const template = personaTemplateSelect.value;
       if (!template || personaState.kind === "agent") return;
-      if (
-        (template === "research" ||
-          template === "implement" ||
-          template === "growth" ||
-          template === "marketing-copy") &&
-        personaNewName &&
-        !personaNewName.hidden &&
-        !personaNewName.value.trim()
-      ) {
-        personaNewName.value = template;
-      }
       const name =
         personaNewName && !personaNewName.hidden
           ? personaNewName.value.trim()
@@ -4425,12 +4461,13 @@ function dashboardHtml(): string {
         const params =
           "kind=" + encodeURIComponent(personaState.kind) +
           "&template=" + encodeURIComponent(template) +
-          "&name=" + encodeURIComponent(name || template || "general");
+          "&name=" + encodeURIComponent(name || "general");
         const data = await personaFetch("/api/persona/template?" + params);
         setPersonaEditorContent(data.content);
         personaEditor.scrollTop = 0;
         clearPersonaSaveError();
         personaEditor.focus();
+        showToast("Template loaded", "success");
       } catch (e) {
         showPersonaSaveError(e.message || "Could not load the template");
         personaTemplateSelect.value = "";
@@ -4505,7 +4542,6 @@ function dashboardHtml(): string {
         renderPersonaRegistry();
       } catch (e) {
         setPersonaHint(e.message || "Could not choose the folder", true);
-        showToast(e.message || "Could not choose the folder", "error");
       } finally {
         personaBusy(false);
       }
@@ -4524,7 +4560,6 @@ function dashboardHtml(): string {
         showToast("Opened " + data.opened, "success");
       } catch (e) {
         setPersonaHint(e.message || "Could not open the directory", true);
-        showToast(e.message || "Could not open the directory", "error");
       } finally {
         personaBusy(false);
       }
@@ -4586,7 +4621,11 @@ function dashboardHtml(): string {
 
     async function createPersonaBundle() {
       const name = personaBundleName.value.trim();
-      if (!name) return;
+      if (!name) {
+        showToast("Enter a Persona name.", "error");
+        personaBundleName.focus();
+        return;
+      }
       personaBusy(true);
       try {
         const data = await personaFetch("/api/persona/create-persona", {
@@ -4709,8 +4748,12 @@ function dashboardHtml(): string {
         });
         if (creating) showPersonaNewName(false);
         personaPathEl.textContent = data.saved.relativePath;
+        const savedLabel =
+          personaState.kind === "agent"
+            ? "Instruction"
+            : name || (personaState.kind === "skill" ? "skill" : "rule");
         showToast(
-          (creating ? "Created " : "Saved ") + data.saved.relativePath,
+          (creating ? "Created " : "Saved ") + savedLabel + " successfully",
           "success"
         );
         await loadPersonaListing(
@@ -4728,7 +4771,6 @@ function dashboardHtml(): string {
           personaNewName.value = name;
         }
         showPersonaSaveError(e.message || "Something went wrong");
-        showToast(e.message || "Something went wrong", "error");
       } finally {
         personaBusy(false);
       }
@@ -4743,13 +4785,8 @@ function dashboardHtml(): string {
         return;
       }
       if (!personaDeployReady(listing)) {
-        const missing = [];
-        if (!(listing && listing.agent && listing.agent.exists)) missing.push("Instruction");
-        if (!(listing && listing.rules && listing.rules.length > 0)) missing.push("Rule");
-        if (!(listing && listing.skills && listing.skills.length > 0)) missing.push("Skill");
         showPersonaDeployError(
-          "Add at least one of each before applying: Instruction, Rule, and Skill." +
-            (missing.length ? " Missing: " + missing.join(", ") + "." : "")
+          "Add an Instruction, Rule, or Skill before applying this Persona."
         );
         return;
       }
@@ -4803,12 +4840,6 @@ function dashboardHtml(): string {
       personaLogClose.addEventListener("click", () => { hidePersonaLog(); });
     }
 
-    function showToast(msg, kind) {
-      toastEl.textContent = msg;
-      toastEl.className = "toast show " + (kind || "success");
-      setTimeout(() => toastEl.classList.remove("show"), 4000);
-    }
-
     function esc(s) {
       return String(s).replace(/[&<>"]/g, (c) =>
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -4854,10 +4885,15 @@ function dashboardHtml(): string {
     }
 
     async function refresh() {
-      const res = await fetch("/api/status");
-      lastStatus = await res.json();
-      renderSessionCard(lastStatus);
-      renderGuardStatus(lastStatus);
+      try {
+        const res = await fetch("/api/status");
+        if (!res.ok) throw new Error("Could not refresh status");
+        lastStatus = await res.json();
+        renderSessionCard(lastStatus);
+        renderGuardStatus(lastStatus);
+      } catch (e) {
+        showToast(e.message || "Could not refresh status", "error");
+      }
     }
 
     document.querySelectorAll("[data-console-open]").forEach((btn) => {
@@ -4867,7 +4903,6 @@ function dashboardHtml(): string {
     headerLogoutBtn.addEventListener("click", () => { openLogout(); });
 
     const rbacTokenWarningEl = document.getElementById("rbac-token-warning");
-    const rbacToastEl = document.getElementById("rbac-toast");
     const guardEnabledToggleEl = document.getElementById("guard-enabled-toggle");
     const guardToggleDescEl = document.getElementById("guard-toggle-desc");
     const resourcesTbody = document.getElementById("resources-tbody");
@@ -4922,9 +4957,7 @@ function dashboardHtml(): string {
     });
 
     function showRbacToast(msg, kind) {
-      rbacToastEl.textContent = msg;
-      rbacToastEl.className = "toast show " + (kind || "success");
-      setTimeout(() => rbacToastEl.classList.remove("show"), 5000);
+      showToast(msg, kind || "success");
     }
 
     function permCellClass(level) {
@@ -5159,16 +5192,12 @@ async function handlePersonaRoute(params: {
         throw new Error('Templates are available for Rules and Skills.');
       }
       const template = query.get('template') || 'general';
-      const allowed =
-        kind === 'skill'
-          ? ['general', 'research', 'implement', 'growth', 'marketing-copy']
-          : ['general'];
-      if (!allowed.includes(template)) {
-        throw new Error('Unknown template.');
+      if (template !== 'general') {
+        throw new Error('Unknown template. Only "general" is supported.');
       }
       const scaffold = createFeatureScaffold({
         feature: kind,
-        name: query.get('name')?.trim() || template || 'general',
+        name: query.get('name')?.trim() || 'general',
         template,
       });
       sendJson(res, 200, {
