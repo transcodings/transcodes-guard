@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.66.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.65.0...transcodes-guard-v0.66.0) (2026-08-05)
+
+
+### Features
+
+* **cli:** Claude AGENTS.md deploy, Persona polish, dashboard toasts ([0b7c67f](https://github.com/transcodings/transcodes-guard/commit/0b7c67fd2553d5774acdc68f73deaebf06750853))
+
 ## [0.65.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.64.0...transcodes-guard-v0.65.0) (2026-08-02)
 
 
