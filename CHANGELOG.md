@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.67.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.0...transcodes-guard-v0.67.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* **cli:** update into the running npm prefix (0.15.1) ([c40b817](https://github.com/transcodings/transcodes-guard/commit/c40b8173b49272eae7f676548ec921adb3c02536))
+
 ## [0.67.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.66.1...transcodes-guard-v0.67.0) (2026-08-06)
 
 
