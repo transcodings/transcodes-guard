@@ -3,7 +3,7 @@ import {
   cursorAdapter,
   formatNoTokenSessionNotice,
   getGateBackend
-} from "../chunk-TQCF7A3Y.js";
+} from "../chunk-DOJRXXHP.js";
 
 // hooks/session-start.ts
 async function main() {
