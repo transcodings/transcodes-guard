@@ -8,9 +8,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { RulesProcessor } from '../sync/features/rules/rules-processor.js';
 import {
   type RulesyncTargets,
   RulesyncTargetsSchema,
+  type ToolTarget,
 } from '../sync/types/tool-targets.js';
 
 export type HostPlatformId = 'claude' | 'codex' | 'cursor' | 'antigravity';
@@ -49,23 +51,59 @@ function safeExists(p: string): boolean {
 /** Prepend common vendor bin dirs so freshly installed CLIs are visible. */
 export function refreshPathHints(): void {
   const home = os.homedir();
-  const extras = [
+  const vendorBins = [
     path.join(home, '.local', 'bin'),
     path.join(home, '.claude', 'bin'),
     path.join(home, '.codex', 'bin'),
     path.join(home, '.cursor', 'bin'),
     path.join(home, '.gemini', 'bin'),
     path.join(home, 'bin'),
-    '/usr/local/bin',
-    '/opt/homebrew/bin',
   ];
+  const extras =
+    process.platform === 'win32'
+      ? [
+          // `npm -g` writes its .cmd shims here. A GUI-launched process often
+          // carries a stale PATH that predates the npm prefix, which made every
+          // host CLI look uninstalled.
+          path.join(
+            process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'),
+            'npm',
+          ),
+          path.join(
+            process.env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local'),
+            'Programs',
+            'nodejs',
+          ),
+          // Where the vendor installers drop agy.exe / agent.exe. Their
+          // documented #1 failure mode is the user PATH never picking these up.
+          path.join(
+            process.env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local'),
+            'agy',
+            'bin',
+          ),
+          path.join(
+            process.env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local'),
+            'cursor-agent',
+          ),
+          path.join(
+            process.env.PROGRAMFILES ?? 'C:\\Program Files',
+            'Git',
+            'cmd',
+          ),
+          ...vendorBins,
+        ]
+      : [...vendorBins, '/usr/local/bin', '/opt/homebrew/bin'];
+  // The Node runtime executing this CLI always exists; on Windows its
+  // directory also holds npm/npx.
+  extras.unshift(path.dirname(process.execPath));
   const current = process.env.PATH ?? '';
   const parts = current.split(path.delimiter).filter(Boolean);
   const merged = [...extras.filter((p) => !parts.includes(p)), ...parts];
   process.env.PATH = merged.join(path.delimiter);
 }
 
-function commandExistsSync(cmd: string): boolean {
+/** Sync PATH lookup (menu render must stay synchronous). */
+export function commandExistsSync(cmd: string): boolean {
   const pathEnv = process.env.PATH ?? '';
   const exts =
     process.platform === 'win32' ? ['.exe', '.cmd', '.bat', '.ps1', ''] : [''];
@@ -145,24 +183,45 @@ export function detectInstalledHostPlatforms(): HostPlatformId[] {
 }
 
 /** Home-level config dirs used when applying a Persona without a project. */
-const HOST_CONFIG_DIRS: Record<Exclude<HostPlatformId, 'codex'>, string> = {
+const HOST_CONFIG_DIRS: Record<HostPlatformId, string> = {
   claude: '.claude',
+  codex: '.codex',
   cursor: '.cursor',
   antigravity: '.gemini',
 };
 
 /**
- * Detect Claude / Cursor / Antigravity config roots under the home directory.
- * Used to apply a Persona globally on this device for every project/session.
+ * Sync rule targets that support `--global` (user-scope Instruction/Rules).
+ * Cursor is excluded: rulesync `cursor` has `supportsGlobal: false`.
+ */
+export function getGlobalPersonaSyncTargets(): ToolTarget[] {
+  const globalRuleTargets = new Set(
+    RulesProcessor.getToolTargets({ global: true }),
+  );
+  return ALL_HOST_PLATFORMS.map(
+    (id) => HOST_TO_SYNC_TARGET[id] as ToolTarget,
+  ).filter((target) => globalRuleTargets.has(target));
+}
+
+export function hostSupportsGlobalPersona(id: HostPlatformId): boolean {
+  return getGlobalPersonaSyncTargets().includes(
+    HOST_TO_SYNC_TARGET[id] as ToolTarget,
+  );
+}
+
+/**
+ * Detect host config roots under the home directory for Persona `--global`.
+ * Only includes hosts whose rulesync rules target supports user-scope output.
  */
 export function detectInstalledHostConfigTargets(): {
   root: string;
-  hosts: Array<Exclude<HostPlatformId, 'codex'>>;
+  hosts: HostPlatformId[];
   targets: string[];
 } {
   const home = path.resolve(os.homedir());
-  const hosts: Array<Exclude<HostPlatformId, 'codex'>> = [];
-  for (const id of ['claude', 'cursor', 'antigravity'] as const) {
+  const hosts: HostPlatformId[] = [];
+  for (const id of ALL_HOST_PLATFORMS) {
+    if (!hostSupportsGlobalPersona(id)) continue;
     const configDir = path.join(home, HOST_CONFIG_DIRS[id]);
     if (safeExists(configDir) || isHostAppInstalled(id)) {
       hosts.push(id);

@@ -563,6 +563,8 @@ export async function deployPersona(params?: {
   root?: string;
   persona?: string;
   targets?: string[];
+  /** When true, pass `--global` so hosts write user-scope paths (e.g. ~/.claude). */
+  global?: boolean;
 }): Promise<PersonaDeployResult> {
   const { root } = await resolvePersonaRoot(params?.root);
   const listing = await listPersona(root, params?.persona);
@@ -610,6 +612,9 @@ export async function deployPersona(params?: {
     root,
     '--delete',
   ];
+  if (params?.global) {
+    args.push('--global');
+  }
   if (params?.targets && params.targets.length > 0) {
     args.push('-t', params.targets.join(','));
   }
@@ -668,7 +673,18 @@ export async function revealPersonaFolder(rootInput?: string): Promise<string> {
   if (process.platform === 'darwin') {
     await execFileAsync('open', [root]);
   } else if (process.platform === 'win32') {
-    await execFileAsync('explorer', [root]);
+    try {
+      // Prefer explorer.exe; bare `explorer` can resolve oddly under some shells.
+      await execFileAsync('explorer.exe', [root]);
+    } catch (error: unknown) {
+      // Explorer often exits with code 1 after successfully opening a folder.
+      // Treat that as success; surface real launch failures (e.g. ENOENT).
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? (error as { code?: unknown }).code
+          : undefined;
+      if (code !== 1) throw error;
+    }
   } else {
     await execFileAsync('xdg-open', [root]);
   }

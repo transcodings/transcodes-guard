@@ -53,8 +53,8 @@ transcodes persona create developer
 transcodes persona read --persona developer --kind agent
 transcodes persona save --persona developer --kind agent --content-file /tmp/instruction.md
 transcodes persona save --persona developer --kind rule --name security --content-file /tmp/security.md
-transcodes persona deploy --persona developer --project "/path/to/project" --targets claude,cursor
-transcodes persona deploy --persona developer --global
+transcodes persona deploy --persona developer --project "/path/to/project" --targets claude,cursor --yes
+transcodes persona deploy --persona developer --global --yes
 ```
 
 Run `transcodes persona help` for the complete command list.
@@ -64,9 +64,12 @@ intentionally does not validate or block the content.
 `persona deploy` needs either an existing project folder plus target apps, or
 `--global` to apply globally on this device. Global application makes the
 Persona available in every project and session for the selected installed
-Claude, Cursor, and Antigravity apps. Use it when the user does not know which
-project or wants the Persona everywhere. The `/transcodes` agent workflow asks
-for confirmation first.
+Claude, ChatGPT (Codex), and Antigravity apps (hosts whose rulesync rules
+support `--global`). Cursor is project-only for Persona apply. Use global when
+the user does not know which project or wants the Persona everywhere. CLI
+deploy always requires `--yes` after the user confirms overwrite; without it
+the command refuses. The dashboard Persona Apply flow uses its own
+confirmation modal instead.
 The dashboard Persona panel remains available for manual review and Apply.
 
 ### Project rules / skills sync

@@ -13,6 +13,7 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { TRANSCODES_GUARD_REPO_URL } from '@transcodes-guard/core/contract';
@@ -33,6 +34,7 @@ import {
 } from '@transcodes-guard/core/stepup';
 import { renderCliCommandsHtml } from '../index.js';
 import { createFeatureScaffold } from '../sync/lib/feature-scaffold.js';
+import { getGlobalPersonaSyncTargets } from './host-apps.js';
 import { beginCliLogin } from './login.js';
 import { LOGO_DATA_URI } from './logo.js';
 import {
@@ -916,11 +918,56 @@ function dashboardHtml(): string {
       flex-shrink: 0;
       margin-top: 1px;
     }
+    .deploy-confirm-global {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      cursor: pointer;
+      color: var(--ink);
+      font-size: var(--text-sm);
+      line-height: 1.45;
+      font-weight: 600;
+    }
+    .deploy-confirm-global input {
+      margin-top: 2px;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .deploy-confirm-global-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .deploy-confirm-global-text small {
+      color: var(--muted);
+      font-size: var(--text-xs);
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    .deploy-confirm-global-warn {
+      color: #9a3412;
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .deploy-confirm-global-warn[hidden],
+    .deploy-confirm-note[hidden] {
+      display: none !important;
+    }
     .deploy-confirm-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin-top: 24px;
+      margin-top: 18px;
     }
     .deploy-confirm-actions button {
       min-height: 42px;
@@ -1612,7 +1659,13 @@ function dashboardHtml(): string {
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
-      margin-bottom: 12px;
+      margin-bottom: 6px;
+    }
+    .persona-root-help {
+      margin: 0 0 12px;
+      font-size: var(--text-2xs);
+      line-height: 1.45;
+      color: var(--muted);
     }
     .persona-registry-title {
       margin: 0;
@@ -3228,6 +3281,9 @@ function dashboardHtml(): string {
             Open
           </button>
         </div>
+        <p class="persona-root-help">
+          To deploy globally, choose the option in the Apply confirmation dialog
+        </p>
         <div class="persona-bundle-row">
           <ul id="persona-bundle-list" class="persona-list persona-bundle-list" aria-label="Personas"></ul>
           <input type="text" id="persona-bundle-name" class="label-input persona-new-name" placeholder="persona-name" spellcheck="false" autocapitalize="off" autocomplete="off" hidden />
@@ -3327,10 +3383,10 @@ function dashboardHtml(): string {
             <p class="guide-help-line"><strong>Resources</strong> are matched by name and description. If nothing matches, Transcodes uses <code class="cli-cmd">system</code>. Write a clear description of what each resource covers so matching works well.</p>
             <p class="guide-help-heading">Action types</p>
             <ul class="guide-help-list">
-              <li><strong>read</strong> — look at information without changing it</li>
-              <li><strong>update</strong> — change something that already exists</li>
-              <li><strong>delete</strong> — remove something (or other hard-to-undo changes)</li>
-              <li><strong>create</strong> — make something new (or send / post / upload)</li>
+              <li><strong>WRITE</strong> — make something new (or send / post / upload)</li>
+              <li><strong>READ</strong> — look at information without changing it</li>
+              <li><strong>EDIT</strong> — change something that already exists</li>
+              <li><strong>DELETE</strong> — remove something (or other hard-to-undo changes)</li>
             </ul>
             <p class="guide-help-heading">Examples</p>
             <ul class="guide-classify-list">
@@ -3387,10 +3443,10 @@ function dashboardHtml(): string {
               <thead>
                 <tr>
                   <th>Resource</th>
-                  <th>Create</th>
-                  <th>Read</th>
-                  <th>Update</th>
-                  <th>Delete</th>
+                  <th>WRITE</th>
+                  <th>READ</th>
+                  <th>EDIT</th>
+                  <th>DELETE</th>
                 </tr>
               </thead>
               <tbody id="matrix-tbody"></tbody>
@@ -3425,17 +3481,28 @@ function dashboardHtml(): string {
       <p class="deploy-confirm-copy" id="deploy-confirm-description">
         Persona <strong id="deploy-confirm-persona"></strong> will be applied to <strong id="deploy-confirm-targets"></strong>.
       </p>
-      <div class="deploy-confirm-target">
-        <span class="deploy-confirm-target-label">Target directory</span>
+      <div class="deploy-confirm-target" id="deploy-confirm-target-wrap">
+        <span class="deploy-confirm-target-label" id="deploy-confirm-target-label">Target directory</span>
         <code id="deploy-confirm-root"></code>
       </div>
-      <p class="deploy-confirm-note">
+      <p class="deploy-confirm-note" id="deploy-confirm-project-note">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
-        Existing generated agent files in this directory will be replaced.
+        Existing generated agent files in this directory will be replaced
+      </p>
+      <label class="deploy-confirm-global" for="deploy-confirm-global">
+        <input type="checkbox" id="deploy-confirm-global" />
+        <span class="deploy-confirm-global-text">
+          <span>Deploy globally on this device</span>
+          <small>Writes user-scope config under your home directory (Claude, ChatGPT, Antigravity)</small>
+        </span>
+      </label>
+      <p class="deploy-confirm-note deploy-confirm-global-warn" id="deploy-confirm-global-warn" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
+        <span id="deploy-confirm-global-warn-text">Global apply replaces user-scope agent files under your home directory for every project and session. Cursor is project-only and will be skipped</span>
       </p>
       <div class="deploy-confirm-actions">
         <button type="button" class="deploy-confirm-cancel" data-deploy-confirm="cancel">Cancel</button>
-        <button type="button" class="deploy-confirm-submit" data-deploy-confirm="confirm">Apply Persona</button>
+        <button type="button" class="deploy-confirm-submit" data-deploy-confirm="confirm" id="deploy-confirm-submit">Apply Persona</button>
       </div>
     </div>
   </div>
@@ -3489,15 +3556,25 @@ function dashboardHtml(): string {
     const deployConfirmPersona = document.getElementById("deploy-confirm-persona");
     const deployConfirmTargets = document.getElementById("deploy-confirm-targets");
     const deployConfirmRoot = document.getElementById("deploy-confirm-root");
+    const deployConfirmGlobal = document.getElementById("deploy-confirm-global");
+    const deployConfirmGlobalWarn = document.getElementById("deploy-confirm-global-warn");
+    const deployConfirmTargetLabel = document.getElementById("deploy-confirm-target-label");
+    const deployConfirmProjectNote = document.getElementById("deploy-confirm-project-note");
+    const deployConfirmSubmit = document.getElementById("deploy-confirm-submit");
     const headerNetworkStatus = document.getElementById("header-network-status");
     const headerNetworkLabel = headerNetworkStatus
       ? headerNetworkStatus.querySelector(".status-label")
       : null;
     const APP_ORG_URL = ${JSON.stringify(APP_ORG_URL)};
     const APP_HOME_URL = ${JSON.stringify(APP_HOME_URL)};
+    const USER_HOME = ${JSON.stringify(os.homedir())};
+    const GLOBAL_PERSONA_TARGETS = ${JSON.stringify(
+      getGlobalPersonaSyncTargets(),
+    )};
 
     let lastStatus = { guardEnabled: false, tokens: [], activeMember: null };
     let deployConfirmResolve = null;
+    let deployConfirmContext = { root: "", targetEntries: [] };
     let deferredInstallPrompt = null;
     const PWA_INSTALLED_KEY = "transcodes-pwa-installed";
 
@@ -3890,20 +3967,52 @@ function dashboardHtml(): string {
       if (deployConfirmResolve) {
         const resolve = deployConfirmResolve;
         deployConfirmResolve = null;
-        resolve(confirmed);
+        resolve(
+          confirmed
+            ? { global: !!(deployConfirmGlobal && deployConfirmGlobal.checked) }
+            : null
+        );
       }
       if (personaDeployBtn) personaDeployBtn.focus();
     }
 
-    function confirmPersonaDeploy(persona, root, targetLabels) {
-      if (!deployConfirmModal) return Promise.resolve(false);
+    function syncDeployConfirmGlobalUi() {
+      const global = !!(deployConfirmGlobal && deployConfirmGlobal.checked);
+      const entries = deployConfirmContext.targetEntries || [];
+      const visible = global
+        ? entries.filter((entry) => GLOBAL_PERSONA_TARGETS.includes(entry.target))
+        : entries;
+      if (deployConfirmTargets) {
+        deployConfirmTargets.textContent = visible.length
+          ? visible.map((entry) => entry.label).join(", ")
+          : global
+            ? "none (select Claude, ChatGPT, or Antigravity)"
+            : "";
+      }
+      if (deployConfirmRoot) {
+        deployConfirmRoot.textContent = global ? USER_HOME : deployConfirmContext.root;
+      }
+      if (deployConfirmTargetLabel) {
+        deployConfirmTargetLabel.textContent = global
+          ? "Home directory"
+          : "Target directory";
+      }
+      if (deployConfirmGlobalWarn) deployConfirmGlobalWarn.hidden = !global;
+      if (deployConfirmProjectNote) deployConfirmProjectNote.hidden = global;
+      if (deployConfirmSubmit) {
+        deployConfirmSubmit.textContent = global ? "Apply Global" : "Apply Persona";
+      }
+    }
+
+    function confirmPersonaDeploy(persona, root, targetEntries) {
+      if (!deployConfirmModal) return Promise.resolve(null);
+      deployConfirmContext = { root: root, targetEntries: targetEntries || [] };
       deployConfirmPersona.textContent = "“" + persona + "”";
-      deployConfirmTargets.textContent = targetLabels.join(", ");
-      deployConfirmRoot.textContent = root;
+      if (deployConfirmGlobal) deployConfirmGlobal.checked = false;
+      syncDeployConfirmGlobalUi();
       deployConfirmModal.hidden = false;
       document.body.style.overflow = "hidden";
-      const submitBtn = deployConfirmModal.querySelector(".deploy-confirm-submit");
-      if (submitBtn) submitBtn.focus();
+      if (deployConfirmSubmit) deployConfirmSubmit.focus();
       return new Promise((resolve) => {
         deployConfirmResolve = resolve;
       });
@@ -3922,6 +4031,11 @@ function dashboardHtml(): string {
         el.addEventListener("click", () => {
           closeDeployConfirm(el.getAttribute("data-deploy-confirm") === "confirm");
         });
+      });
+    }
+    if (deployConfirmGlobal) {
+      deployConfirmGlobal.addEventListener("change", () => {
+        syncDeployConfirmGlobalUi();
       });
     }
     document.addEventListener("keydown", (e) => {
@@ -4053,9 +4167,18 @@ function dashboardHtml(): string {
     }
 
     function setPersonaHint(msg, isError) {
-      personaRootHint.textContent = msg;
-      personaRootHint.classList.toggle("error", !!isError);
-      if (isError && msg) showToast(msg, "error");
+      if (isError) {
+        // Errors are toast-only — never show red inline text under the buttons.
+        if (msg) showToast(msg, "error");
+        if (personaRootHint) {
+          personaRootHint.textContent = "";
+          personaRootHint.classList.remove("error");
+        }
+        return;
+      }
+      if (!personaRootHint) return;
+      personaRootHint.textContent = msg || "";
+      personaRootHint.classList.remove("error");
     }
 
     function clearPersonaDeployError() {
@@ -4065,11 +4188,8 @@ function dashboardHtml(): string {
     }
 
     function showPersonaDeployError(msg) {
-      if (personaDeployError) {
-        personaDeployError.textContent = msg;
-        personaDeployError.hidden = false;
-      }
-      showToast(msg, "error");
+      clearPersonaDeployError();
+      if (msg) showToast(msg, "error");
     }
 
     function personaDeployReady(listing) {
@@ -4537,7 +4657,7 @@ function dashboardHtml(): string {
           }),
         });
         if (data.cancelled) return;
-        applyPersonaListing(data, "Folder set to " + data.root);
+        applyPersonaListing(data);
         await loadPersonaFile();
         renderPersonaRegistry();
       } catch (e) {
@@ -4550,14 +4670,13 @@ function dashboardHtml(): string {
     personaOpenBtn.addEventListener("click", async () => {
       personaBusy(true);
       try {
-        const data = await personaFetch("/api/persona/open", {
+        await personaFetch("/api/persona/open", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             root: personaRootInput.value.trim() || personaState.root,
           }),
         });
-        showToast("Opened " + data.opened, "success");
       } catch (e) {
         setPersonaHint(e.message || "Could not open the directory", true);
       } finally {
@@ -4792,12 +4911,27 @@ function dashboardHtml(): string {
       }
       clearPersonaDeployError();
 
-      const ok = await confirmPersonaDeploy(
+      const confirm = await confirmPersonaDeploy(
         personaState.persona,
         root,
-        selectedTargets.map((entry) => entry.label)
+        selectedTargets
       );
-      if (!ok) return;
+      if (!confirm) return;
+
+      const global = confirm.global === true;
+      const deployTargets = global
+        ? selectedTargets.filter((entry) =>
+            GLOBAL_PERSONA_TARGETS.includes(entry.target)
+          )
+        : selectedTargets;
+      if (deployTargets.length === 0) {
+        showPersonaDeployError(
+          global
+            ? "Global apply supports Claude, ChatGPT, and Antigravity only. Select at least one of those apps."
+            : "Select at least one app to apply this Persona."
+        );
+        return;
+      }
 
       personaBusy(true);
       hidePersonaLog();
@@ -4806,19 +4940,25 @@ function dashboardHtml(): string {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            root,
+            root: global ? USER_HOME : root,
             persona: personaState.persona,
             kind: personaState.kind,
             name: personaState.name,
             content: personaEditor.value,
-            targets: selectedTargets.map((entry) => entry.target),
+            targets: deployTargets.map((entry) => entry.target),
+            global: global,
           }),
         });
         showPersonaLog((data.deploy && data.deploy.output) || "Applied.");
         await loadPersonaListing(root, personaState.persona);
         renderPersonaPicker();
         renderPersonaRegistry();
-        showToast("Applied Persona “" + personaState.persona + "”", "success");
+        showToast(
+          (global ? "Applied globally “" : "Applied Persona “") +
+            personaState.persona +
+            "”",
+          "success"
+        );
       } catch (e) {
         showPersonaLog(e.message || "Apply failed");
         showToast(e.message || "Apply failed", "error");
@@ -5256,21 +5396,33 @@ async function handlePersonaRoute(params: {
       const persona = body.persona;
       const name = typeof body.name === 'string' ? body.name : '';
       const content = typeof body.content === 'string' ? body.content : '';
+      const global = body.global === true;
       const supportedTargets = new Set([
         'claudecode',
         'cursor',
         'codexcli',
         'antigravity-ide',
       ]);
-      const targets = Array.isArray(body.targets)
+      const globalTargets = new Set<string>(getGlobalPersonaSyncTargets());
+      let targets = Array.isArray(body.targets)
         ? body.targets.filter(
             (target): target is string =>
               typeof target === 'string' && supportedTargets.has(target),
           )
         : [];
-      if (targets.length === 0) {
-        throw new Error('Select at least one app to apply this Persona.');
+      if (global) {
+        targets = targets.filter((target) => globalTargets.has(target));
       }
+      if (targets.length === 0) {
+        throw new Error(
+          global
+            ? 'Global apply supports Claude, ChatGPT, and Antigravity only. Select at least one of those apps.'
+            : 'Select at least one app to apply this Persona.',
+        );
+      }
+      // Persona source always lives under ~/.transcodes. `root` is only the
+      // deploy output folder (project path, or home when global).
+      const deployRoot = global ? os.homedir() : root;
 
       // Deploy All includes the editor's current contents. Without this step,
       // a new template shown in the editor exists only in the browser and
@@ -5284,7 +5436,12 @@ async function handlePersonaRoute(params: {
           content,
         });
       }
-      const deployed = await deployPersona({ root, persona, targets });
+      const deployed = await deployPersona({
+        root: deployRoot,
+        persona,
+        targets,
+        global,
+      });
       sendJson(res, deployed.ok ? 200 : 400, {
         ok: deployed.ok,
         deploy: deployed,

@@ -20,6 +20,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { createInterface, moveCursor } from 'node:readline';
 import { ensureDashboard } from './dashboard-lifecycle.js';
+import {
+  commandExistsSync,
+  isHostAppInstalled,
+  refreshPathHints,
+} from './host-apps.js';
 import { readSavedLocale, setLocale, t } from './i18n.js';
 import { CLI_PACKAGE_NAME, CLI_VERSION } from './version.js';
 
@@ -61,6 +66,16 @@ const PLATFORMS: readonly Platform[] = [
     installerRel: 'plugins/antigravity/install.mjs',
   },
 ];
+
+const IS_WINDOWS = process.platform === 'win32';
+
+/**
+ * `shell: true` on Windows hands the string to `cmd.exe` without escaping, so
+ * anything with spaces or cmd metacharacters must be quoted by us.
+ */
+function quoteWinArg(arg: string): string {
+  return /[\s"&|<>^()]/.test(arg) ? `"${arg.replace(/"/g, '""')}"` : arg;
+}
 
 function log(line = ''): void {
   process.stdout.write(`${line}\n`);
@@ -136,10 +151,10 @@ function openUrl(url: string): void {
   const opener =
     process.platform === 'darwin'
       ? 'open'
-      : process.platform === 'win32'
-        ? 'cmd'
+      : IS_WINDOWS
+        ? (process.env.COMSPEC ?? 'cmd.exe')
         : 'xdg-open';
-  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
+  const args = IS_WINDOWS ? ['/c', 'start', '', url] : [url];
   try {
     const child = spawn(opener, args, { stdio: 'ignore', detached: true });
     child.on('error', () => {});
@@ -150,37 +165,18 @@ function openUrl(url: string): void {
 }
 
 /**
- * Fresh installs often land under ~/.local/bin (or similar) which the current
- * process PATH may not include yet. Prepend common locations so the next
- * commandExists() check can see them without requiring a shell restart.
+ * Resolve whether a command is on PATH.
+ *
+ * Windows resolves via a direct PATH+PATHEXT scan instead of spawning `where`:
+ * `where` is a PowerShell alias for `Where-Object`, and a spawn failure here
+ * would silently mark every host CLI as missing.
  */
-function refreshPathHints(): void {
-  const home = os.homedir();
-  const extras = [
-    path.join(home, '.local', 'bin'),
-    path.join(home, '.claude', 'bin'),
-    path.join(home, '.codex', 'bin'),
-    path.join(home, '.cursor', 'bin'),
-    path.join(home, '.gemini', 'bin'),
-    path.join(home, 'bin'),
-    '/usr/local/bin',
-    '/opt/homebrew/bin',
-  ];
-  const current = process.env.PATH ?? '';
-  const parts = current.split(path.delimiter).filter(Boolean);
-  const merged = [...extras.filter((p) => !parts.includes(p)), ...parts];
-  process.env.PATH = merged.join(path.delimiter);
-}
-
-/** Resolve whether a command is on PATH. */
 function commandExists(cmd: string): Promise<boolean> {
+  if (IS_WINDOWS) return Promise.resolve(commandExistsSync(cmd));
   return new Promise((resolve) => {
-    const child =
-      process.platform === 'win32'
-        ? spawn('where', [cmd], { stdio: 'ignore' })
-        : spawn('sh', ['-c', `command -v ${JSON.stringify(cmd)}`], {
-            stdio: 'ignore',
-          });
+    const child = spawn('sh', ['-c', `command -v ${JSON.stringify(cmd)}`], {
+      stdio: 'ignore',
+    });
     child.on('error', () => resolve(false));
     child.on('close', (code) => resolve(code === 0));
   });
@@ -195,11 +191,22 @@ async function anyCommandExists(
   return null;
 }
 
-/** Run a command with inherited stdio; resolves with the exit code. */
+/**
+ * Run a command with inherited stdio; resolves with the exit code.
+ *
+ * Windows needs `shell: true`: `npm`, `claude`, `codex` are `.cmd` shims and
+ * bare `spawn('npm')` cannot resolve them (ENOENT).
+ */
 function run(cmd: string, args: string[]): Promise<number> {
   return new Promise((resolve) => {
     log(`\n$ ${cmd} ${args.join(' ')}`);
-    const child = spawn(cmd, args, { stdio: 'inherit', env: process.env });
+    const child = IS_WINDOWS
+      ? spawn(quoteWinArg(cmd), args.map(quoteWinArg), {
+          stdio: 'inherit',
+          env: process.env,
+          shell: true,
+        })
+      : spawn(cmd, args, { stdio: 'inherit', env: process.env });
     child.on('error', (err) => {
       log(`  (failed to start: ${err.message})`);
       resolve(1);
@@ -208,14 +215,57 @@ function run(cmd: string, args: string[]): Promise<number> {
   });
 }
 
-/** Run a shell one-liner (vendor install scripts: curl | bash). */
+/** Run a POSIX shell one-liner (vendor install scripts: curl | bash). */
 function runShell(script: string): Promise<number> {
+  if (IS_WINDOWS) {
+    log(`\n$ ${script}`);
+    log('  (skipped: this installer needs a POSIX shell, unavailable here)');
+    return Promise.resolve(1);
+  }
   return new Promise((resolve) => {
     log(`\n$ ${script}`);
     const child = spawn('sh', ['-c', script], {
       stdio: 'inherit',
       env: process.env,
     });
+    child.on('error', (err) => {
+      log(`  (failed to start: ${err.message})`);
+      resolve(1);
+    });
+    child.on('close', (code) => resolve(code ?? 1));
+  });
+}
+
+/**
+ * Absolute path to Windows PowerShell 5.1. Two reasons not to rely on a PATH
+ * lookup or on `pwsh`: a stale PATH is the failure mode this module works
+ * around, and Cursor's installer calls `Get-WmiObject`, which PowerShell Core
+ * 7+ removed.
+ */
+function powerShellExe(): string {
+  const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT;
+  if (systemRoot) {
+    const abs = path.join(
+      systemRoot,
+      'System32',
+      'WindowsPowerShell',
+      'v1.0',
+      'powershell.exe',
+    );
+    if (safeExists(abs)) return abs;
+  }
+  return 'powershell.exe';
+}
+
+/** Run a PowerShell one-liner (Windows vendor install scripts: irm | iex). */
+function runPowerShell(script: string): Promise<number> {
+  return new Promise((resolve) => {
+    log(`\n$ powershell -NoProfile -Command ${script}`);
+    const child = spawn(
+      powerShellExe(),
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { stdio: 'inherit', env: process.env },
+    );
     child.on('error', (err) => {
       log(`  (failed to start: ${err.message})`);
       resolve(1);
@@ -246,6 +296,7 @@ function nodeMajor(version = process.versions.node): number {
  */
 async function ensureNode(): Promise<boolean> {
   log('── Prerequisites ──');
+  refreshPathHints();
   const major = nodeMajor();
   const onPath = await commandExists('node');
 
@@ -348,7 +399,7 @@ const HOST_CLIS: Record<PlatformId, HostCliSpec> = {
     binaries: ['claude'],
     label: 'Claude Code CLI (`claude`)',
     install: async () => {
-      if (process.platform === 'win32') {
+      if (IS_WINDOWS) {
         return (
           (await run('npm', ['install', '-g', '@anthropic-ai/claude-code'])) ===
           0
@@ -368,7 +419,7 @@ const HOST_CLIS: Record<PlatformId, HostCliSpec> = {
     binaries: ['codex'],
     label: 'Codex CLI (`codex`)',
     install: async () => {
-      if (process.platform !== 'win32') {
+      if (!IS_WINDOWS) {
         const native =
           (await runShell(
             'curl -fsSL https://chatgpt.com/codex/install.sh | sh',
@@ -383,10 +434,10 @@ const HOST_CLIS: Record<PlatformId, HostCliSpec> = {
     binaries: ['cursor-agent', 'agent'],
     label: 'Cursor Agent CLI (`cursor-agent` / `agent`)',
     install: async () => {
-      if (process.platform === 'win32') {
+      if (IS_WINDOWS) {
         return (
-          (await runShell(
-            'powershell -NoProfile -Command "irm \'https://cursor.com/install?win32=true\' | iex"',
+          (await runPowerShell(
+            "irm 'https://cursor.com/install?win32=true' | iex",
           )) === 0
         );
       }
@@ -398,10 +449,21 @@ const HOST_CLIS: Record<PlatformId, HostCliSpec> = {
   antigravity: {
     binaries: ['agy'],
     label: 'Antigravity CLI (`agy`)',
-    install: async () =>
-      (await runShell(
-        'curl -fsSL https://antigravity.google/cli/install.sh | bash',
-      )) === 0,
+    install: async () => {
+      if (IS_WINDOWS) {
+        // Vendor-documented Windows installer; drops agy.exe in %LOCALAPPDATA%\agy\bin.
+        return (
+          (await runPowerShell(
+            'irm https://antigravity.google/cli/install.ps1 | iex',
+          )) === 0
+        );
+      }
+      return (
+        (await runShell(
+          'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+        )) === 0
+      );
+    },
   },
 };
 
@@ -507,86 +569,6 @@ function isPluginInstalled(id: PlatformId): boolean {
         fileHas(path.join(home, '.codex', 'config.json'), 'transcodes-guard')
       );
   }
-}
-
-/** Sync PATH lookup (menu render must stay synchronous). */
-function commandExistsSync(cmd: string): boolean {
-  const pathEnv = process.env.PATH ?? '';
-  const exts =
-    process.platform === 'win32' ? ['.exe', '.cmd', '.bat', '.ps1', ''] : [''];
-  for (const dir of pathEnv.split(path.delimiter)) {
-    if (!dir) continue;
-    for (const ext of exts) {
-      if (safeExists(path.join(dir, `${cmd}${ext}`))) return true;
-    }
-  }
-  return false;
-}
-
-/** Desktop app bundles / install dirs (host product on the machine). */
-function hostDesktopPresent(id: PlatformId): boolean {
-  const home = os.homedir();
-  if (process.platform === 'darwin') {
-    const candidates: Record<PlatformId, readonly string[]> = {
-      claude: [
-        '/Applications/Claude.app',
-        '/Applications/Claude Code.app',
-        path.join(home, 'Applications', 'Claude.app'),
-        path.join(home, 'Applications', 'Claude Code.app'),
-      ],
-      cursor: [
-        '/Applications/Cursor.app',
-        path.join(home, 'Applications', 'Cursor.app'),
-      ],
-      codex: [
-        '/Applications/ChatGPT.app',
-        '/Applications/Codex.app',
-        path.join(home, 'Applications', 'ChatGPT.app'),
-        path.join(home, 'Applications', 'Codex.app'),
-      ],
-      antigravity: [
-        '/Applications/Antigravity.app',
-        '/Applications/Google Antigravity.app',
-        path.join(home, 'Applications', 'Antigravity.app'),
-        path.join(home, 'Applications', 'Google Antigravity.app'),
-      ],
-    };
-    return candidates[id].some(safeExists);
-  }
-  if (process.platform === 'win32') {
-    const local = process.env.LOCALAPPDATA ?? '';
-    const prog = process.env.PROGRAMFILES ?? 'C:\\Program Files';
-    const candidates: Record<PlatformId, readonly string[]> = {
-      claude: [
-        path.join(local, 'Programs', 'Claude', 'Claude.exe'),
-        path.join(local, 'AnthropicClaude', 'claude.exe'),
-      ],
-      cursor: [
-        path.join(local, 'Programs', 'cursor', 'Cursor.exe'),
-        path.join(prog, 'Cursor', 'Cursor.exe'),
-      ],
-      codex: [
-        path.join(local, 'Programs', 'ChatGPT', 'ChatGPT.exe'),
-        path.join(local, 'Programs', 'codex', 'Codex.exe'),
-      ],
-      antigravity: [
-        path.join(local, 'Programs', 'Antigravity', 'Antigravity.exe'),
-        path.join(local, 'Programs', 'Google Antigravity', 'Antigravity.exe'),
-      ],
-    };
-    return candidates[id].some(safeExists);
-  }
-  return false;
-}
-
-/**
- * Is the host product already on this machine (CLI on PATH and/or desktop
- * app)? Not whether the Transcodes plugin is installed.
- */
-function isHostAppInstalled(id: PlatformId): boolean {
-  refreshPathHints();
-  if (HOST_CLIS[id].binaries.some(commandExistsSync)) return true;
-  return hostDesktopPresent(id);
 }
 
 type MenuChoice =
@@ -905,6 +887,7 @@ async function cloneRepoIfNeeded(
   );
   if (!needsClone) return null;
 
+  refreshPathHints();
   if (!(await commandExists('git'))) {
     log('\n`git` not found on PATH — cannot install Cursor / Antigravity.');
     log('Install git and re-run, or use the one-liners from the README.');
@@ -1097,6 +1080,7 @@ function installedPlatforms(): PlatformId[] {
 async function updateCliPackage(): Promise<boolean> {
   log(`\n── ${CLI_PACKAGE_NAME} (CLI) ──`);
   log(`  Current version: ${CLI_VERSION}`);
+  refreshPathHints();
   if (!(await commandExists('npm'))) {
     log('  ✗ `npm` not found on PATH — cannot update the CLI.');
     log(
