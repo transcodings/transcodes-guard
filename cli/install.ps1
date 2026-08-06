@@ -1,11 +1,10 @@
 <#
   Transcodes CLI bootstrap installer — Windows (PowerShell).
 
-    irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
-
-  If script execution is blocked by policy, run instead:
-
     Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
+
+  Prefer a standard (non-Administrator) PowerShell window. If policy still
+  blocks, keep the Bypass -Scope Process prefix above (session-only).
 
   What it does (npm never has to be typed by the user):
     1. Ensures Node.js >= 20 exists — installs an LTS via winget -> Chocolatey
@@ -35,7 +34,43 @@ $PortableRoot   = Join-Path $TranscodesHome 'node'
 function Write-Step($m) { Write-Host "==> $m" -ForegroundColor Cyan }
 function Write-Ok($m)   { Write-Host "  + $m" -ForegroundColor Green }
 function Write-Note($m) { Write-Host "  ! $m" -ForegroundColor Yellow }
-function Die($m) { Write-Host "`nInstall failed: $m" -ForegroundColor Red; exit 1 }
+
+# This file is normally evaluated inside the user's current PowerShell via
+# `irm ... | iex`. Calling `exit` here closes that entire terminal window.
+# Throwing stops the chained command while leaving an interactive shell open,
+# so the user can read the error and retry after fixing the prerequisite.
+function Die($m) {
+    throw [System.InvalidOperationException]::new("Transcodes install failed: $m")
+}
+
+function Test-IsAdministrator {
+    try {
+        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch {
+        return $false
+    }
+}
+
+# Run package managers as optional attempts. On some Windows configurations
+# (notably elevated shells where App Installer is not registered), winget can
+# emit a terminating error. Never let that prevent the portable/fallback path.
+function Invoke-InstallAttempt($label, [scriptblock]$command) {
+    try {
+        $LASTEXITCODE = 0
+        & $command
+        $code = $LASTEXITCODE
+        if ($null -ne $code -and $code -ne 0) {
+            Write-Note "$label returned exit code $code; checking whether installation still succeeded…"
+            return $false
+        }
+        return $true
+    } catch {
+        Write-Note "$label could not run: $($_.Exception.Message)"
+        return $false
+    }
+}
 
 # Re-read PATH from the registry so freshly-installed tools become visible
 # in this same session without opening a new terminal.
@@ -132,20 +167,26 @@ function Ensure-Node {
     if (Test-Command 'winget') {
         Write-Step 'Installing Node LTS via winget…'
         # --silent + accept agreements so the piped-into-iex flow is non-interactive.
-        winget install --id OpenJS.NodeJS.LTS -e --silent `
-            --accept-package-agreements --accept-source-agreements 2>$null
+        Invoke-InstallAttempt 'winget (Node.js)' {
+            winget install --id OpenJS.NodeJS.LTS -e --silent `
+                --accept-package-agreements --accept-source-agreements
+        } | Out-Null
         Update-SessionPath
     }
 
     if ((Get-NodeMajor) -lt $MinNodeMajor -and (Test-Command 'choco')) {
         Write-Step 'Installing Node LTS via Chocolatey…'
-        choco install nodejs-lts -y 2>$null
+        Invoke-InstallAttempt 'Chocolatey (Node.js)' {
+            choco install nodejs-lts -y
+        } | Out-Null
         Update-SessionPath
     }
 
     if ((Get-NodeMajor) -lt $MinNodeMajor -and (Test-Command 'scoop')) {
         Write-Step 'Installing Node LTS via Scoop…'
-        scoop install nodejs-lts 2>$null
+        Invoke-InstallAttempt 'Scoop (Node.js)' {
+            scoop install nodejs-lts
+        } | Out-Null
         Update-SessionPath
     }
 
@@ -181,8 +222,10 @@ function Ensure-Git {
     if (Test-Command 'winget') {
         Write-Step 'Installing Git via winget…'
         # winget often exits non-zero even on success — ignore and re-check PATH.
-        winget install --id Git.Git -e --silent `
-            --accept-package-agreements --accept-source-agreements 2>$null | Out-Null
+        Invoke-InstallAttempt 'winget (Git)' {
+            winget install --id Git.Git -e --silent `
+                --accept-package-agreements --accept-source-agreements
+        } | Out-Null
         Update-SessionPath
         if (Test-Path (Join-Path $gitCmd 'git.exe')) { Add-ToUserPath $gitCmd }
         Update-SessionPath
@@ -190,13 +233,17 @@ function Ensure-Git {
 
     if (-not (Test-Command 'git') -and (Test-Command 'choco')) {
         Write-Step 'Installing Git via Chocolatey…'
-        choco install git -y 2>$null | Out-Null
+        Invoke-InstallAttempt 'Chocolatey (Git)' {
+            choco install git -y
+        } | Out-Null
         Update-SessionPath
     }
 
     if (-not (Test-Command 'git') -and (Test-Command 'scoop')) {
         Write-Step 'Installing Git via Scoop…'
-        scoop install git 2>$null | Out-Null
+        Invoke-InstallAttempt 'Scoop (Git)' {
+            scoop install git
+        } | Out-Null
         Update-SessionPath
     }
 
@@ -273,6 +320,10 @@ function Invoke-GuidedInstall {
 }
 
 Write-Host 'Transcodes CLI installer' -ForegroundColor White
+if (Test-IsAdministrator) {
+    Write-Note 'Administrator PowerShell detected.'
+    Write-Note 'A standard PowerShell window is recommended; continuing safely for this account.'
+}
 Ensure-Node
 Ensure-Git
 Install-Cli

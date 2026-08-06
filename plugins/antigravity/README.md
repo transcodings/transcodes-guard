@@ -45,7 +45,7 @@ The MCP server and the step-up hook both authenticate against the Transcodes bac
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
 # Windows (PowerShell):
-# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
+# Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 Sign in with `transcodes login`.

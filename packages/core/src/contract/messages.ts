@@ -28,7 +28,8 @@ export const CLI_INSTALL_PS1_URL =
 
 /** One-line install hints for agent-facing "no token" guidance. */
 export const CLI_INSTALL_HINT_UNIX = `curl -fsSL ${CLI_INSTALL_SH_URL} | bash && transcodes install`;
-export const CLI_INSTALL_HINT_WIN = `irm ${CLI_INSTALL_PS1_URL} | iex; transcodes install`;
+/** Prefer a standard (non-Administrator) PowerShell window. */
+export const CLI_INSTALL_HINT_WIN = `Set-ExecutionPolicy Bypass -Scope Process -Force; irm ${CLI_INSTALL_PS1_URL} | iex; transcodes install`;
 
 const APP_CONSOLE_RBAC_LOCATION = 'https://app.transcodes.io → RBAC → Roles';
 

@@ -39,8 +39,8 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 ```
 
 ```powershell
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
+# Windows — 관리자가 아닌 일반 PowerShell
+Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 이미 Node ≥ 20이 있다면 `npm install -g @bigstrider/transcodes-cli`도 됩니다.
@@ -87,8 +87,8 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 ```
 
 ```powershell
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
+# Windows — 관리자가 아닌 일반 PowerShell
+Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
 ```
 
 그다음 `transcodes` — 로컬 대시보드를 엽니다(기본 포트 3847; 사용 중이면 다음 빈 포트를 찾고, 구간이 모두 차면 한 번 정리 후 재시도).

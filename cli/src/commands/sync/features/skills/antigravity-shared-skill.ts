@@ -97,6 +97,9 @@ export class AntigravitySharedSkill extends ToolSkill {
   } = {}): ToolSkillSettablePaths {
     // - Project mode: {process.cwd()}/.agents/skills/
     // - Global mode: {getHomeDirectory()}/.gemini/<subdir>/skills/
+    // Use `this` so AntigravityIdeSkill / AntigravityCliSkill supply their own
+    // global subdir. Calling AntigravitySharedSkill.getGlobalSubdir() throws
+    // "Please implement this method in the subclass" on --global deploy.
     if (global) {
       return {
         relativeDirPath: join(
