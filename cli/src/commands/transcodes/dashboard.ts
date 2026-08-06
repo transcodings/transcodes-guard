@@ -66,8 +66,7 @@ const PORT_ATTEMPTS = DASHBOARD_PORT_ATTEMPTS;
 /** Value of `X-Transcodes-Dashboard` on /health — used by ensure/stop. */
 const DASHBOARD_HEALTH_MARKER = 'transcodes-dashboard';
 /** Temporary Mux playback id for the Guide onboarding video. */
-const GUIDELINE_MUX_PLAYBACK_ID =
-  'h1vOCPmFDA02fGhcout01FZWD4lpKNTzLFk7vybxvrc3M';
+const GUIDELINE_MUX_PLAYBACK_ID = 'ETcWgVp84mIFIIAYYyZrjZ4DQRddp1flBOwGm6smmOs';
 
 /** PWA icon bytes (same 512×512 PNG as the header logo). */
 const PWA_ICON_PNG = Buffer.from(
@@ -3054,6 +3053,7 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">0</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Define AI Agent Persona</span>
+                    <button type="button" class="guide-step-time" data-seek="25" aria-label="Jump to video at 0:25">0:25</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -3069,7 +3069,7 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">1</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">After signing in, add biometrics or passkeys</span>
-                    <button type="button" class="guide-step-time" data-seek="60" aria-label="Jump to video at 1:00">1:00</button>
+                    <button type="button" class="guide-step-time" data-seek="220" aria-label="Jump to video at 3:40">3:40</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -3084,7 +3084,7 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">2</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Set permissions in the Transcodes app</span>
-                    <button type="button" class="guide-step-time" data-seek="30" aria-label="Jump to video at 0:30">0:30</button>
+                    <button type="button" class="guide-step-time" data-seek="260" aria-label="Jump to video at 4:20">4:20</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -3099,7 +3099,7 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">3</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">(Demo) Open your AI app and try a security check</span>
-                    <button type="button" class="guide-step-time" data-seek="90" aria-label="Jump to video at 1:30">1:30</button>
+                    <button type="button" class="guide-step-time" data-seek="290" aria-label="Jump to video at 4:50">4:50</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -3125,7 +3125,7 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">4</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Ask the AI to do something</span>
-                    <button type="button" class="guide-step-time" data-seek="120" aria-label="Jump to video at 2:00">2:00</button>
+                    <button type="button" class="guide-step-time" data-seek="355" aria-label="Jump to video at 5:55">5:55</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -3146,7 +3146,7 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">5</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Get notifications on channels</span>
-                    <button type="button" class="guide-step-time" data-seek="180" aria-label="Jump to video at 3:00">3:00</button>
+                    <button type="button" class="guide-step-time" data-seek="396" aria-label="Jump to video at 6:36">6:36</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -3161,7 +3161,7 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">6</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">View activity histories / security log</span>
-                    <button type="button" class="guide-step-time" data-seek="150" aria-label="Jump to video at 2:30">2:30</button>
+                    <button type="button" class="guide-step-time" data-seek="420" aria-label="Jump to video at 7:00">7:00</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
