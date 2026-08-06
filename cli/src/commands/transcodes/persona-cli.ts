@@ -2,7 +2,10 @@ import { readFile, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { detectInstalledHostConfigTargets } from './host-apps.js';
+import {
+  detectInstalledHostConfigTargets,
+  getGlobalPersonaSyncTargets,
+} from './host-apps.js';
 import {
   assertPersonaId,
   createPersona,
@@ -37,7 +40,7 @@ const ALL_DEPLOY_TARGETS = [
   'antigravity-ide',
 ] as const;
 
-const BOOLEAN_FLAGS = new Set(['global', 'installed']);
+const BOOLEAN_FLAGS = new Set(['global', 'installed', 'yes']);
 
 type ParsedArgs = {
   positionals: string[];
@@ -95,7 +98,15 @@ function personaKind(parsed: ParsedArgs): PersonaKind {
   return kind;
 }
 
-function deployTargets(parsed: ParsedArgs, fallback?: string[]): string[] {
+const NO_GLOBAL_HOSTS_ERROR =
+  'No installed .claude, .codex, or .gemini config root found under your home directory (Cursor is project-only; rulesync does not support Cursor --global rules).';
+
+function deployTargets(
+  parsed: ParsedArgs,
+  fallback?: string[],
+  options?: { global?: boolean },
+): string[] {
+  const global = options?.global === true;
   const raw = optionalFlag(parsed, 'targets');
   if (!raw) {
     if (fallback && fallback.length > 0) return [...fallback];
@@ -103,13 +114,15 @@ function deployTargets(parsed: ParsedArgs, fallback?: string[]): string[] {
       '--targets is required. Use claude, cursor, chatgpt, antigravity, all, or --global.',
     );
   }
-  if (raw.toLowerCase() === 'all') return [...ALL_DEPLOY_TARGETS];
+  if (raw.toLowerCase() === 'all') {
+    return global
+      ? [...getGlobalPersonaSyncTargets()]
+      : [...ALL_DEPLOY_TARGETS];
+  }
   if (raw.toLowerCase() === 'installed') {
     const detected = detectInstalledHostConfigTargets();
     if (detected.targets.length === 0) {
-      throw new Error(
-        'No installed .claude, .cursor, or Antigravity config root found under your home directory.',
-      );
+      throw new Error(NO_GLOBAL_HOSTS_ERROR);
     }
     return detected.targets;
   }
@@ -131,7 +144,19 @@ function deployTargets(parsed: ParsedArgs, fallback?: string[]): string[] {
   if (targets.length === 0) {
     throw new Error('--targets requires at least one target app.');
   }
-  return [...new Set(targets)];
+  const unique = [...new Set(targets)];
+  if (global) {
+    const allowed = new Set<string>(getGlobalPersonaSyncTargets());
+    const unsupported = unique.filter((target) => !allowed.has(target));
+    if (unsupported.length > 0) {
+      throw new Error(
+        `Target(s) not supported with --global: ${unsupported.join(', ')}. ` +
+          'Cursor (and other project-only hosts) need --project. ' +
+          `Global targets: ${[...allowed].join(', ')}.`,
+      );
+    }
+  }
+  return unique;
 }
 
 async function deployRoot(parsed: ParsedArgs): Promise<string> {
@@ -168,13 +193,11 @@ async function resolveDeployDestination(parsed: ParsedArgs): Promise<{
   if (global) {
     const detected = detectInstalledHostConfigTargets();
     if (detected.targets.length === 0) {
-      throw new Error(
-        'No installed .claude, .cursor, or Antigravity config root found under your home directory.',
-      );
+      throw new Error(NO_GLOBAL_HOSTS_ERROR);
     }
     return {
       root: detected.root,
-      targets: deployTargets(parsed, detected.targets),
+      targets: deployTargets(parsed, detected.targets, { global: true }),
       mode: 'global',
     };
   }
@@ -229,8 +252,8 @@ export async function cmdPersona(args: string[]): Promise<void> {
   transcodes persona save --persona NAME --kind agent|rule|skill [--name NAME] (--stdin | --content-file PATH)
   transcodes persona delete NAME
   transcodes persona delete-file --persona NAME --kind agent|rule|skill [--name NAME]
-  transcodes persona deploy --persona NAME --project FOLDER --targets claude,cursor,chatgpt,antigravity|all
-  transcodes persona deploy --persona NAME --global [--targets claude,cursor,antigravity]
+  transcodes persona deploy --persona NAME --project FOLDER --targets claude,cursor,chatgpt,antigravity|all --yes
+  transcodes persona deploy --persona NAME --global [--targets claude,chatgpt,antigravity] --yes
 `,
     );
     return;
@@ -305,7 +328,21 @@ export async function cmdPersona(args: string[]): Promise<void> {
       const persona = requiredFlag(parsed, 'persona');
       const { root, targets, mode } = await resolveDeployDestination(parsed);
       await checkedPersonaListing(root, persona);
-      const result = await deployPersona({ root, persona, targets });
+      if (parsed.flags.get('yes') !== 'true') {
+        throw new Error(
+          [
+            'Deploy refused: confirmation required.',
+            `Persona "${assertPersonaId(persona)}" will overwrite generated agent files for [${targets.join(', ')}] under ${root} (${mode}).`,
+            'Ask the user to confirm the overwrite, then re-run the same deploy command with --yes.',
+          ].join(' '),
+        );
+      }
+      const result = await deployPersona({
+        root,
+        persona,
+        targets,
+        global: mode === 'global',
+      });
       if (!result.ok) {
         throw new Error(result.output || 'Persona deployment failed.');
       }
@@ -318,7 +355,7 @@ export async function cmdPersona(args: string[]): Promise<void> {
           mode === 'global'
             ? {
                 claude: path.join(root, '.claude'),
-                cursor: path.join(root, '.cursor'),
+                codex: path.join(root, '.codex'),
                 antigravity: path.join(root, '.gemini'),
               }
             : undefined,
