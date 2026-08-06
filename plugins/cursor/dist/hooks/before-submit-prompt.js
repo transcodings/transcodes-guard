@@ -2,7 +2,7 @@
 import {
   capturePrompt,
   cursorAdapter
-} from "../chunk-TQCF7A3Y.js";
+} from "../chunk-DOJRXXHP.js";
 
 // hooks/before-submit-prompt.ts
 import { readFileSync } from "fs";
