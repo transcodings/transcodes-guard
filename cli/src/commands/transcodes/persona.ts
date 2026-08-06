@@ -743,28 +743,49 @@ async function pickWithOsascript(startPath?: string): Promise<string | null> {
   }
 }
 
+/**
+ * PowerShell single-quoted string literal. Paths with apostrophes (and any
+ * Unicode folder name) must not go through console stdout — WinPS 5.1 emits
+ * the system ANSI/OEM code page there, so Node's UTF-8 decode turns Korean /
+ * Japanese / Chinese paths into replacement characters.
+ */
+function psSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
 async function pickWithPowerShell(startPath?: string): Promise<string | null> {
+  // Write the picked path to a UTF-8 file instead of stdout. Console capture
+  // on Korean/Japanese Windows corrupts non-ASCII paths (� / mojibake).
+  const outFile = path.join(
+    os.tmpdir(),
+    `transcodes-folder-${process.pid}-${Date.now()}.txt`,
+  );
   const startLiteral = startPath
-    ? `$d.SelectedPath = ${JSON.stringify(startPath)}; `
+    ? `$d.SelectedPath = ${psSingleQuote(startPath)}; `
     : '';
   const script = [
     'Add-Type -AssemblyName System.Windows.Forms',
     '$d = New-Object System.Windows.Forms.FolderBrowserDialog',
     '$d.Description = "Select the Persona deployment project folder"',
     startLiteral,
-    'if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.SelectedPath }',
+    'if ($d.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { exit 0 }',
+    `[System.IO.File]::WriteAllText(${psSingleQuote(outFile)}, $d.SelectedPath, (New-Object System.Text.UTF8Encoding $false))`,
   ].join('; ');
   try {
-    const { stdout } = await execFileAsync('powershell', [
+    await execFileAsync('powershell.exe', [
       '-NoProfile',
       '-STA',
+      '-ExecutionPolicy',
+      'Bypass',
       '-Command',
       script,
     ]);
-    const picked = stdout.trim();
+    const picked = (await readFile(outFile, 'utf8').catch(() => '')).trim();
     return picked.length > 0 ? picked : null;
   } catch {
     throw new Error('Could not open the folder picker — type a path instead.');
+  } finally {
+    await rm(outFile, { force: true }).catch(() => {});
   }
 }
 
