@@ -7,7 +7,7 @@ import {
   isJSONRPCErrorResponse,
   isJSONRPCRequest,
   isJSONRPCResultResponse
-} from "../chunk-JIWETHCT.js";
+} from "../chunk-DVZ3IWR5.js";
 import "../chunk-25Z2NLFB.js";
 
 // src/http.ts
