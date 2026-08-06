@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [0.67.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.2...transcodes-guard-v0.67.3) (2026-08-06)
+
+
+### Bug Fixes
+
+* **agent:** Persona 전역 배포 지시문을 CLI 실동작에 맞춤 ([988b7a3](https://github.com/transcodings/transcodes-guard/commit/988b7a35794febafb2f61bdd24d6f2f6e60dfca4))
+* **agent:** Persona 전역 배포 지시문을 CLI 실동작에 맞춤 ([f5af697](https://github.com/transcodings/transcodes-guard/commit/f5af697127e8256c9cc6a41cb92dd92b3d100bb9))
+
 ## [0.67.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.1...transcodes-guard-v0.67.2) (2026-08-06)
 
 
