@@ -313,7 +313,7 @@ const OFFLINE_HTML = \`<!DOCTYPE html>
       <div class="note">
         <p class="note-title">Says “command not found”?</p>
         <p class="note-lede">Install first — the script sets up Node.js if needed and runs <code>npm install -g @bigstrider/transcodes-cli</code>. When it finishes, run <code>transcodes</code> and refresh.</p>
-        <span class="cmd"><code>irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install</code><button type="button" class="copy" data-copy="irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install">Copy</button></span>
+        <span class="cmd"><code>Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install</code><button type="button" class="copy" data-copy="Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install">Copy</button></span>
         <p class="note-hint">Already have Node.js 20+? You can also run <code>npm install -g @bigstrider/transcodes-cli</code>.</p>
       </div>
     </div>

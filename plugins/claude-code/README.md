@@ -10,7 +10,7 @@ When the agent is about to run a risky Bash command (or a protected MCP tool cal
 
 - **Claude Code** with plugin support.
 - **Node.js ≥ 20** on `PATH` (hooks and the MCP server run as `node` subprocesses).
-- A **member MCP JWT** for step-up — save via the CLI (`curl …/install.sh | bash` or Windows `irm …/install.ps1 | iex`, then `transcodes`; see [Save your token](#2-save-your-token)).
+- A **member MCP JWT** for step-up — save via the CLI (`curl …/install.sh | bash` or Windows `Set-ExecutionPolicy Bypass -Scope Process -Force; irm …/install.ps1 | iex`, then `transcodes`; see [Save your token](#2-save-your-token)).
 
 ## Installation
 
@@ -31,7 +31,7 @@ The MCP server and the step-up hook both authenticate against the Transcodes bac
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
 # Windows (PowerShell):
-# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
+# Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 Sign in with `transcodes login`.

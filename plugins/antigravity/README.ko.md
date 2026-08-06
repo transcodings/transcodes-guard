@@ -45,7 +45,7 @@ MCP 서버와 스텝업 hook은 둘 다 멤버 MCP JWT로 Transcodes 백엔드�
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
 # Windows (PowerShell):
-# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
+# Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 브라우저에서 `transcodes login`으로 로그인하세요.

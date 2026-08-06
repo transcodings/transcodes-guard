@@ -39,8 +39,8 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 ```
 
 ```powershell
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
+# Windows — standard (non-Administrator) PowerShell
+Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 Already have Node ≥ 20? `npm install -g @bigstrider/transcodes-cli` works too.
@@ -87,8 +87,8 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 ```
 
 ```powershell
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
+# Windows — standard (non-Administrator) PowerShell
+Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
 ```
 
 Then: `transcodes` — opens the local dashboard (default port 3847; if busy it tries the next free port, and frees the range once if all are taken).

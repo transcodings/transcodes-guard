@@ -10,7 +10,7 @@ Claude Code용 위험 셸 인터셉터(`PreToolUse`) + 스텝업 MFA 감사 MCP 
 
 - **Claude Code** (플러그인 지원 버전).
 - `PATH`에 **Node.js ≥ 20** (hook과 MCP 서버는 `node` 하위 프로세스로 실행됩니다).
-- 스텝업용 **멤버 MCP JWT** — CLI로 저장 권장 (`curl …/install.sh | bash` 또는 Windows `irm …/install.ps1 | iex` 후 `transcodes`; [토큰 저장](#2-토큰-저장) 참고).
+- 스텝업용 **멤버 MCP JWT** — CLI로 저장 권장 (`curl …/install.sh | bash` 또는 Windows `Set-ExecutionPolicy Bypass -Scope Process -Force; irm …/install.ps1 | iex` 후 `transcodes`; [토큰 저장](#2-토큰-저장) 참고).
 
 ## 설치
 
@@ -31,7 +31,7 @@ MCP 서버와 스텝업 hook은 둘 다 멤버 MCP JWT로 Transcodes 백엔드�
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
 # Windows (PowerShell):
-# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
+# Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 브라우저에서 `transcodes login`으로 로그인하세요.

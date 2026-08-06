@@ -50,7 +50,7 @@ The MCP server and the step-up hook authenticate against the Transcodes backend 
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
 # Windows (PowerShell):
-# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
+# Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 Sign in with `transcodes login`.
@@ -157,7 +157,7 @@ Local step-up state lives under `~/.transcodes/state/` and is **shared across al
 ## Troubleshooting
 
 - **Hook doesn't fire.** Run `install.mjs` (creates/merges `~/.cursor/hooks.json` and fixes `cli-config.json` when present). Settings → Hooks → trust transcodes-guard. Re-check `~/.cursor/cli-config.json`: installer sets `allowlist` and removes broad allows, but narrow Shell/Mcp allows still bypass hooks. Test with the **local IDE Agent**, not Cloud Agent. Ensure `node` is in Cursor's `PATH`.
-- **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash` or Windows: `irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex`) and run `transcodes login`.
+- **`permission: deny` but no step-up URL.** Hook is denying without a token — install the CLI (`curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash` or Windows: `Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex`) and run `transcodes login`.
 - **MCP tool calls hang.** Check `~/.cursor/mcp.json` includes `transcodes-guard` and `~/.cursor/plugins/local/transcodes-guard/dist/src/stdio.js` exists. Cursor logs MCP failures to the Output panel.
 
 ## License

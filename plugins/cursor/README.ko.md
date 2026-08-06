@@ -50,7 +50,7 @@ MCP 서버와 스텝업 hook은 멤버 MCP JWT로 Transcodes 백엔드에 인증
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
 # Windows (PowerShell):
-# irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
+# Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
 브라우저에서 `transcodes login`으로 로그인하세요.
@@ -155,7 +155,7 @@ Cursor hook 계약은 어댑터가 캡슐화합니다(`packages/core/src/hosts/c
 ## 문제 해결
 
 - **hook이 발동하지 않음.** `install.mjs` 실행(`~/.cursor/hooks.json` merge + `cli-config.json` 자동 수정). Settings → Hooks → transcodes-guard trust. `~/.cursor/cli-config.json` 재확인: 인스톨러가 `allowlist`와 broad allow는 처리하지만 좁은 Shell/Mcp allow는 남을 수 있음. **로컬 IDE Agent**로 테스트(Cloud Agent 아님). `node`가 Cursor `PATH`에 있는지 확인.
-- **`permission: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — CLI 설치(`curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash` 또는 Windows: `irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex`) 후 `transcodes`로 토큰 저장.
+- **`permission: deny`인데 스텝업 URL이 없음.** hook이 토큰 없이 차단 중입니다 — CLI 설치(`curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash` 또는 Windows: `Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex`) 후 `transcodes`로 토큰 저장.
 - **MCP 도구 호출이 멈춤.** `~/.cursor/mcp.json`에 `transcodes-guard`가 있고 `~/.cursor/plugins/local/transcodes-guard/dist/src/stdio.js`가 존재하는지 확인. Cursor는 MCP 실패를 Output 패널에 기록합니다.
 
 ## 라이선스

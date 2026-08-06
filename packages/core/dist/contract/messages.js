@@ -18,7 +18,8 @@ export const CLI_INSTALL_SH_URL = 'https://raw.githubusercontent.com/transcoding
 export const CLI_INSTALL_PS1_URL = 'https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1';
 /** One-line install hints for agent-facing "no token" guidance. */
 export const CLI_INSTALL_HINT_UNIX = `curl -fsSL ${CLI_INSTALL_SH_URL} | bash && transcodes install`;
-export const CLI_INSTALL_HINT_WIN = `irm ${CLI_INSTALL_PS1_URL} | iex; transcodes install`;
+/** Prefer a standard (non-Administrator) PowerShell window. */
+export const CLI_INSTALL_HINT_WIN = `Set-ExecutionPolicy Bypass -Scope Process -Force; irm ${CLI_INSTALL_PS1_URL} | iex; transcodes install`;
 const APP_CONSOLE_RBAC_LOCATION = 'https://app.transcodes.io → RBAC → Roles';
 /** Short install blurb used in deny / session-start messages. */
 function cliInstallBlurb() {

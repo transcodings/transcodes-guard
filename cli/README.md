@@ -14,8 +14,8 @@ and enable them explicitly; disabling them makes hooks skip backend evaluation.
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash
 
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
+# Windows — standard (non-Administrator) PowerShell
+Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex
 ```
 
 Or: `npm install -g @bigstrider/transcodes-cli` (Node ≥ 20).
