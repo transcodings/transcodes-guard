@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.67.4](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.3...transcodes-guard-v0.67.4) (2026-08-06)
+
+
+### Bug Fixes
+
+* **cli:** harden Windows install and Antigravity global Persona ([ff0e373](https://github.com/transcodings/transcodes-guard/commit/ff0e373b728cac03b16d0268f48573ff37c8c113))
+
 ## [0.67.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.2...transcodes-guard-v0.67.3) (2026-08-06)
 
 
