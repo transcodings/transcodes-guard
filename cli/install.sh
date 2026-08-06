@@ -8,14 +8,13 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
 #
-# Ensures Node.js >= 20 exists (installing an LTS via nvm/brew if not), then
-# installs `@bigstrider/transcodes-cli` globally so the `transcodes` command is
-# on PATH. The CLI itself and the guard hooks run on Node, so Node is the one
-# hard prerequisite — this script's whole job is to get it in place for people
-# who do not already have npm.
+# Ensures Node.js >= 20 and Git exist (installing via nvm/brew/apt when needed),
+# then installs `@bigstrider/transcodes-cli` globally so the `transcodes`
+# command is on PATH. Plugin marketplace install needs Git; the CLI and guard
+# hooks need Node.
 #
-# Mirror of the Node-bootstrap logic in `cli/src/commands/transcodes/install.ts` `ensureNode()`,
-# except this runs *before* any Node is present (that TS code cannot).
+# Mirror of the bootstrap logic in `cli/src/commands/transcodes/install.ts`
+# (`ensureNode` / `ensureGit`), except this runs *before* any Node is present.
 
 set -euo pipefail
 
@@ -85,7 +84,50 @@ ensure_node() {
   say "  ✓ Node.js $(node -v) ready"
 }
 
-# --- 2. install the CLI ------------------------------------------------------
+# --- 2. ensure Git (marketplace clone) ---------------------------------------
+ensure_git() {
+  step "Checking Git"
+  if have git; then
+    say "  ✓ $(git --version 2>/dev/null || echo git) already installed"
+    return 0
+  fi
+
+  say "  Git not found — installing (required for plugin marketplace)…"
+
+  if [ "$(uname -s)" = "Darwin" ] && have brew; then
+    brew install git || warn "brew install git failed"
+  elif have apt-get; then
+    if have sudo; then
+      sudo apt-get update -y && sudo apt-get install -y git \
+        || warn "apt-get install git failed"
+    else
+      apt-get update -y && apt-get install -y git \
+        || warn "apt-get install git failed (try with sudo)"
+    fi
+  elif have dnf; then
+    if have sudo; then sudo dnf install -y git || warn "dnf install git failed"
+    else dnf install -y git || warn "dnf install git failed"
+    fi
+  elif have yum; then
+    if have sudo; then sudo yum install -y git || warn "yum install git failed"
+    else yum install -y git || warn "yum install git failed"
+    fi
+  elif have pacman; then
+    if have sudo; then sudo pacman -Sy --noconfirm git || warn "pacman install git failed"
+    else pacman -Sy --noconfirm git || warn "pacman install git failed"
+    fi
+  fi
+
+  hash -r 2>/dev/null || true
+  if have git; then
+    say "  ✓ $(git --version 2>/dev/null || echo git) ready"
+    return 0
+  fi
+
+  die "Git is required for plugin install. Install it from https://git-scm.com then re-run this script."
+}
+
+# --- 3. install the CLI ------------------------------------------------------
 install_cli() {
   step "Installing ${PKG}"
   have npm || die "npm is missing even though Node is installed — reopen your terminal and retry."
@@ -97,7 +139,7 @@ install_cli() {
   fi
 }
 
-# --- 3. verify PATH ----------------------------------------------------------
+# --- 4. verify PATH ----------------------------------------------------------
 verify() {
   step "Verifying"
   hash -r 2>/dev/null || true
@@ -136,6 +178,7 @@ main() {
 
   say "${BOLD}Transcodes CLI installer${RESET}"
   ensure_node
+  ensure_git
   install_cli
   verify
   if [ "$run_install" -eq 1 ]; then

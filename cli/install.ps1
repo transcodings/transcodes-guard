@@ -11,9 +11,11 @@
     1. Ensures Node.js >= 20 exists — installs an LTS via winget -> Chocolatey
        -> Scoop, and if none of those exist, drops a portable Node into
        %USERPROFILE%\.transcodes\node and puts it on PATH.
-    2. Runs `npm install -g @bigstrider/transcodes-cli`.
-    3. Fixes PATH (npm global prefix + portable node) for both this session and
-       the persistent User environment, so `transcodes` works in a new terminal.
+    2. Ensures Git is on PATH (marketplace clone needs it) — winget -> Chocolatey
+       -> Scoop, else opens the Git for Windows download page.
+    3. Runs `npm install -g @bigstrider/transcodes-cli`.
+    4. Fixes PATH (npm global prefix + portable node + Git) for both this session
+       and the persistent User environment, so `transcodes` works in a new terminal.
 
   The CLI and the guard hooks both run on Node, so Node is the one hard
   prerequisite. This is the pre-Node counterpart to `cli/src/commands/transcodes/install.ts`
@@ -158,7 +160,59 @@ function Ensure-Node {
 }
 
 # ---------------------------------------------------------------------------
-# 2. Install the CLI
+# 2. Git (Claude/Codex marketplace + Cursor/Antigravity clone)
+# ---------------------------------------------------------------------------
+function Ensure-Git {
+    Write-Step 'Checking Git'
+    Update-SessionPath
+    # Official installer lands here — make it visible even if User PATH is stale.
+    $gitCmd = Join-Path ${env:ProgramFiles} 'Git\cmd'
+    if (Test-Path (Join-Path $gitCmd 'git.exe')) { Add-ToUserPath $gitCmd }
+    Update-SessionPath
+
+    if (Test-Command 'git') {
+        $ver = try { (& git --version) 2>$null } catch { 'git' }
+        Write-Ok "$ver already installed"
+        return
+    }
+
+    Write-Note 'Git not found — installing (required for plugin marketplace)…'
+
+    if (Test-Command 'winget') {
+        Write-Step 'Installing Git via winget…'
+        # winget often exits non-zero even on success — ignore and re-check PATH.
+        winget install --id Git.Git -e --silent `
+            --accept-package-agreements --accept-source-agreements 2>$null | Out-Null
+        Update-SessionPath
+        if (Test-Path (Join-Path $gitCmd 'git.exe')) { Add-ToUserPath $gitCmd }
+        Update-SessionPath
+    }
+
+    if (-not (Test-Command 'git') -and (Test-Command 'choco')) {
+        Write-Step 'Installing Git via Chocolatey…'
+        choco install git -y 2>$null | Out-Null
+        Update-SessionPath
+    }
+
+    if (-not (Test-Command 'git') -and (Test-Command 'scoop')) {
+        Write-Step 'Installing Git via Scoop…'
+        scoop install git 2>$null | Out-Null
+        Update-SessionPath
+    }
+
+    if (Test-Command 'git') {
+        Write-Ok "$(& git --version) ready"
+        return
+    }
+
+    Write-Note 'Could not install Git automatically.'
+    Write-Note 'Install Git for Windows from https://git-scm.com/download/win then re-run.'
+    try { Start-Process 'https://git-scm.com/download/win' } catch {}
+    Die 'Git is required for plugin install (marketplace clone).'
+}
+
+# ---------------------------------------------------------------------------
+# 3. Install the CLI
 # ---------------------------------------------------------------------------
 function Install-Cli {
     Write-Step "Installing $Pkg"
@@ -182,7 +236,7 @@ function Install-Cli {
 }
 
 # ---------------------------------------------------------------------------
-# 3. Verify
+# 4. Verify
 # ---------------------------------------------------------------------------
 function Verify {
     Write-Step 'Verifying'
@@ -220,6 +274,7 @@ function Invoke-GuidedInstall {
 
 Write-Host 'Transcodes CLI installer' -ForegroundColor White
 Ensure-Node
+Ensure-Git
 Install-Cli
 Verify
 Invoke-GuidedInstall

@@ -291,8 +291,8 @@ function nodeMajor(version = process.versions.node): number {
 
 /**
  * Ensure Node.js >= 20 is available. Prefer upgrading via Homebrew / nvm /
- * the official NodeSource+fnm path rather than failing silently — Cursor /
- * Antigravity installers and several host CLIs need it.
+ * winget rather than failing silently — Cursor / Antigravity installers and
+ * several host CLIs need it.
  */
 async function ensureNode(): Promise<boolean> {
   log('── Prerequisites ──');
@@ -326,15 +326,41 @@ async function ensureNode(): Promise<boolean> {
 
   let installed = false;
 
-  if (process.platform === 'darwin' && (await commandExists('brew'))) {
+  if (IS_WINDOWS) {
+    // winget often exits non-zero even after a successful install (e.g. already
+    // present). Always re-check PATH instead of trusting the exit code.
+    if (await commandExists('winget')) {
+      await run('winget', [
+        'install',
+        '--id',
+        'OpenJS.NodeJS.LTS',
+        '-e',
+        '--silent',
+        '--accept-package-agreements',
+        '--accept-source-agreements',
+      ]);
+      refreshPathHints();
+      installed = await commandExists('node');
+    }
+    if (!installed && (await commandExists('choco'))) {
+      await run('choco', ['install', 'nodejs-lts', '-y']);
+      refreshPathHints();
+      installed = await commandExists('node');
+    }
+    if (!installed && (await commandExists('scoop'))) {
+      await run('scoop', ['install', 'nodejs-lts']);
+      refreshPathHints();
+      installed = await commandExists('node');
+    }
+  } else if (process.platform === 'darwin' && (await commandExists('brew'))) {
     installed = (await run('brew', ['install', 'node'])) === 0;
   }
 
-  if (!installed && (await commandExists('nvm'))) {
+  if (!installed && !IS_WINDOWS && (await commandExists('nvm'))) {
     installed = (await runShell('nvm install --lts && nvm use --lts')) === 0;
   }
 
-  if (!installed) {
+  if (!installed && !IS_WINDOWS) {
     // Official nvm bootstrap, then install current LTS into the same shell.
     const nvmInstall = [
       'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash',
@@ -391,6 +417,81 @@ async function ensureNode(): Promise<boolean> {
   );
   log('  transcodes install');
   openUrl('https://nodejs.org');
+  return false;
+}
+
+/**
+ * Ensure `git` is on PATH. Claude/Codex marketplace add and Cursor/Antigravity
+ * installers all clone from GitHub — without git the install dies with a
+ * confusing host-CLI error.
+ */
+async function ensureGit(): Promise<boolean> {
+  refreshPathHints();
+  if (await commandExists('git')) {
+    log('  ✓ Git found');
+    return true;
+  }
+
+  log('  Git not found — installing (required for plugin marketplace)…');
+  let installed = false;
+
+  if (IS_WINDOWS) {
+    // Same as Node: winget's exit code is unreliable; trust PATH after refresh.
+    if (await commandExists('winget')) {
+      await run('winget', [
+        'install',
+        '--id',
+        'Git.Git',
+        '-e',
+        '--silent',
+        '--accept-package-agreements',
+        '--accept-source-agreements',
+      ]);
+      refreshPathHints();
+      installed = await commandExists('git');
+    }
+    if (!installed && (await commandExists('choco'))) {
+      await run('choco', ['install', 'git', '-y']);
+      refreshPathHints();
+      installed = await commandExists('git');
+    }
+    if (!installed && (await commandExists('scoop'))) {
+      await run('scoop', ['install', 'git']);
+      refreshPathHints();
+      installed = await commandExists('git');
+    }
+  } else if (process.platform === 'darwin' && (await commandExists('brew'))) {
+    installed = (await run('brew', ['install', 'git'])) === 0;
+  } else if (await commandExists('apt-get')) {
+    const apt = (await commandExists('sudo'))
+      ? 'sudo apt-get update -y && sudo apt-get install -y git'
+      : 'apt-get update -y && apt-get install -y git';
+    installed = (await runShell(apt)) === 0;
+  } else if (await commandExists('dnf')) {
+    const dnf = (await commandExists('sudo'))
+      ? 'sudo dnf install -y git'
+      : 'dnf install -y git';
+    installed = (await runShell(dnf)) === 0;
+  } else if (await commandExists('yum')) {
+    const yum = (await commandExists('sudo'))
+      ? 'sudo yum install -y git'
+      : 'yum install -y git';
+    installed = (await runShell(yum)) === 0;
+  }
+
+  refreshPathHints();
+  if (await commandExists('git')) {
+    log('  ✓ Git installed');
+    return true;
+  }
+
+  log('  ✗ Could not install Git automatically.');
+  log('    Install Git, then re-run `transcodes install`.');
+  openUrl(
+    IS_WINDOWS
+      ? 'https://git-scm.com/download/win'
+      : 'https://git-scm.com/downloads',
+  );
   return false;
 }
 
@@ -887,10 +988,8 @@ async function cloneRepoIfNeeded(
   );
   if (!needsClone) return null;
 
-  refreshPathHints();
-  if (!(await commandExists('git'))) {
-    log('\n`git` not found on PATH — cannot install Cursor / Antigravity.');
-    log('Install git and re-run, or use the one-liners from the README.');
+  if (!(await ensureGit())) {
+    log('\n`git` is required to install Cursor / Antigravity plugins.');
     return null;
   }
 
@@ -996,6 +1095,9 @@ export async function cmdInstall(args: string[]): Promise<void> {
   log(`${t('installBanner')}\n`);
 
   if (!(await ensureNode())) {
+    process.exit(1);
+  }
+  if (!(await ensureGit())) {
     process.exit(1);
   }
   log('');
@@ -1112,6 +1214,9 @@ export async function cmdUpdate(args: string[]): Promise<void> {
   log('transcodes update — refresh plugins and CLI.\n');
 
   if (!(await ensureNode())) {
+    process.exit(1);
+  }
+  if (!(await ensureGit())) {
     process.exit(1);
   }
 
