@@ -2,7 +2,7 @@
 import {
   capturePrompt,
   claudeCodeAdapter
-} from "../chunk-25Z2NLFB.js";
+} from "../chunk-OM4ST4GK.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";

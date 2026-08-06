@@ -104,7 +104,8 @@ export class AntigravitySharedSkill extends ToolSkill {
       return {
         relativeDirPath: join(
           ANTIGRAVITY_GEMINI_DIR,
-          AntigravitySharedSkill.getGlobalSubdir(),
+          // biome-ignore lint/complexity/noThisInStatic: subclass supplies getGlobalSubdir
+          this.getGlobalSubdir(),
           'skills',
         ),
       };
@@ -181,7 +182,8 @@ export class AntigravitySharedSkill extends ToolSkill {
       description: rulesyncFrontmatter.description,
     };
 
-    const settablePaths = AntigravitySharedSkill.getSettablePaths({ global });
+    // biome-ignore lint/complexity/noThisInStatic: polymorphic static dispatch to subclass
+    const settablePaths = this.getSettablePaths({ global });
 
     return new this({
       outputRoot,
@@ -202,10 +204,11 @@ export class AntigravitySharedSkill extends ToolSkill {
   static async fromDir(
     params: ToolSkillFromDirParams,
   ): Promise<AntigravitySharedSkill> {
-    const loaded = await AntigravitySharedSkill.loadSkillDirContent({
+    // biome-ignore lint/complexity/noThisInStatic: polymorphic static dispatch to subclass
+    const loaded = await this.loadSkillDirContent({
       ...params,
-      getSettablePaths: (options) =>
-        AntigravitySharedSkill.getSettablePaths(options),
+      // biome-ignore lint/complexity/noThisInStatic: polymorphic static dispatch to subclass
+      getSettablePaths: (options) => this.getSettablePaths(options),
     });
 
     const result = AntigravitySkillFrontmatterSchema.safeParse(
