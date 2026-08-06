@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.67.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.1...transcodes-guard-v0.67.2) (2026-08-06)
+
+
+### Bug Fixes
+
+* **cli:** refresh Guide video playback id and step seek times ([7727b3f](https://github.com/transcodings/transcodes-guard/commit/7727b3fd5f0dc6e24a791e77293b60d1ed659bec))
+
 ## [0.67.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.0...transcodes-guard-v0.67.1) (2026-08-06)
 
 
