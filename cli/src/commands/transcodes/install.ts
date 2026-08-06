@@ -215,6 +215,169 @@ function run(cmd: string, args: string[]): Promise<number> {
   });
 }
 
+/** Capture stdout/stderr (used for `npm prefix -g` etc.). */
+function runCapture(
+  cmd: string,
+  args: string[],
+): Promise<{ code: number; stdout: string }> {
+  return new Promise((resolve) => {
+    const child = IS_WINDOWS
+      ? spawn(quoteWinArg(cmd), args.map(quoteWinArg), {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: process.env,
+          shell: true,
+        })
+      : spawn(cmd, args, {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: process.env,
+        });
+    let stdout = '';
+    child.stdout?.on('data', (c: Buffer) => {
+      stdout += c.toString();
+    });
+    child.on('error', () => resolve({ code: 1, stdout }));
+    child.on('close', (code) => resolve({ code: code ?? 1, stdout }));
+  });
+}
+
+type NpmInvocation = { cmd: string; baseArgs: string[] };
+
+/**
+ * Prefer the npm that ships next to `process.execPath` (the Node running this
+ * CLI). PATH `npm` can belong to a different Node and write globals elsewhere —
+ * the root cause of `transcodes update` seeming to succeed while the shell
+ * still runs an older binary.
+ */
+function resolveNpmInvocation(): NpmInvocation | null {
+  const nodeDir = path.dirname(process.execPath);
+  const npmCli = path.join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  if (safeExists(npmCli)) {
+    return { cmd: process.execPath, baseArgs: [npmCli] };
+  }
+  if (IS_WINDOWS) {
+    for (const name of ['npm.cmd', 'npm.exe', 'npm'] as const) {
+      const abs = path.join(nodeDir, name);
+      if (safeExists(abs)) return { cmd: abs, baseArgs: [] };
+    }
+  } else {
+    const abs = path.join(nodeDir, 'npm');
+    if (safeExists(abs)) return { cmd: abs, baseArgs: [] };
+  }
+  if (commandExistsSync('npm')) return { cmd: 'npm', baseArgs: [] };
+  return null;
+}
+
+function pathSegEq(a: string, b: string): boolean {
+  return IS_WINDOWS ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
+
+/**
+ * Global npm prefix that owns the currently executing CLI package.
+ *
+ * Layouts (npm `prefix -g`):
+ *   Windows: `{prefix}/node_modules/@bigstrider/transcodes-cli/…`
+ *   Unix:    `{prefix}/lib/node_modules/@bigstrider/transcodes-cli/…`
+ *
+ * Parent-of-`node_modules` alone is wrong on Unix — that is `…/lib`, and
+ * `npm install -g --prefix …/lib` would nest into `…/lib/lib/node_modules`.
+ */
+function inferGlobalPrefixFromRunningCli(): string | null {
+  const entry = process.argv[1];
+  if (!entry) return null;
+  let resolved = entry;
+  try {
+    resolved = fs.realpathSync(entry);
+  } catch {
+    // keep entry (Windows .cmd → js may already be absolute)
+  }
+  const parts = resolved.split(path.sep);
+  for (let i = 0; i < parts.length - 2; i++) {
+    if (
+      pathSegEq(parts[i] ?? '', 'node_modules') &&
+      pathSegEq(parts[i + 1] ?? '', '@bigstrider') &&
+      pathSegEq(parts[i + 2] ?? '', 'transcodes-cli')
+    ) {
+      const parentOfNm = parts.slice(0, i).join(path.sep) || path.sep;
+      // Unix global: strip trailing `lib` so prefix matches `npm prefix -g`.
+      if (!IS_WINDOWS && path.basename(parentOfNm) === 'lib') {
+        const prefix = path.dirname(parentOfNm);
+        return prefix || path.sep;
+      }
+      return parentOfNm;
+    }
+  }
+  return null;
+}
+
+/** `package.json` of a global `@bigstrider/transcodes-cli` under an npm prefix. */
+function globalCliPackageJson(prefix: string): string | null {
+  const candidates = IS_WINDOWS
+    ? [
+        path.join(
+          prefix,
+          'node_modules',
+          '@bigstrider',
+          'transcodes-cli',
+          'package.json',
+        ),
+      ]
+    : [
+        path.join(
+          prefix,
+          'lib',
+          'node_modules',
+          '@bigstrider',
+          'transcodes-cli',
+          'package.json',
+        ),
+        // Custom / legacy prefixes sometimes omit the `lib` segment.
+        path.join(
+          prefix,
+          'node_modules',
+          '@bigstrider',
+          'transcodes-cli',
+          'package.json',
+        ),
+      ];
+  for (const p of candidates) {
+    if (safeExists(p)) return p;
+  }
+  return null;
+}
+
+function prependPathDir(dir: string): void {
+  if (!dir) return;
+  const parts = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+  const filtered = parts.filter((p) =>
+    IS_WINDOWS ? p.toLowerCase() !== dir.toLowerCase() : p !== dir,
+  );
+  process.env.PATH = [dir, ...filtered].join(path.delimiter);
+}
+
+/** Persist a dir on the User PATH (Windows) — same idea as install.ps1. */
+async function persistUserPathWindows(dir: string): Promise<void> {
+  if (!IS_WINDOWS || !dir) return;
+  const script = [
+    `$dir = ${JSON.stringify(dir)}`,
+    `$current = [Environment]::GetEnvironmentVariable('Path', 'User')`,
+    '$parts = @()',
+    `if ($current) { $parts = $current -split ';' | Where-Object { $_ } }`,
+    'if ($parts -notcontains $dir) {',
+    `  $new = (@($parts + $dir) -join ';')`,
+    `  [Environment]::SetEnvironmentVariable('Path', $new, 'User')`,
+    '}',
+  ].join('; ');
+  await new Promise<void>((resolve) => {
+    const child = spawn(
+      powerShellExe(),
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { stdio: 'ignore', env: process.env },
+    );
+    child.on('error', () => resolve());
+    child.on('close', () => resolve());
+  });
+}
+
 /** Run a POSIX shell one-liner (vendor install scripts: curl | bash). */
 function runShell(script: string): Promise<number> {
   if (IS_WINDOWS) {
@@ -1178,26 +1341,92 @@ function installedPlatforms(): PlatformId[] {
  * Update the published CLI via npm. The current process keeps running the
  * old binary until exit — that's expected; the next `transcodes` invocation
  * picks up the new version.
+ *
+ * Always target the install that is actually running (inferred prefix) and
+ * the npm that belongs to this Node — not whatever `npm` happens to be first
+ * on PATH (common Windows dual-Node failure mode).
  */
 async function updateCliPackage(): Promise<boolean> {
   log(`\n── ${CLI_PACKAGE_NAME} (CLI) ──`);
   log(`  Current version: ${CLI_VERSION}`);
   refreshPathHints();
-  if (!(await commandExists('npm'))) {
-    log('  ✗ `npm` not found on PATH — cannot update the CLI.');
+
+  const npm = resolveNpmInvocation();
+  if (!npm) {
+    log('  ✗ `npm` not found — cannot update the CLI.');
     log(
       `    Install Node.js / npm, then: npm install -g ${CLI_PACKAGE_NAME}@latest`,
     );
     return false;
   }
-  const ok =
-    (await run('npm', ['install', '-g', `${CLI_PACKAGE_NAME}@latest`])) === 0;
-  if (ok) {
-    log('  ✓ CLI updated (run `transcodes version` to confirm).');
-  } else {
-    log('  ✗ CLI update failed.');
+
+  let prefix = inferGlobalPrefixFromRunningCli();
+  if (!prefix) {
+    const pref = await runCapture(npm.cmd, [...npm.baseArgs, 'prefix', '-g']);
+    if (pref.code === 0) {
+      const trimmed = pref.stdout.trim();
+      if (trimmed) prefix = trimmed;
+    }
   }
-  return ok;
+
+  const npmLabel =
+    npm.baseArgs.length > 0
+      ? `${npm.cmd} ${path.basename(npm.baseArgs[0] ?? 'npm-cli.js')}`
+      : npm.cmd;
+  log(`  Using npm: ${npmLabel}`);
+  if (prefix) log(`  Target prefix: ${prefix}`);
+
+  const installArgs = [
+    ...npm.baseArgs,
+    'install',
+    '-g',
+    ...(prefix ? ['--prefix', prefix] : []),
+    `${CLI_PACKAGE_NAME}@latest`,
+  ];
+  const ok = (await run(npm.cmd, installArgs)) === 0;
+  if (!ok) {
+    log('  ✗ CLI update failed.');
+    return false;
+  }
+
+  // Prefer the prefix we just wrote so a stale shim earlier on PATH loses.
+  // On Windows also ensure %APPDATA%\npm is registered — but never ahead of
+  // a different prefix we intentionally updated.
+  if (IS_WINDOWS && process.env.APPDATA) {
+    const appDataNpm = path.join(process.env.APPDATA, 'npm');
+    prependPathDir(appDataNpm);
+    await persistUserPathWindows(appDataNpm);
+  }
+  if (prefix) {
+    // Last prepend wins (front of PATH). On Unix the shim lives in `{prefix}/bin`.
+    prependPathDir(prefix);
+    if (!IS_WINDOWS) {
+      const bin = path.join(prefix, 'bin');
+      if (safeExists(bin)) prependPathDir(bin);
+    }
+    await persistUserPathWindows(prefix);
+  }
+
+  if (prefix) {
+    const pkgJson = globalCliPackageJson(prefix);
+    if (pkgJson) {
+      try {
+        const ver = JSON.parse(fs.readFileSync(pkgJson, 'utf8'))
+          .version as unknown;
+        if (typeof ver === 'string') {
+          log(
+            `  ✓ CLI updated to ${ver} (this process still reports ${CLI_VERSION} until exit).`,
+          );
+          log('    Run `transcodes version` in a new terminal to confirm.');
+          return true;
+        }
+      } catch {
+        // fall through
+      }
+    }
+  }
+  log('  ✓ CLI updated (run `transcodes version` to confirm).');
+  return true;
 }
 
 /**
