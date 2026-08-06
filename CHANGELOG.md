@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.67.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.66.1...transcodes-guard-v0.67.0) (2026-08-06)
+
+
+### Features
+
+* **cli:** auto-install Node and Git during bootstrap (0.15.0) ([6e880d9](https://github.com/transcodings/transcodes-guard/commit/6e880d9002723dd2e75f5cad46f7f9a852b6a509))
+
 ## [0.66.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.66.0...transcodes-guard-v0.66.1) (2026-08-06)
 
 
