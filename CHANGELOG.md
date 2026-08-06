@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.66.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.66.0...transcodes-guard-v0.66.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* **cli:** Windows host detect/install + Persona global apply (0.14.0) ([c07f2c8](https://github.com/transcodings/transcodes-guard/commit/c07f2c8b6df4899e6db649e65984316b4ea19a57))
+
 ## [0.66.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.65.0...transcodes-guard-v0.66.0) (2026-08-05)
 
 

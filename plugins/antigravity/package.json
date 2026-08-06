@@ -1,6 +1,6 @@
 {
   "name": "@bigstrider/transcodes-guard-antigravity",
-  "version": "0.66.0",
+  "version": "0.66.1",
   "description": "Risky-shell interceptor + step-up MFA audit MCP server — Google Antigravity 2.0 plugin.",
   "type": "module",
   "main": "dist/src/stdio.js",
@@ -31,7 +31,7 @@
     "zod": "^3.23.0"
   },
   "peerDependencies": {
-    "@bigstrider/transcodes-cli": ">=0.14.0 <0.15.0"
+    "@bigstrider/transcodes-cli": ">=0.15.0 <0.16.0"
   },
   "peerDependenciesMeta": {
     "@bigstrider/transcodes-cli": {
