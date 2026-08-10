@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [0.67.5](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.4...transcodes-guard-v0.67.5) (2026-08-10)
+
+
+### Bug Fixes
+
+* **cli:** clarify Persona Save and Apply states (0.15.4) ([1edb75d](https://github.com/transcodings/transcodes-guard/commit/1edb75d3a3d04ea04da6e355c19b131473c7a9a6))
+* **cli:** clarify Persona Save and Apply states (0.15.4) ([eba78fd](https://github.com/transcodings/transcodes-guard/commit/eba78fdb7d5788ea4b90ad11f6532e7afb2020ef))
+* **cli:** keep polymorphic this for Antigravity global skill paths ([3e3a053](https://github.com/transcodings/transcodes-guard/commit/3e3a0539dad14c0f07b28ebb992f5cef6ab3a2ac))
+
 ## [0.67.4](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.3...transcodes-guard-v0.67.4) (2026-08-06)
 
 
