@@ -13,16 +13,6 @@ import {
 import type { PersonaKind } from './persona.js';
 import { apiError, payloadArray } from './rbac-api.js';
 
-export type PersonaListItem = {
-  persona_id: string;
-  name?: string;
-  revision: number;
-  file_count: number;
-  updated_at: string;
-  updated_by_name?: string;
-  updated_by_email?: string;
-};
-
 export type PersonaDetailFile = {
   kind: PersonaKind;
   name: string;
@@ -110,14 +100,6 @@ function payloadObject<T>(envelope: Envelope): T {
 
 export function loadPersonaConfig(): StepupConfig {
   return loadStepupConfig();
-}
-
-export async function fetchPersonaList(
-  config: StepupConfig,
-): Promise<PersonaListItem[]> {
-  const envelope = await request(config, { method: 'GET', path: '/persona' });
-  assertOk(envelope);
-  return payloadArray<PersonaListItem>(envelope);
 }
 
 export async function fetchPersonaDetail(

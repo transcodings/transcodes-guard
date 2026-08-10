@@ -198,9 +198,16 @@ export async function pushPersonaSync(
   let uploaded = 0;
   let skipped = 0;
   for (const upload of approved.uploads) {
-    if (upload.skip || !upload.url) {
+    if (upload.skip) {
       skipped += 1;
       continue;
+    }
+    if (!upload.url) {
+      // skip:false without a URL is a contract violation — silently counting it
+      // as skipped would loop push→PERSONA_BLOB_NOT_UPLOADED forever.
+      throw new Error(
+        `Push approval for digest ${upload.sha256} has no upload URL; nothing was committed.`,
+      );
     }
     const bytes = bytesByDigest.get(upload.sha256);
     if (!bytes) {
