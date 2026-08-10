@@ -18,9 +18,10 @@ import {
   resolvePersonaRoot,
   savePersonaFile,
 } from './persona.js';
+import { pullPersonaSync, pushPersonaSync } from './persona-sync.js';
 
 const PERSONA_USAGE =
-  'transcodes persona <list|create|read|save|delete|delete-file|deploy>';
+  'transcodes persona <list|create|read|save|delete|delete-file|deploy|push|pull>';
 
 const DEPLOY_TARGET_ALIASES = {
   claude: 'claudecode',
@@ -254,6 +255,8 @@ export async function cmdPersona(args: string[]): Promise<void> {
   transcodes persona delete-file --persona NAME --kind agent|rule|skill [--name NAME]
   transcodes persona deploy --persona NAME --project FOLDER --targets claude,cursor,chatgpt,antigravity|all --yes
   transcodes persona deploy --persona NAME --global [--targets claude,chatgpt,antigravity] --yes
+  transcodes persona push --persona NAME
+  transcodes persona pull --persona NAME
 `,
     );
     return;
@@ -361,6 +364,14 @@ export async function cmdPersona(args: string[]): Promise<void> {
             : undefined,
         ...result,
       });
+      return;
+    }
+    case 'push': {
+      printJson(await pushPersonaSync(requiredFlag(parsed, 'persona')));
+      return;
+    }
+    case 'pull': {
+      printJson(await pullPersonaSync(requiredFlag(parsed, 'persona')));
       return;
     }
     default:
