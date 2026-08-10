@@ -1,6 +1,22 @@
 # Changelog
 
 
+## [0.68.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.5...transcodes-guard-v0.68.0) (2026-08-10)
+
+
+### Features
+
+* **cli:** add Persona bundle enumeration and byte-write helpers ([30f320e](https://github.com/transcodings/transcodes-guard/commit/30f320e7a665df1a747bef1c4bb99834b0fd9f7e))
+* **cli:** add Persona org-sync API client ([a8068ba](https://github.com/transcodings/transcodes-guard/commit/a8068ba26e11b26ed33ff25d1527d4fc28529d11))
+* **cli:** add Persona push/pull sync domain ([dd17fb6](https://github.com/transcodings/transcodes-guard/commit/dd17fb68088c19b085078bf53c4f6e305ff4e456))
+* **cli:** Persona push/pull 조직 동기화 (p4, 0.16.0) ([2fe1b75](https://github.com/transcodings/transcodes-guard/commit/2fe1b750bf22691d55f3c14512965129452862ec))
+* **cli:** wire persona push/pull subcommands ([b2b2c73](https://github.com/transcodings/transcodes-guard/commit/b2b2c73a828acfbc7f322c8fd505be4de0d085e9))
+
+
+### Bug Fixes
+
+* **cli:** address review findings on persona sync ([74c5647](https://github.com/transcodings/transcodes-guard/commit/74c56475f44e32bfaea4a23b4a525159fc195087))
+
 ## [0.67.5](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.4...transcodes-guard-v0.67.5) (2026-08-10)
 
 
