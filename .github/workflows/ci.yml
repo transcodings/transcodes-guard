@@ -145,10 +145,10 @@ jobs:
           exit $MISSING
 
       # ─────────────────────────────────────────────────────────
-      # Unit tests (node:test via tsx) — core suites (stepup + patterns) and
-      # gate-backend mcp-tools suites.
+      # Unit tests (node:test via tsx) — core suites (stepup + patterns),
+      # gate-backend mcp-tools suites, and cli suites (persona sync + dashboard).
       - name: core unit tests
-        run: npm test -w @transcodes-guard/core -w @transcodes-guard/gate-backend
+        run: npm test -w @transcodes-guard/core -w @transcodes-guard/gate-backend -w @bigstrider/transcodes-cli
 
       # ─────────────────────────────────────────────────────────
       # mcp/ is not a workspace (standalone npm package published manually),

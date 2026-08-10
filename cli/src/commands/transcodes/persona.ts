@@ -390,6 +390,78 @@ async function listSkills(
   return entries;
 }
 
+export type CollectedPersonaFile = {
+  kind: PersonaKind;
+  name: string;
+  /** Bundle-relative POSIX path — the manifest `path` coordinate. */
+  bundlePath: string;
+  absolutePath: string;
+};
+
+/**
+ * Enumerate the bundle for sync. `listPersona()` speaks project-root relative
+ * paths; push/pull need the manifest coordinate (bundle-relative POSIX) plus
+ * the on-disk location, and both directions must see the same enumeration.
+ * A missing bundle is an empty list so pull can start from a blank machine.
+ */
+export async function collectPersonaFiles(
+  personaInput: string,
+): Promise<CollectedPersonaFile[]> {
+  await ensurePersonaStorage();
+  const persona = assertPersonaId(personaInput);
+  const bundleRoot = personaDir(persona);
+  if (!(await isDirectory(bundleRoot))) return [];
+
+  const files: CollectedPersonaFile[] = [];
+  const agentBundlePath = personaBundleRelativePath('agent', '');
+  const agentAbsolute = resolveInsidePersona(persona, agentBundlePath);
+  if (await isFile(agentAbsolute)) {
+    files.push({
+      kind: 'agent',
+      name: RULESYNC_OVERVIEW_FILE_NAME,
+      bundlePath: agentBundlePath,
+      absolutePath: agentAbsolute,
+    });
+  }
+  for (const rule of await listRules(persona, bundleRoot)) {
+    const bundlePath = personaBundleRelativePath('rule', rule.name);
+    files.push({
+      kind: 'rule',
+      name: rule.name,
+      bundlePath,
+      absolutePath: resolveInsidePersona(persona, bundlePath),
+    });
+  }
+  for (const skill of await listSkills(persona, bundleRoot)) {
+    const bundlePath = personaBundleRelativePath('skill', skill.name);
+    files.push({
+      kind: 'skill',
+      name: skill.name,
+      bundlePath,
+      absolutePath: resolveInsidePersona(persona, bundlePath),
+    });
+  }
+  return files;
+}
+
+/**
+ * Byte-verbatim write for pull. The server-provided `path` is trusted only
+ * after `resolveInsidePersona()` re-anchors it inside the bundle; content is
+ * written exactly as received so the manifest digest keeps matching.
+ */
+export async function writePersonaBundleFile(
+  personaInput: string,
+  bundlePath: string,
+  bytes: Buffer,
+): Promise<string> {
+  await ensurePersonaStorage();
+  const persona = assertPersonaId(personaInput);
+  const absolutePath = resolveInsidePersona(persona, bundlePath);
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, bytes);
+  return absolutePath;
+}
+
 export async function readPersonaFile(params: {
   root?: string;
   persona: string;
