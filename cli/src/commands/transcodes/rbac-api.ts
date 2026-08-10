@@ -34,7 +34,7 @@ export type RbacSnapshot = {
   roles: RbacRole[];
 };
 
-function apiError(envelope: Envelope): string {
+export function apiError(envelope: Envelope): string {
   const data = envelope.data;
   if (data && typeof data === 'object' && !Array.isArray(data)) {
     const rec = data as Record<string, unknown>;
@@ -44,7 +44,7 @@ function apiError(envelope: Envelope): string {
   return `Backend request failed (HTTP ${envelope.status})`;
 }
 
-function payloadArray<T>(envelope: Envelope): T[] {
+export function payloadArray<T>(envelope: Envelope): T[] {
   if (!envelope.ok) throw new Error(apiError(envelope));
   const root = envelope.data;
   if (!root || typeof root !== 'object' || Array.isArray(root)) return [];
