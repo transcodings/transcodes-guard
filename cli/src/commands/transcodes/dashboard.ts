@@ -1704,6 +1704,18 @@ function dashboardHtml(): string {
       color: #c0392f;
     }
     .persona-deploy-error[hidden] { display: none !important; }
+    .persona-apply-status {
+      margin: 12px 2px 0;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+    .persona-apply-status:empty { display: none; }
+    .persona-apply-status[data-state="dirty"] { color: #9a5b13; }
+    .persona-apply-status[data-state="pending"] { color: var(--accent); }
+    .persona-apply-status[data-state="applied"] { color: #1a7f45; }
+    .persona-apply-status[data-state="error"] { color: #c0392f; }
     .persona-bundle-row {
       display: flex;
       align-items: center;
@@ -3323,7 +3335,7 @@ function dashboardHtml(): string {
             <textarea id="persona-editor" class="persona-editor" spellcheck="false" placeholder="Loading…"></textarea>
 
             <div class="actions persona-actions">
-              <button type="button" class="btn-primary" id="persona-save-btn">Save</button>
+              <button type="button" class="btn-primary" id="persona-save-btn" disabled>Save</button>
               <button type="button" class="btn-danger" id="persona-delete-btn" hidden>Delete</button>
             </div>
             <p class="hint"><strong>Save</strong> updates the selected Persona only. Use <strong>Apply</strong> below to apply that Persona's Instruction, Rules, and Skills to the selected project.</p>
@@ -3355,6 +3367,7 @@ function dashboardHtml(): string {
           </div>
         </div>
         <p class="persona-deploy-error" id="persona-deploy-error" hidden></p>
+        <p class="persona-apply-status" id="persona-apply-status" role="status" aria-live="polite"></p>
         <div class="actions persona-registry-actions">
           <button type="button" class="btn-primary" id="persona-deploy-btn" title="Apply the selected Persona to this folder">
             Apply
@@ -3479,7 +3492,7 @@ function dashboardHtml(): string {
     <div class="commands-modal-panel deploy-confirm-panel" role="dialog" aria-modal="true" aria-labelledby="deploy-confirm-title" aria-describedby="deploy-confirm-description">
       <h2 class="deploy-confirm-title" id="deploy-confirm-title">Apply Persona?</h2>
       <p class="deploy-confirm-copy" id="deploy-confirm-description">
-        Persona <strong id="deploy-confirm-persona"></strong> will be applied to <strong id="deploy-confirm-targets"></strong>.
+        Current edits will be saved first. Persona <strong id="deploy-confirm-persona"></strong> will then be applied to <strong id="deploy-confirm-targets"></strong>.
       </p>
       <div class="deploy-confirm-target" id="deploy-confirm-target-wrap">
         <span class="deploy-confirm-target-label" id="deploy-confirm-target-label">Target directory</span>
@@ -4068,6 +4081,7 @@ function dashboardHtml(): string {
     const personaOpenBtn = document.getElementById("persona-open-btn");
     const personaDeployBtn = document.getElementById("persona-deploy-btn");
     const personaDeployError = document.getElementById("persona-deploy-error");
+    const personaApplyStatus = document.getElementById("persona-apply-status");
     const personaTargetInputs = Array.from(
       document.querySelectorAll('input[name="persona-target"]')
     );
@@ -4157,7 +4171,39 @@ function dashboardHtml(): string {
       name: "",
       listing: null,
       loaded: false,
+      savedContent: "",
+      busy: false,
+      applyKey: "",
+      applyState: "",
     };
+
+    function personaScopeKey() {
+      return personaState.root + "\\n" + personaState.persona;
+    }
+
+    function syncPersonaEditState() {
+      const dirty = personaEditor.value !== personaState.savedContent;
+      personaSaveBtn.disabled = personaState.busy || !dirty;
+      const state = dirty
+        ? "dirty"
+        : personaState.applyKey === personaScopeKey()
+          ? personaState.applyState
+          : "";
+      const messages = {
+        dirty: "Unsaved changes",
+        pending: "Saved · Not applied yet",
+        applied: "Applied",
+        error: "Apply failed · Review the log and try again",
+      };
+      personaApplyStatus.dataset.state = state;
+      personaApplyStatus.textContent = messages[state] || "";
+    }
+
+    function setPersonaApplyState(state) {
+      personaState.applyKey = personaScopeKey();
+      personaState.applyState = state;
+      syncPersonaEditState();
+    }
 
     function personaEntries(kind) {
       if (!personaState.listing) return [];
@@ -4206,8 +4252,8 @@ function dashboardHtml(): string {
     }
 
     function personaBusy(busy) {
+      personaState.busy = busy;
       [
-        personaSaveBtn,
         personaDeleteBtn,
         personaChangeBtn,
         personaOpenBtn,
@@ -4222,6 +4268,7 @@ function dashboardHtml(): string {
         b.disabled = busy;
       });
       personaRootInput.disabled = busy;
+      syncPersonaEditState();
     }
 
     function personaItemHtml(kind, name) {
@@ -4374,6 +4421,7 @@ function dashboardHtml(): string {
         if (personaState.kind === kind) {
           try { await loadPersonaFile(); } catch (_) { /* ignore */ }
         }
+        setPersonaApplyState("pending");
       } catch (e) {
         showToast(e.message || "Could not remove", "error");
       } finally {
@@ -4443,9 +4491,11 @@ function dashboardHtml(): string {
       personaContentStatus.textContent = "Best Length: " + budget;
     }
 
-    function setPersonaEditorContent(content) {
+    function setPersonaEditorContent(content, saved = true) {
       personaEditor.value = content || "";
+      if (saved) personaState.savedContent = personaEditor.value;
       updatePersonaContentStats();
+      syncPersonaEditState();
     }
 
     function selectPersonaTab(kind) {
@@ -4583,7 +4633,7 @@ function dashboardHtml(): string {
           "&template=" + encodeURIComponent(template) +
           "&name=" + encodeURIComponent(name || "general");
         const data = await personaFetch("/api/persona/template?" + params);
-        setPersonaEditorContent(data.content);
+        setPersonaEditorContent(data.content, false);
         personaEditor.scrollTop = 0;
         clearPersonaSaveError();
         personaEditor.focus();
@@ -4818,6 +4868,7 @@ function dashboardHtml(): string {
     });
     personaEditor.addEventListener("input", () => {
       updatePersonaContentStats();
+      syncPersonaEditState();
       if (isCreatingPersonaEntry()) clearPersonaSaveError();
     });
     personaTemplateSelect.addEventListener("change", () => {
@@ -4828,6 +4879,7 @@ function dashboardHtml(): string {
       clearPersonaSaveError();
       const creating = isCreatingPersonaEntry();
       const kindLabel = personaState.kind === "skill" ? "skill" : "rule";
+      const content = personaEditor.value;
       let name = personaState.name;
 
       if (creating) {
@@ -4862,7 +4914,7 @@ function dashboardHtml(): string {
             persona: personaState.persona,
             kind: personaState.kind,
             name,
-            content: personaEditor.value,
+            content,
           }),
         });
         if (creating) showPersonaNewName(false);
@@ -4884,6 +4936,8 @@ function dashboardHtml(): string {
         if (personaState.kind !== "agent") {
           personaSelect.value = name;
         }
+        personaState.savedContent = content;
+        setPersonaApplyState("pending");
       } catch (e) {
         if (creating) {
           personaNewName.hidden = false;
@@ -4935,6 +4989,7 @@ function dashboardHtml(): string {
 
       personaBusy(true);
       hidePersonaLog();
+      const content = personaEditor.value;
       try {
         const data = await personaFetch("/api/persona/deploy", {
           method: "POST",
@@ -4944,7 +4999,7 @@ function dashboardHtml(): string {
             persona: personaState.persona,
             kind: personaState.kind,
             name: personaState.name,
-            content: personaEditor.value,
+            content,
             targets: deployTargets.map((entry) => entry.target),
             global: global,
           }),
@@ -4953,6 +5008,8 @@ function dashboardHtml(): string {
         await loadPersonaListing(root, personaState.persona);
         renderPersonaPicker();
         renderPersonaRegistry();
+        personaState.savedContent = content;
+        setPersonaApplyState("applied");
         showToast(
           (global ? "Applied globally “" : "Applied Persona “") +
             personaState.persona +
@@ -4960,6 +5017,7 @@ function dashboardHtml(): string {
           "success"
         );
       } catch (e) {
+        setPersonaApplyState("error");
         showPersonaLog(e.message || "Apply failed");
         showToast(e.message || "Apply failed", "error");
       } finally {
