@@ -27,6 +27,11 @@ const CLI = fileURLToPath(new URL('../dist/index.js', import.meta.url));
 /** A sandbox HOME holding one deployable Persona plus hand-written host files. */
 async function makeSandbox(): Promise<string> {
   const home = await mkdtemp(path.join(os.tmpdir(), 'p7-deploy-'));
+  // Global deploy derives its target set from the host config roots present in
+  // HOME and refuses outright when none exist, so every test needs these.
+  await mkdir(path.join(home, '.claude'), { recursive: true });
+  await mkdir(path.join(home, '.codex'), { recursive: true });
+  await mkdir(path.join(home, '.gemini'), { recursive: true });
   const persona = path.join(home, '.transcodes', 'personas', 'testp');
   await mkdir(path.join(persona, 'instruction'), { recursive: true });
   await mkdir(path.join(persona, 'rules'), { recursive: true });
