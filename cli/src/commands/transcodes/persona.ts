@@ -637,6 +637,12 @@ export async function deployPersona(params?: {
   targets?: string[];
   /** When true, pass `--global` so hosts write user-scope paths (e.g. ~/.claude). */
   global?: boolean;
+  /**
+   * When true, stop after the preflight render and return its `--dry-run`
+   * output instead of writing. Deploy always passes `--delete`, so this is the
+   * only way to see which existing files it considers orphans before they go.
+   */
+  dryRun?: boolean;
 }): Promise<PersonaDeployResult> {
   const { root } = await resolvePersonaRoot(params?.root);
   const listing = await listPersona(root, params?.persona);
@@ -682,10 +688,17 @@ export async function deployPersona(params?: {
     stagingRoot,
     '--output-roots',
     root,
-    '--delete',
   ];
+  // `--delete` treats every existing output this run did not produce as an
+  // orphan and removes it, including whole directories. Under a project root
+  // that is recoverable through git; under the user's home it is not, and a
+  // dry-run confirmed it takes hand-written ~/.claude/rules/*.md and
+  // ~/.claude/skills/<name>/ with it. Global deploy therefore overwrites what
+  // it produces and leaves everything else alone.
   if (params?.global) {
     args.push('--global');
+  } else {
+    args.push('--delete');
   }
   if (params?.targets && params.targets.length > 0) {
     args.push('-t', params.targets.join(','));
@@ -719,7 +732,7 @@ export async function deployPersona(params?: {
     // Validate and render everything before touching the destination. Without
     // this preflight, one invalid Rule could leave earlier Skill outputs behind.
     const preflight = await runGenerate([...args, '--dry-run']);
-    if (!preflight.ok) return preflight;
+    if (!preflight.ok || params?.dryRun) return preflight;
     return await runGenerate(args);
   } finally {
     await rm(stagingRoot, { recursive: true, force: true });

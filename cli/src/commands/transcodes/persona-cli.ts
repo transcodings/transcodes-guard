@@ -41,7 +41,7 @@ const ALL_DEPLOY_TARGETS = [
   'antigravity-ide',
 ] as const;
 
-const BOOLEAN_FLAGS = new Set(['global', 'installed', 'yes']);
+const BOOLEAN_FLAGS = new Set(['global', 'installed', 'yes', 'dry-run']);
 
 type ParsedArgs = {
   positionals: string[];
@@ -255,6 +255,7 @@ export async function cmdPersona(args: string[]): Promise<void> {
   transcodes persona delete-file --persona NAME --kind agent|rule|skill [--name NAME]
   transcodes persona deploy --persona NAME --project FOLDER --targets claude,cursor,chatgpt,antigravity|all --yes
   transcodes persona deploy --persona NAME --global [--targets claude,chatgpt,antigravity] --yes
+  transcodes persona deploy ... --dry-run   (list what would be written and deleted; writes nothing, no --yes needed)
   transcodes persona push --persona NAME
   transcodes persona pull --persona NAME
 `,
@@ -331,12 +332,19 @@ export async function cmdPersona(args: string[]): Promise<void> {
       const persona = requiredFlag(parsed, 'persona');
       const { root, targets, mode } = await resolveDeployDestination(parsed);
       await checkedPersonaListing(root, persona);
-      if (parsed.flags.get('yes') !== 'true') {
+      // --dry-run writes nothing, so it skips the confirmation gate: it is the
+      // way to see what deploy would overwrite and delete before confirming.
+      const dryRun = parsed.flags.get('dry-run') === 'true';
+      if (!dryRun && parsed.flags.get('yes') !== 'true') {
         throw new Error(
           [
             'Deploy refused: confirmation required.',
             `Persona "${assertPersonaId(persona)}" will overwrite generated agent files for [${targets.join(', ')}] under ${root} (${mode}).`,
-            'Ask the user to confirm the overwrite, then re-run the same deploy command with --yes.',
+            mode === 'global'
+              ? 'Existing files it does not produce are left alone.'
+              : 'It will also delete generated files under that project folder that this Persona no longer produces.',
+            'Re-run with --dry-run to list exactly what would be written and deleted.',
+            'Ask the user to confirm, then re-run the same deploy command with --yes.',
           ].join(' '),
         );
       }
@@ -345,6 +353,7 @@ export async function cmdPersona(args: string[]): Promise<void> {
         persona,
         targets,
         global: mode === 'global',
+        dryRun,
       });
       if (!result.ok) {
         throw new Error(result.output || 'Persona deployment failed.');
@@ -354,6 +363,7 @@ export async function cmdPersona(args: string[]): Promise<void> {
         root,
         targets,
         mode,
+        dryRun,
         configDirs:
           mode === 'global'
             ? {
