@@ -5127,6 +5127,13 @@ function dashboardHtml(): string {
         showToast("Select a Persona first", "error");
         return;
       }
+      // The agent prompt requires a confirmation before either sync action;
+      // the dashboard is a third entry point and needs the same gate.
+      const ok = window.confirm(
+        "Share Persona “" + personaState.persona + "” with your organization?\\n\\nEveryone in the organization will be able to read and pull it."
+      );
+      if (!ok) return;
+
       const content = personaEditor.value;
       personaBusy(true);
       try {
@@ -5143,21 +5150,31 @@ function dashboardHtml(): string {
             content,
           }),
         });
-        const push = data.push || {};
-        personaState.savedContent = content;
-        syncPersonaEditState();
-        showToast(
+        const push = data.push;
+        if (!push) throw new Error("Push returned no result");
+        // The route skips the disk write when the editor is empty, so the
+        // unsaved marker may only clear when it says the write happened.
+        if (data.saved) {
+          personaState.savedContent = content;
+          syncPersonaEditState();
+        }
+        let message =
           "Pushed “" +
-            personaState.persona +
-            "” · revision " +
-            push.revision +
-            " · " +
-            push.uploaded +
-            " uploaded, " +
-            push.skipped +
-            " unchanged",
-          "success"
-        );
+          personaState.persona +
+          "” · revision " +
+          push.revision +
+          " · " +
+          push.uploaded +
+          " uploaded, " +
+          push.skipped +
+          " unchanged";
+        // Say so rather than let the editor and the shared copy disagree in
+        // silence: an empty editor is never written, so what went up is
+        // whatever the file already held.
+        if (!data.saved && content.trim() === "") {
+          message += " · editor was empty, so the file on disk was pushed as is";
+        }
+        showToast(message, "success");
       } catch (e) {
         showToast(e.message || "Push failed", "error");
       } finally {
@@ -5171,6 +5188,20 @@ function dashboardHtml(): string {
         showToast("Select a Persona first", "error");
         return;
       }
+      // Pull overwrites files, so it gets the same gate as Push. Unsaved
+      // editor contents go too, which the modal has to say out loud.
+      const ok = window.confirm(
+        "Download your organization's copy of “" + personaState.persona + "”?\\n\\nLocal files whose contents differ will be overwritten, including anything unsaved in the editor. Local files the organization copy does not have are kept."
+      );
+      if (!ok) return;
+
+      // applyPersonaListing() clears the selected name because its other
+      // callers switch Persona, where keeping it would be wrong. Pull only
+      // refreshes the Persona already open, so the file the user was editing
+      // has to be restored — otherwise the picker falls back to the first
+      // entry and the editor silently jumps to a different file.
+      const openKind = personaState.kind;
+      const openName = personaState.name;
       personaBusy(true);
       try {
         const data = await personaFetch("/api/persona/pull", {
@@ -5181,8 +5212,14 @@ function dashboardHtml(): string {
             persona: personaState.persona,
           }),
         });
-        const pull = data.pull || {};
+        const pull = data.pull;
+        if (!pull) throw new Error("Pull returned no result");
         applyPersonaListing(data);
+        selectPersonaTab(openKind);
+        // renderPersonaPicker() keeps the name only if it still exists in the
+        // pulled listing, so a file that vanished falls back on its own.
+        personaState.name = openName;
+        renderPersonaPicker();
         await loadPersonaFile();
         renderPersonaRegistry();
         const downloaded = (pull.downloaded || []).length;
@@ -5726,7 +5763,8 @@ async function handlePersonaRoute(params: {
       // Empty content is never flushed: push fails far more often than deploy
       // (a 409 is routine), and truncating the file on the way to a failure
       // would contradict the "local files were not modified" guidance.
-      if (content.trim() && (kind === 'agent' || name.trim())) {
+      const saved = content.trim() !== '' && (kind === 'agent' || name.trim());
+      if (saved) {
         await savePersonaFile({
           root:
             typeof body.root === 'string' && body.root.trim()
@@ -5738,7 +5776,15 @@ async function handlePersonaRoute(params: {
           content,
         });
       }
-      sendJson(res, 200, { ok: true, push: await pushPersonaSync(persona) });
+      // `saved` travels back so the browser does not have to reproduce the
+      // condition above: only the route knows whether the editor contents
+      // reached the disk, and clearing the unsaved-changes marker when they
+      // did not would claim a write that never happened.
+      sendJson(res, 200, {
+        ok: true,
+        saved,
+        push: await pushPersonaSync(persona),
+      });
       return;
     }
 
