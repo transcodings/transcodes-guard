@@ -52,6 +52,8 @@ import {
   revealPersonaFolder,
   savePersonaFile,
 } from './persona.js';
+import { fetchPersonaList, loadPersonaConfig } from './persona-api.js';
+import { pullPersonaSync, pushPersonaSync } from './persona-sync.js';
 import { fetchRbacSnapshot, loadRbacConfig } from './rbac-api.js';
 import { CLI_VERSION } from './version.js';
 
@@ -5506,6 +5508,61 @@ async function handlePersonaRoute(params: {
         ...(deployed.ok
           ? {}
           : { error: deployed.output || 'transcodes sync generate failed' }),
+      });
+      return;
+    }
+
+    if (method === 'GET' && url === '/api/persona/remote') {
+      // Metadata only — no manifest fetch, so opening the tab never spends a
+      // presigned-URL round trip. Differences surface in the push/pull result.
+      sendJson(res, 200, {
+        personas: await fetchPersonaList(loadPersonaConfig()),
+      });
+      return;
+    }
+
+    if (method === 'POST' && url === '/api/persona/push') {
+      const body = await readJsonBody(req);
+      if (typeof body.persona !== 'string' || !body.persona.trim()) {
+        throw new Error('Select a Persona first.');
+      }
+      const persona = body.persona;
+      const kind = parsePersonaKind(body.kind);
+      const name = typeof body.name === 'string' ? body.name : '';
+      const content = typeof body.content === 'string' ? body.content : '';
+      // Same reason as deploy: pushPersonaSync hashes the files on disk, so
+      // editor contents that were never saved would not be uploaded.
+      if (kind === 'agent' || name.trim()) {
+        await savePersonaFile({
+          root:
+            typeof body.root === 'string' && body.root.trim()
+              ? body.root
+              : undefined,
+          persona,
+          kind,
+          name,
+          content,
+        });
+      }
+      sendJson(res, 200, { ok: true, push: await pushPersonaSync(persona) });
+      return;
+    }
+
+    if (method === 'POST' && url === '/api/persona/pull') {
+      const body = await readJsonBody(req);
+      if (typeof body.persona !== 'string' || !body.persona.trim()) {
+        throw new Error('Select a Persona first.');
+      }
+      const pull = await pullPersonaSync(body.persona);
+      const root =
+        typeof body.root === 'string' && body.root.trim()
+          ? body.root
+          : undefined;
+      // Re-read the listing so the editor shows the pulled bytes.
+      sendJson(res, 200, {
+        ok: true,
+        pull,
+        ...(await listPersona(root, pull.persona)),
       });
       return;
     }
