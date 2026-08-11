@@ -13,6 +13,17 @@ import {
 import type { PersonaKind } from './persona.js';
 import { apiError, payloadArray } from './rbac-api.js';
 
+/** One row of `GET /persona` — metadata only, no file list and no bodies. */
+export type PersonaListItem = {
+  persona_id: string;
+  name?: string;
+  revision: number;
+  file_count: number;
+  updated_at: string;
+  updated_by_name?: string;
+  updated_by_email?: string;
+};
+
 export type PersonaDetailFile = {
   kind: PersonaKind;
   name: string;
@@ -100,6 +111,18 @@ function payloadObject<T>(envelope: Envelope): T {
 
 export function loadPersonaConfig(): StepupConfig {
   return loadStepupConfig();
+}
+
+/**
+ * The organization's Personas. Authorization is the token's `oid` alone, so
+ * this takes no project scope — unlike the RBAC calls, which pass project_id.
+ */
+export async function fetchPersonaList(
+  config: StepupConfig,
+): Promise<PersonaListItem[]> {
+  const envelope = await request(config, { method: 'GET', path: '/persona' });
+  assertOk(envelope);
+  return payloadArray<PersonaListItem>(envelope);
 }
 
 export async function fetchPersonaDetail(

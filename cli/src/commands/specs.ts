@@ -47,7 +47,7 @@ export const CLI_COMMAND_SPECS: readonly CliCommandSpec[] = [
   {
     usage: 'transcodes persona',
     description:
-      'Create, inspect, edit, and apply Persona Instruction, Rule, and Skill files',
+      'Create, inspect, edit, and apply Persona Instruction, Rule, and Skill files (push / pull to share them with your organization)',
   },
   {
     usage: 'transcodes version',
