@@ -5723,7 +5723,10 @@ async function handlePersonaRoute(params: {
       const content = typeof body.content === 'string' ? body.content : '';
       // Same reason as deploy: pushPersonaSync hashes the files on disk, so
       // editor contents that were never saved would not be uploaded.
-      if (kind === 'agent' || name.trim()) {
+      // Empty content is never flushed: push fails far more often than deploy
+      // (a 409 is routine), and truncating the file on the way to a failure
+      // would contradict the "local files were not modified" guidance.
+      if (content.trim() && (kind === 'agent' || name.trim())) {
         await savePersonaFile({
           root:
             typeof body.root === 'string' && body.root.trim()
