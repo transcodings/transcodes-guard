@@ -1713,6 +1713,21 @@ function dashboardHtml(): string {
       line-height: 1.45;
       color: var(--muted);
     }
+    .persona-sync-warning {
+      margin: 12px 0 0;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      line-height: 1.5;
+      color: #c0392f;
+    }
+    .persona-sync-warning[hidden] { display: none !important; }
+    .persona-sync-status {
+      margin: 12px 2px 0;
+      font-size: var(--text-sm);
+      line-height: 1.45;
+      color: var(--muted);
+    }
+    .persona-sync-status:empty { display: none; }
     .persona-apply-status:empty { display: none; }
     .persona-apply-status[data-state="dirty"] { color: #9a5b13; }
     .persona-apply-status[data-state="pending"] { color: var(--accent); }
@@ -3374,7 +3389,15 @@ function dashboardHtml(): string {
           <button type="button" class="btn-primary" id="persona-deploy-btn" title="Apply the selected Persona to this folder">
             Apply
           </button>
+          <button type="button" id="persona-push-btn" title="Upload this Persona so your organization can use it">
+            Push
+          </button>
+          <button type="button" id="persona-pull-btn" title="Download your organization's copy of this Persona">
+            Pull
+          </button>
         </div>
+        <p class="persona-sync-status" id="persona-sync-status" role="status" aria-live="polite"></p>
+        <p class="persona-sync-warning" id="persona-sync-warning" hidden>Sign in to share Personas with your organization (Login in the header, or open Profile). Creating, editing, and applying still work without signing in.</p>
         <div class="persona-log-wrap" id="persona-log-wrap" hidden>
           <button type="button" class="persona-log-close" id="persona-log-close" aria-label="Close apply log">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
@@ -3742,7 +3765,12 @@ function dashboardHtml(): string {
         p.classList.toggle("active", p.id === "panel-" + tab));
       if (!options.skipUrl) syncTabUrl(tab, !!options.replaceUrl);
       if (tab === "rbac") loadRbac();
-      if (tab === "persona") initPersona();
+      if (tab === "persona") {
+        // initPersona() is guarded to run once; the sync row depends on the
+        // sign-in state, so it has to be re-rendered on every tab open.
+        initPersona();
+        renderPersonaSyncState();
+      }
     }
 
     function appProjectBase(organizationId, projectId) {
@@ -4084,6 +4112,10 @@ function dashboardHtml(): string {
     const personaDeployBtn = document.getElementById("persona-deploy-btn");
     const personaDeployError = document.getElementById("persona-deploy-error");
     const personaApplyStatus = document.getElementById("persona-apply-status");
+    const personaPushBtn = document.getElementById("persona-push-btn");
+    const personaPullBtn = document.getElementById("persona-pull-btn");
+    const personaSyncStatus = document.getElementById("persona-sync-status");
+    const personaSyncWarning = document.getElementById("persona-sync-warning");
     const personaTargetInputs = Array.from(
       document.querySelectorAll('input[name="persona-target"]')
     );
@@ -4271,6 +4303,69 @@ function dashboardHtml(): string {
       });
       personaRootInput.disabled = busy;
       syncPersonaEditState();
+      // Push/Pull are deliberately not in the list above: a blanket
+      // disabled = false would re-enable them for a signed-out user.
+      // Sync state decides last, so being signed out always wins.
+      renderPersonaSyncButtons();
+    }
+
+    // Buttons and the sign-in notice only. Kept synchronous because
+    // personaBusy() calls it on every lock/unlock -- a fetch here would fire
+    // a remote lookup for each one.
+    function renderPersonaSyncButtons() {
+      const signedIn = hasSavedTokens(lastStatus);
+      personaSyncWarning.hidden = signedIn;
+      const disabled = !signedIn || personaState.busy;
+      personaPushBtn.disabled = disabled;
+      personaPullBtn.disabled = disabled;
+      personaPushBtn.title = signedIn
+        ? "Upload this Persona so your organization can use it"
+        : "Sign in to push";
+      personaPullBtn.title = signedIn
+        ? "Download your organization's copy of this Persona"
+        : "Sign in to pull";
+      if (!signedIn) personaSyncStatus.textContent = "";
+    }
+
+    // Adds the remote metadata row. Called on tab open and after a login
+    // completes -- initPersona() runs once, so it cannot own this.
+    async function renderPersonaSyncState() {
+      renderPersonaSyncButtons();
+      if (!hasSavedTokens(lastStatus)) return;
+      const persona = personaState.persona;
+      if (!persona) {
+        personaSyncStatus.textContent = "";
+        return;
+      }
+      try {
+        const data = await personaFetch("/api/persona/remote");
+        const remote = (data.personas || []).find(
+          (p) => p.persona_id === persona
+        );
+        personaSyncStatus.textContent = remote
+          ? describeRemotePersona(remote)
+          : "Not in your organization yet · Push to share it";
+      } catch (e) {
+        // A failed lookup must not block local editing.
+        personaSyncStatus.textContent =
+          "Could not read the organization's Personas · " +
+          (e.message || "request failed");
+      }
+    }
+
+    function describeRemotePersona(remote) {
+      const parts = ["Shared · revision " + remote.revision];
+      const count = remote.file_count;
+      if (typeof count === "number") {
+        parts.push(count + (count === 1 ? " file" : " files"));
+      }
+      const who = remote.updated_by_name || remote.updated_by_email;
+      if (who) parts.push("last push by " + who);
+      if (remote.updated_at) {
+        const when = new Date(remote.updated_at);
+        if (!isNaN(when)) parts.push(when.toLocaleString());
+      }
+      return parts.join(" · ");
     }
 
     function personaItemHtml(kind, name) {
@@ -5027,12 +5122,105 @@ function dashboardHtml(): string {
       }
     }
 
+    async function pushPersona() {
+      if (!personaState.persona) {
+        showToast("Select a Persona first", "error");
+        return;
+      }
+      const content = personaEditor.value;
+      personaBusy(true);
+      try {
+        // Send the editor contents so the route can flush them to disk
+        // before hashing, the same way Apply does.
+        const data = await personaFetch("/api/persona/push", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            root: personaState.root,
+            persona: personaState.persona,
+            kind: personaState.kind,
+            name: personaState.name,
+            content,
+          }),
+        });
+        const push = data.push || {};
+        personaState.savedContent = content;
+        syncPersonaEditState();
+        showToast(
+          "Pushed “" +
+            personaState.persona +
+            "” · revision " +
+            push.revision +
+            " · " +
+            push.uploaded +
+            " uploaded, " +
+            push.skipped +
+            " unchanged",
+          "success"
+        );
+      } catch (e) {
+        showToast(e.message || "Push failed", "error");
+      } finally {
+        personaBusy(false);
+        await renderPersonaSyncState();
+      }
+    }
+
+    async function pullPersona() {
+      if (!personaState.persona) {
+        showToast("Select a Persona first", "error");
+        return;
+      }
+      personaBusy(true);
+      try {
+        const data = await personaFetch("/api/persona/pull", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            root: personaState.root,
+            persona: personaState.persona,
+          }),
+        });
+        const pull = data.pull || {};
+        applyPersonaListing(data);
+        await loadPersonaFile();
+        renderPersonaRegistry();
+        const downloaded = (pull.downloaded || []).length;
+        let message =
+          "Pulled “" +
+          pull.persona +
+          "” · revision " +
+          pull.revision +
+          " · " +
+          (downloaded === 0
+            ? "already up to date"
+            : downloaded + (downloaded === 1 ? " file" : " files") + " updated");
+        // Pull never deletes; files outside the manifest are reported only.
+        const localOnly = (pull.local_only || []).length;
+        if (localOnly > 0) {
+          message +=
+            " · " +
+            localOnly +
+            (localOnly === 1 ? " local file" : " local files") +
+            " kept (not shared yet)";
+        }
+        showToast(message, "success");
+      } catch (e) {
+        showToast(e.message || "Pull failed", "error");
+      } finally {
+        personaBusy(false);
+        await renderPersonaSyncState();
+      }
+    }
+
     personaSaveBtn.addEventListener("click", () => savePersona());
     personaDeleteBtn.addEventListener("click", () => {
       if (personaDeleteBtn.hidden) return;
       deletePersonaEntry(personaState.kind, personaState.name);
     });
     personaDeployBtn.addEventListener("click", () => deployAllPersona());
+    personaPushBtn.addEventListener("click", () => pushPersona());
+    personaPullBtn.addEventListener("click", () => pullPersona());
     personaTargetInputs.forEach((input) => {
       input.addEventListener("change", () => { clearPersonaDeployError(); });
     });
@@ -5091,6 +5279,9 @@ function dashboardHtml(): string {
         lastStatus = await res.json();
         renderSessionCard(lastStatus);
         renderGuardStatus(lastStatus);
+        // Login and logout both land here, so Push/Pull follow the session
+        // without either flow having to remember to update them.
+        void renderPersonaSyncState();
       } catch (e) {
         showToast(e.message || "Could not refresh status", "error");
       }
