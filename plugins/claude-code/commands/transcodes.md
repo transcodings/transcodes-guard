@@ -11,7 +11,7 @@ Identify which MENU item below matches their request, gather any missing detail 
 TOOL ACCESS RULES (all items):
 - MCP tools named below live on the `transcodes-guard` MCP server — call by exact MCP tool name (e.g. `get_member`), NOT as a slash command.
 - Before calling an MCP tool, confirm `transcodes-guard` MCP is connected on THIS host. If disconnected, REFUSE that MCP workflow and tell the user to enable/reload the plugin MCP server.
-- Persona is the exception: it is local and uses the `transcodes persona` CLI. It does not require MCP connection or Transcodes login.
+- Persona is the exception: it uses the `transcodes persona` CLI and never needs an MCP connection. Creating, editing, reading, and deploying a Persona are local and need no Transcodes login; only sharing one with the organization (`push` / `pull`) requires the user to be signed in.
 - Never invent MCP tool wire names or resource keys; use `simulate_tool_call` for MCP gating checks before explaining hook behaviour to the user.
 - Mutating Admin API calls: confirm intent + required ids with the user first; some are RBAC-gated or step-up-protected (enforced by the backend on the API call).
 - If the request is empty or ambiguous, show this full menu and ask what they want.
@@ -32,8 +32,8 @@ MENU — Guard & SDK
 3) Integrate / install the Transcodes SDK into the app (frontend)
    - FIRST call `get_integration_guide` (it fetches https://transcodes.io/instructions — the single source of truth; pass a `topic` like auth/webauthn/server-jwt/csp to focus). Then follow that guide EXACTLY to wire the SDK into the user's frontend (install, provider/setup, passkey/auth flows, JWT verification, CSP, CDN webworker). Never guess API signatures — use the guide. Ask which framework (React/Next.js/Vue/Vite) if unclear.
 
-MENU — Local Persona
-4) Create or edit a Persona onboarding kit
+MENU — Persona
+4) Create, edit, deploy, or share a Persona onboarding kit
    - Trigger on requests such as "create a persona", "edit persona", "apply a persona", or "deploy persona".
    - Persona source files live under `~/.transcodes/personas/<name>/`; never write Persona source into the current project directly.
    - INTERVIEW UI — whenever the host provides a structured question tool (for example AskUserQuestion/AskQuestion), use it for every interview and conflict-resolution question. Present 2–4 concise selectable options plus the host-provided Other/free-text choice; put the recommended option first and mark it Recommended. Do not ask as a plain prose paragraph unless the host has no structured question tool.
@@ -64,6 +64,13 @@ MENU — Local Persona
    - After confirmation for This device (Global) / "I don't know", run: `transcodes persona deploy --persona <name> --global --yes`. If the user narrowed apps, add `--targets claude,chatgpt,antigravity` as selected (never `cursor` with `--global`). Never use `cd`, pipes, heredocs, redirection, or command chaining.
    - On successful deployment, run the standalone `transcodes` command as the final action so the dashboard opens with the applied Persona available for review. Then report the exact destination and apps updated.
    - On failure, report the CLI error and do not open the dashboard, copy files manually, or retry against a different path. If the user prefers manual review before deployment, run `transcodes` and let them use the Persona dashboard Apply controls instead.
+   - SHARE WITH THE ORGANIZATION — trigger on requests such as "share this persona", "push persona", "pull persona", or "get the team persona". Unlike the rest of this item, these two commands need the user to be signed in; if the CLI reports no token, tell them to run `transcodes login` and stop.
+     - `push` uploads the Persona so every member of the organization can pull it; `pull` downloads the organization copy over the local one. Both are mutating actions: show a confirmation first and do not run either until the user confirms.
+     - Before push, state the Persona name and that the whole organization will be able to read and pull it. Do not push a Persona containing secrets, credentials, or private project details.
+     - Before pull, state the Persona name and that local files whose contents differ will be overwritten with the organization copy. Local files that the organization copy does not have are kept, not deleted.
+     - After confirmation, run `transcodes persona push --persona <name>` or `transcodes persona pull --persona <name>`. Neither takes any other flag. Never use `cd`, pipes, heredocs, redirection, or command chaining.
+     - If push fails saying the Persona changed on the server, do not retry push. Run `transcodes persona pull --persona <name>` first, show the user what changed, and ask before pushing again — pushing blindly would discard a teammate's work.
+     - Report the resulting revision number, and after pull report which files changed. Sharing does not deploy: if the user wants the pulled Persona active in an app, follow APPLY OR DEPLOY above.
    - If `transcodes persona` is unavailable, tell the user to update/reinstall `@bigstrider/transcodes-cli`; do not bypass its path validation by writing directly.
 
 MENU — Transcodes Admin API (transcodes-guard MCP server)
