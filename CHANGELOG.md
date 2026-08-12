@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.69.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.0...transcodes-guard-v0.69.1) (2026-08-12)
+
+
+### Code Refactoring
+
+* **cli:** refresh Persona dashboard layout and reuse confirm modals ([f33eaae](https://github.com/transcodings/transcodes-guard/commit/f33eaaecaea47c5b3440230cf1dd1a468ec40f7f))
+
 ## [0.69.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.68.0...transcodes-guard-v0.69.0) (2026-08-11)
 
 
