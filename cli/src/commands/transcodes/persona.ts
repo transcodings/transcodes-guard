@@ -390,6 +390,78 @@ async function listSkills(
   return entries;
 }
 
+export type CollectedPersonaFile = {
+  kind: PersonaKind;
+  name: string;
+  /** Bundle-relative POSIX path — the manifest `path` coordinate. */
+  bundlePath: string;
+  absolutePath: string;
+};
+
+/**
+ * Enumerate the bundle for sync. `listPersona()` speaks project-root relative
+ * paths; push/pull need the manifest coordinate (bundle-relative POSIX) plus
+ * the on-disk location, and both directions must see the same enumeration.
+ * A missing bundle is an empty list so pull can start from a blank machine.
+ */
+export async function collectPersonaFiles(
+  personaInput: string,
+): Promise<CollectedPersonaFile[]> {
+  await ensurePersonaStorage();
+  const persona = assertPersonaId(personaInput);
+  const bundleRoot = personaDir(persona);
+  if (!(await isDirectory(bundleRoot))) return [];
+
+  const files: CollectedPersonaFile[] = [];
+  const agentBundlePath = personaBundleRelativePath('agent', '');
+  const agentAbsolute = resolveInsidePersona(persona, agentBundlePath);
+  if (await isFile(agentAbsolute)) {
+    files.push({
+      kind: 'agent',
+      name: RULESYNC_OVERVIEW_FILE_NAME,
+      bundlePath: agentBundlePath,
+      absolutePath: agentAbsolute,
+    });
+  }
+  for (const rule of await listRules(persona, bundleRoot)) {
+    const bundlePath = personaBundleRelativePath('rule', rule.name);
+    files.push({
+      kind: 'rule',
+      name: rule.name,
+      bundlePath,
+      absolutePath: resolveInsidePersona(persona, bundlePath),
+    });
+  }
+  for (const skill of await listSkills(persona, bundleRoot)) {
+    const bundlePath = personaBundleRelativePath('skill', skill.name);
+    files.push({
+      kind: 'skill',
+      name: skill.name,
+      bundlePath,
+      absolutePath: resolveInsidePersona(persona, bundlePath),
+    });
+  }
+  return files;
+}
+
+/**
+ * Byte-verbatim write for pull. The server-provided `path` is trusted only
+ * after `resolveInsidePersona()` re-anchors it inside the bundle; content is
+ * written exactly as received so the manifest digest keeps matching.
+ */
+export async function writePersonaBundleFile(
+  personaInput: string,
+  bundlePath: string,
+  bytes: Buffer,
+): Promise<string> {
+  await ensurePersonaStorage();
+  const persona = assertPersonaId(personaInput);
+  const absolutePath = resolveInsidePersona(persona, bundlePath);
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, bytes);
+  return absolutePath;
+}
+
 export async function readPersonaFile(params: {
   root?: string;
   persona: string;
@@ -565,6 +637,12 @@ export async function deployPersona(params?: {
   targets?: string[];
   /** When true, pass `--global` so hosts write user-scope paths (e.g. ~/.claude). */
   global?: boolean;
+  /**
+   * When true, stop after the preflight render and return its `--dry-run`
+   * output instead of writing. Deploy always passes `--delete`, so this is the
+   * only way to see which existing files it considers orphans before they go.
+   */
+  dryRun?: boolean;
 }): Promise<PersonaDeployResult> {
   const { root } = await resolvePersonaRoot(params?.root);
   const listing = await listPersona(root, params?.persona);
@@ -610,10 +688,17 @@ export async function deployPersona(params?: {
     stagingRoot,
     '--output-roots',
     root,
-    '--delete',
   ];
+  // `--delete` treats every existing output this run did not produce as an
+  // orphan and removes it, including whole directories. Under a project root
+  // that is recoverable through git; under the user's home it is not, and a
+  // dry-run confirmed it takes hand-written ~/.claude/rules/*.md and
+  // ~/.claude/skills/<name>/ with it. Global deploy therefore overwrites what
+  // it produces and leaves everything else alone.
   if (params?.global) {
     args.push('--global');
+  } else {
+    args.push('--delete');
   }
   if (params?.targets && params.targets.length > 0) {
     args.push('-t', params.targets.join(','));
@@ -647,7 +732,7 @@ export async function deployPersona(params?: {
     // Validate and render everything before touching the destination. Without
     // this preflight, one invalid Rule could leave earlier Skill outputs behind.
     const preflight = await runGenerate([...args, '--dry-run']);
-    if (!preflight.ok) return preflight;
+    if (!preflight.ok || params?.dryRun) return preflight;
     return await runGenerate(args);
   } finally {
     await rm(stagingRoot, { recursive: true, force: true });

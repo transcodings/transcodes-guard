@@ -1,6 +1,67 @@
 # Changelog
 
 
+## [0.69.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.1...transcodes-guard-v0.69.2) (2026-08-12)
+
+
+### Bug Fixes
+
+* **cli:** 전역 Persona 배포가 사용자 홈 파일을 지우는 것을 막는다 ([a4d22a9](https://github.com/transcodings/transcodes-guard/commit/a4d22a947678fcc044e1c86a16aa8ef766137ef1))
+
+## [0.69.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.0...transcodes-guard-v0.69.1) (2026-08-12)
+
+
+### Code Refactoring
+
+* **cli:** refresh Persona dashboard layout and reuse confirm modals ([f33eaae](https://github.com/transcodings/transcodes-guard/commit/f33eaaecaea47c5b3440230cf1dd1a468ec40f7f))
+
+## [0.69.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.68.0...transcodes-guard-v0.69.0) (2026-08-11)
+
+
+### Features
+
+* **cli:** add Persona sync routes to the dashboard ([26d1245](https://github.com/transcodings/transcodes-guard/commit/26d1245f73eda2bdad0a3fcdb6a96d2a38298d50))
+* **cli:** Persona 동기화를 대시보드와 에이전트에 노출 (p5) ([cb23829](https://github.com/transcodings/transcodes-guard/commit/cb238293462d7c8053695f056b0cb5d9d4bf3787))
+* **cli:** restore Persona list API call for p5 ([6f3e69c](https://github.com/transcodings/transcodes-guard/commit/6f3e69ce66d4ed2c2bff46079484b866af3bc086))
+* **cli:** surface Persona push/pull in the dashboard ([5364a42](https://github.com/transcodings/transcodes-guard/commit/5364a42742eda6fb9f65de38b7d03456bd87b348))
+* **cli:** teach the agent prompt to share Personas ([e1a3325](https://github.com/transcodings/transcodes-guard/commit/e1a332548068ad8065365ae66aa73c4c81e27e3b))
+
+
+### Bug Fixes
+
+* **cli:** address self-review findings on Persona sync surfaces ([e75daf9](https://github.com/transcodings/transcodes-guard/commit/e75daf9dda51fadf299c966ec860386d5f5a6873))
+* **cli:** never flush empty editor content on push ([c59c96c](https://github.com/transcodings/transcodes-guard/commit/c59c96c6b990e0ba544576876d66cf55e0163afb))
+
+
+### Documentation
+
+* **cli:** mention Persona sharing in the command list ([c2daf8a](https://github.com/transcodings/transcodes-guard/commit/c2daf8a5290adbc26785130128eeb86044bdfe05))
+
+## [0.68.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.5...transcodes-guard-v0.68.0) (2026-08-10)
+
+
+### Features
+
+* **cli:** add Persona bundle enumeration and byte-write helpers ([30f320e](https://github.com/transcodings/transcodes-guard/commit/30f320e7a665df1a747bef1c4bb99834b0fd9f7e))
+* **cli:** add Persona org-sync API client ([a8068ba](https://github.com/transcodings/transcodes-guard/commit/a8068ba26e11b26ed33ff25d1527d4fc28529d11))
+* **cli:** add Persona push/pull sync domain ([dd17fb6](https://github.com/transcodings/transcodes-guard/commit/dd17fb68088c19b085078bf53c4f6e305ff4e456))
+* **cli:** Persona push/pull 조직 동기화 (p4, 0.16.0) ([2fe1b75](https://github.com/transcodings/transcodes-guard/commit/2fe1b750bf22691d55f3c14512965129452862ec))
+* **cli:** wire persona push/pull subcommands ([b2b2c73](https://github.com/transcodings/transcodes-guard/commit/b2b2c73a828acfbc7f322c8fd505be4de0d085e9))
+
+
+### Bug Fixes
+
+* **cli:** address review findings on persona sync ([74c5647](https://github.com/transcodings/transcodes-guard/commit/74c56475f44e32bfaea4a23b4a525159fc195087))
+
+## [0.67.5](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.4...transcodes-guard-v0.67.5) (2026-08-10)
+
+
+### Bug Fixes
+
+* **cli:** clarify Persona Save and Apply states (0.15.4) ([1edb75d](https://github.com/transcodings/transcodes-guard/commit/1edb75d3a3d04ea04da6e355c19b131473c7a9a6))
+* **cli:** clarify Persona Save and Apply states (0.15.4) ([eba78fd](https://github.com/transcodings/transcodes-guard/commit/eba78fdb7d5788ea4b90ad11f6532e7afb2020ef))
+* **cli:** keep polymorphic this for Antigravity global skill paths ([3e3a053](https://github.com/transcodings/transcodes-guard/commit/3e3a0539dad14c0f07b28ebb992f5cef6ab3a2ac))
+
 ## [0.67.4](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.67.3...transcodes-guard-v0.67.4) (2026-08-06)
 
 
