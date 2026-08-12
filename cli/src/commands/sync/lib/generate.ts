@@ -1,3 +1,12 @@
+/**
+ * Vendored from rulesync (https://github.com/dyoshikawa/rulesync), MIT,
+ * Copyright (c) 2024 dyoshikawa. Everything under `cli/src/commands/sync/` is a
+ * copy of upstream v16.5.0 adapted for this project, not an npm dependency —
+ * see NOTICE.md at the repo root for the license text and the change list.
+ *
+ * Upstream changes are not merged back in, but keep edits here minimal anyway:
+ * the smaller the diff from upstream, the easier it stays to compare against.
+ */
 import { join } from 'node:path';
 
 import { intersection } from 'es-toolkit';
