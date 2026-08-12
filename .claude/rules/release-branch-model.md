@@ -11,9 +11,11 @@ paths:
 
 ## Branch promotion (counterintuitive: `prod` is the default branch)
 
-- The repo's git **default branch is `prod`**, but **all development targets `dev`**: feat → PR (base `dev`) → merge to `dev` → fast-forward-promote to `prod`. (The development branch was renamed from `main` to `dev`; `prod` stays the public default.)
-- `promote.yml` only **fast-forwards** `prod` to `dev` and **refuses** (exit 1, no force-push) if `prod` has diverged — guarded by `git merge-base --is-ancestor origin/prod $DEV_SHA`. `prod` must never receive independent commits.
-- `release.yml` **must** set `target-branch: dev` even though the default branch is `prod`. Omitting it makes release-please commit version bumps directly to `prod`, permanently breaking the fast-forward promotion model.
+- The repo's git **default branch is `prod`**, but **all development targets `dev`**: feat → PR (base `dev`) → merge to `dev` → promote to `prod`. (The development branch was renamed from `main` to `dev`; `prod` stays the public default.)
+- **Promotion is a `dev` → `prod` merge PR, not a fast-forward.** Open it with `gh pr create --base prod --head dev` and merge with `--merge` (never squash or rebase — either would rewrite `dev`'s commits onto `prod` and compound the divergence). A human decides when to promote; do not merge a promotion PR without being asked.
+- **`prod` is no longer an ancestor of `dev`, and cannot become one again.** Each merge promotion adds a merge commit that exists only on `prod`, so `git merge-base --is-ancestor origin/prod origin/dev` fails. Expect this; it is not a sign that someone committed directly to `prod`. Verify a promotion by diffing content instead: `git diff origin/dev origin/prod` should show only changes `dev` is ahead on.
+- **`promote.yml` is therefore dead and always exits 1.** It fast-forwards `prod` to `dev` and refuses on divergence — the guard was correct for the ff era (it last ran successfully 2026-07-01), but from 2026-08-05 promotions have been merges, so its `--is-ancestor` check can never pass again. Do not run it, and do not "fix" a promotion by force-pushing `prod` to make the check pass — that would discard the merge history the public branch already published.
+- `release.yml` **must** set `target-branch: dev` even though the default branch is `prod`. Omitting it makes release-please commit version bumps directly to `prod` — independent `prod` work that the next promotion PR would have to merge back, which is how the two branches drift apart in content rather than merely in history.
 
 ## Version train (CLI excluded)
 
