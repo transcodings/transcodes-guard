@@ -145,6 +145,21 @@ jobs:
           exit $MISSING
 
       # ─────────────────────────────────────────────────────────
+      # Third-party notice gate.
+      # cli/src/commands/sync/ is vendored rulesync (MIT), so the published CLI
+      # tarball must carry the notice. npm's `files` whitelist auto-includes
+      # LICENSE but NOT NOTICE, and the package root is cli/ — so cli/NOTICE.md
+      # is a copy of the root one. Assert the two stay identical.
+      - name: Third-party notice — cli/NOTICE.md must match the root copy
+        run: |
+          if ! diff -q NOTICE.md cli/NOTICE.md >/dev/null; then
+            echo "::error::cli/NOTICE.md has drifted from NOTICE.md — copy the root file over it"
+            diff NOTICE.md cli/NOTICE.md || true
+            exit 1
+          fi
+          echo "OK: NOTICE.md and cli/NOTICE.md are identical"
+
+      # ─────────────────────────────────────────────────────────
       # Unit tests (node:test via tsx) — core suites (stepup + patterns),
       # gate-backend mcp-tools suites, and cli suites (persona sync + dashboard).
       - name: core unit tests
