@@ -34,6 +34,12 @@ import {
 } from '@transcodes-guard/core/stepup';
 import { renderCliCommandsHtml } from '../index.js';
 import { createFeatureScaffold } from '../sync/lib/feature-scaffold.js';
+import {
+  HttpError,
+  hasJsonContentType,
+  isAllowedRequestOrigin,
+  statusForError,
+} from './dashboard-csrf.js';
 import { getGlobalPersonaSyncTargets } from './host-apps.js';
 import { beginCliLogin } from './login.js';
 import { LOGO_DATA_URI } from './logo.js';
@@ -252,6 +258,12 @@ const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
+    if (!hasJsonContentType(req)) {
+      req.resume(); // drain so the socket can be reused
+      reject(new HttpError(415, 'Content-Type must be application/json'));
+      return;
+    }
+
     const chunks: Buffer[] = [];
     let size = 0;
     req.on('data', (chunk: Buffer) => {
@@ -6029,7 +6041,7 @@ async function handlePersonaRoute(params: {
 
     sendJson(res, 404, { error: 'not found' });
   } catch (err) {
-    sendJson(res, 400, {
+    sendJson(res, statusForError(err, 400), {
       error: err instanceof Error ? err.message : String(err),
     });
   }
@@ -6053,6 +6065,20 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
       if (hostName !== '127.0.0.1' && hostName !== 'localhost') {
         res.writeHead(403, { 'Content-Type': 'text/plain' });
         res.end('forbidden host');
+        return;
+      }
+
+      // CSRF guard: see isAllowedRequestOrigin. GET is untouched — port
+      // discovery hits GET /health and the offline page polls it every 3s.
+      if (
+        !isAllowedRequestOrigin({
+          method,
+          secFetchSite: req.headers['sec-fetch-site'] as string | undefined,
+          origin: req.headers.origin,
+        })
+      ) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('forbidden origin');
         return;
       }
 
@@ -6200,7 +6226,7 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
 
         sendJson(res, 404, { error: 'not found' });
       } catch (err) {
-        sendJson(res, 500, {
+        sendJson(res, statusForError(err, 500), {
           error: err instanceof Error ? err.message : String(err),
         });
       }
