@@ -7,6 +7,14 @@ const source = readFileSync(
   "utf8",
 );
 
+test("the CSRF guard stays wired at the request entry point", () => {
+  // Both checks live in dashboard-csrf.ts and are unit-tested there. What that
+  // cannot see is whether dashboard.ts still calls them -- an unwired guard
+  // leaves every POST route open again.
+  assert.match(source, /isAllowedRequestOrigin\(\{[\s\S]{0,400}?forbidden origin/);
+  assert.match(source, /if \(!hasJsonContentType\(req\)\)/);
+});
+
 test("Persona Save and Apply states stay explicit", () => {
   assert.match(source, /id="persona-save-btn" disabled/);
   assert.match(source, /personaEditor\.value !== personaState\.savedContent/);
