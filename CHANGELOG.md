@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.69.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.1...transcodes-guard-v0.69.2) (2026-08-12)
+
+
+### Bug Fixes
+
+* **cli:** 전역 Persona 배포가 사용자 홈 파일을 지우는 것을 막는다 ([a4d22a9](https://github.com/transcodings/transcodes-guard/commit/a4d22a947678fcc044e1c86a16aa8ef766137ef1))
+
 ## [0.69.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.0...transcodes-guard-v0.69.1) (2026-08-12)
 
 
