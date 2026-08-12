@@ -37,6 +37,7 @@ import { createFeatureScaffold } from '../sync/lib/feature-scaffold.js';
 import { getGlobalPersonaSyncTargets } from './host-apps.js';
 import { beginCliLogin } from './login.js';
 import { LOGO_DATA_URI } from './logo.js';
+import { PWA_MANIFEST } from './manifest.js';
 import {
   createPersona,
   defaultPersonaRoot,
@@ -54,6 +55,7 @@ import {
 } from './persona.js';
 import { fetchPersonaList, loadPersonaConfig } from './persona-api.js';
 import { pullPersonaSync, pushPersonaSync } from './persona-sync.js';
+import { PWA_SERVICE_WORKER } from './pwa.js';
 import { fetchRbacSnapshot, loadRbacConfig } from './rbac-api.js';
 import { CLI_VERSION } from './version.js';
 
@@ -76,335 +78,6 @@ const PWA_ICON_PNG = Buffer.from(
   'base64',
 );
 
-const PWA_MANIFEST = JSON.stringify({
-  name: 'Transcodes CLI Dashboard',
-  short_name: 'Transcodes',
-  description:
-    'Local Transcodes CLI dashboard — profile, guide, and permissions.',
-  start_url: '/',
-  scope: '/',
-  display: 'standalone',
-  background_color: '#f4f4f6',
-  theme_color: '#16161a',
-  icons: [
-    {
-      src: '/icon-512.png',
-      sizes: '512x512',
-      type: 'image/png',
-      purpose: 'any',
-    },
-    {
-      src: '/icon-512.png',
-      sizes: '192x192',
-      type: 'image/png',
-      purpose: 'any',
-    },
-  ],
-});
-
-/**
- * PWA service worker: network-first while the CLI is up; when the local
- * server is stopped, show a cached offline page instead of Chrome's
- * "This site can't be reached".
- */
-const PWA_SERVICE_WORKER = `/* Transcodes dashboard PWA */
-const CACHE = 'transcodes-dashboard-offline-v4';
-const OFFLINE_URL = '/offline';
-const OFFLINE_HTML = \`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#16161a" />
-  <title>Transcodes — CLI Dashboard</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 24px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #f4f4f6;
-      color: #16161a;
-      -webkit-font-smoothing: antialiased;
-    }
-    .card {
-      width: 100%;
-      max-width: 520px;
-      background: #fff;
-      border-radius: 24px;
-      padding: 36px 36px 32px;
-      box-shadow: 0 1px 2px rgba(16, 16, 26, 0.04), 0 12px 40px rgba(16, 16, 26, 0.06);
-    }
-    h1 {
-      margin: 0 0 8px;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-    }
-    .lede {
-      margin: 0 0 20px;
-      font-size: 15px;
-      line-height: 1.5;
-      color: #8a8a94;
-    }
-    .tabs {
-      display: flex;
-      gap: 4px;
-      padding: 4px;
-      margin-bottom: 20px;
-      background: #f4f4f6;
-      border-radius: 12px;
-    }
-    .tab {
-      flex: 1;
-      border: none;
-      border-radius: 9px;
-      padding: 10px 12px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #8a8a94;
-      background: transparent;
-      cursor: pointer;
-    }
-    .tab[aria-selected="true"] {
-      color: #16161a;
-      background: #fff;
-      box-shadow: 0 1px 2px rgba(16, 16, 26, 0.08);
-    }
-    .panel[hidden] { display: none !important; }
-    ol {
-      margin: 0;
-      padding-left: 20px;
-      font-size: 14px;
-      line-height: 1.6;
-      color: #5a5a64;
-    }
-    li + li { margin-top: 8px; }
-    kbd {
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      color: #16161a;
-      background: #f4f4f6;
-      border: 1px solid #e2e2e8;
-      border-bottom-width: 2px;
-      border-radius: 6px;
-      padding: 1px 6px;
-    }
-    .cmd {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 6px;
-      background: #16161a;
-      border-radius: 10px;
-      padding: 10px 12px;
-    }
-    .cmd code {
-      flex: 1;
-      min-width: 0;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 12px;
-      color: #fff;
-      white-space: nowrap;
-      overflow-x: auto;
-    }
-    .copy {
-      flex-shrink: 0;
-      border: none;
-      border-radius: 7px;
-      padding: 5px 10px;
-      font-size: 12px;
-      font-weight: 600;
-      color: #16161a;
-      background: #fff;
-      cursor: pointer;
-    }
-    .copy:hover { opacity: 0.88; }
-    .note {
-      margin: 20px 0 0;
-      padding-top: 18px;
-      border-top: 1px solid #ececf0;
-    }
-    .note-title {
-      margin: 0 0 6px;
-      font-size: 13px;
-      font-weight: 700;
-      color: #16161a;
-    }
-    .note-lede {
-      margin: 0 0 10px;
-      font-size: 13px;
-      line-height: 1.55;
-      color: #8a8a94;
-    }
-    .note-hint {
-      margin: 10px 0 0;
-      font-size: 12px;
-      line-height: 1.5;
-      color: #8a8a94;
-    }
-    .note code {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 12px;
-      color: #16161a;
-      background: #f4f4f6;
-      border-radius: 6px;
-      padding: 2px 6px;
-    }
-    .actions {
-      margin-top: 22px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .refresh {
-      border: none;
-      border-radius: 10px;
-      padding: 11px 18px;
-      font-size: 14px;
-      font-weight: 600;
-      color: #fff;
-      background: #16161a;
-      cursor: pointer;
-    }
-    .refresh:hover { opacity: 0.92; }
-    .status { font-size: 13px; color: #8a8a94; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>Control panel is offline</h1>
-    <p class="lede">Transcodes isn't running on this computer. Start it from a terminal, then come back here.</p>
-
-    <div class="tabs" role="tablist" aria-label="Operating system">
-      <button type="button" class="tab" role="tab" id="tab-unix" aria-controls="panel-unix" aria-selected="true" data-tab="unix">macOS / Linux</button>
-      <button type="button" class="tab" role="tab" id="tab-windows" aria-controls="panel-windows" aria-selected="false" data-tab="windows">Windows</button>
-    </div>
-
-    <div class="panel" id="panel-unix" role="tabpanel" aria-labelledby="tab-unix">
-      <ol>
-        <li>Open Terminal — macOS: press <kbd>⌘</kbd> + <kbd>Space</kbd>, type <strong>Terminal</strong>, press <kbd>Enter</kbd>. Linux: press <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.</li>
-        <li>
-          Type this and press <kbd>Enter</kbd>:
-          <span class="cmd"><code>transcodes</code><button type="button" class="copy" data-copy="transcodes">Copy</button></span>
-        </li>
-        <li>Leave the terminal open, then click <strong>Refresh</strong> below.</li>
-      </ol>
-      <div class="note">
-        <p class="note-title">Says “command not found”?</p>
-        <p class="note-lede">Install first — the script sets up Node.js if needed and runs <code>npm install -g @bigstrider/transcodes-cli</code>. When it finishes, run <code>transcodes</code> and refresh.</p>
-        <span class="cmd"><code>curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash &amp;&amp; transcodes install</code><button type="button" class="copy" data-copy="curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash &amp;&amp; transcodes install">Copy</button></span>
-        <p class="note-hint">Already have Node.js 20+? You can also run <code>npm install -g @bigstrider/transcodes-cli</code>.</p>
-      </div>
-    </div>
-
-    <div class="panel" id="panel-windows" role="tabpanel" aria-labelledby="tab-windows" hidden>
-      <ol>
-        <li>Open PowerShell — press <kbd>Win</kbd> + <kbd>R</kbd>, type <strong>powershell</strong>, press <kbd>Enter</kbd>.</li>
-        <li>
-          Type this and press <kbd>Enter</kbd>:
-          <span class="cmd"><code>transcodes</code><button type="button" class="copy" data-copy="transcodes">Copy</button></span>
-        </li>
-        <li>Leave the window open, then click <strong>Refresh</strong> below.</li>
-      </ol>
-      <div class="note">
-        <p class="note-title">Says “command not found”?</p>
-        <p class="note-lede">Install first — the script sets up Node.js if needed and runs <code>npm install -g @bigstrider/transcodes-cli</code>. When it finishes, run <code>transcodes</code> and refresh.</p>
-        <span class="cmd"><code>Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install</code><button type="button" class="copy" data-copy="Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install">Copy</button></span>
-        <p class="note-hint">Already have Node.js 20+? You can also run <code>npm install -g @bigstrider/transcodes-cli</code>.</p>
-      </div>
-    </div>
-
-    <div class="actions">
-      <button type="button" class="refresh" onclick="location.reload()">Refresh</button>
-      <span class="status" id="status">Checking every few seconds…</span>
-    </div>
-  </div>
-  <script>
-    function selectTab(name) {
-      document.querySelectorAll(".tab").forEach(function (tab) {
-        var on = tab.getAttribute("data-tab") === name;
-        tab.setAttribute("aria-selected", on ? "true" : "false");
-      });
-      document.getElementById("panel-unix").hidden = name !== "unix";
-      document.getElementById("panel-windows").hidden = name !== "windows";
-    }
-
-    document.querySelectorAll(".tab").forEach(function (tab) {
-      tab.addEventListener("click", function () {
-        selectTab(tab.getAttribute("data-tab"));
-      });
-    });
-
-    selectTab((navigator.userAgent || "").indexOf("Win") !== -1 ? "windows" : "unix");
-
-    document.addEventListener("click", function (e) {
-      var btn = e.target.closest(".copy");
-      if (!btn) return;
-      navigator.clipboard.writeText(btn.getAttribute("data-copy")).then(function () {
-        btn.textContent = "Copied";
-        setTimeout(function () { btn.textContent = "Copy"; }, 1500);
-      });
-    });
-
-    setInterval(function () {
-      fetch("/health", { cache: "no-store" })
-        .then(function (res) { if (res.ok) location.reload(); })
-        .catch(function () {});
-    }, 3000);
-  </script>
-</body>
-</html>\`;
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) =>
-      cache.put(
-        OFFLINE_URL,
-        new Response(OFFLINE_HTML, {
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        })
-      )
-    ).then(() => self.skipWaiting())
-  );
-});
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
-});
-
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  if (request.method !== 'GET') return;
-
-  event.respondWith(
-    fetch(request).catch(async () => {
-      const wantsHtml =
-        request.mode === 'navigate' ||
-        (request.headers.get('accept') || '').includes('text/html');
-      if (!wantsHtml) {
-        return new Response('', { status: 503, statusText: 'Offline' });
-      }
-      const cached = await caches.match(OFFLINE_URL);
-      return (
-        cached ||
-        new Response(OFFLINE_HTML, {
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        })
-      );
-    })
-  );
-});
-`;
 /**
  * Console org base — app deep-links:
  * - permissions: `/{oid}/project/{pid}?tab=permissions`
@@ -864,7 +537,7 @@ function dashboardHtml(): string {
     }
     .commands-modal .section-sub { margin-bottom: 14px; }
     .deploy-confirm-panel {
-      width: min(100%, 460px);
+      width: min(100%, 520px);
       padding: 28px;
       overflow: visible;
     }
@@ -882,6 +555,15 @@ function dashboardHtml(): string {
       line-height: 1.55;
     }
     .deploy-confirm-copy strong { color: var(--ink); }
+    .deploy-confirm-apps {
+      margin-top: 18px;
+    }
+    .deploy-confirm-target-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .deploy-confirm-target-list .persona-target {
+      min-height: 38px;
+    }
     .deploy-confirm-target {
       margin-top: 18px;
       padding: 13px 14px;
@@ -989,6 +671,30 @@ function dashboardHtml(): string {
       background: var(--accent);
     }
     .deploy-confirm-submit:hover { opacity: 0.9; }
+    .deploy-confirm-submit:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .action-confirm-panel {
+      width: min(100%, 460px);
+    }
+    .action-confirm-warning {
+      margin: 16px 0 0;
+      padding: 11px 13px;
+      border-radius: 10px;
+      background: #f7f7f9;
+      color: var(--muted);
+      font-size: var(--text-xs);
+      line-height: 1.45;
+    }
+    .action-confirm-submit.is-danger {
+      border-color: #c0392f;
+      background: #c0392f;
+    }
+    .action-confirm-submit.is-danger:hover {
+      background: #a52f26;
+      opacity: 1;
+    }
     .avatar {
       width: 56px;
       height: 56px;
@@ -1132,6 +838,7 @@ function dashboardHtml(): string {
     .profile-identity {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 12px;
       padding: 18px 20px;
       border-bottom: 1px solid var(--line);
@@ -1150,7 +857,10 @@ function dashboardHtml(): string {
       font-weight: 700;
       text-transform: uppercase;
     }
-    .profile-identity-body { min-width: 0; }
+    .profile-identity-body {
+      flex: 1;
+      min-width: 180px;
+    }
     .profile-identity-name {
       font-size: var(--text-sm);
       font-weight: 700;
@@ -1202,19 +912,17 @@ function dashboardHtml(): string {
       color: var(--muted);
       line-height: 1.5;
     }
-    .profile-actions-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
     .profile-actions-hint {
       margin: 0;
       font-size: var(--text-2xs);
       color: var(--muted);
     }
-    .profile-actions-buttons { display: flex; gap: 8px; }
+    .profile-actions-buttons {
+      flex-shrink: 0;
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+    }
     .profile-empty {
       padding: 18px 20px;
       border-radius: 16px;
@@ -1662,8 +1370,51 @@ function dashboardHtml(): string {
       flex-wrap: wrap;
       margin-bottom: 6px;
     }
-    .persona-root-help {
+    .persona-deploy-btn {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 84px;
+      padding: 0 18px;
+      border: none;
+      border-radius: 9px;
+      font-size: var(--text-2xs);
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease, opacity 0.15s ease;
+    }
+    .persona-deploy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* Every control on the header row shares one height so the strip reads as a single bar. */
+    .persona-registry-head .persona-root-input,
+    .persona-registry-head .btn-inline-action,
+    .persona-registry-head .persona-deploy-btn,
+    .persona-library-panel .persona-bundle-select,
+    .persona-library-panel .persona-new-name,
+    .persona-library-panel .persona-group-add,
+    .persona-library-panel .persona-bundle-delete-btn,
+    .persona-library-panel .btn-inline-action {
+      height: 34px;
+      min-height: 34px;
+    }
+    .persona-library-panel .persona-group-add {
+      margin-left: 0;
+      padding: 0 10px;
+      font-size: var(--text-2xs);
+    }
+    .persona-library-panel .persona-bundle-delete-btn {
+      width: 34px;
+    }
+    .persona-registry-head .btn-inline-action {
+      padding: 0 14px;
+    }
+    .persona-registry-meta {
+      display: grid;
+      gap: 6px;
       margin: 0 0 12px;
+    }
+    .persona-root-help {
+      margin: 0;
       font-size: var(--text-2xs);
       line-height: 1.45;
       color: var(--muted);
@@ -1689,6 +1440,7 @@ function dashboardHtml(): string {
       line-height: 1.45;
       color: var(--muted);
     }
+    .persona-root-hint:empty { display: none; }
     .persona-root-hint.error { color: #c0392f; }
     .persona-save-error {
       margin: 0 0 12px;
@@ -1736,17 +1488,54 @@ function dashboardHtml(): string {
     .persona-bundle-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin: 12px 0;
+      gap: 6px;
+      flex: 1 1 240px;
+      min-width: 0;
+      margin: 0;
     }
-    .persona-bundle-list {
+    .persona-bundle-select {
       flex: 1;
-      min-width: 160px;
+      min-width: 0;
+      margin: 0;
+      padding: 8px 36px 8px 12px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-color: #fff;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23222228' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 14px;
+      font-size: var(--text-2xs);
+    }
+    .persona-bundle-delete-btn {
+      flex: 0 0 auto;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .persona-bundle-delete-btn:hover:not(:disabled) {
+      border-color: #e2b5b1;
+      background: #fdf6f5;
+      color: #c0392f;
+    }
+    .persona-bundle-delete-btn:disabled {
+      opacity: 0.45;
+      cursor: default;
     }
     .persona-bundle-row .persona-new-name {
       margin: 0;
       flex: 1;
-      min-width: 160px;
+      min-width: 0;
+      padding: 8px 12px;
+      font-size: var(--text-2xs);
     }
     .persona-workspace {
       margin-top: 14px;
@@ -1764,22 +1553,6 @@ function dashboardHtml(): string {
     }
     .persona-editor-panel .sub-tabs {
       margin-bottom: 14px;
-    }
-    .persona-registry-actions {
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid var(--line);
-    }
-    .persona-targets {
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid var(--line);
-    }
-    .persona-targets-label {
-      margin: 0 0 8px;
-      color: var(--muted);
-      font-size: var(--text-2xs);
-      font-weight: 700;
     }
     .persona-target-list {
       display: grid;
@@ -1825,12 +1598,45 @@ function dashboardHtml(): string {
     @media (max-width: 600px) {
       .persona-target-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-    .persona-group + .persona-group { margin-top: 14px; }
+    .persona-child-tree {
+      padding: 0;
+    }
+    .persona-group { padding: 0; }
+    .persona-group + .persona-group { margin-top: 16px; }
     .persona-group-label {
-      margin: 0 0 6px;
+      margin: 0 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-size: var(--text-2xs);
       font-weight: 700;
       color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .persona-group-add {
+      margin-left: auto;
+      min-height: 24px;
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: 0;
+      text-transform: none;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .persona-group-add:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .persona-child-tree .persona-item {
+      border-radius: 8px;
+      background: #fff;
     }
     .persona-list {
       margin: 0;
@@ -1855,7 +1661,8 @@ function dashboardHtml(): string {
       transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
     .persona-item-open {
-      padding: 7px 10px 7px 12px;
+      min-height: 32px;
+      padding: 6px 10px 6px 12px;
       border: none;
       background: transparent;
       color: inherit;
@@ -1870,16 +1677,16 @@ function dashboardHtml(): string {
     }
     .persona-item.active {
       border-color: var(--accent);
-      background: var(--accent);
-      color: #fff;
+      background: #fff;
+      color: var(--accent);
     }
     .persona-item-x {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 34px;
+      width: 32px;
       height: 100%;
-      min-height: 34px;
+      min-height: 32px;
       padding: 0;
       border: none;
       border-left: 1px solid transparent;
@@ -1897,8 +1704,8 @@ function dashboardHtml(): string {
       color: #c0392f;
     }
     .persona-item.active .persona-item-x:hover {
-      background: rgba(255, 255, 255, 0.22);
-      color: #fff;
+      background: rgba(192, 57, 47, 0.12);
+      color: #c0392f;
     }
     .persona-empty {
       margin: 0;
@@ -1910,11 +1717,13 @@ function dashboardHtml(): string {
       flex-wrap: wrap;
       align-items: center;
       gap: 8px;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
+    .persona-picker[hidden] { display: none !important; }
     .persona-template-row {
-      margin: 0 0 12px;
+      margin: 0 0 16px;
     }
+    .persona-template-row[hidden] { display: none !important; }
     .persona-template-select {
       width: 100%;
       margin: 0;
@@ -1927,26 +1736,15 @@ function dashboardHtml(): string {
       background-position: right 14px center;
       background-size: 14px;
     }
-    .persona-select,
     .persona-new-name {
       margin: 0;
       flex: 1;
       min-width: 180px;
       font-size: var(--text-xs);
     }
-    .persona-select {
-      cursor: pointer;
-      appearance: none;
-      -webkit-appearance: none;
-      padding-right: 36px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23222228' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 14px center;
-      background-size: 14px;
-    }
     .persona-about {
-      margin: 0 0 14px;
-      padding: 12px 14px;
+      margin: 0 0 16px;
+      padding: 14px 16px;
       border: 1px solid var(--line);
       border-radius: 12px;
       background: #fbfbfc;
@@ -1955,6 +1753,14 @@ function dashboardHtml(): string {
       color: var(--muted);
     }
     .persona-about strong { color: var(--ink); }
+    .persona-about-title {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+      font-size: var(--text-sm);
+      font-weight: 750;
+      line-height: 1.35;
+    }
     .persona-agent-callout {
       display: flex;
       gap: 12px;
@@ -1987,22 +1793,13 @@ function dashboardHtml(): string {
     }
     .persona-agent-callout-copy strong { color: var(--ink); }
     .persona-agent-callout-copy code.cli-cmd { white-space: nowrap; }
-    #panel-persona .guide-help { margin: 0 0 14px; }
-    #panel-persona .guide-help-line { font-size: var(--text-xs); }
-    .persona-path {
-      margin: 0 0 8px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: var(--text-2xs);
-      color: var(--muted);
-      word-break: break-all;
-    }
     .persona-content-stats {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 6px 12px;
-      margin: 0 2px 8px;
+      margin: 0 2px 10px;
       font-size: var(--text-2xs);
       color: var(--muted);
     }
@@ -2035,6 +1832,14 @@ function dashboardHtml(): string {
       box-shadow: 0 0 0 4px rgba(91, 84, 230, 0.12);
     }
     .persona-actions { margin-top: 16px; }
+    .persona-actions .btn-danger {
+      color: #c0392f;
+      background: transparent;
+    }
+    .persona-actions .btn-danger:hover:not(:disabled) {
+      background: #fdf6f5;
+    }
+    .persona-editor-panel .hint { margin-top: 16px; }
     .persona-log-wrap {
       position: relative;
       margin-top: 12px;
@@ -2254,8 +2059,8 @@ function dashboardHtml(): string {
       margin: 0 0 16px;
       padding: 14px 16px;
       border-radius: 12px;
-      border: 1px solid #e8e0ff;
-      background: linear-gradient(180deg, #faf8ff 0%, #fff 100%);
+      border: 1px solid var(--line);
+      background: #fff;
     }
     .rbac-legend-title {
       margin: 0 0 10px;
@@ -2729,47 +2534,83 @@ function dashboardHtml(): string {
       flex-wrap: wrap;
       gap: 8px 12px;
     }
-    .guide-step .toast {
-      margin-top: 10px;
+    .guide-topic-list {
+      display: grid;
+      gap: 12px;
     }
-    .guide-help {
-      margin: 0 0 18px;
-      padding: 0;
-      background: var(--accent-soft);
-      border: 1px solid rgba(91, 84, 230, 0.18);
-      border-radius: 14px;
+    .guide-topic {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
       overflow: hidden;
     }
-    .guide-help-accordion { margin: 0; }
-    .guide-help-summary {
+    .guide-topic-summary {
+      min-height: 60px;
+      padding: 15px 18px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 14px 18px;
-      cursor: pointer;
+      gap: 12px;
       list-style: none;
-      user-select: none;
+      color: var(--ink);
+      cursor: pointer;
+      transition: background 0.15s ease;
     }
-    .guide-help-summary::-webkit-details-marker { display: none; }
-    .guide-help-summary::marker { content: ''; }
-    .guide-help-summary:hover { background: rgba(91, 84, 230, 0.06); }
-    .guide-help-summary .guide-help-heading {
-      margin: 0;
+    .guide-topic-summary::-webkit-details-marker { display: none; }
+    .guide-topic-summary::marker { content: ''; }
+    .guide-topic-summary:hover { background: #f8f8fa; }
+    .guide-topic[open] > .guide-topic-summary {
+      border-bottom: 1px solid var(--line);
+      background: var(--accent-soft);
+    }
+    .guide-topic-heading {
       flex: 1;
       min-width: 0;
-      font-size: var(--text-sm);
-      font-weight: 700;
-      color: var(--ink);
     }
-    .guide-help-chevron {
-      width: 18px;
-      height: 18px;
-      flex-shrink: 0;
+    .guide-topic-title {
+      display: block;
+      font-size: var(--text-base);
+      font-weight: 750;
+      line-height: 1.35;
+    }
+    .guide-topic-subtitle {
+      display: block;
+      margin-top: 3px;
       color: var(--muted);
-      transition: transform 0.15s ease;
+      font-size: var(--text-xs);
+      font-weight: 450;
+      line-height: 1.45;
     }
-    .guide-help-accordion[open] .guide-help-chevron {
+    .guide-topic-chevron {
+      flex-shrink: 0;
+      width: 17px;
+      height: 17px;
+      color: var(--muted);
+      transition: transform 0.18s ease;
+    }
+    .guide-topic[open] > .guide-topic-summary .guide-topic-chevron {
       transform: rotate(180deg);
+    }
+    .guide-topic-body {
+      padding: 18px;
+    }
+    .guide-topic-body > .guide-help-body {
+      padding: 0;
+      border-top: none;
+    }
+    .guide-topic-toolbar {
+      margin-bottom: 14px;
+    }
+    .guide-topic-toolbar .section-sub {
+      margin: 0;
+    }
+    .guide-topic-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .guide-step .toast {
+      margin-top: 10px;
     }
     .guide-help-body {
       padding: 0 18px 16px;
@@ -2953,7 +2794,7 @@ function dashboardHtml(): string {
     .dashboard-footer {
       width: 100%;
       max-width: var(--card-max);
-      margin: 18px 0 0;
+      margin: 18px auto 0;
       padding: 0 8px 8px;
       display: flex;
       align-items: center;
@@ -2978,6 +2819,238 @@ function dashboardHtml(): string {
       width: 14px;
       height: 14px;
       flex-shrink: 0;
+    }
+
+    /* Desktop application shell: persistent navigation + wide workspace. */
+    @media (min-width: 1001px) {
+      :root {
+        --card-max: 1480px;
+        --sidebar-width: 220px;
+      }
+      body {
+        align-items: stretch;
+        padding: 24px;
+      }
+      .card {
+        max-width: var(--card-max);
+        min-height: calc(100vh - 72px);
+        margin: 0 auto;
+        padding: 0;
+        display: grid;
+        grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        overflow: hidden;
+      }
+      .header {
+        grid-column: 2;
+        grid-row: 1;
+        flex-direction: row;
+        align-items: center;
+        gap: 24px;
+        padding: 18px 28px;
+        background: #fff;
+      }
+      .header-top {
+        flex: 1;
+        min-width: 0;
+      }
+      .header-profile {
+        width: min(360px, 38%);
+        flex-shrink: 0;
+        padding: 0 0 0 20px;
+        border: none;
+        border-left: 1px solid var(--line);
+        border-radius: 0;
+        background: transparent;
+      }
+      .card > .tabs {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        min-width: 0;
+        margin: 0;
+        padding: 28px 18px;
+        flex-direction: column;
+        gap: 6px;
+        border-right: 1px solid var(--line);
+        border-radius: 0;
+        background: #fafafd;
+      }
+      .card > .tabs > .tab {
+        flex: none;
+        width: 100%;
+        justify-content: flex-start;
+        gap: 11px;
+        padding: 11px 13px;
+        border-radius: 11px;
+        text-align: left;
+      }
+      .card > .tabs > .tab.active {
+        color: var(--accent);
+        background: var(--accent-soft);
+        box-shadow: none;
+      }
+      .card > .panel {
+        grid-column: 2;
+        grid-row: 2;
+        width: calc(100% - 68px);
+        max-width: 1160px;
+        min-width: 0;
+        margin: 0 auto;
+        padding: 30px 0 40px;
+      }
+      .card > #panel-tokens {
+        max-width: 840px;
+      }
+      .card > #panel-persona {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      /* Persona adds a file/library column inside the main content column. */
+      #panel-persona .persona-registry {
+        min-height: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+        grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+        overflow: hidden;
+      }
+      #panel-persona .persona-registry-head {
+        grid-column: 2;
+        grid-row: 1;
+        margin: 0;
+        padding: 20px 24px 0;
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 8px;
+      }
+      #panel-persona .persona-registry-meta {
+        grid-column: 2;
+        grid-row: 2;
+        margin: 0;
+        padding: 8px 24px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      #panel-persona .persona-library-panel {
+        grid-column: 1;
+        grid-row: 1 / span 5;
+        min-width: 0;
+        padding: 22px 20px 24px;
+        border-right: 1px solid var(--line);
+        background: #fff;
+      }
+      #panel-persona .persona-bundle-row {
+        width: 100%;
+        flex: none;
+        min-width: 0;
+        margin: 0 0 16px;
+        padding: 0 0 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      #panel-persona #persona-bundle-new-btn {
+        margin-left: 0;
+      }
+      #panel-persona .persona-bundle-row:has(.persona-new-name:not([hidden])) {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+      #panel-persona .persona-bundle-row .persona-new-name:not([hidden]) {
+        grid-column: 1 / -1;
+      }
+      #panel-persona #persona-bundle-cancel-btn:not([hidden]),
+      #panel-persona #persona-bundle-create-btn:not([hidden]) {
+        width: 100%;
+        justify-content: center;
+      }
+      #panel-persona .persona-root-hint {
+        margin: 0;
+        padding: 0 0 12px;
+      }
+      #panel-persona .persona-workspace {
+        display: contents;
+      }
+      #panel-persona .persona-registry-body {
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border-top: none;
+      }
+      #panel-persona .persona-editor-panel {
+        grid-column: 2;
+        grid-row: 4;
+        min-width: 0;
+        padding: 20px 24px 24px;
+      }
+      #panel-persona .persona-deploy-error {
+        grid-column: 2;
+        grid-row: 3;
+        margin: 0;
+        padding: 0 24px 16px;
+      }
+      #panel-persona .persona-log-wrap {
+        grid-column: 2;
+        grid-row: 5;
+        margin: 0 24px 24px;
+      }
+      #panel-persona .persona-item {
+        width: 100%;
+        display: flex;
+      }
+      #panel-persona .persona-item-open {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #panel-persona .persona-editor {
+        min-height: 400px;
+      }
+    }
+
+    @media (min-width: 1001px) and (max-width: 1220px) {
+      #panel-persona .persona-registry {
+        grid-template-columns: 240px minmax(0, 1fr);
+      }
+      #panel-persona .persona-target-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 1000px) {
+      body { padding: 24px 18px; }
+      .card { max-width: 940px; }
+    }
+
+    @media (max-width: 680px) {
+      body { padding: 0; }
+      .card {
+        border-radius: 0;
+        padding: 24px 18px 32px;
+      }
+      .header-top {
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .header-top-actions {
+        margin-left: 0;
+      }
+      .card > .tabs {
+        overflow-x: auto;
+      }
+      .card > .tabs > .tab {
+        min-width: max-content;
+      }
     }
   </style>
   <script type="module" src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
@@ -3041,24 +3114,34 @@ function dashboardHtml(): string {
         <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>
         Persona
       </button>
-      <button type="button" class="tab" data-tab="tokens">
-        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-        Profile
-      </button>
       <button type="button" class="tab" data-tab="rbac">
         <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" /></svg>
         Permission
       </button>
+      <button type="button" class="tab" data-tab="tokens">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+        Profile
+      </button>
     </div>
 
     <div class="panel active" id="panel-guideline">
-      <div class="section-title-row">
-        <p class="section-title">Getting started</p>
-        <button type="button" class="guide-video-toggle" id="guide-video-toggle" aria-expanded="false" aria-controls="guide-video">
-          Watch intro video
-        </button>
-      </div>
-      <p class="section-sub">Set up Transcodes from this panel — no terminal required. New here? Start with the video.</p>
+      <p class="section-title">Guide</p>
+      <div class="guide-topic-list">
+        <details class="guide-topic" name="guide-topic" open>
+          <summary class="guide-topic-summary">
+            <span class="guide-topic-heading">
+              <span class="guide-topic-title">Getting Started</span>
+              <span class="guide-topic-subtitle">Install, sign in, configure security, and try your first protected action</span>
+            </span>
+            <svg class="guide-topic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="guide-topic-body">
+            <div class="section-title-row guide-topic-toolbar">
+              <p class="section-sub">Set up Transcodes from this panel — no terminal required. New here? Start with the video.</p>
+              <button type="button" class="guide-video-toggle" id="guide-video-toggle" aria-expanded="false" aria-controls="guide-video">
+                Watch intro video
+              </button>
+            </div>
       <div class="guide-video-wrap">
         <div class="guide-video" id="guide-video" hidden>
           <mux-player
@@ -3217,14 +3300,97 @@ function dashboardHtml(): string {
         <p class="guide-footer-line">Questions or trouble setting up? <a href="https://www.transcodes.io/booking" target="_blank" rel="noopener noreferrer">https://www.transcodes.io/booking</a></p>
         <p class="guide-footer-line">Full documentation: <a href="https://www.transcodes.io/docs" target="_blank" rel="noopener noreferrer">https://www.transcodes.io/docs</a></p>
       </div>
+          </div>
+        </details>
+
+        <details class="guide-topic" name="guide-topic">
+          <summary class="guide-topic-summary">
+            <span class="guide-topic-heading">
+              <span class="guide-topic-title">Persona</span>
+              <span class="guide-topic-subtitle">Teach AI agents their role, policies, and repeatable workflows</span>
+            </span>
+            <svg class="guide-topic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="guide-topic-body">
+            <div class="guide-help-body">
+              <p class="guide-help-line">Think of a Persona as an onboarding manual that helps an AI agent understand its role, follow your workflow, and produce more reliable results. By defining one, you can reduce token usage, minimize hallucinations, and significantly boost productivity.</p>
+              <p class="guide-help-line"><strong>Instruction</strong> (<code class="cli-cmd">AGENTS.md</code>, <code class="cli-cmd">CLAUDE.md</code>) is the job description and company orientation: the agent's role, team, organization, and service.</p>
+              <p class="guide-help-line"><strong>Rules</strong> (<code class="cli-cmd">rule.md</code>) are workplace policies and guardrails (Must / Never). Create one focused Rule file per policy topic — for example security, quality, or design-system. Do not put step-by-step workflows in Rules.</p>
+              <p class="guide-help-line"><strong>Skills</strong> (<code class="cli-cmd">SKILL.md</code>) are task playbooks: how to perform one specific workflow and what the output should look like. Create one Skill file per workflow — for example research, PRD writing, or design-to-code. Do not put standing policies in Skills.</p>
+              <p class="guide-help-line">Keep Rules and Skills separate so each file has one clear job. Select a Persona and project folder, then apply the complete onboarding kit.</p>
+            </div>
+            <div class="persona-agent-callout">
+              <svg class="persona-agent-callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.2 3.4a5.8 5.8 0 0 1-3.4 3.4L4 11l3.4 1.2a5.8 5.8 0 0 1 3.4 3.4L12 19l1.2-3.4a5.8 5.8 0 0 1 3.4-3.4L20 11l-3.4-1.2a5.8 5.8 0 0 1-3.4-3.4L12 3Z"/><path d="m19 3-.4 1.1a1.8 1.8 0 0 1-1.1 1.1l-1.1.4 1.1.4a1.8 1.8 0 0 1 1.1 1.1L19 8.2l.4-1.1A1.8 1.8 0 0 1 20.5 6l1.1-.4-1.1-.4a1.8 1.8 0 0 1-1.1-1.1L19 3Z"/></svg>
+              <div>
+                <p class="persona-agent-callout-title">Create with your AI agent</p>
+                <p class="persona-agent-callout-copy">Type <code class="cli-cmd">/transcodes create a persona</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes create a persona</code> in ChatGPT (Codex). To apply an existing Persona, type <code class="cli-cmd">/transcodes apply a persona</code> or <code class="cli-cmd">$transcodes apply a persona</code>. If you do not specify a project path, it uses This device (Global) by default.</p>
+              </div>
+            </div>
+            <div class="guide-topic-actions">
+              <button type="button" class="btn-inline-action" data-open-tab="persona">Open Persona</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="guide-topic" name="guide-topic">
+          <summary class="guide-topic-summary">
+            <span class="guide-topic-heading">
+              <span class="guide-topic-title">Permission</span>
+              <span class="guide-topic-subtitle">Understand resources, actions, access levels, and extra confirmation</span>
+            </span>
+            <svg class="guide-topic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="guide-topic-body">
+            <div class="guide-help-body">
+              <p class="guide-help-line">When you ask an AI app to do something, Transcodes checks your permissions: <strong>blocked</strong>, <strong>allowed</strong>, or <strong>needs extra confirmation</strong> (passkey / biometrics).</p>
+              <p class="guide-help-line"><strong>When Permission checks are Off:</strong> step-up authentication and permission evaluation are skipped, and tool calls are not recorded in Transcodes Log History.</p>
+              <p class="guide-help-line"><strong>Resources</strong> are matched by name and description. If nothing matches, Transcodes uses <code class="cli-cmd">system</code>. Write a clear description of what each resource covers so matching works well.</p>
+              <p class="guide-help-heading">Action types</p>
+              <ul class="guide-help-list">
+                <li><strong>WRITE</strong> — make something new (or send / post / upload)</li>
+                <li><strong>READ</strong> — look at information without changing it</li>
+                <li><strong>EDIT</strong> — change something that already exists</li>
+                <li><strong>DELETE</strong> — remove something (or other hard-to-undo changes)</li>
+              </ul>
+              <p class="guide-help-heading">Examples</p>
+              <ul class="guide-classify-list">
+                <li><span class="guide-classify-prompt">"Create a Google Calendar event"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">google:create</code> <span class="guide-classify-arrow">if <code>google</code> is set up</span> · otherwise <code class="cli-cmd">system:create</code></li>
+                <li><span class="guide-classify-prompt">"Post a message to #eng on Slack"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">slack:create</code> <span class="guide-classify-arrow">if <code>slack</code> is set up</span> · otherwise <code class="cli-cmd">system:create</code></li>
+                <li><span class="guide-classify-prompt">"Push this branch to GitHub"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">github:update</code> <span class="guide-classify-arrow">if <code>github</code> is set up</span> · otherwise <code class="cli-cmd">system:update</code></li>
+                <li><span class="guide-classify-prompt">"Delete files on my computer"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">system:delete</code></li>
+              </ul>
+            </div>
+            <div class="guide-topic-actions">
+              <button type="button" class="btn-inline-action" data-open-tab="rbac">Open Permission</button>
+              <a class="btn-inline-action" href="${APP_ORG_URL}" data-app-tab="permissions" target="_blank" rel="noopener noreferrer">Edit Access Policy</a>
+            </div>
+          </div>
+        </details>
+
+        <details class="guide-topic" name="guide-topic">
+          <summary class="guide-topic-summary">
+            <span class="guide-topic-heading">
+              <span class="guide-topic-title">Profile &amp; Security</span>
+              <span class="guide-topic-subtitle">Manage this device's sign-in and methods for confirming risky actions</span>
+            </span>
+            <svg class="guide-topic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="guide-topic-body">
+            <div class="guide-help-body">
+              <p class="guide-help-line"><strong>Profile</strong> shows the Transcodes account, organization, and project currently connected to this computer.</p>
+              <p class="guide-help-line">Use <code class="cli-cmd">transcodes login</code> to sign in and <code class="cli-cmd">transcodes logout</code> to remove the local session. To switch organizations, log out and sign in again.</p>
+              <p class="guide-help-line">Register a passkey, hardware security key, or OTP in <strong>Console</strong> so you can confirm risky actions when Transcodes asks for an extra security check.</p>
+            </div>
+            <div class="guide-topic-actions">
+              <button type="button" class="btn-inline-action" data-open-tab="tokens">Open Profile</button>
+              <button type="button" class="btn-inline-action" data-console-open>Open Console</button>
+            </div>
+          </div>
+        </details>
+      </div>
     </div>
 
     <div class="panel" id="panel-tokens">
-      <p class="cli-map-row cli-map-row--section">
-        <span class="cli-map-label cli-map-label--title">Profile</span>
-        <code>transcodes login</code>
-      </p>
-      <p class="section-sub">Your sign-in on this computer. To switch organization, log out and sign in again.</p>
       <div id="profile-empty" class="profile-empty" hidden>
         Not signed in — use <strong>Login</strong> in the header (or run <code>transcodes login</code>).
       </div>
@@ -3234,6 +3400,17 @@ function dashboardHtml(): string {
           <div class="profile-identity-body">
             <div class="profile-identity-name" id="profile-email"></div>
             <div class="profile-identity-sub" id="profile-workspace"></div>
+          </div>
+          <div class="profile-actions-buttons">
+            <button type="button" class="btn-manage-auth" id="manage-auth-btn" data-console-open aria-label="Open Transcodes security settings">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33" />
+              </svg>
+              Console
+            </button>
+            <button type="button" class="btn-session-logout" id="header-logout-btn" aria-label="Sign out on this computer">
+              Logout
+            </button>
           </div>
         </div>
         <div class="profile-fields">
@@ -3256,50 +3433,13 @@ function dashboardHtml(): string {
         </div>
         <div class="profile-actions">
           <p class="profile-console-note">Register a passkey, hardware security key, or OTP in <strong>Console</strong> so you can confirm risky actions when Transcodes asks for an extra security check.</p>
-          <div class="profile-actions-row">
-            <p class="profile-actions-hint"><code>transcodes console</code> · <code>transcodes logout</code></p>
-            <div class="profile-actions-buttons">
-              <button type="button" class="btn-manage-auth" id="manage-auth-btn" data-console-open aria-label="Open Transcodes security settings">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33" />
-                </svg>
-                Console
-              </button>
-              <button type="button" class="btn-session-logout" id="header-logout-btn" aria-label="Sign out on this computer">
-                Logout
-              </button>
-            </div>
-          </div>
+          <p class="profile-actions-hint"><code>transcodes console</code> · <code>transcodes logout</code></p>
         </div>
       </div>
       <p class="hint">Read the <strong>Guide</strong> tab first if you're new.<br />Stop this panel in the background with <code>transcodes stop</code>.</p>
     </div>
 
     <div class="panel" id="panel-persona">
-      <p class="section-title">Persona</p>
-      <div class="guide-help">
-        <details class="guide-help-accordion">
-          <summary class="guide-help-summary">
-            <span class="guide-help-heading">What is a Persona?</span>
-            <svg class="guide-help-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </summary>
-          <div class="guide-help-body">
-            <p class="guide-help-line">Think of a Persona as an onboarding manual that helps an AI agent understand its role, follow your workflow, and produce more reliable results. By defining one, you can reduce token usage, minimize hallucinations, and significantly boost productivity.</p>
-            <p class="guide-help-line"><strong>Instruction</strong> (<code class="cli-cmd">AGENTS.md</code>, <code class="cli-cmd">CLAUDE.md</code>) is the job description and company orientation: the agent's role, team, organization, and service.</p>
-            <p class="guide-help-line"><strong>Rules</strong> (<code class="cli-cmd">rule.md</code>) are workplace policies and guardrails (Must / Never). Create one focused Rule file per policy topic — for example security, quality, or design-system. Do not put step-by-step workflows in Rules.</p>
-            <p class="guide-help-line"><strong>Skills</strong> (<code class="cli-cmd">SKILL.md</code>) are task playbooks: how to perform one specific workflow and what the output should look like. Create one Skill file per workflow — for example research, PRD writing, or design-to-code. Do not put standing policies in Skills.</p>
-            <p class="guide-help-line">Keep Rules and Skills separate so each file has one clear job. Or create and edit a Persona manually below. Select a Persona and project folder, then apply the complete onboarding kit.</p>
-          </div>
-        </details>
-      </div>
-      <div class="persona-agent-callout">
-        <svg class="persona-agent-callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.2 3.4a5.8 5.8 0 0 1-3.4 3.4L4 11l3.4 1.2a5.8 5.8 0 0 1 3.4 3.4L12 19l1.2-3.4a5.8 5.8 0 0 1 3.4-3.4L20 11l-3.4-1.2a5.8 5.8 0 0 1-3.4-3.4L12 3Z"/><path d="m19 3-.4 1.1a1.8 1.8 0 0 1-1.1 1.1l-1.1.4 1.1.4a1.8 1.8 0 0 1 1.1 1.1L19 8.2l.4-1.1A1.8 1.8 0 0 1 20.5 6l1.1-.4-1.1-.4a1.8 1.8 0 0 1-1.1-1.1L19 3Z"/></svg>
-        <div>
-          <p class="persona-agent-callout-title">Create with your AI agent</p>
-          <p class="persona-agent-callout-copy">Type <code class="cli-cmd">/transcodes create a persona</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes create a persona</code> in ChatGPT (Codex). To apply an existing Persona, type <code class="cli-cmd">/transcodes apply a persona</code> or <code class="cli-cmd">$transcodes apply a persona</code>. If you do not specify a project path, it uses This device (Global) by default so the Persona is available in every project and session for the selected apps. Application always runs after your confirmation.</p>
-        </div>
-      </div>
-
       <div class="persona-registry">
         <div class="persona-registry-head">
           <input type="text" id="persona-root-input" class="label-input persona-root-input" placeholder="Project folder path" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Project folder path" />
@@ -3309,36 +3449,46 @@ function dashboardHtml(): string {
           <button type="button" class="btn-inline-action" id="persona-open-btn" title="Open this project folder">
             Open
           </button>
+          <button type="button" class="btn-primary persona-deploy-btn" id="persona-deploy-btn" title="Apply the selected Persona to this folder">
+            Apply
+          </button>
+          <button type="button" class="btn-inline-action" id="persona-push-btn" title="Upload this Persona so your organization can use it">
+            Push
+          </button>
+          <button type="button" class="btn-inline-action" id="persona-pull-btn" title="Download your organization's copy of this Persona">
+            Pull
+          </button>
         </div>
-        <p class="persona-root-help">
-          To deploy globally, choose the option in the Apply confirmation dialog
-        </p>
-        <div class="persona-bundle-row">
-          <ul id="persona-bundle-list" class="persona-list persona-bundle-list" aria-label="Personas"></ul>
-          <input type="text" id="persona-bundle-name" class="label-input persona-new-name" placeholder="persona-name" spellcheck="false" autocapitalize="off" autocomplete="off" hidden />
-          <button type="button" class="btn-inline-action" id="persona-bundle-new-btn">New Persona</button>
-          <button type="button" class="btn-inline-action" id="persona-bundle-cancel-btn" hidden>Cancel</button>
-          <button type="button" class="btn-inline-action" id="persona-bundle-create-btn" hidden>Create</button>
+        <div class="persona-registry-meta">
+          <p class="persona-root-help">
+            To deploy globally, choose the option in the Apply confirmation dialog
+          </p>
+          <p class="persona-apply-status" id="persona-apply-status" role="status" aria-live="polite"></p>
+          <p class="persona-sync-status" id="persona-sync-status" role="status" aria-live="polite"></p>
+          <p class="persona-sync-warning" id="persona-sync-warning" hidden>Sign in to share Personas with your organization (Login in the header, or open Profile). Creating, editing, and applying still work without signing in.</p>
         </div>
-        <p class="persona-root-hint" id="persona-root-hint"></p>
+        <aside class="persona-library-panel" aria-label="Persona files">
+          <p class="persona-group-label">Select Persona</p>
+          <div class="persona-bundle-row">
+            <select id="persona-bundle-select" class="label-input persona-bundle-select" aria-label="Select Persona"></select>
+            <button type="button" class="persona-group-add" id="persona-bundle-new-btn">+ Add</button>
+            <button type="button" class="persona-bundle-delete-btn" id="persona-bundle-delete-btn" aria-label="Delete selected Persona" title="Delete selected Persona">×</button>
+            <input type="text" id="persona-bundle-name" class="label-input persona-new-name" placeholder="persona-name" spellcheck="false" autocapitalize="off" autocomplete="off" hidden />
+            <button type="button" class="btn-inline-action" id="persona-bundle-cancel-btn" hidden>Cancel</button>
+            <button type="button" class="btn-inline-action" id="persona-bundle-create-btn" hidden>Create</button>
+          </div>
+          <p class="persona-root-hint" id="persona-root-hint"></p>
+          <div class="persona-registry-body" id="persona-registry-body"></div>
+        </aside>
         <div class="persona-workspace">
-          <div class="persona-registry-body" id="persona-registry-body" hidden></div>
           <div class="persona-editor-panel">
-            <div class="tabs sub-tabs" role="tablist" aria-label="Persona section">
-              <button type="button" class="tab active" data-persona="agent" role="tab">Instruction</button>
-              <button type="button" class="tab" data-persona="rule" role="tab">Rule</button>
-              <button type="button" class="tab" data-persona="skill" role="tab">Skill</button>
-            </div>
-
             <p class="persona-about" id="persona-about"></p>
 
             <div class="persona-picker" id="persona-picker" hidden>
-              <select id="persona-name-select" class="label-input persona-select" aria-label="Select a file"></select>
               <input type="text" id="persona-new-name" class="label-input persona-new-name" placeholder="Please type a new rule title" spellcheck="false" autocapitalize="off" autocomplete="off" hidden />
             </div>
             <p class="persona-save-error" id="persona-save-error" hidden></p>
 
-            <p class="persona-path" id="persona-path"></p>
             <div class="persona-template-row" id="persona-template-row" hidden>
               <select id="persona-template-select" class="label-input persona-template-select" aria-label="Choose a template">
                 <option value="">Choose a template…</option>
@@ -3355,49 +3505,10 @@ function dashboardHtml(): string {
               <button type="button" class="btn-primary" id="persona-save-btn" disabled>Save</button>
               <button type="button" class="btn-danger" id="persona-delete-btn" hidden>Delete</button>
             </div>
-            <p class="hint"><strong>Save</strong> updates the selected Persona only. Use <strong>Apply</strong> below to apply that Persona's Instruction, Rules, and Skills to the selected project.</p>
-          </div>
-        </div>
-        <div class="persona-targets">
-          <p class="persona-targets-label">Apply to</p>
-          <div class="persona-target-list" id="persona-target-list">
-            <label class="persona-target">
-              <input type="checkbox" name="persona-target" value="claudecode" data-target-label="Claude" checked />
-              <svg class="persona-target-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#D97757" stroke-width="2.6" stroke-linecap="round"><path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5M5.3 5.3l3.5 3.5M15.2 15.2l3.5 3.5M18.7 5.3l-3.5 3.5M8.8 15.2l-3.5 3.5"/></svg>
-              <span>Claude</span>
-            </label>
-            <label class="persona-target">
-              <input type="checkbox" name="persona-target" value="cursor" data-target-label="Cursor" checked />
-              <svg class="persona-target-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M5.1 3.2 19 11.15c.85.48.72 1.72-.2 2l-5.35 1.85-1.85 5.35c-.28.9-1.55 1-2 .15L5.1 5.55c-.4-.78.28-1.65 1.1-1.35Z"/></svg>
-              <span>Cursor</span>
-            </label>
-            <label class="persona-target">
-              <input type="checkbox" name="persona-target" value="codexcli" data-target-label="ChatGPT" checked />
-              <svg class="persona-target-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.911 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.182a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.096 5.98 5.98 0 0 0 .511 4.911 6.046 6.046 0 0 0 6.511 2.9A5.985 5.985 0 0 0 13.02 23.4a6.065 6.065 0 0 0 5.269-2.9 5.985 5.985 0 0 0 3.998-2.9 6.046 6.046 0 0 0-.748-7.097zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.041l.142-.08 4.778-2.758a.795.795 0 0 0 .393-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.495 4.494zm-9.661-4.125a4.471 4.471 0 0 1-.535-3.014l.142.085 4.783 2.758a.771.771 0 0 0 .781 0l5.843-3.368v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.499 4.499 0 0 1-6.141-1.646zM2.341 7.896a4.485 4.485 0 0 1 2.365-1.972V11.6a.766.766 0 0 0 .388.676l5.814 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.413 3.856L13.006 8.37l2.02-1.168a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.104v-5.677a.79.79 0 0 0-.407-.667zm2.011-3.023-.142-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.499 4.499 0 0 1 6.68 4.66zM8.307 12.863l-2.02-1.164a.08.08 0 0 1-.038-.057V6.074a4.499 4.499 0 0 1 7.376-3.454l-.142.081L8.704 5.459a.795.795 0 0 0-.393.681zm1.097-2.365 2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/></svg>
-              <span>ChatGPT</span>
-            </label>
-            <label class="persona-target">
-              <input type="checkbox" name="persona-target" value="antigravity-ide" data-target-label="Antigravity (Google)" checked />
-              <svg class="persona-target-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l2.85-2.22.81-.62Z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z"/></svg>
-              <span>Antigravity</span>
-            </label>
+            <p class="hint"><strong>Save</strong> updates the selected Persona only. Use <strong>Apply</strong> in the header to apply that Persona's Instruction, Rules, and Skills to the selected project.</p>
           </div>
         </div>
         <p class="persona-deploy-error" id="persona-deploy-error" hidden></p>
-        <p class="persona-apply-status" id="persona-apply-status" role="status" aria-live="polite"></p>
-        <div class="actions persona-registry-actions">
-          <button type="button" class="btn-primary" id="persona-deploy-btn" title="Apply the selected Persona to this folder">
-            Apply
-          </button>
-          <button type="button" id="persona-push-btn" title="Upload this Persona so your organization can use it">
-            Push
-          </button>
-          <button type="button" id="persona-pull-btn" title="Download your organization's copy of this Persona">
-            Pull
-          </button>
-        </div>
-        <p class="persona-sync-status" id="persona-sync-status" role="status" aria-live="polite"></p>
-        <p class="persona-sync-warning" id="persona-sync-warning" hidden>Sign in to share Personas with your organization (Login in the header, or open Profile). Creating, editing, and applying still work without signing in.</p>
         <div class="persona-log-wrap" id="persona-log-wrap" hidden>
           <button type="button" class="persona-log-close" id="persona-log-close" aria-label="Close apply log">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
@@ -3409,49 +3520,18 @@ function dashboardHtml(): string {
 
     <div class="panel" id="panel-rbac">
       <p id="rbac-token-warning" class="rbac-token-warning" hidden>Sign in first (Login in the header, or open Profile)</p>
-      <div class="guide-help">
-        <details class="guide-help-accordion">
-          <summary class="guide-help-summary">
-            <span class="guide-help-heading">How it works</span>
-            <svg class="guide-help-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </summary>
-          <div class="guide-help-body">
-            <p class="guide-help-line">When you ask an AI app to do something, Transcodes checks your permissions: <strong>blocked</strong>, <strong>allowed</strong>, or <strong>needs extra confirmation</strong> (passkey / biometrics).</p>
-            <p class="guide-help-line"><strong>When Permission checks are Off:</strong> step-up authentication and permission evaluation are skipped, and tool calls are not recorded in Transcodes Log History.</p>
-            <p class="guide-help-line"><strong>Resources</strong> are matched by name and description. If nothing matches, Transcodes uses <code class="cli-cmd">system</code>. Write a clear description of what each resource covers so matching works well.</p>
-            <p class="guide-help-heading">Action types</p>
-            <ul class="guide-help-list">
-              <li><strong>WRITE</strong> — make something new (or send / post / upload)</li>
-              <li><strong>READ</strong> — look at information without changing it</li>
-              <li><strong>EDIT</strong> — change something that already exists</li>
-              <li><strong>DELETE</strong> — remove something (or other hard-to-undo changes)</li>
-            </ul>
-            <p class="guide-help-heading">Examples</p>
-            <ul class="guide-classify-list">
-              <li><span class="guide-classify-prompt">"Create a Google Calendar event"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">google:create</code> <span class="guide-classify-arrow">if <code>google</code> is set up</span> · otherwise <code class="cli-cmd">system:create</code></li>
-              <li><span class="guide-classify-prompt">"Post a message to #eng on Slack"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">slack:create</code> <span class="guide-classify-arrow">if <code>slack</code> is set up</span> · otherwise <code class="cli-cmd">system:create</code></li>
-              <li><span class="guide-classify-prompt">"Change James's role in Transcodes"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">transcodes:update</code></li>
-              <li><span class="guide-classify-prompt">"Remove a Transcodes member"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">transcodes:delete</code></li>
-              <li><span class="guide-classify-prompt">"Push this branch to GitHub"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">github:update</code> <span class="guide-classify-arrow">if <code>github</code> is set up</span> · otherwise <code class="cli-cmd">system:update</code></li>
-              <li><span class="guide-classify-prompt">"Delete files on my computer"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">system:delete</code></li>
-              <li><span class="guide-classify-prompt">"Show my .env file" / "read my SSH key"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">system:update</code></li>
-            </ul>
-            <p class="guide-classify-note">Only resources you've set up are matched by name. If there's no <code>google</code> / <code>slack</code> / <code>github</code> resource, that request uses <code class="cli-cmd">system</code> instead.</p>
-          </div>
-        </details>
-      </div>
       <div class="guard-toggle-card">
         <div>
-          <p class="guard-toggle-title">Permission checks</p>
+          <p class="guard-toggle-title">Activate Step-up Authentication</p>
           <p class="guard-toggle-desc" id="guard-toggle-desc">Loading guard status…</p>
         </div>
-        <label class="guard-switch" title="Off skips step-up authentication, permission checks, and Transcodes Log History">
+        <label class="guard-switch" title="When on, Transcodes checks each AI action against the permissions you set and asks you to verify before it runs">
           <input type="checkbox" id="guard-enabled-toggle" aria-label="Enable Transcodes permission checks" />
           <span class="guard-switch-track" aria-hidden="true"></span>
         </label>
       </div>
       <div class="rbac-legend">
-        <p class="rbac-legend-title">What the symbols mean</p>
+        <p class="rbac-legend-title">Permission Status</p>
         <ul class="rbac-legend-levels">
           <li><span class="perm-legend-icon perm-legend-0" aria-hidden="true">○</span> No access — the action does not run</li>
           <li><span class="perm-legend-icon perm-legend-1" aria-hidden="true">●</span> Allowed — runs right away</li>
@@ -3512,6 +3592,19 @@ function dashboardHtml(): string {
     </div>
   </div>
 
+  <div class="commands-modal" id="action-confirm-modal" hidden>
+    <div class="commands-modal-backdrop" data-action-confirm="cancel" tabindex="-1" aria-hidden="true"></div>
+    <div class="commands-modal-panel deploy-confirm-panel action-confirm-panel" role="dialog" aria-modal="true" aria-labelledby="action-confirm-title" aria-describedby="action-confirm-description">
+      <h2 class="deploy-confirm-title" id="action-confirm-title">Confirm action</h2>
+      <p class="deploy-confirm-copy" id="action-confirm-description"></p>
+      <p class="action-confirm-warning" id="action-confirm-warning" hidden></p>
+      <div class="deploy-confirm-actions">
+        <button type="button" class="deploy-confirm-cancel" data-action-confirm="cancel">Cancel</button>
+        <button type="button" class="deploy-confirm-submit action-confirm-submit" data-action-confirm="confirm" id="action-confirm-submit">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <div class="commands-modal" id="deploy-confirm-modal" hidden>
     <div class="commands-modal-backdrop" data-deploy-confirm="cancel" tabindex="-1" aria-hidden="true"></div>
     <div class="commands-modal-panel deploy-confirm-panel" role="dialog" aria-modal="true" aria-labelledby="deploy-confirm-title" aria-describedby="deploy-confirm-description">
@@ -3519,6 +3612,31 @@ function dashboardHtml(): string {
       <p class="deploy-confirm-copy" id="deploy-confirm-description">
         Current edits will be saved first. Persona <strong id="deploy-confirm-persona"></strong> will then be applied to <strong id="deploy-confirm-targets"></strong>.
       </p>
+      <div class="deploy-confirm-apps">
+        <span class="deploy-confirm-target-label">Apply to</span>
+        <div class="persona-target-list deploy-confirm-target-list" id="persona-target-list">
+          <label class="persona-target">
+            <input type="checkbox" name="persona-target" value="claudecode" data-target-label="Claude" checked />
+            <svg class="persona-target-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#D97757" stroke-width="2.6" stroke-linecap="round"><path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5M5.3 5.3l3.5 3.5M15.2 15.2l3.5 3.5M18.7 5.3l-3.5 3.5M8.8 15.2l-3.5 3.5"/></svg>
+            <span>Claude</span>
+          </label>
+          <label class="persona-target">
+            <input type="checkbox" name="persona-target" value="cursor" data-target-label="Cursor" checked />
+            <svg class="persona-target-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M5.1 3.2 19 11.15c.85.48.72 1.72-.2 2l-5.35 1.85-1.85 5.35c-.28.9-1.55 1-2 .15L5.1 5.55c-.4-.78.28-1.65 1.1-1.35Z"/></svg>
+            <span>Cursor</span>
+          </label>
+          <label class="persona-target">
+            <input type="checkbox" name="persona-target" value="codexcli" data-target-label="ChatGPT" checked />
+            <svg class="persona-target-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.911 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.182a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.096 5.98 5.98 0 0 0 .511 4.911 6.046 6.046 0 0 0 6.511 2.9A5.985 5.985 0 0 0 13.02 23.4a6.065 6.065 0 0 0 5.269-2.9 5.985 5.985 0 0 0 3.998-2.9 6.046 6.046 0 0 0-.748-7.097zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.041l.142-.08 4.778-2.758a.795.795 0 0 0 .393-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.495 4.494zm-9.661-4.125a4.471 4.471 0 0 1-.535-3.014l.142.085 4.783 2.758a.771.771 0 0 0 .781 0l5.843-3.368v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.499 4.499 0 0 1-6.141-1.646zM2.341 7.896a4.485 4.485 0 0 1 2.365-1.972V11.6a.766.766 0 0 0 .388.676l5.814 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.413 3.856L13.006 8.37l2.02-1.168a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.104v-5.677a.79.79 0 0 0-.407-.667zm2.011-3.023-.142-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.499 4.499 0 0 1 6.68 4.66zM8.307 12.863l-2.02-1.164a.08.08 0 0 1-.038-.057V6.074a4.499 4.499 0 0 1 7.376-3.454l-.142.081L8.704 5.459a.795.795 0 0 0-.393.681zm1.097-2.365 2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/></svg>
+            <span>ChatGPT</span>
+          </label>
+          <label class="persona-target">
+            <input type="checkbox" name="persona-target" value="antigravity-ide" data-target-label="Antigravity (Google)" checked />
+            <svg class="persona-target-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l2.85-2.22.81-.62Z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z"/></svg>
+            <span>Antigravity</span>
+          </label>
+        </div>
+      </div>
       <div class="deploy-confirm-target" id="deploy-confirm-target-wrap">
         <span class="deploy-confirm-target-label" id="deploy-confirm-target-label">Target directory</span>
         <code id="deploy-confirm-root"></code>
@@ -3590,6 +3708,11 @@ function dashboardHtml(): string {
     const headerInstallBtn = document.getElementById("header-install-btn");
     const headerCommandsBtn = document.getElementById("header-commands-btn");
     const commandsModal = document.getElementById("commands-modal");
+    const actionConfirmModal = document.getElementById("action-confirm-modal");
+    const actionConfirmTitle = document.getElementById("action-confirm-title");
+    const actionConfirmDescription = document.getElementById("action-confirm-description");
+    const actionConfirmWarning = document.getElementById("action-confirm-warning");
+    const actionConfirmSubmit = document.getElementById("action-confirm-submit");
     const deployConfirmModal = document.getElementById("deploy-confirm-modal");
     const deployConfirmPersona = document.getElementById("deploy-confirm-persona");
     const deployConfirmTargets = document.getElementById("deploy-confirm-targets");
@@ -3611,8 +3734,10 @@ function dashboardHtml(): string {
     )};
 
     let lastStatus = { guardEnabled: false, tokens: [], activeMember: null };
+    let actionConfirmResolve = null;
+    let actionConfirmReturnFocus = null;
     let deployConfirmResolve = null;
-    let deployConfirmContext = { root: "", targetEntries: [] };
+    let deployConfirmContext = { root: "" };
     let deferredInstallPrompt = null;
     const PWA_INSTALLED_KEY = "transcodes-pwa-installed";
 
@@ -3905,7 +4030,12 @@ function dashboardHtml(): string {
     }
 
     async function openLogout() {
-      if (!confirm("Sign out on this computer?")) {
+      const confirmed = await confirmAction({
+        title: "Sign out?",
+        description: "You will be signed out of Transcodes on this computer",
+        confirmLabel: "Sign Out",
+      });
+      if (!confirmed) {
         return;
       }
       headerLogoutBtn.disabled = true;
@@ -4003,8 +4133,54 @@ function dashboardHtml(): string {
       if (headerCommandsBtn) headerCommandsBtn.focus();
     }
 
+    function closeActionConfirm(confirmed) {
+      if (!actionConfirmModal || actionConfirmModal.hidden) return;
+      actionConfirmModal.hidden = true;
+      document.body.style.overflow = "";
+      if (actionConfirmResolve) {
+        const resolve = actionConfirmResolve;
+        actionConfirmResolve = null;
+        resolve(confirmed);
+      }
+      if (actionConfirmReturnFocus && document.contains(actionConfirmReturnFocus)) {
+        actionConfirmReturnFocus.focus();
+      }
+      actionConfirmReturnFocus = null;
+    }
+
+    function confirmAction(options) {
+      if (!actionConfirmModal) return Promise.resolve(false);
+      const config = options || {};
+      actionConfirmTitle.textContent = config.title || "Confirm action";
+      actionConfirmDescription.textContent = config.description || "";
+      actionConfirmSubmit.textContent = config.confirmLabel || "Confirm";
+      actionConfirmSubmit.classList.toggle("is-danger", config.danger === true);
+      if (actionConfirmWarning) {
+        actionConfirmWarning.textContent = config.warning || "";
+        actionConfirmWarning.hidden = !config.warning;
+      }
+      actionConfirmReturnFocus = document.activeElement;
+      actionConfirmModal.hidden = false;
+      document.body.style.overflow = "hidden";
+      actionConfirmSubmit.focus();
+      return new Promise((resolve) => {
+        actionConfirmResolve = resolve;
+      });
+    }
+
     function closeDeployConfirm(confirmed) {
       if (!deployConfirmModal || deployConfirmModal.hidden) return;
+      const global = !!(deployConfirmGlobal && deployConfirmGlobal.checked);
+      const targetEntries = selectedPersonaTargets();
+      const applicableTargets = global
+        ? targetEntries.filter((entry) =>
+            GLOBAL_PERSONA_TARGETS.includes(entry.target)
+          )
+        : targetEntries;
+      if (confirmed && applicableTargets.length === 0) {
+        syncDeployConfirmGlobalUi();
+        return;
+      }
       deployConfirmModal.hidden = true;
       document.body.style.overflow = "";
       if (deployConfirmResolve) {
@@ -4012,7 +4188,7 @@ function dashboardHtml(): string {
         deployConfirmResolve = null;
         resolve(
           confirmed
-            ? { global: !!(deployConfirmGlobal && deployConfirmGlobal.checked) }
+            ? { global: global, targetEntries: targetEntries }
             : null
         );
       }
@@ -4021,7 +4197,7 @@ function dashboardHtml(): string {
 
     function syncDeployConfirmGlobalUi() {
       const global = !!(deployConfirmGlobal && deployConfirmGlobal.checked);
-      const entries = deployConfirmContext.targetEntries || [];
+      const entries = selectedPersonaTargets();
       const visible = global
         ? entries.filter((entry) => GLOBAL_PERSONA_TARGETS.includes(entry.target))
         : entries;
@@ -4044,12 +4220,13 @@ function dashboardHtml(): string {
       if (deployConfirmProjectNote) deployConfirmProjectNote.hidden = global;
       if (deployConfirmSubmit) {
         deployConfirmSubmit.textContent = global ? "Apply Global" : "Apply Persona";
+        deployConfirmSubmit.disabled = visible.length === 0;
       }
     }
 
-    function confirmPersonaDeploy(persona, root, targetEntries) {
+    function confirmPersonaDeploy(persona, root) {
       if (!deployConfirmModal) return Promise.resolve(null);
-      deployConfirmContext = { root: root, targetEntries: targetEntries || [] };
+      deployConfirmContext = { root: root };
       deployConfirmPersona.textContent = "“" + persona + "”";
       if (deployConfirmGlobal) deployConfirmGlobal.checked = false;
       syncDeployConfirmGlobalUi();
@@ -4069,6 +4246,13 @@ function dashboardHtml(): string {
         el.addEventListener("click", () => { closeCommandsModal(); });
       });
     }
+    if (actionConfirmModal) {
+      actionConfirmModal.querySelectorAll("[data-action-confirm]").forEach((el) => {
+        el.addEventListener("click", () => {
+          closeActionConfirm(el.getAttribute("data-action-confirm") === "confirm");
+        });
+      });
+    }
     if (deployConfirmModal) {
       deployConfirmModal.querySelectorAll("[data-deploy-confirm]").forEach((el) => {
         el.addEventListener("click", () => {
@@ -4083,6 +4267,10 @@ function dashboardHtml(): string {
     }
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
+      if (actionConfirmModal && !actionConfirmModal.hidden) {
+        closeActionConfirm(false);
+        return;
+      }
       if (deployConfirmModal && !deployConfirmModal.hidden) {
         closeDeployConfirm(false);
         return;
@@ -4119,18 +4307,17 @@ function dashboardHtml(): string {
     const personaTargetInputs = Array.from(
       document.querySelectorAll('input[name="persona-target"]')
     );
-    const personaBundleList = document.getElementById("persona-bundle-list");
+    const personaBundleSelect = document.getElementById("persona-bundle-select");
     const personaBundleName = document.getElementById("persona-bundle-name");
     const personaBundleNewBtn = document.getElementById("persona-bundle-new-btn");
+    const personaBundleDeleteBtn = document.getElementById("persona-bundle-delete-btn");
     const personaBundleCancelBtn = document.getElementById("persona-bundle-cancel-btn");
     const personaBundleCreateBtn = document.getElementById("persona-bundle-create-btn");
     const personaPicker = document.getElementById("persona-picker");
-    const personaSelect = document.getElementById("persona-name-select");
     const personaNewName = document.getElementById("persona-new-name");
     const personaSaveError = document.getElementById("persona-save-error");
     const personaRegistryBody = document.getElementById("persona-registry-body");
     const personaAbout = document.getElementById("persona-about");
-    const personaPathEl = document.getElementById("persona-path");
     const personaTemplateRow = document.getElementById("persona-template-row");
     const personaTemplateSelect = document.getElementById("persona-template-select");
     const personaContentCount = document.getElementById("persona-content-count");
@@ -4189,15 +4376,9 @@ function dashboardHtml(): string {
               (entry) => entry.name === personaState.name
             );
       personaDeleteBtn.hidden = !existing || isCreatingPersonaEntry();
-      personaDeleteBtn.textContent =
-        personaState.kind === "agent"
-          ? "Delete Instruction"
-          : personaState.kind === "skill"
-            ? "Delete Skill"
-            : "Delete Rule";
+      personaDeleteBtn.textContent = "Delete";
     }
 
-    const NEW_OPTION = "__new__";
     const personaState = {
       root: "",
       persona: "",
@@ -4298,9 +4479,8 @@ function dashboardHtml(): string {
       ].forEach((b) => {
         b.disabled = busy;
       });
-      personaBundleList.querySelectorAll("button").forEach((b) => {
-        b.disabled = busy;
-      });
+      personaBundleSelect.disabled = busy || !personaState.persona;
+      personaBundleDeleteBtn.disabled = busy || !personaState.persona;
       personaRootInput.disabled = busy;
       syncPersonaEditState();
       // Push/Pull are deliberately not in the list above: a blanket
@@ -4392,10 +4572,20 @@ function dashboardHtml(): string {
       );
     }
 
-    function personaGroupHtml(label, items) {
+    function personaGroupHtml(label, items, kind) {
+      const addButton =
+        kind !== "agent" || items.length === 0
+          ? '<button type="button" class="persona-group-add" data-add-kind="' +
+            kind +
+            '" aria-label="Add ' +
+            label +
+            '">+ Add</button>'
+          : "";
       return (
-        '<div class="persona-group"><p class="persona-group-label">' +
+        '<div class="persona-group"><p class="persona-group-label"><span>' +
         label +
+        "</span>" +
+        addButton +
         "</p>" +
         (items.length > 0
           ? '<ul class="persona-list">' + items.join("") + "</ul>"
@@ -4409,39 +4599,15 @@ function dashboardHtml(): string {
         personaState.listing && personaState.listing.personas
           ? personaState.listing.personas
           : [];
-      personaBundleList.innerHTML = personas
+      personaBundleSelect.innerHTML = personas
         .map(
           (name) =>
-            '<li class="persona-item' +
-            (name === personaState.persona ? " active" : "") +
-            '">' +
-            '<button type="button" class="persona-item-open" data-open-persona="' +
-            esc(name) +
-            '">' +
-            esc(name) +
-            "</button>" +
-            '<button type="button" class="persona-item-x" data-delete-persona="' +
-            esc(name) +
-            '" aria-label="Remove Persona ' +
-            esc(name) +
-            '">×</button></li>'
+            '<option value="' + esc(name) + '">' + esc(name) + "</option>"
         )
         .join("");
-      personaBundleList.querySelectorAll("[data-open-persona]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          personaState.persona = btn.getAttribute("data-open-persona");
-          personaState.name = "";
-          showPersonaNewName(false);
-          await refreshPersona(personaRootInput.value.trim());
-        });
-      });
-      personaBundleList.querySelectorAll("[data-delete-persona]").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          deletePersonaBundle(btn.getAttribute("data-delete-persona"));
-        });
-      });
+      if (personaState.persona) {
+        personaBundleSelect.value = personaState.persona;
+      }
     }
 
     function renderPersonaRegistry() {
@@ -4461,10 +4627,16 @@ function dashboardHtml(): string {
         personaItemHtml("skill", e.name));
 
       personaRegistryBody.innerHTML =
-        personaGroupHtml("Instruction", agentItems) +
-        personaGroupHtml("Rule", ruleItems) +
-        personaGroupHtml("Skill", skillItems);
+        '<div class="persona-child-tree">' +
+        personaGroupHtml("Instruction", agentItems, "agent") +
+        personaGroupHtml("Rule", ruleItems, "rule") +
+        personaGroupHtml("Skill", skillItems, "skill") +
+        "</div>";
 
+      personaRegistryBody.querySelectorAll("[data-add-kind]").forEach((btn) => {
+        btn.addEventListener("click", () =>
+          beginPersonaEntry(btn.getAttribute("data-add-kind")));
+      });
       personaRegistryBody.querySelectorAll("[data-open-kind]").forEach((btn) => {
         btn.addEventListener("click", () =>
           openPersonaEntry(
@@ -4485,10 +4657,18 @@ function dashboardHtml(): string {
     }
 
     async function deletePersonaEntry(kind, name) {
-      const label = kind === "agent" ? "Instruction (agents.md)" : name;
-      const ok = window.confirm(
-        "Remove " + label + " from Persona “" + personaState.persona + "”?\\n\\nThis cannot be undone."
-      );
+      const kindLabel =
+        kind === "agent" ? "Instruction" : kind === "skill" ? "Skill" : "Rule";
+      const fileLabel = kind === "agent" ? "agents.md" : name;
+      const ok = await confirmAction({
+        title: "Delete " + kindLabel + "?",
+        description:
+          "“" + fileLabel + "” will be permanently deleted from Persona “" +
+          personaState.persona + "”",
+        warning: "This action cannot be undone",
+        confirmLabel: "Delete",
+        danger: true,
+      });
       if (!ok) return;
 
       personaBusy(true);
@@ -4509,11 +4689,10 @@ function dashboardHtml(): string {
         ) {
           personaState.name = "";
           setPersonaEditorContent("");
-          personaPathEl.textContent = "";
         }
         showToast("Removed " + (kind === "agent" ? "agents.md" : name), "success");
         await loadPersonaListing(personaRootInput.value.trim());
-        renderPersonaPicker();
+        syncPersonaEntryForm();
         renderPersonaRegistry();
         if (personaState.kind === kind) {
           try { await loadPersonaFile(); } catch (_) { /* ignore */ }
@@ -4527,16 +4706,35 @@ function dashboardHtml(): string {
     }
 
     async function openPersonaEntry(kind, name) {
-      selectPersonaTab(kind);
       personaState.name = kind === "agent" ? "" : name;
+      selectPersonaKind(kind);
       showPersonaNewName(false);
-      renderPersonaPicker();
-      if (kind !== "agent") personaSelect.value = name;
       try {
         await loadPersonaFile();
         renderPersonaRegistry();
       } catch (e) {
         setPersonaHint(e.message || "Could not read that file", true);
+      }
+    }
+
+    async function beginPersonaEntry(kind) {
+      personaState.name = "";
+      selectPersonaKind(kind);
+      showPersonaNewName(false);
+      hidePersonaLog();
+
+      if (kind !== "agent") {
+        setPersonaEditorContent("");
+        showPersonaNewName(true);
+        renderPersonaRegistry();
+        return;
+      }
+
+      try {
+        await loadPersonaFile();
+        renderPersonaRegistry();
+      } catch (e) {
+        setPersonaHint(e.message || "Could not prepare that file", true);
       }
     }
 
@@ -4595,45 +4793,36 @@ function dashboardHtml(): string {
       syncPersonaEditState();
     }
 
-    function selectPersonaTab(kind) {
+    function selectPersonaKind(kind) {
       personaState.kind = kind;
-      document.querySelectorAll("#panel-persona .tab[data-persona]").forEach((t) =>
-        t.classList.toggle("active", t.getAttribute("data-persona") === kind));
-      personaAbout.innerHTML = PERSONA_ABOUT[kind] || "";
+      renderPersonaAbout();
       personaTemplateRow.hidden = true;
       personaTemplateSelect.value = "";
       updatePersonaContentStats();
       syncPersonaDeleteButton();
     }
 
-    function renderPersonaPicker() {
-      const kind = personaState.kind;
-      personaPicker.hidden = kind === "agent";
-      if (kind === "agent") {
-        syncPersonaDeleteButton();
-        return;
-      }
+    function renderPersonaAbout() {
+      const title =
+        personaState.kind === "agent"
+          ? "agents.md"
+          : personaState.name ||
+            (personaState.kind === "skill" ? "New Skill" : "New Rule");
+      personaAbout.innerHTML =
+        '<span class="persona-about-title">' +
+        esc(title) +
+        "</span>" +
+        (PERSONA_ABOUT[personaState.kind] || "");
+    }
 
-      const entries = personaEntries(kind);
-      personaSelect.innerHTML =
-        entries
-          .map((e) => '<option value="' + esc(e.name) + '">' + esc(e.name) + "</option>")
-          .join("") +
-        '<option value="' + NEW_OPTION + '">＋ New ' + kind + "…</option>";
-
-      if (personaState.name && entries.some((e) => e.name === personaState.name)) {
-        personaSelect.value = personaState.name;
-      } else if (entries.length > 0) {
-        personaState.name = entries[0].name;
-        personaSelect.value = personaState.name;
-      } else {
-        personaSelect.value = NEW_OPTION;
-        showPersonaNewName(true);
-      }
+    function syncPersonaEntryForm() {
+      showPersonaNewName(false);
+      renderPersonaAbout();
       syncPersonaDeleteButton();
     }
 
     function showPersonaNewName(show) {
+      personaPicker.hidden = !show;
       personaNewName.hidden = !show;
       personaTemplateRow.hidden = !show || personaState.kind === "agent";
       if (!show) personaTemplateSelect.value = "";
@@ -4669,12 +4858,7 @@ function dashboardHtml(): string {
       personaRootInput.value = listing.root;
       renderPersonaBundles();
       clearPersonaDeployError();
-      setPersonaHint(
-        listing.initialized
-          ? listing.rules.length + " rule(s) · " + listing.skills.length + " skill(s)"
-          : "Empty Persona — add an Instruction, Rule, or Skill.",
-        false
-      );
+      setPersonaHint("", false);
       return listing;
     }
 
@@ -4682,12 +4866,10 @@ function dashboardHtml(): string {
       personaTemplateSelect.value = "";
       if (!personaState.persona) {
         setPersonaEditorContent("");
-        personaPathEl.textContent = "Create a Persona first";
         return;
       }
       if (personaState.kind !== "agent" && !personaState.name) {
         setPersonaEditorContent("");
-        personaPathEl.textContent = "Pick or name a file first";
         return;
       }
       const params =
@@ -4698,8 +4880,6 @@ function dashboardHtml(): string {
       const file = await personaFetch("/api/persona/file?" + params);
       setPersonaEditorContent(file.content);
       personaEditor.scrollTop = 0;
-      personaPathEl.textContent =
-        file.relativePath + (file.exists ? "" : "  (new file)");
     }
 
     function renderPersonaTemplateOptions() {
@@ -4747,7 +4927,7 @@ function dashboardHtml(): string {
       personaBusy(true);
       try {
         await loadPersonaListing(root);
-        renderPersonaPicker();
+        syncPersonaEntryForm();
         await loadPersonaFile();
         renderPersonaRegistry();
       } catch (e) {
@@ -4755,7 +4935,6 @@ function dashboardHtml(): string {
         personaState.listing = null;
         renderPersonaRegistry();
         setPersonaEditorContent("");
-        personaPathEl.textContent = "";
       } finally {
         personaBusy(false);
       }
@@ -4764,7 +4943,7 @@ function dashboardHtml(): string {
     async function initPersona() {
       if (personaState.loaded) return;
       personaState.loaded = true;
-      selectPersonaTab(personaState.kind);
+      selectPersonaKind(personaState.kind);
       try {
         const data = await personaFetch("/api/persona/root");
         personaRootInput.value = data.root || "";
@@ -4781,14 +4960,9 @@ function dashboardHtml(): string {
       personaRootInput.value = data.root;
       personaState.listing = data;
       renderPersonaBundles();
-      renderPersonaPicker();
+      syncPersonaEntryForm();
       clearPersonaDeployError();
-      setPersonaHint(
-        data.initialized
-          ? data.rules.length + " rule(s) · " + data.skills.length + " skill(s)"
-          : "Empty Persona — add an Instruction, Rule, or Skill.",
-        false
-      );
+      setPersonaHint("", false);
       if (toastMsg) showToast(toastMsg, "success");
     }
 
@@ -4852,7 +5026,8 @@ function dashboardHtml(): string {
       personaBundleCancelBtn.hidden = !show;
       personaBundleCreateBtn.hidden = !show;
       personaBundleNewBtn.hidden = show;
-      personaBundleList.hidden = show;
+      personaBundleSelect.hidden = show;
+      personaBundleDeleteBtn.hidden = show;
       if (show) {
         personaBundleName.value = "";
         personaBundleName.focus();
@@ -4860,9 +5035,15 @@ function dashboardHtml(): string {
     }
 
     async function deletePersonaBundle(name) {
-      const ok = window.confirm(
-        "Remove Persona “" + name + "” and all of its Instruction, Rules, and Skills?\\n\\nThis cannot be undone."
-      );
+      const ok = await confirmAction({
+        title: "Delete Persona?",
+        description:
+          "Persona “" + name +
+          "” and all of its Instruction, Rules, and Skills will be permanently deleted",
+        warning: "This action cannot be undone",
+        confirmLabel: "Delete",
+        danger: true,
+      });
       if (!ok) return;
 
       personaBusy(true);
@@ -4903,6 +5084,7 @@ function dashboardHtml(): string {
           }),
         });
         showNewPersona(false);
+        selectPersonaKind("agent");
         applyPersonaListing(data, "Created Persona “" + data.persona + "”");
         renderPersonaRegistry();
         await loadPersonaFile();
@@ -4916,6 +5098,18 @@ function dashboardHtml(): string {
     personaBundleNewBtn.addEventListener("click", () => showNewPersona(true));
     personaBundleCancelBtn.addEventListener("click", () => showNewPersona(false));
     personaBundleCreateBtn.addEventListener("click", createPersonaBundle);
+    personaBundleDeleteBtn.addEventListener("click", () => {
+      if (personaState.persona) deletePersonaBundle(personaState.persona);
+    });
+    personaBundleSelect.addEventListener("change", async () => {
+      const persona = personaBundleSelect.value;
+      if (!persona || persona === personaState.persona) return;
+      personaState.persona = persona;
+      personaState.name = "";
+      selectPersonaKind("agent");
+      showPersonaNewName(false);
+      await refreshPersona(personaRootInput.value.trim());
+    });
     personaBundleName.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         showNewPersona(false);
@@ -4924,40 +5118,6 @@ function dashboardHtml(): string {
       if (e.key !== "Enter") return;
       e.preventDefault();
       createPersonaBundle();
-    });
-
-    document.querySelectorAll("#panel-persona .tab[data-persona]").forEach((tab) => {
-      tab.addEventListener("click", async () => {
-        selectPersonaTab(tab.getAttribute("data-persona"));
-        personaState.name = "";
-        showPersonaNewName(false);
-        hidePersonaLog();
-        renderPersonaPicker();
-        try {
-          await loadPersonaFile();
-          renderPersonaRegistry();
-        } catch (e) {
-          setPersonaHint(e.message || "Could not read that file", true);
-        }
-      });
-    });
-
-    personaSelect.addEventListener("change", async () => {
-      if (personaSelect.value === NEW_OPTION) {
-        personaState.name = "";
-        setPersonaEditorContent("");
-        personaPathEl.textContent =
-          "Enter a title and content, then click Save to create";
-        showPersonaNewName(true);
-        return;
-      }
-      showPersonaNewName(false);
-      personaState.name = personaSelect.value;
-      try {
-        await loadPersonaFile();
-      } catch (e) {
-        setPersonaHint(e.message || "Could not read that file", true);
-      }
     });
 
     personaNewName.addEventListener("input", () => {
@@ -4992,6 +5152,7 @@ function dashboardHtml(): string {
           return;
         }
         personaState.name = name;
+        renderPersonaAbout();
       } else if (personaState.kind !== "agent" && !name) {
         showPersonaSaveError("Name the " + kindLabel + " first.");
         return;
@@ -5003,7 +5164,7 @@ function dashboardHtml(): string {
 
       personaBusy(true);
       try {
-        const data = await personaFetch("/api/persona/save", {
+        await personaFetch("/api/persona/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -5015,7 +5176,6 @@ function dashboardHtml(): string {
           }),
         });
         if (creating) showPersonaNewName(false);
-        personaPathEl.textContent = data.saved.relativePath;
         const savedLabel =
           personaState.kind === "agent"
             ? "Instruction"
@@ -5028,10 +5188,10 @@ function dashboardHtml(): string {
           personaRootInput.value.trim(),
           personaState.persona
         );
-        renderPersonaPicker();
+        syncPersonaEntryForm();
         renderPersonaRegistry();
-        if (personaState.kind !== "agent") {
-          personaSelect.value = name;
+        if (personaState.kind !== "agent" && personaBundleSelect) {
+          personaBundleSelect.value = name;
         }
         personaState.savedContent = content;
         setPersonaApplyState("pending");
@@ -5049,11 +5209,6 @@ function dashboardHtml(): string {
     async function deployAllPersona() {
       const root = personaRootInput.value.trim() || personaState.root;
       const listing = personaState.listing;
-      const selectedTargets = selectedPersonaTargets();
-      if (selectedTargets.length === 0) {
-        showPersonaDeployError("Select at least one app to apply this Persona.");
-        return;
-      }
       if (!personaDeployReady(listing)) {
         showPersonaDeployError(
           "Add an Instruction, Rule, or Skill before applying this Persona."
@@ -5064,11 +5219,11 @@ function dashboardHtml(): string {
 
       const confirm = await confirmPersonaDeploy(
         personaState.persona,
-        root,
-        selectedTargets
+        root
       );
       if (!confirm) return;
 
+      const selectedTargets = confirm.targetEntries || [];
       const global = confirm.global === true;
       const deployTargets = global
         ? selectedTargets.filter((entry) =>
@@ -5103,7 +5258,7 @@ function dashboardHtml(): string {
         });
         showPersonaLog((data.deploy && data.deploy.output) || "Applied.");
         await loadPersonaListing(root, personaState.persona);
-        renderPersonaPicker();
+        syncPersonaEntryForm();
         renderPersonaRegistry();
         personaState.savedContent = content;
         setPersonaApplyState("applied");
@@ -5259,7 +5414,10 @@ function dashboardHtml(): string {
     personaPushBtn.addEventListener("click", () => pushPersona());
     personaPullBtn.addEventListener("click", () => pullPersona());
     personaTargetInputs.forEach((input) => {
-      input.addEventListener("change", () => { clearPersonaDeployError(); });
+      input.addEventListener("change", () => {
+        clearPersonaDeployError();
+        syncDeployConfirmGlobalUi();
+      });
     });
     if (personaLogClose) {
       personaLogClose.addEventListener("click", () => { hidePersonaLog(); });
@@ -5346,15 +5504,17 @@ function dashboardHtml(): string {
       const enabled = s.guardEnabled === true;
       const signedIn = hasSavedTokens(s);
       guardEnabledToggleEl.checked = enabled;
+      const offCopy =
+        "Off — the AI runs every action without checking your permissions, and nothing is recorded in Transcodes Log History";
       if (!signedIn) {
         guardToggleDescEl.textContent = enabled
-          ? "Enabled — sign in to start evaluating tool calls."
-          : "Off — Permission checks are skipped; tool calls are not recorded in Transcodes Log History";
+          ? "On — sign in so Transcodes can check each AI action against your permissions before it runs"
+          : offCopy;
         return;
       }
       guardToggleDescEl.textContent = enabled
-        ? "Active — tool calls are evaluated against your permissions."
-        : "Off — Permission checks are skipped; tool calls are not recorded in Transcodes Log History";
+        ? "On — before the AI acts, Transcodes checks the action against the permissions you set, then blocks it, allows it, or asks you to verify with a passkey or biometrics"
+        : offCopy;
     }
 
     guardEnabledToggleEl.addEventListener("change", async () => {
