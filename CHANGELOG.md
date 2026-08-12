@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [0.69.4](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.3...transcodes-guard-v0.69.4) (2026-08-12)
+
+
+### Bug Fixes
+
+* **cli:** reject cross-origin writes to the dashboard daemon ([e4d9483](https://github.com/transcodings/transcodes-guard/commit/e4d9483c5efb9adcda943d65d85de6466d8a9897))
+* **cli:** 대시보드 데몬의 교차 출처 쓰기 요청 차단 ([4f481a4](https://github.com/transcodings/transcodes-guard/commit/4f481a474120572265f484f593999f86660d819c))
+
 ## [0.69.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.2...transcodes-guard-v0.69.3) (2026-08-12)
 
 
