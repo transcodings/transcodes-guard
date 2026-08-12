@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [0.69.3](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.2...transcodes-guard-v0.69.3) (2026-08-12)
+
+
+### Documentation
+
+* attribute the vendored rulesync copy (MIT) ([414b9cb](https://github.com/transcodings/transcodes-guard/commit/414b9cb4a8334f28f86591a74361accd6c8a29a5))
+* **rules:** record that promotion is a merge PR, not a fast-forward ([2543b61](https://github.com/transcodings/transcodes-guard/commit/2543b619d959da8ae8599b50f474a959d0d24abd))
+* rulesync(MIT) 저작권 고지 + npm tarball 동봉 (p6) ([1a5faf2](https://github.com/transcodings/transcodes-guard/commit/1a5faf2fd0530cd27fbc6b9aeae825d81ba89da5))
+
 ## [0.69.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.1...transcodes-guard-v0.69.2) (2026-08-12)
 
 

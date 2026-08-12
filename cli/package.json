@@ -1,14 +1,15 @@
 {
   "name": "@bigstrider/transcodes-cli",
   "version": "0.16.0",
-  "description": "Transcodes CLI — manage transcodes-guard member tokens and the step-up gate (set/reset/status/tokens, enable/disable, dashboard).",
+  "description": "Transcodes CLI \u2014 manage transcodes-guard member tokens and the step-up gate (set/reset/status/tokens, enable/disable, dashboard).",
   "type": "module",
   "bin": {
     "transcodes": "dist/index.js"
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "NOTICE.md"
   ],
   "scripts": {
     "build": "tsup && chmod 755 dist/index.js",

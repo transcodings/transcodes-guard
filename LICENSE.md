@@ -1,3 +1,6 @@
+> This license covers this project's own code. Parts of this repository are
+> third-party software under their own licenses — see [NOTICE.md](NOTICE.md).
+
 # Functional Source License, Version 1.1, ALv2 Future License
 
 ## Abbreviation
