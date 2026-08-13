@@ -18,7 +18,11 @@ import {
   resolvePersonaRoot,
   savePersonaFile,
 } from './persona.js';
-import { pullPersonaSync, pushPersonaSync } from './persona-sync.js';
+import {
+  clearPersonaSyncRevision,
+  pullPersonaSync,
+  pushPersonaSync,
+} from './persona-sync.js';
 
 const PERSONA_USAGE =
   'transcodes persona <list|create|read|save|delete|delete-file|deploy|push|pull>';
@@ -97,6 +101,19 @@ function personaKind(parsed: ParsedArgs): PersonaKind {
     throw new Error('--kind must be agent, rule, or skill.');
   }
   return kind;
+}
+
+function skillFileFlag(
+  parsed: ParsedArgs,
+  kind: PersonaKind,
+): string | undefined {
+  const file = optionalFlag(parsed, 'file');
+  if (file && kind !== 'skill') {
+    throw new Error(
+      '--file applies to --kind skill only (skill-root-relative path such as scripts/extract.py or references/REFERENCE.md).',
+    );
+  }
+  return file;
 }
 
 const NO_GLOBAL_HOSTS_ERROR =
@@ -249,8 +266,10 @@ export async function cmdPersona(args: string[]): Promise<void> {
 
   transcodes persona list [--persona NAME] [--root PATH]
   transcodes persona create NAME
-  transcodes persona read --persona NAME --kind agent|rule|skill [--name NAME]
-  transcodes persona save --persona NAME --kind agent|rule|skill [--name NAME] (--stdin | --content-file PATH)
+  transcodes persona read --persona NAME --kind agent|rule|skill [--name NAME] [--file SKILL_FILE]
+  transcodes persona save --persona NAME --kind agent|rule|skill [--name NAME] [--file SKILL_FILE] (--stdin | --content-file PATH)
+      --file targets a companion file inside a skill folder (e.g. scripts/extract.py,
+      references/REFERENCE.md); omit it to read/save the skill's SKILL.md.
   transcodes persona delete NAME
   transcodes persona delete-file --persona NAME --kind agent|rule|skill [--name NAME]
   transcodes persona deploy --persona NAME --project FOLDER --targets claude,cursor,chatgpt,antigravity|all --yes
@@ -283,13 +302,15 @@ export async function cmdPersona(args: string[]): Promise<void> {
     case 'read': {
       const root = optionalFlag(parsed, 'root');
       const persona = requiredFlag(parsed, 'persona');
+      const kind = personaKind(parsed);
       await checkedPersonaListing(root, persona);
       printJson(
         await readPersonaFile({
           root,
           persona,
-          kind: personaKind(parsed),
+          kind,
           name: optionalFlag(parsed, 'name'),
+          file: skillFileFlag(parsed, kind),
         }),
       );
       return;
@@ -303,6 +324,7 @@ export async function cmdPersona(args: string[]): Promise<void> {
           persona: requiredFlag(parsed, 'persona'),
           kind,
           name: optionalFlag(parsed, 'name'),
+          file: skillFileFlag(parsed, kind),
           content,
         }),
       );
@@ -311,7 +333,9 @@ export async function cmdPersona(args: string[]): Promise<void> {
     case 'delete': {
       const name = parsed.positionals[0] ?? optionalFlag(parsed, 'persona');
       if (!name) throw new Error('Persona name is required.');
-      printJson({ persona: await deletePersona(name), deleted: true });
+      const persona = await deletePersona(name);
+      await clearPersonaSyncRevision(persona);
+      printJson({ persona, deleted: true });
       return;
     }
     case 'delete-file': {

@@ -17,8 +17,13 @@ import {
   RULESYNC_SKILLS_RELATIVE_DIR_PATH,
 } from '../sync/constants/rulesync-paths.js';
 import {
+  coerceSkillName,
   createFeatureScaffold,
   parseScaffoldFeatureKeyword,
+  parseSkillOptionalDirs,
+  parseSkillScriptLanguage,
+  SKILL_OPTIONAL_DIRS,
+  type SkillScriptLanguage,
 } from '../sync/lib/feature-scaffold.js';
 import { checkRulesyncDirExists, generate } from '../sync/lib/generate.js';
 import { init } from '../sync/lib/init.js';
@@ -51,6 +56,10 @@ function usage(): string {
   transcodes sync init
   transcodes sync generate [options]
   transcodes sync add <rule|skill> --name <name> [--force]
+                      [--folder scripts,references,assets | --full]
+                      [--lang python|node|bash]  (skill only; SKILL.md is
+                      always created, directories are optional. --lang adds a
+                      starter script under scripts/)
 
 generate options:
   -t, --targets <tools>     e.g. claudecode,cursor,agentsmd or *
@@ -271,9 +280,18 @@ async function cmdAdd(args: string[]): Promise<void> {
   let force = false;
   let verbose = false;
   let silent = false;
+  let withDirs: string[] = [];
+  let full = false;
+  let lang: string | undefined;
   for (let i = 1; i < args.length; i++) {
     const arg = args[i]!;
     if (arg === '--name') name = takeFlagValue(args, i++, arg);
+    else if (arg === '--folder')
+      withDirs = withDirs.concat(
+        parseCommaSeparatedList(takeFlagValue(args, i++, arg)),
+      );
+    else if (arg === '--full') full = true;
+    else if (arg === '--lang') lang = takeFlagValue(args, i++, arg);
     else if (arg === '-f' || arg === '--force') force = true;
     else if (arg === '-V' || arg === '--verbose') verbose = true;
     else if (arg === '-s' || arg === '--silent') silent = true;
@@ -285,8 +303,46 @@ async function cmdAdd(args: string[]): Promise<void> {
     fail(`unknown feature "${source}". Use rule or skill.`);
   }
 
+  if (feature !== 'skill' && (full || withDirs.length > 0 || lang)) {
+    fail('--folder, --full, and --lang are only valid for skills.');
+  }
+
+  // SKILL.md is mandatory; scripts/references/assets are opt-in.
+  let include: ReturnType<typeof parseSkillOptionalDirs> = [];
+  let scriptLanguage: SkillScriptLanguage | undefined;
+  try {
+    include = full
+      ? [...SKILL_OPTIONAL_DIRS]
+      : parseSkillOptionalDirs(withDirs);
+    if (lang !== undefined) scriptLanguage = parseSkillScriptLanguage(lang);
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
+  }
+
+  // The frontmatter `name` must match the folder, so the folder name has to
+  // be spec-shaped already. Suggest the coerced form instead of silently
+  // renaming what the user typed.
+  if (feature === 'skill' && name !== undefined) {
+    const coerced = coerceSkillName(name);
+    if (!coerced) {
+      fail(
+        `invalid skill name "${name}". Use lowercase letters, numbers, and hyphens.`,
+      );
+    }
+    if (coerced !== name.trim().replace(/\.md$/i, '')) {
+      fail(
+        `skill names use lowercase letters, numbers, and single hyphens. Try --name ${coerced}`,
+      );
+    }
+  }
+
   const logger = new ConsoleLogger({ verbose, silent });
-  const scaffold = createFeatureScaffold({ feature, name });
+  const scaffold = createFeatureScaffold({
+    feature,
+    name,
+    include,
+    scriptLanguage,
+  });
   const projectRoot = process.cwd();
   let relativeFilePath = scaffold.relativeFilePath;
   for (const candidate of scaffold.candidateRelativeFilePaths) {
@@ -309,6 +365,21 @@ async function cmdAdd(args: string[]): Promise<void> {
   await ensureDir(dirname(targetPath));
   await writeFileContent(targetPath, scaffold.content);
   logger.success(`Created ${relativeFilePath}`);
+
+  for (const extra of scaffold.extraFiles) {
+    const extraPath = join(projectRoot, extra.relativeFilePath);
+    await assertWritablePathInsideRoot({
+      rootPath: projectRoot,
+      targetPath: extraPath,
+    });
+    if (await fileExists(extraPath)) {
+      logger.info(`Kept ${extra.relativeFilePath} unchanged.`);
+      continue;
+    }
+    await ensureDir(dirname(extraPath));
+    await writeFileContent(extraPath, extra.content);
+    logger.success(`Created ${extra.relativeFilePath}`);
+  }
 }
 
 /** Entry for `transcodes sync …` (args after `sync`). */

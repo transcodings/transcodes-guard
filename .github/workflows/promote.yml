@@ -1,12 +1,17 @@
 name: Promote dev → prod
 
 # 공개 릴리스 브랜치(prod) 승격. 자동 트리거 없음 — 개발팀이 "이제 공개" 결정을
-# 내릴 때만 수동(workflow_dispatch)으로 실행한다. dev(메인터넌스 + release-please
-# 버전 갱신 브랜치)의 현재 HEAD를 prod로 fast-forward push한다.
+# 내릴 때만 수동(workflow_dispatch)으로 실행한다.
 #
-# prod는 절대 dev와 독립적인 커밋을 가지면 안 된다(모든 변경은 feat→PR→dev 경유).
-# 그래야 이 ff가 항상 성공한다. ff가 거부되면(prod가 dev 조상이 아니면) prod에
-# 직접 커밋이 들어간 것이므로, 자동 강제 push 하지 않고 실패로 남겨 사람이 조사한다.
+# 승격은 dev → prod 머지다(fast-forward가 아니다). 머지마다 prod에만 존재하는
+# 머지 커밋이 생기므로 prod는 dev의 조상이 아니며, 다시 조상이 될 수도 없다.
+# 2026-08-05 이후로 그렇고, 이것은 prod에 직접 커밋이 들어간 증거가 아니다.
+# 따라서 이 워크플로는 ff를 시도하지 않는다 — 그러려면 이미 공개된 머지 이력을
+# 강제 푸시로 지워야 한다.
+#
+# 검증은 이력 모양이 아니라 내용으로 한다: 승격 후 prod와 dev의 트리가 같아야
+# 하고, 승격 전 prod에는 dev에 없는 고유 커밋(머지 커밋 제외)이 없어야 한다.
+# 후자가 깨지면 진짜로 prod에 직접 작업이 들어간 것이므로 사람이 조사한다.
 
 on:
   workflow_dispatch:
@@ -24,22 +29,48 @@ jobs:
     if: ${{ inputs.confirm == 'promote' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout dev
+      - name: Checkout prod
         uses: actions/checkout@v5
         with:
-          ref: dev
+          ref: prod
           fetch-depth: 0
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: Fast-forward prod to dev
+      - name: Merge dev into prod
         run: |
           set -euo pipefail
-          git fetch origin prod
-          DEV_SHA="$(git rev-parse HEAD)"
-          # prod가 dev의 조상인지 확인 — 아니면 ff 불가, 직접 커밋이 들어간 것.
-          if ! git merge-base --is-ancestor origin/prod "$DEV_SHA"; then
-            echo "::error::prod is not an ancestor of dev — refusing to force-push. prod has diverged (direct commit?). Investigate manually."
+          git fetch origin dev
+          DEV_SHA="$(git rev-parse origin/dev)"
+
+          # prod에 dev가 모르는 "실제 작업"이 있는지 본다. 승격 머지 커밋은
+          # 정상이므로 --no-merges로 걸러낸다. 여기 뭐가 잡히면 누군가 prod에
+          # 직접 커밋한 것이다.
+          STRAY="$(git log --no-merges --format=%h origin/dev..HEAD)"
+          if [ -n "$STRAY" ]; then
+            echo "::error::prod has non-merge commits that dev does not have — someone committed directly to prod. Investigate manually."
+            echo "$STRAY"
             exit 1
           fi
-          echo "Fast-forwarding prod → $DEV_SHA"
-          git push origin "$DEV_SHA:refs/heads/prod"
+
+          if git merge-base --is-ancestor "$DEV_SHA" HEAD; then
+            echo "prod already contains dev ($DEV_SHA) — nothing to promote."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # --no-ff: 승격 지점을 이력에 남긴다. squash/rebase는 dev의 커밋을
+          # prod 위에 다시 쓰게 되므로 절대 쓰지 않는다.
+          git merge --no-ff "$DEV_SHA" -m "merge: dev → prod ($DEV_SHA)"
+
+          # 승격의 성립 조건은 "트리가 같다"이다. 머지가 조용히 무언가를
+          # 떨어뜨렸다면 여기서 잡힌다.
+          if ! git diff --quiet "$DEV_SHA" HEAD; then
+            echo "::error::prod tree differs from dev after the merge — refusing to push."
+            git diff --stat "$DEV_SHA" HEAD
+            exit 1
+          fi
+
+          git push origin HEAD:refs/heads/prod
+          echo "Promoted prod → $(git rev-parse HEAD) (tree matches dev $DEV_SHA)"

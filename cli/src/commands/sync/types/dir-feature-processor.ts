@@ -4,8 +4,10 @@ import { fileContentsEquivalent } from '../utils/content-equivalence.js';
 import {
   addTrailingNewline,
   ensureDir,
+  readFileBufferOrNull,
   readFileContentOrNull,
   removeDirectory,
+  writeFileBuffer,
   writeFileContent,
 } from '../utils/file.js';
 import { stringifyFrontmatter } from '../utils/frontmatter.js';
@@ -104,14 +106,26 @@ export abstract class DirFeatureProcessor {
 
       // Compute content for other files
       const otherFiles: AiDirFile[] = aiDir.getOtherFiles();
-      const otherFileContents: string[] = [];
+      const otherFileContents: Array<string | Buffer> = [];
       for (const file of otherFiles) {
+        const filePath = join(dirPath, file.relativeFilePathToDirPath);
+        // Binary companions (images, PDFs, …) must survive byte-for-byte; a
+        // UTF-8 round-trip plus newline normalization would corrupt them.
+        if (file.fileBuffer.includes(0)) {
+          otherFileContents.push(file.fileBuffer);
+          if (!dirHasChanges) {
+            const existing = await readFileBufferOrNull(filePath);
+            if (existing === null || !existing.equals(file.fileBuffer)) {
+              dirHasChanges = true;
+            }
+          }
+          continue;
+        }
         const contentWithNewline = addTrailingNewline(
           file.fileBuffer.toString('utf-8'),
         );
         otherFileContents.push(contentWithNewline);
         if (!dirHasChanges) {
-          const filePath = join(dirPath, file.relativeFilePathToDirPath);
           const existingContent = await readFileContentOrNull(filePath);
           if (
             !fileContentsEquivalent({
@@ -165,7 +179,11 @@ export abstract class DirFeatureProcessor {
                 'This indicates a synchronization issue between otherFiles and otherFileContents arrays.',
             );
           }
-          await writeFileContent(filePath, content);
+          if (typeof content === 'string') {
+            await writeFileContent(filePath, content);
+          } else {
+            await writeFileBuffer(filePath, content);
+          }
           changedPaths.push(join(relativeDir, file.relativeFilePathToDirPath));
         }
       }

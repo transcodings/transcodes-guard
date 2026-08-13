@@ -6,14 +6,23 @@
  * persona-api; presigned PUT/GET use plain fetch — request() would attach
  * x-transcodes-token and break the SigV4 signature.
  */
-import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  copyFile,
+  mkdir,
+  open,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 import { dataDir } from '@transcodes-guard/core/paths';
 import {
   assertPersonaId,
   collectPersonaFiles,
-  writePersonaBundleFile,
+  replacePersonaBundleFiles,
 } from './persona.js';
 import {
   commitPersona,
@@ -32,9 +41,23 @@ import {
  * would be mistaken for user content and swept into the sync itself.
  */
 const SYNC_STATE_FILE = 'persona-sync.json';
+const SYNC_STATE_LOCK_FILE = `${SYNC_STATE_FILE}.lock`;
+const SYNC_STATE_LOCK_STALE_MS = 30_000;
+const SYNC_STATE_LOCK_RETRIES = 100;
+
+export type PersonaSyncEntry = {
+  revision: number;
+  synced_at: string;
+  /**
+   * Bundle content hash at the moment of the last push/pull. Comparing it to
+   * the current hash tells local edits apart from a bundle that merely sits
+   * on an older revision — the axis the revision number alone cannot see.
+   */
+  content_hash?: string;
+};
 
 type SyncState = {
-  personas: Record<string, { revision: number; synced_at: string }>;
+  personas: Record<string, PersonaSyncEntry>;
 };
 
 export type PushSyncResult = {
@@ -52,10 +75,55 @@ export type PullSyncResult = {
   unchanged: string[];
   /** Present locally but absent from the manifest — reported, never deleted. */
   local_only: string[];
+  /** Where overwritten local files were copied, or null when nothing differed. */
+  backup_dir: string | null;
 };
 
 export function sha256Hex(bytes: Buffer): string {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+/**
+ * One digest over the whole bundle: sorted `path\nsha256\n` lines. Order
+ * independence matters because collectPersonaFiles gives directory order,
+ * which can differ across machines for identical content.
+ */
+export function bundleContentHash(
+  files: Array<{ path: string; sha256: string }>,
+): string {
+  const lines = files
+    .map((file) => `${file.path}\n${file.sha256}\n`)
+    .sort()
+    .join('');
+  return sha256Hex(Buffer.from(lines));
+}
+
+async function collectLocalDigests(
+  persona: string,
+): Promise<Array<{ path: string; sha256: string }>> {
+  const collected = await collectPersonaFiles(persona);
+  const local: Array<{ path: string; sha256: string }> = [];
+  for (const file of collected) {
+    local.push({
+      path: file.bundlePath,
+      sha256: sha256Hex(await readFile(file.absolutePath)),
+    });
+  }
+  return local;
+}
+
+/**
+ * Current bundle hash per local Persona. The dashboard combines this with the
+ * stored sync entries to classify each Persona (behind / edited / conflict /
+ * current) without any network round trip.
+ */
+export async function computePersonaContentHash(
+  personaInput: string,
+): Promise<string | null> {
+  const persona = assertPersonaId(personaInput);
+  const local = await collectLocalDigests(persona);
+  if (local.length === 0) return null;
+  return bundleContentHash(local);
 }
 
 /**
@@ -115,13 +183,63 @@ export function personaSyncGuidance(
 function withGuidance(persona: string, error: unknown): Error {
   if (error instanceof PersonaApiError) {
     const guidance = personaSyncGuidance(persona, error.errorCode);
-    if (guidance) return new Error(`${guidance} (backend: ${error.message})`);
+    if (guidance) {
+      return new PersonaApiError(
+        `${guidance} (backend: ${error.message})`,
+        error.status,
+        error.errorCode,
+      );
+    }
   }
   return error instanceof Error ? error : new Error(String(error));
 }
 
 function syncStateFile(): string {
   return path.join(dataDir(), SYNC_STATE_FILE);
+}
+
+function syncStateLockFile(): string {
+  return path.join(dataDir(), SYNC_STATE_LOCK_FILE);
+}
+
+async function wait(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withSyncStateLock<T>(work: () => Promise<T>): Promise<T> {
+  await mkdir(path.dirname(syncStateFile()), { recursive: true });
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
+
+  for (let attempt = 0; attempt < SYNC_STATE_LOCK_RETRIES; attempt += 1) {
+    try {
+      handle = await open(syncStateLockFile(), 'wx');
+      break;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST') throw error;
+      try {
+        const lockStat = await stat(syncStateLockFile());
+        if (Date.now() - lockStat.mtimeMs > SYNC_STATE_LOCK_STALE_MS) {
+          await rm(syncStateLockFile(), { force: true });
+          continue;
+        }
+      } catch {
+        continue;
+      }
+      await wait(20);
+    }
+  }
+
+  if (!handle) {
+    throw new Error('Timed out waiting to update Persona sync state.');
+  }
+
+  try {
+    return await work();
+  } finally {
+    await handle.close().catch(() => {});
+    await rm(syncStateLockFile(), { force: true }).catch(() => {});
+  }
 }
 
 async function readSyncState(): Promise<SyncState> {
@@ -137,17 +255,73 @@ async function readSyncState(): Promise<SyncState> {
   return { personas: {} };
 }
 
+/**
+ * Which revision this machine last synced, per Persona. Push and pull already
+ * keep it; exposing it lets the dashboard put the organization's revision next
+ * to this device's without running a pull to find out.
+ */
+export async function readPersonaSyncRevisions(): Promise<
+  SyncState['personas']
+> {
+  return (await readSyncState()).personas;
+}
+
 async function writeSyncRevision(
   persona: string,
   revision: number,
+  contentHash: string,
 ): Promise<void> {
-  const state = await readSyncState();
-  state.personas[persona] = {
-    revision,
-    synced_at: new Date().toISOString(),
-  };
-  await mkdir(path.dirname(syncStateFile()), { recursive: true });
-  await writeFile(syncStateFile(), `${JSON.stringify(state, null, 2)}\n`);
+  await withSyncStateLock(async () => {
+    const state = await readSyncState();
+    state.personas[persona] = {
+      revision,
+      synced_at: new Date().toISOString(),
+      content_hash: contentHash,
+    };
+    const temporary = `${syncStateFile()}.${process.pid}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`);
+      await rename(temporary, syncStateFile());
+    } finally {
+      await rm(temporary, { force: true }).catch(() => {});
+    }
+  });
+}
+
+export async function clearPersonaSyncRevision(
+  personaInput: string,
+): Promise<void> {
+  const persona = assertPersonaId(personaInput);
+  await withSyncStateLock(async () => {
+    const state = await readSyncState();
+    if (!(persona in state.personas)) return;
+    delete state.personas[persona];
+    const temporary = `${syncStateFile()}.${process.pid}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`);
+      await rename(temporary, syncStateFile());
+    } finally {
+      await rm(temporary, { force: true }).catch(() => {});
+    }
+  });
+}
+
+/**
+ * Copy the whole local bundle to a timestamped folder under dataDir() before
+ * pull overwrites anything. Lives outside ~/.transcodes/personas/ so Apply
+ * and push never see it as user content.
+ */
+async function backupPersonaBundle(persona: string): Promise<string | null> {
+  const collected = await collectPersonaFiles(persona);
+  if (collected.length === 0) return null;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupDir = path.join(dataDir(), 'persona-backups', persona, stamp);
+  for (const file of collected) {
+    const target = path.join(backupDir, file.bundlePath);
+    await mkdir(path.dirname(target), { recursive: true });
+    await copyFile(file.absolutePath, target);
+  }
+  return backupDir;
 }
 
 /**
@@ -239,7 +413,23 @@ export async function pushPersonaSync(
   } catch (error) {
     throw withGuidance(persona, error);
   }
-  await writeSyncRevision(persona, committed.revision);
+  // What just went up is exactly what is on disk, so the stored hash equals
+  // the current hash and the Persona reads as "up to date".
+  try {
+    await writeSyncRevision(
+      persona,
+      committed.revision,
+      bundleContentHash(
+        files.map((file) => ({ path: file.path, sha256: file.sha256 })),
+      ),
+    );
+  } catch (error) {
+    throw new Error(
+      `Shared Persona "${persona}" as v${committed.revision}, but could not save the local sync state. Get latest before sharing again. ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 
   return {
     persona,
@@ -264,35 +454,56 @@ export async function pullPersonaSync(
 
   const detail = await fetchPersonaDetail(config, persona);
 
-  const collected = await collectPersonaFiles(persona);
-  const local: Array<{ path: string; sha256: string }> = [];
-  for (const file of collected) {
-    local.push({
-      path: file.bundlePath,
-      sha256: sha256Hex(await readFile(file.absolutePath)),
-    });
-  }
+  const local = await collectLocalDigests(persona);
 
   const plan = planPull(detail.files, local);
   const download = new Set(plan.download);
+  const replacements: Array<{ bundlePath: string; bytes: Buffer }> = [];
   for (const file of detail.files) {
     if (!download.has(file.path)) continue;
     const response = await fetch(file.url);
     if (!response.ok) {
       throw new Error(
-        `Download failed (HTTP ${response.status}) for ${file.path}.`,
+        `Download failed (HTTP ${response.status}) for ${file.path}. No local files were changed.`,
       );
     }
     const bytes = Buffer.from(await response.arrayBuffer());
     const digest = sha256Hex(bytes);
     if (digest !== file.sha256) {
       throw new Error(
-        `Digest mismatch for ${file.path}: expected ${file.sha256}, got ${digest}. The file was not written.`,
+        `Digest mismatch for ${file.path}: expected ${file.sha256}, got ${digest}. No local files were changed.`,
       );
     }
-    await writePersonaBundleFile(persona, file.path, bytes);
+    replacements.push({ bundlePath: file.path, bytes });
   }
-  await writeSyncRevision(persona, detail.revision);
+
+  // Pull never merges, so a local file about to be replaced is the only copy
+  // of whatever was edited here. Back the bundle up first — the user can
+  // re-apply from the backup instead of losing the work silently.
+  const localPaths = new Set(local.map((file) => file.path));
+  const overwrites = plan.download.some((file) => localPaths.has(file));
+  const backupDir = overwrites ? await backupPersonaBundle(persona) : null;
+
+  if (replacements.length > 0) {
+    await replacePersonaBundleFiles(persona, replacements);
+  }
+
+  // The baseline is the remote manifest, not the post-pull directory. Files
+  // kept only on this device must continue to classify as local edits so the
+  // dashboard offers Share instead of incorrectly claiming "Up to date".
+  try {
+    await writeSyncRevision(
+      persona,
+      detail.revision,
+      bundleContentHash(detail.files),
+    );
+  } catch (error) {
+    throw new Error(
+      `Downloaded Persona "${persona}" v${detail.revision}, but could not save the local sync state. Refresh and Get latest again before sharing. ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 
   return {
     persona,
@@ -300,5 +511,6 @@ export async function pullPersonaSync(
     downloaded: plan.download,
     unchanged: plan.unchanged,
     local_only: plan.localOnly,
+    backup_dir: backupDir,
   };
 }

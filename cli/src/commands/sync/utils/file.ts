@@ -345,6 +345,15 @@ export async function readFileBuffer(filepath: string): Promise<Buffer> {
   return readFile(filepath);
 }
 
+export async function readFileBufferOrNull(
+  filepath: string,
+): Promise<Buffer | null> {
+  if (await fileExists(filepath)) {
+    return readFileBuffer(filepath);
+  }
+  return null;
+}
+
 /**
  * Normalizes text to LF line endings and adds exactly one trailing newline.
  * Removes any existing trailing whitespace and appends a single newline.
