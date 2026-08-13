@@ -75,7 +75,7 @@ const MESSAGES = {
     congrats1: 'Plugin installation complete.',
     congrats2: 'Opening the Transcodes dashboard…',
     congratsBody:
-      'Sign in from the dashboard if needed. Start a new AI app session, review and trust the plugin hooks when prompted, then use the Transcodes Skill.',
+      'Next steps:\n  1) Start a new AI app session.\n  2) Review and trust the plugin hooks when prompted.\n  3) Open the Transcodes Skill and choose what to set up first:\n     • Standardize repeat work with a Persona, Rules, and Skills.\n     • Protect sensitive work with Guard and step-up approval.\n     • Finish for now.\n\nSign in from the dashboard only when the selected task needs organization or Guard access.',
     setupIncomplete: 'Setup incomplete.',
     setupIncompleteBody:
       'One or more plugins failed to install. Review the install summary above and retry; the dashboard was not opened.',
@@ -149,7 +149,7 @@ const MESSAGES = {
     congrats1: '플러그인 설치가 완료되었습니다.',
     congrats2: 'Transcodes 대시보드를 엽니다…',
     congratsBody:
-      '필요하면 대시보드에서 로그인하세요. 새 AI 앱 세션을 시작하고, 표시되는 플러그인 hook 신뢰 요청을 검토·승인한 뒤 Transcodes Skill을 사용하세요.',
+      '다음 단계:\n  1) 새 AI 앱 세션을 시작하세요.\n  2) 표시되는 플러그인 hook 신뢰 요청을 검토·승인하세요.\n  3) Transcodes Skill을 열고 이어서 설정할 항목을 선택하세요:\n     • Persona·Rules·Skills로 반복 업무 표준화\n     • Guard·step-up 승인으로 민감 작업 보호\n     • 지금은 종료\n\n조직 공유나 Guard 기능이 필요할 때만 대시보드에서 로그인하세요.',
     setupIncomplete: '설정이 완료되지 않았습니다.',
     setupIncompleteBody:
       '하나 이상의 플러그인 설치에 실패했습니다. 위 설치 요약을 확인한 뒤 다시 시도하세요. 대시보드는 열지 않았습니다.',

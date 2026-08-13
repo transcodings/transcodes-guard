@@ -57,7 +57,7 @@ What `transcodes install` does:
 
 Non-interactive: `transcodes install --all` or `transcodes install claude codex cursor antigravity`.
 
-After plugin installation, start a **new AI app chat or CLI session**, then review and trust the plugin hooks when prompted before using the Transcodes Skill. Once the dashboard is open, use **Quick Demo** for a one-prompt step-up test, or expand **Steps** for RBAC / passkey / audit / Slack·Discord webhook guidance.
+After plugin installation, start a **new AI app chat or CLI session**, then review and trust the plugin hooks when prompted. Open the Transcodes Skill and choose a first task: standardize repeat work with a Persona, Rules, and Skills, or protect sensitive work with Guard and step-up approval. Sign in only when the selected task needs organization or Guard access.
 
 ### Update — `transcodes update`
 

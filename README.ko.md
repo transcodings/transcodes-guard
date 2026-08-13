@@ -57,7 +57,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercont
 
 비대화형: `transcodes install --all` 또는 `transcodes install claude codex cursor antigravity`.
 
-플러그인 설치 후 **새 AI 앱 채팅 또는 CLI 세션**을 시작하고, 표시되는 플러그인 hook 신뢰 요청을 검토·승인한 뒤 Transcodes Skill을 사용하세요. 대시보드가 열리면 **Quick Demo**로 step-up을 바로 시험하거나, **Steps**를 펼쳐 RBAC / 패스키 / 감사 로그 / Slack·Discord webhook 안내를 따라가면 됩니다.
+플러그인 설치 후 **새 AI 앱 채팅 또는 CLI 세션**을 시작하고, 표시되는 플러그인 hook 신뢰 요청을 검토·승인하세요. Transcodes Skill을 열어 첫 작업으로 Persona·Rules·Skills를 활용한 반복 업무 표준화 또는 Guard·step-up 승인을 활용한 민감 작업 보호를 선택하세요. 조직 공유나 Guard 기능이 필요할 때만 로그인하면 됩니다.
 
 ### 업데이트 — `transcodes update`
 

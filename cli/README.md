@@ -28,9 +28,10 @@ transcodes install
 
 Choose the installed AI apps in the prompt. Only successful host installs are
 reported as complete. Then start a new session, review and trust the plugin
-hooks when prompted, and verify that the Transcodes Skill is available. Sign in
-from the dashboard or with `transcodes login` when using Guard/Admin API actions
-or organization Persona sharing.
+hooks when prompted, and open the Transcodes Skill. Choose a first task:
+standardize repeat work with a Persona, Rules, and Skills, or protect sensitive
+work with Guard and step-up approval. Sign in only when that task needs
+organization or Guard access.
 
 ## Commands
 
