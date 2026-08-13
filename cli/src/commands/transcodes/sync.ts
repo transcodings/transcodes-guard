@@ -372,7 +372,11 @@ async function cmdAdd(args: string[]): Promise<void> {
       rootPath: projectRoot,
       targetPath: extraPath,
     });
-    if (await fileExists(extraPath)) {
+    // --force covers the whole bundle. Refreshing SKILL.md while leaving the
+    // companions on their old templates is the one outcome nobody asked for.
+    // Unlike the main file this never prompts — a prompt per companion would
+    // be tedious, and without --force the existing file simply stays.
+    if ((await fileExists(extraPath)) && !force) {
       logger.info(`Kept ${extra.relativeFilePath} unchanged.`);
       continue;
     }
