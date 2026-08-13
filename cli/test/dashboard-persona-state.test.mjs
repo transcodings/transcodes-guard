@@ -380,7 +380,23 @@ test("dashboard fills the viewport and keeps version at sidebar bottom", () => {
     source,
     /<div class="sidebar-version">[\s\S]*?Ver \$\{CLI_VERSION\}[\s\S]*?transcodes version/,
   );
+  assert.match(
+    source,
+    /data-tab="rbac"[\s\S]*?Permission[\s\S]*?<span class="tab-beta">Beta<\/span>/,
+  );
+  assert.match(
+    source,
+    /panel-page-title">Permission<\/h2>[\s\S]{0,80}?<span class="tab-beta">Beta<\/span>/,
+  );
+  assert.doesNotMatch(
+    source,
+    /\.tab-beta \{[\s\S]{0,280}?text-transform: uppercase;/,
+  );
   assert.doesNotMatch(source, /class="dashboard-footer"/);
+  assert.match(
+    source,
+    /#panel-guideline \{[\s\S]{0,80}?scrollbar-width: none;/,
+  );
 });
 
 test("signed-out header uses a direct sign-in prompt", () => {

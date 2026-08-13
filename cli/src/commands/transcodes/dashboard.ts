@@ -950,12 +950,21 @@ function dashboardHtml(): string {
       margin-left: auto;
     }
     .panel-page-head { margin: 0 0 20px; }
+    .panel-page-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
     .panel-page-title {
       margin: 0;
       color: var(--ink);
       font-size: var(--text-lg);
       font-weight: 700;
       line-height: 1.3;
+    }
+    .panel-page-title-row .tab-beta {
+      font-size: 12px;
+      padding: 2px 6px;
     }
     .panel-page-description {
       margin: 6px 0 0;
@@ -1085,6 +1094,20 @@ function dashboardHtml(): string {
       width: 20px;
       height: 20px;
       flex-shrink: 0;
+    }
+    .tab-beta {
+      display: inline-flex;
+      align-items: center;
+      flex-shrink: 0;
+      margin-left: 2px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      line-height: 1.4;
     }
     .tab:hover { color: var(--ink); }
     .tab.active {
@@ -3630,6 +3653,12 @@ function dashboardHtml(): string {
         padding: 30px 0 40px;
         overflow-y: auto;
       }
+      .card > #panel-guideline {
+        scrollbar-width: none;
+      }
+      .card > #panel-guideline::-webkit-scrollbar {
+        display: none;
+      }
       .card > #panel-persona {
         width: 100%;
         max-width: none;
@@ -3926,6 +3955,7 @@ function dashboardHtml(): string {
       <button type="button" class="tab" data-tab="rbac">
         ${ICON_PERMISSION.replace('<svg ', '<svg class="tab-icon" ')}
         Permission
+        <span class="tab-beta">Beta</span>
       </button>
       <button type="button" class="tab" data-tab="tokens">
         ${ICON_PROFILE.replace('<svg ', '<svg class="tab-icon" ')}
@@ -4368,7 +4398,10 @@ function dashboardHtml(): string {
 
     <div class="panel" id="panel-rbac">
       <div class="panel-page-head">
-        <h2 class="panel-page-title">Permission</h2>
+        <div class="panel-page-title-row">
+          <h2 class="panel-page-title">Permission</h2>
+          <span class="tab-beta">Beta</span>
+        </div>
         <p class="panel-page-description">Decide what your AI can do and when it needs your approval.</p>
       </div>
       <div id="rbac-signin" class="rbac-signin"></div>
