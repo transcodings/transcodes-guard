@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.70.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.4...transcodes-guard-v0.70.0) (2026-08-13)
+
+
+### Features
+
+* **cli:** add multi-file Skill bundles and dashboard skill tree ([04dc8b8](https://github.com/transcodings/transcodes-guard/commit/04dc8b86a287524650297dc1d64298595ce14c38))
+
 ## [0.69.4](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.3...transcodes-guard-v0.69.4) (2026-08-12)
 
 
