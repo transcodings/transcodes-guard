@@ -16,7 +16,6 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { TRANSCODES_GUARD_REPO_URL } from '@transcodes-guard/core/contract';
 import {
   clearTokenFile,
   fetchMemberProfile,
@@ -46,11 +45,13 @@ import { LOGO_DATA_URI } from './logo.js';
 import { PWA_MANIFEST } from './manifest.js';
 import {
   createPersona,
+  createSkillFolder,
   defaultPersonaRoot,
   deletePersona,
   deletePersonaFile,
   deployPersona,
   listPersona,
+  listPersonaIds,
   type PersonaKind,
   pickProjectFolder,
   readLastRoot,
@@ -59,8 +60,18 @@ import {
   revealPersonaFolder,
   savePersonaFile,
 } from './persona.js';
-import { fetchPersonaList, loadPersonaConfig } from './persona-api.js';
-import { pullPersonaSync, pushPersonaSync } from './persona-sync.js';
+import {
+  fetchPersonaList,
+  loadPersonaConfig,
+  PersonaApiError,
+} from './persona-api.js';
+import {
+  clearPersonaSyncRevision,
+  computePersonaContentHash,
+  pullPersonaSync,
+  pushPersonaSync,
+  readPersonaSyncRevisions,
+} from './persona-sync.js';
 import { PWA_SERVICE_WORKER } from './pwa.js';
 import { fetchRbacSnapshot, loadRbacConfig } from './rbac-api.js';
 import { CLI_VERSION } from './version.js';
@@ -308,13 +319,20 @@ function parsePersonaKind(value: unknown): PersonaKind {
   throw new Error(`Unknown persona kind: ${String(value)}`);
 }
 
+const ICON_PROFILE =
+  '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>';
+const ICON_PERMISSION =
+  '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" /></svg>';
+const ICON_PERSONA =
+  '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" /></svg>';
+
 function dashboardHtml(): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Transcodes — CLI Dashboard</title>
+  <title>Transcodes — CLI Panel</title>
   <meta name="theme-color" content="#16161a" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -341,6 +359,7 @@ function dashboardHtml(): string {
       --text-lg: 19px;
       --text-xl: 24px;
     }
+    html { height: 100%; }
     body {
       margin: 0;
       min-height: 100vh;
@@ -747,11 +766,6 @@ function dashboardHtml(): string {
       flex-wrap: wrap;
       gap: 8px 12px;
     }
-    .header-tagline {
-      margin: 6px 0 0;
-      font-size: var(--text-sm);
-      color: var(--muted);
-    }
     .header-body { flex: 1; min-width: 0; }
     [hidden] { display: none !important; }
     .header-token-empty {
@@ -935,15 +949,24 @@ function dashboardHtml(): string {
       gap: 8px;
       margin-left: auto;
     }
-    .profile-empty {
-      padding: 18px 20px;
-      border-radius: 16px;
-      border: 1px dashed var(--line);
-      background: #fbfbfc;
-      color: var(--muted);
-      font-size: var(--text-sm);
-      line-height: 1.45;
+    .panel-page-head { margin: 0 0 20px; }
+    .panel-page-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: var(--text-lg);
+      font-weight: 700;
+      line-height: 1.3;
     }
+    .panel-page-description {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: var(--text-2xs);
+      line-height: 1.6;
+      max-width: 660px;
+    }
+    .profile-empty[hidden],
+    .rbac-signin[hidden],
+    .rbac-signed-in[hidden] { display: none !important; }
     .btn-manage-auth,
     .btn-session-login {
       flex-shrink: 0;
@@ -1023,15 +1046,7 @@ function dashboardHtml(): string {
       align-items: flex-end;
       gap: 6px;
     }
-    .header-profile-cli-hint {
-      margin: 0;
-      font-size: var(--text-2xs);
-      color: var(--muted);
-      text-align: right;
-      white-space: nowrap;
-    }
     .cli-cmd,
-    .header-profile-cli-hint code,
     .cli-map-row code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       background: var(--accent-soft);
@@ -1042,36 +1057,6 @@ function dashboardHtml(): string {
       font-weight: 600;
       border: none;
     }
-    .header-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: var(--text-2xs);
-      font-weight: 500;
-      letter-spacing: 0;
-      line-height: 1.2;
-      color: var(--muted);
-    }
-    .header-status[data-online="false"] {
-      color: #c0392f;
-    }
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #22c55e;
-      flex-shrink: 0;
-      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.22);
-    }
-    .header-status[data-online="false"] .status-dot { display: none; }
-    .status-offline-icon {
-      display: none;
-      width: 14px;
-      height: 14px;
-      flex-shrink: 0;
-      color: #ef4444;
-    }
-    .header-status[data-online="false"] .status-offline-icon { display: block; }
     .tabs {
       display: flex;
       gap: 4px;
@@ -1105,6 +1090,49 @@ function dashboardHtml(): string {
     .tab.active {
       background: #fff;
       color: var(--ink);
+      box-shadow: 0 1px 2px rgba(16, 16, 26, 0.08);
+    }
+    .persona-nav-group {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .persona-nav-group > .tab {
+      width: 100%;
+    }
+    .persona-nav-chevron {
+      width: 15px;
+      height: 15px;
+      margin-left: auto;
+      flex-shrink: 0;
+      transition: transform 0.15s ease;
+    }
+    .persona-nav-toggle[aria-expanded="true"] .persona-nav-chevron {
+      transform: rotate(180deg);
+    }
+    .persona-nav-submenu {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+      padding: 4px 2px 0;
+    }
+    .persona-nav-submenu[hidden] { display: none !important; }
+    .persona-nav-item {
+      min-width: 0;
+      padding: 8px 10px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: var(--text-2xs);
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .persona-nav-item:hover { color: var(--ink); }
+    .persona-nav-item.active {
+      background: #fff;
+      color: var(--accent);
       box-shadow: 0 1px 2px rgba(16, 16, 26, 0.08);
     }
     .panel { display: none; padding-top: 26px; }
@@ -1285,13 +1313,7 @@ function dashboardHtml(): string {
     }
     .btn-danger:hover:not(:disabled) { background: #a52f26; }
     .btn-danger:disabled { opacity: 0.55; cursor: default; }
-    .rbac-token-warning {
-      margin: 0 0 18px;
-      font-size: var(--text-sm);
-      font-weight: 600;
-      line-height: 1.5;
-      color: #c0392f;
-    }
+    .rbac-signin { margin: 0; }
     .guard-toggle-card {
       display: flex;
       align-items: center;
@@ -1375,6 +1397,10 @@ function dashboardHtml(): string {
       border-radius: 16px;
       background: var(--card);
     }
+    .persona-local-view[hidden],
+    .persona-remote-view[hidden] {
+      display: none !important;
+    }
     .persona-registry-head {
       display: flex;
       align-items: center;
@@ -1411,8 +1437,8 @@ function dashboardHtml(): string {
     }
     .persona-library-panel .persona-group-add {
       margin-left: 0;
-      padding: 0 10px;
-      font-size: var(--text-2xs);
+      width: 34px;
+      padding: 0;
     }
     .persona-library-panel .persona-bundle-delete-btn {
       width: 34px;
@@ -1470,33 +1496,380 @@ function dashboardHtml(): string {
       color: #c0392f;
     }
     .persona-deploy-error[hidden] { display: none !important; }
-    .persona-apply-status {
-      margin: 12px 2px 0;
-      font-size: var(--text-sm);
-      font-weight: 600;
-      line-height: 1.45;
+    .persona-local-remote-status {
+      margin: 0 0 14px;
+      padding: 12px;
+      border: 1px solid #e7e7ef;
+      border-radius: 12px;
+      background: #fafafe;
       color: var(--muted);
     }
-    .persona-sync-warning {
-      margin: 12px 0 0;
-      font-size: var(--text-sm);
-      font-weight: 600;
-      line-height: 1.5;
+    .persona-local-remote-status:empty { display: none; }
+    .persona-local-version-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .persona-local-version {
+      min-width: 0;
+      padding: 8px 9px;
+      border: 1px solid #ededf3;
+      border-radius: 9px;
+      background: #fff;
+    }
+    .persona-local-version-label {
+      display: block;
+      color: #92929f;
+      font-size: 9px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+    .persona-local-version-value {
+      display: block;
+      margin-top: 3px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 780;
+      line-height: 1.2;
+    }
+    .persona-local-sync-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: #edf8f1;
+      color: #2f8f5b;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      line-height: 1.2;
+      text-align: center;
+    }
+    .persona-local-remote-status[data-state="behind"] .persona-local-sync-state,
+    .persona-local-remote-status[data-state="edited"] .persona-local-sync-state,
+    .persona-local-remote-status[data-state="local-only"] .persona-local-sync-state {
+      background: #fff5e8;
+      color: #9a5b13;
+    }
+    .persona-local-remote-status[data-state="conflict"] .persona-local-sync-state {
+      background: #fff0ef;
       color: #c0392f;
     }
-    .persona-sync-warning[hidden] { display: none !important; }
-    .persona-sync-status {
-      margin: 12px 2px 0;
-      font-size: var(--text-sm);
+    .persona-local-remote-status[data-state="remote-only"] .persona-local-sync-state,
+    .persona-local-remote-status[data-state="unknown"] .persona-local-sync-state {
+      background: #f0f1f5;
+      color: #6d6d79;
+    }
+    .persona-local-sync-meta {
+      margin: 7px 1px 0;
+      overflow: hidden;
+      color: #9797a3;
+      font-size: 10px;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .persona-sync-warning {
+      margin: 8px 0 0;
+      color: #c0392f;
+      font-size: 11px;
+      font-weight: 600;
       line-height: 1.45;
+    }
+    .persona-sync-warning[hidden] { display: none !important; }
+    .persona-remote-view {
+      min-width: 0;
+      padding: 26px 28px 32px;
+    }
+    .persona-remote-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+    .persona-remote-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: var(--text-lg);
+      line-height: 1.3;
+    }
+    .persona-remote-description,
+    .persona-remote-notice {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: var(--text-2xs);
+      line-height: 1.6;
+    }
+    .persona-remote-description { max-width: 660px; }
+    .persona-remote-notice {
+      margin: 0 0 14px;
+    }
+    .persona-remote-notice[data-tone="warn"] {
+      margin: 0 0 18px;
+      padding: 18px 20px;
+      border-radius: 16px;
+      border: 1px dashed var(--line);
+      background: #fbfbfc;
+      color: #c0392f;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      line-height: 1.45;
+    }
+    .persona-remote-notice:empty { display: none; }
+    .signin-pitch-card {
+      grid-column: 1 / -1;
+      width: 100%;
+      margin: 0;
+      padding: 36px 38px 34px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #fdfdff 0%, #f6f6fb 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .signin-pitch-head {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .signin-pitch-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 13px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .signin-pitch-icon svg {
+      width: 24px;
+      height: 24px;
+      overflow: visible;
+    }
+    .signin-pitch-title {
+      margin: 0;
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.2px;
+    }
+    .signin-pitch-sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: var(--text-xs);
+      line-height: 1.65;
+    }
+    .signin-pitch-features {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .signin-pitch-feature {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 9px;
+    }
+    .signin-pitch-feature svg {
+      width: 21px;
+      height: 21px;
+      color: var(--accent);
+    }
+    .signin-pitch-feature-title {
+      margin: 0;
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .signin-pitch-feature-desc {
+      margin: 0;
+      font-size: var(--text-2xs);
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .signin-pitch-cta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .signin-pitch-btn {
+      padding: 12px 28px;
+      font-size: var(--text-sm);
+    }
+    .signin-pitch-hint {
+      margin: 0;
+      font-size: var(--text-2xs);
       color: var(--muted);
     }
-    .persona-sync-status:empty { display: none; }
-    .persona-apply-status:empty { display: none; }
-    .persona-apply-status[data-state="dirty"] { color: #9a5b13; }
-    .persona-apply-status[data-state="pending"] { color: var(--accent); }
-    .persona-apply-status[data-state="applied"] { color: #1a7f45; }
-    .persona-apply-status[data-state="error"] { color: #c0392f; }
+    @media (max-width: 900px) {
+      .signin-pitch-features { grid-template-columns: 1fr; }
+      .signin-pitch-card { padding: 28px 26px; }
+    }
+    .persona-remote-refresh-icon {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+    }
+    .persona-remote-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .persona-remote-item {
+      display: flex;
+      min-height: 142px;
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid #e8e8ee;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(24, 24, 35, 0.025);
+      flex-direction: column;
+      transition:
+        border-color 140ms ease,
+        box-shadow 140ms ease;
+    }
+    .persona-remote-item:hover {
+      border-color: #dcdce6;
+      box-shadow: 0 5px 16px rgba(24, 24, 35, 0.045);
+    }
+    .persona-remote-item-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .persona-remote-name {
+      margin: 0;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 720;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .persona-remote-meta {
+      margin: 11px 0 14px;
+      min-height: 17px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .persona-remote-meta strong {
+      color: var(--ink);
+      font-weight: 750;
+    }
+    .persona-remote-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .persona-remote-actions:empty { display: none; }
+    .persona-remote-sync-btn {
+      width: 100%;
+      justify-content: center;
+    }
+    .persona-version-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: center;
+      gap: 8px;
+      margin-top: 17px;
+    }
+    .persona-version-block {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #f7f7f9;
+    }
+    .persona-version-block.is-remote { background: #f1f0fb; }
+    .persona-version-label {
+      color: #7a7a86;
+      font-size: 12px;
+      font-weight: 720;
+      letter-spacing: 0.04em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+    .persona-version-value {
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 760;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+    }
+    .persona-update-chip {
+      display: inline-flex;
+      width: max-content;
+      max-width: 100%;
+      align-items: center;
+      margin-top: 10px;
+      color: #858592;
+      white-space: nowrap;
+    }
+    .persona-update-chip span {
+      overflow: hidden;
+      font-size: 10px;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+    }
+    .persona-sync-state {
+      flex: 0 0 auto;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #f4f4f6;
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 720;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+    .persona-sync-state[data-state="behind"] {
+      background: #fdf3e7;
+      color: #9a5b13;
+    }
+    .persona-sync-state[data-state="edited"] {
+      background: #eef2fd;
+      color: #2d4fc7;
+    }
+    .persona-sync-state[data-state="conflict"] {
+      background: #fdecea;
+      color: #c0392f;
+    }
+    .persona-sync-state[data-state="current"] {
+      background: #eaf7ef;
+      color: #1a7f45;
+    }
+    .persona-remote-empty {
+      grid-column: 1 / -1;
+      margin: 0;
+      padding: 30px 18px;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: var(--text-2xs);
+      text-align: center;
+    }
     .persona-bundle-row {
       display: flex;
       align-items: center;
@@ -1522,16 +1895,22 @@ function dashboardHtml(): string {
     }
     .persona-bundle-delete-btn {
       flex: 0 0 auto;
-      width: 30px;
-      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
       padding: 0;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: #fff;
       color: var(--muted);
-      font-size: 18px;
-      line-height: 1;
       cursor: pointer;
+    }
+    .persona-bundle-delete-btn svg {
+      display: block;
+      width: 18px;
+      height: 18px;
     }
     .persona-bundle-delete-btn:hover:not(:disabled) {
       border-color: #e2b5b1;
@@ -1607,14 +1986,47 @@ function dashboardHtml(): string {
       opacity: 0;
       pointer-events: none;
     }
-    @media (max-width: 600px) {
-      .persona-target-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
     .persona-child-tree {
       padding: 0;
     }
-    .persona-group { padding: 0; }
+    .persona-group {
+      position: relative;
+      padding: 0;
+    }
     .persona-group + .persona-group { margin-top: 16px; }
+    .persona-bundle-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+    .persona-bundle-card-head {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: 0;
+      padding: 9px 11px;
+      border-bottom: 1px solid var(--line);
+      border-radius: 11px 11px 0 0;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: var(--text-2xs);
+      font-weight: 750;
+    }
+    .persona-bundle-card-head svg {
+      flex: 0 0 auto;
+      width: 15px;
+      height: 15px;
+    }
+    .persona-bundle-card-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .persona-bundle-card .persona-child-tree {
+      padding: 12px 11px;
+    }
     .persona-group-label {
       margin: 0 0 8px;
       display: flex;
@@ -1628,23 +2040,79 @@ function dashboardHtml(): string {
     }
     .persona-group-add {
       margin-left: auto;
-      min-height: 24px;
-      padding: 2px 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      min-height: 34px;
+      padding: 0;
       border: 1px solid var(--line);
-      border-radius: 6px;
+      border-radius: 8px;
       background: #fff;
-      color: var(--accent);
-      font-size: 10px;
-      font-weight: 700;
-      line-height: 1.2;
+      color: var(--muted);
       letter-spacing: 0;
       text-transform: none;
-      white-space: nowrap;
       cursor: pointer;
     }
+    .persona-group-add svg {
+      display: block;
+      width: 18px;
+      height: 18px;
+      stroke: var(--muted);
+    }
     .persona-group-add:hover {
-      border-color: var(--accent);
-      background: var(--accent-soft);
+      border-color: #c8c8d0;
+      background: #f7f7f9;
+      color: var(--muted);
+    }
+    .persona-group-help {
+      position: static;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      width: 24px;
+      height: 34px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: help;
+    }
+    .persona-group-label > span + .persona-group-help {
+      margin-left: auto;
+    }
+    .persona-group-help svg {
+      display: block;
+      width: 17px;
+      height: 17px;
+    }
+    .persona-group-help:hover,
+    .persona-group-help:focus-visible {
+      color: var(--ink);
+      outline: none;
+    }
+    .persona-group-tooltip {
+      position: fixed;
+      z-index: 1000;
+      box-sizing: border-box;
+      width: 230px;
+      max-width: calc(100vw - 24px);
+      padding: 9px 10px;
+      border: 1px solid #303038;
+      border-radius: 8px;
+      background: #222228;
+      box-shadow: 0 8px 24px rgba(20, 20, 26, 0.18);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 1.45;
+      pointer-events: none;
+      text-align: left;
+      text-transform: none;
+      white-space: normal;
     }
     .persona-child-tree .persona-item {
       border-radius: 8px;
@@ -1673,7 +2141,7 @@ function dashboardHtml(): string {
       transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
     .persona-item-open {
-      min-height: 32px;
+      min-height: 34px;
       padding: 6px 10px 6px 12px;
       border: none;
       background: transparent;
@@ -1696,19 +2164,21 @@ function dashboardHtml(): string {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
+      width: 34px;
       height: 100%;
-      min-height: 32px;
+      min-height: 34px;
       padding: 0;
       border: none;
       border-left: 1px solid transparent;
       background: transparent;
       color: inherit;
-      font-size: 20px;
-      font-weight: 500;
-      line-height: 1;
       opacity: 0.7;
       cursor: pointer;
+    }
+    .persona-item-x svg {
+      display: block;
+      width: 18px;
+      height: 18px;
     }
     .persona-item-x:hover {
       opacity: 1;
@@ -1754,25 +2224,6 @@ function dashboardHtml(): string {
       min-width: 180px;
       font-size: var(--text-xs);
     }
-    .persona-about {
-      margin: 0 0 16px;
-      padding: 14px 16px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: #fbfbfc;
-      font-size: var(--text-xs);
-      line-height: 1.6;
-      color: var(--muted);
-    }
-    .persona-about strong { color: var(--ink); }
-    .persona-about-title {
-      display: block;
-      margin-bottom: 4px;
-      color: var(--ink);
-      font-size: var(--text-sm);
-      font-weight: 750;
-      line-height: 1.35;
-    }
     .persona-agent-callout {
       display: flex;
       gap: 12px;
@@ -1781,6 +2232,38 @@ function dashboardHtml(): string {
       border: 1px solid rgba(91, 84, 230, 0.2);
       border-radius: 14px;
       background: linear-gradient(135deg, rgba(91, 84, 230, 0.08), rgba(91, 84, 230, 0.03));
+    }
+    .persona-agent-callout--workspace {
+      display: block;
+      overflow: hidden;
+      margin: 0 0 18px;
+      padding: 0;
+    }
+    .persona-agent-callout-summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      cursor: pointer;
+      list-style: none;
+    }
+    .persona-agent-callout-summary::-webkit-details-marker { display: none; }
+    .persona-agent-callout-summary .persona-agent-callout-title {
+      flex: 1;
+      margin: 0;
+    }
+    .persona-agent-callout-chevron {
+      flex: 0 0 auto;
+      width: 18px;
+      height: 18px;
+      color: var(--muted);
+      transition: transform 160ms ease;
+    }
+    .persona-agent-callout--workspace[open] .persona-agent-callout-chevron {
+      transform: rotate(180deg);
+    }
+    .persona-agent-callout-body {
+      padding: 0 16px 16px 50px;
     }
     .persona-agent-callout-icon {
       flex: 0 0 auto;
@@ -1805,15 +2288,182 @@ function dashboardHtml(): string {
     }
     .persona-agent-callout-copy strong { color: var(--ink); }
     .persona-agent-callout-copy code.cli-cmd { white-space: nowrap; }
+    .persona-file-picker {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 2px 10px;
+    }
+    .persona-file-picker[hidden] { display: none !important; }
+    .persona-file-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f6f6f9;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: var(--text-2xs);
+      font-weight: 700;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .persona-file-btn:hover { border-color: #d4d4de; background: #f0f0f4; }
+    .persona-file-btn[aria-expanded="true"] { border-color: var(--accent); }
+    .persona-file-chevron {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 auto;
+      color: var(--muted);
+      transition: transform 0.15s ease;
+    }
+    .persona-file-btn[aria-expanded="true"] .persona-file-chevron {
+      transform: rotate(180deg);
+    }
+    .persona-file-count {
+      color: var(--muted);
+      font-size: var(--text-2xs);
+      font-weight: 600;
+    }
+    .persona-file-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      z-index: 40;
+      min-width: 240px;
+      max-height: 320px;
+      overflow-y: auto;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 12px 32px rgba(24, 24, 35, 0.14);
+    }
+    .persona-file-menu[hidden] { display: none !important; }
+    .persona-file-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 6px 4px 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .persona-file-group svg { width: 15px; height: 15px; flex: 0 0 auto; }
+    .persona-file-item {
+      display: block;
+      width: 100%;
+      padding: 7px 10px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: var(--text-2xs);
+      text-align: left;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .persona-file-item:hover { background: #f4f4f7; }
+    .persona-file-item.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .persona-file-item.nested { padding-left: 26px; }
+    .persona-file-add {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      margin-left: auto;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .persona-file-add:hover { background: #ececf2; color: var(--accent); }
+    .persona-file-add svg { width: 13px; height: 13px; }
+    .persona-file-new {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 4px 4px 26px;
+    }
+    .persona-file-new.root { padding-left: 4px; }
+    .persona-file-new input {
+      flex: 1;
+      min-width: 0;
+      padding: 5px 8px;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: var(--text-2xs);
+      outline: none;
+    }
+    .persona-file-new-confirm {
+      flex: 0 0 auto;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-size: var(--text-2xs);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .persona-file-new-confirm:hover { filter: brightness(1.08); }
+    .persona-file-menu-footer {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--line);
+    }
+    .persona-file-new-folder-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 7px 10px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: var(--text-2xs);
+      /* Same weight as the folder group headers above. */
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+    }
+    .persona-file-new-folder-btn:hover { background: #f4f4f7; color: var(--accent); }
+    .persona-file-new-folder-btn svg { width: 14px; height: 14px; flex: 0 0 auto; }
     .persona-content-stats {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      margin: 0 2px 10px;
+      font-size: var(--text-2xs);
+      color: var(--muted);
+    }
+    .persona-content-metrics {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 6px 12px;
-      margin: 0 2px 10px;
-      font-size: var(--text-2xs);
-      color: var(--muted);
+    }
+    .persona-content-file {
+      color: var(--accent);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-weight: 700;
+      overflow-wrap: anywhere;
     }
     .persona-content-count {
       color: var(--ink);
@@ -1842,6 +2492,63 @@ function dashboardHtml(): string {
       background: #fff;
       border-color: var(--accent);
       box-shadow: 0 0 0 4px rgba(91, 84, 230, 0.12);
+    }
+    .persona-code-editor {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .persona-code-editor:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(91, 84, 230, 0.12);
+    }
+    .persona-code-editor-host { display: none; }
+    .persona-code-editor.is-ready .persona-code-editor-host { display: block; }
+    .persona-code-editor.is-ready .persona-editor { display: none; }
+    .persona-code-editor .persona-editor {
+      min-height: 400px;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .persona-code-editor .cm-editor {
+      min-height: 400px;
+      color: #24242b;
+      background: #fff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: var(--text-2xs);
+      line-height: 1.65;
+    }
+    .persona-code-editor .cm-editor.cm-focused { outline: none; }
+    .persona-code-editor .cm-scroller {
+      min-height: 400px;
+      overflow: auto;
+    }
+    .persona-code-editor .cm-content {
+      padding: 14px 0 80px;
+      caret-color: var(--accent);
+    }
+    .persona-code-editor .cm-line { padding: 0 18px 0 10px; }
+    .persona-code-editor .cm-gutters {
+      border-right: 1px solid #ececf1;
+      background: #fafafd;
+      color: #aaaab4;
+    }
+    .persona-code-editor .cm-lineNumbers .cm-gutterElement {
+      min-width: 40px;
+      padding: 0 10px 0 6px;
+    }
+    .persona-code-editor .cm-activeLine,
+    .persona-code-editor .cm-activeLineGutter {
+      background: #f4f3ff;
+    }
+    .persona-code-editor .cm-selectionBackground {
+      background: #dedcff !important;
+    }
+    .persona-code-editor .cm-cursor {
+      border-left-color: var(--accent);
     }
     .persona-actions { margin-top: 16px; }
     .persona-actions .btn-danger {
@@ -2803,49 +3510,40 @@ function dashboardHtml(): string {
       border-radius: 6px;
       color: #8a8a94;
     }
-    .dashboard-footer {
-      width: 100%;
-      max-width: var(--card-max);
-      margin: 18px auto 0;
-      padding: 0 8px 8px;
+    .sidebar-version {
+      margin-top: auto;
+      padding: 18px 13px 0;
+      border-top: 1px solid var(--line);
       display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 8px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 5px;
       font-size: var(--text-2xs);
       color: var(--muted);
-      text-align: center;
       line-height: 1.6;
     }
-    .dashboard-footer a {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      color: var(--accent);
-      font-weight: 600;
-      text-decoration: none;
-    }
-    .dashboard-footer a:hover { text-decoration: underline; }
-    .dashboard-footer-github-icon {
-      width: 14px;
-      height: 14px;
-      flex-shrink: 0;
+    .sidebar-version code.cli-cmd {
+      font-size: 11px;
+      white-space: nowrap;
     }
 
     /* Desktop application shell: persistent navigation + wide workspace. */
-    @media (min-width: 1001px) {
+    @media (min-width: 0px) {
       :root {
         --card-max: 1480px;
         --sidebar-width: 220px;
       }
       body {
+        height: 100vh;
         align-items: stretch;
         padding: 24px;
+        overflow: hidden;
       }
       .card {
+        min-width: 1100px;
         max-width: var(--card-max);
-        min-height: calc(100vh - 72px);
+        height: 100%;
+        min-height: 0;
         margin: 0 auto;
         padding: 0;
         display: grid;
@@ -2889,7 +3587,8 @@ function dashboardHtml(): string {
         border-radius: 0;
         background: #fafafd;
       }
-      .card > .tabs > .tab {
+      .card > .tabs > .tab,
+      .card > .tabs > .persona-nav-group > .tab {
         flex: none;
         width: 100%;
         justify-content: flex-start;
@@ -2898,9 +3597,27 @@ function dashboardHtml(): string {
         border-radius: 11px;
         text-align: left;
       }
-      .card > .tabs > .tab.active {
+      .card > .tabs > .tab.active,
+      .card > .tabs > .persona-nav-group > .tab.active {
         color: var(--accent);
         background: var(--accent-soft);
+        box-shadow: none;
+      }
+      .card > .tabs > .persona-nav-group {
+        flex: none;
+        width: 100%;
+      }
+      .card > .tabs .persona-nav-submenu {
+        grid-template-columns: 1fr;
+        margin: 3px 0 2px 22px;
+        padding: 4px 0 4px 10px;
+      }
+      .card > .tabs .persona-nav-item {
+        padding: 8px 12px;
+        text-align: left;
+      }
+      .card > .tabs .persona-nav-item.active {
+        background: transparent;
         box-shadow: none;
       }
       .card > .panel {
@@ -2911,15 +3628,14 @@ function dashboardHtml(): string {
         min-width: 0;
         margin: 0 auto;
         padding: 30px 0 40px;
-      }
-      .card > #panel-tokens {
-        max-width: 840px;
+        overflow-y: auto;
       }
       .card > #panel-persona {
         width: 100%;
         max-width: none;
         margin: 0;
         padding: 0;
+        overflow: hidden;
       }
 
       /* Persona adds a file/library column inside the main content column. */
@@ -2930,6 +3646,13 @@ function dashboardHtml(): string {
         padding: 0;
         border: none;
         border-radius: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      #panel-persona .persona-local-view {
+        flex: 1;
+        min-height: 0;
         display: grid;
         grid-template-columns: 280px minmax(0, 1fr);
         grid-template-rows: auto auto auto minmax(0, 1fr) auto;
@@ -2955,10 +3678,23 @@ function dashboardHtml(): string {
       #panel-persona .persona-library-panel {
         grid-column: 1;
         grid-row: 1 / span 5;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
         min-width: 0;
         padding: 22px 20px 24px;
         border-right: 1px solid var(--line);
         background: #fff;
+        overflow: hidden;
+      }
+      #panel-persona .persona-remote-view {
+        flex: 1;
+        width: calc(100% - 68px);
+        max-width: 1160px;
+        min-height: 0;
+        margin: 0 auto;
+        padding: 30px 0 40px;
+        overflow-y: auto;
       }
       #panel-persona .persona-bundle-row {
         width: 100%;
@@ -2991,16 +3727,56 @@ function dashboardHtml(): string {
         display: contents;
       }
       #panel-persona .persona-registry-body {
+        flex: 1;
+        width: 100%;
+        min-height: 0;
         min-width: 0;
         margin: 0;
         padding: 0;
         border-top: none;
+        overflow-x: hidden;
+        overflow-y: auto;
       }
       #panel-persona .persona-editor-panel {
         grid-column: 2;
         grid-row: 4;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
         min-width: 0;
         padding: 20px 24px 24px;
+      }
+      #panel-persona .persona-code-editor {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+      }
+      #panel-persona .persona-code-editor-host {
+        flex: 1;
+        min-height: 0;
+      }
+      #panel-persona .persona-code-editor.is-ready .persona-code-editor-host {
+        display: flex;
+      }
+      #panel-persona .persona-code-editor .cm-editor {
+        flex: 1;
+        height: 100%;
+        min-height: 0;
+      }
+      #panel-persona .persona-code-editor .cm-scroller {
+        min-height: 0;
+      }
+      #panel-persona .persona-code-editor .persona-editor {
+        flex: 1;
+        height: 100%;
+        min-height: 0;
+        resize: none;
+      }
+      #panel-persona .persona-actions {
+        flex: none;
+        margin-top: 16px;
       }
       #panel-persona .persona-deploy-error {
         grid-column: 2;
@@ -3030,8 +3806,8 @@ function dashboardHtml(): string {
       }
     }
 
-    @media (min-width: 1001px) and (max-width: 1220px) {
-      #panel-persona .persona-registry {
+    @media (max-width: 1220px) {
+      #panel-persona .persona-local-view {
         grid-template-columns: 240px minmax(0, 1fr);
       }
       #panel-persona .persona-target-list {
@@ -3039,33 +3815,54 @@ function dashboardHtml(): string {
       }
     }
 
-    @media (max-width: 1000px) {
-      body { padding: 24px 18px; }
-      .card { max-width: 940px; }
-    }
-
-    @media (max-width: 680px) {
-      body { padding: 0; }
-      .card {
-        border-radius: 0;
-        padding: 24px 18px 32px;
-      }
-      .header-top {
-        align-items: flex-start;
-        flex-wrap: wrap;
-      }
-      .header-top-actions {
-        margin-left: 0;
-      }
-      .card > .tabs {
-        overflow-x: auto;
-      }
-      .card > .tabs > .tab {
-        min-width: max-content;
-      }
-    }
   </style>
   <script type="module" src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
+  <script type="module">
+    import { basicSetup, EditorView } from "https://esm.sh/codemirror@6";
+    import { markdown } from "https://esm.sh/@codemirror/lang-markdown@6";
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const shell = document.getElementById("persona-code-editor");
+      const host = document.getElementById("persona-code-editor-host");
+      const textarea = document.getElementById("persona-editor");
+      if (!shell || !host || !textarea) return;
+
+      let applyingExternalValue = false;
+      const view = new EditorView({
+        doc: textarea.value || "",
+        parent: host,
+        extensions: [
+          basicSetup,
+          markdown(),
+          EditorView.lineWrapping,
+          EditorView.updateListener.of((update) => {
+            if (!update.docChanged || applyingExternalValue) return;
+            textarea.value = update.state.doc.toString();
+            textarea.dispatchEvent(new Event("input", { bubbles: true }));
+          }),
+        ],
+      });
+
+      window.personaCodeEditor = {
+        setValue(value) {
+          const next = String(value || "");
+          if (view.state.doc.toString() === next) return;
+          applyingExternalValue = true;
+          view.dispatch({
+            changes: { from: 0, to: view.state.doc.length, insert: next },
+          });
+          applyingExternalValue = false;
+        },
+        focus() {
+          view.focus();
+        },
+        scrollToTop() {
+          view.scrollDOM.scrollTop = 0;
+        },
+      };
+      shell.classList.add("is-ready");
+    });
+  </script>
 </head>
 <body>
   <div id="toast-host" class="toast-host" aria-live="polite" aria-relevant="additions"></div>
@@ -3077,16 +3874,11 @@ function dashboardHtml(): string {
         </a>
         <div class="header-body">
           <div class="header-title-row">
-            <h1><a class="header-title-link" href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Transcodes</a> CLI Dashboard</h1>
-            <span class="header-status" id="header-network-status" data-online="true" aria-live="polite">
-              <span class="status-dot" aria-hidden="true"></span>
-              <svg class="status-offline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/></svg>
-              <span class="status-label">Connected</span>
-            </span>
+            <h1><a class="header-title-link" href="https://app.transcodes.io/" target="_blank" rel="noopener noreferrer">Transcodes</a> CLI Panel</h1>
           </div>
         </div>
         <div class="header-top-actions">
-          <button type="button" class="btn-install-pwa" id="header-install-btn" hidden aria-label="Install Transcodes CLI Dashboard">
+          <button type="button" class="btn-install-pwa" id="header-install-btn" hidden aria-label="Install Transcodes CLI Panel">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
             Install
           </button>
@@ -3097,8 +3889,7 @@ function dashboardHtml(): string {
       </div>
       <div class="header-profile" id="header-session">
         <div class="header-profile-info" id="header-signed-out">
-          <div class="header-profile-name">Not signed in</div>
-          <div class="header-profile-meta">Sign in with your browser to connect to Transcodes</div>
+          <div class="header-profile-name">Please Sign In</div>
         </div>
         <button type="button" class="header-profile-btn" id="header-profile-btn" hidden aria-label="Open Profile">
           <div class="header-profile-info">
@@ -3113,7 +3904,6 @@ function dashboardHtml(): string {
               Login
             </button>
           </div>
-          <p class="header-profile-cli-hint"><code>transcodes login</code></p>
         </div>
       </div>
     </div>
@@ -3122,22 +3912,32 @@ function dashboardHtml(): string {
         <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" /></svg>
         Guide
       </button>
-      <button type="button" class="tab" data-tab="persona">
-        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>
-        Persona
-      </button>
+      <div class="persona-nav-group">
+        <button type="button" class="tab persona-nav-toggle" id="persona-nav-toggle" data-tab="persona" aria-expanded="false" aria-controls="persona-nav-submenu">
+          ${ICON_PERSONA.replace('<svg ', '<svg class="tab-icon" ')}
+          <span>Persona</span>
+          <svg class="persona-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="persona-nav-submenu" id="persona-nav-submenu" hidden>
+          <button type="button" class="persona-nav-item active" id="persona-local-tab" aria-current="page">My Personas</button>
+          <button type="button" class="persona-nav-item" id="persona-remote-tab">Organization</button>
+        </div>
+      </div>
       <button type="button" class="tab" data-tab="rbac">
-        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" /></svg>
+        ${ICON_PERMISSION.replace('<svg ', '<svg class="tab-icon" ')}
         Permission
       </button>
       <button type="button" class="tab" data-tab="tokens">
-        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+        ${ICON_PROFILE.replace('<svg ', '<svg class="tab-icon" ')}
         Profile
       </button>
+      <div class="sidebar-version">
+        <span>Ver ${CLI_VERSION}</span>
+        <code class="cli-cmd">transcodes version</code>
+      </div>
     </div>
 
     <div class="panel active" id="panel-guideline">
-      <p class="section-title">Guide</p>
       <div class="guide-topic-list">
         <details class="guide-topic" name="guide-topic" open>
           <summary class="guide-topic-summary">
@@ -3309,6 +4109,7 @@ function dashboardHtml(): string {
         </section>
       </div>
       <div class="guide-footer">
+        <p class="guide-footer-line">More tutorials: <a href="https://www.youtube.com/@hellotranscodes" target="_blank" rel="noopener noreferrer">https://www.youtube.com/@hellotranscodes</a></p>
         <p class="guide-footer-line">Questions or trouble setting up? <a href="https://www.transcodes.io/booking" target="_blank" rel="noopener noreferrer">https://www.transcodes.io/booking</a></p>
         <p class="guide-footer-line">Full documentation: <a href="https://www.transcodes.io/docs" target="_blank" rel="noopener noreferrer">https://www.transcodes.io/docs</a></p>
       </div>
@@ -3334,8 +4135,8 @@ function dashboardHtml(): string {
             <div class="persona-agent-callout">
               <svg class="persona-agent-callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.2 3.4a5.8 5.8 0 0 1-3.4 3.4L4 11l3.4 1.2a5.8 5.8 0 0 1 3.4 3.4L12 19l1.2-3.4a5.8 5.8 0 0 1 3.4-3.4L20 11l-3.4-1.2a5.8 5.8 0 0 1-3.4-3.4L12 3Z"/><path d="m19 3-.4 1.1a1.8 1.8 0 0 1-1.1 1.1l-1.1.4 1.1.4a1.8 1.8 0 0 1 1.1 1.1L19 8.2l.4-1.1A1.8 1.8 0 0 1 20.5 6l1.1-.4-1.1-.4a1.8 1.8 0 0 1-1.1-1.1L19 3Z"/></svg>
               <div>
-                <p class="persona-agent-callout-title">Create with your AI agent</p>
-                <p class="persona-agent-callout-copy">Type <code class="cli-cmd">/transcodes create a persona</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes create a persona</code> in ChatGPT (Codex). To apply an existing Persona, type <code class="cli-cmd">/transcodes apply a persona</code> or <code class="cli-cmd">$transcodes apply a persona</code>. If you do not specify a project path, it uses This device (Global) by default.</p>
+                <p class="persona-agent-callout-title">Create Personas with Your AI</p>
+                <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. When applying without a project path, the Persona is applied globally on this device.</p>
               </div>
             </div>
             <div class="guide-topic-actions">
@@ -3382,7 +4183,7 @@ function dashboardHtml(): string {
         <details class="guide-topic" name="guide-topic">
           <summary class="guide-topic-summary">
             <span class="guide-topic-heading">
-              <span class="guide-topic-title">Profile &amp; Security</span>
+              <span class="guide-topic-title">Profile</span>
               <span class="guide-topic-subtitle">Manage this device's sign-in and methods for confirming risky actions</span>
             </span>
             <svg class="guide-topic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -3403,9 +4204,11 @@ function dashboardHtml(): string {
     </div>
 
     <div class="panel" id="panel-tokens">
-      <div id="profile-empty" class="profile-empty" hidden>
-        Not signed in — use <strong>Login</strong> in the header (or run <code>transcodes login</code>).
+      <div class="panel-page-head">
+        <h2 class="panel-page-title">Profile</h2>
+        <p class="panel-page-description">Manage this account and usage history on this device.</p>
       </div>
+      <div id="profile-empty" class="profile-empty" hidden></div>
       <div id="profile-card" class="profile-card" hidden>
         <div class="profile-identity">
           <div class="profile-avatar" id="profile-avatar" aria-hidden="true"></div>
@@ -3444,16 +4247,16 @@ function dashboardHtml(): string {
           </div>
         </div>
         <div class="profile-actions">
-          <p class="profile-console-note">Register a passkey, hardware security key, or OTP in <strong>Console</strong> so you can confirm risky actions when Transcodes asks for an extra security check.</p>
-          <p class="profile-actions-hint"><code>transcodes console</code> · <code>transcodes logout</code></p>
+          <p class="profile-console-note">Register a passkey, hardware security key, or OTP in <strong>Console</strong> so you can confirm risky actions when Transcodes asks for an extra security check. Read the <strong>Guide</strong> tab first if you're new.</p>
+          <p class="profile-actions-hint"><code>transcodes console</code> · <code>transcodes logout</code> · <code>transcodes stop</code></p>
         </div>
       </div>
-      <p class="hint">Read the <strong>Guide</strong> tab first if you're new.<br />Stop this panel in the background with <code>transcodes stop</code>.</p>
     </div>
 
     <div class="panel" id="panel-persona">
       <div class="persona-registry">
-        <div class="persona-registry-head">
+        <div class="persona-local-view" id="persona-local-view">
+          <div class="persona-registry-head">
           <input type="text" id="persona-root-input" class="label-input persona-root-input" placeholder="Project folder path" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Project folder path" />
           <button type="button" class="btn-inline-action" id="persona-change-btn" title="Choose a project folder">
             Change Directory
@@ -3464,38 +4267,41 @@ function dashboardHtml(): string {
           <button type="button" class="btn-primary persona-deploy-btn" id="persona-deploy-btn" title="Apply the selected Persona to this folder">
             Apply
           </button>
-          <button type="button" class="btn-inline-action" id="persona-push-btn" title="Upload this Persona so your organization can use it">
-            Push
-          </button>
-          <button type="button" class="btn-inline-action" id="persona-pull-btn" title="Download your organization's copy of this Persona">
-            Pull
-          </button>
-        </div>
-        <div class="persona-registry-meta">
-          <p class="persona-root-help">
-            To deploy globally, choose the option in the Apply confirmation dialog
-          </p>
-          <p class="persona-apply-status" id="persona-apply-status" role="status" aria-live="polite"></p>
-          <p class="persona-sync-status" id="persona-sync-status" role="status" aria-live="polite"></p>
-          <p class="persona-sync-warning" id="persona-sync-warning" hidden>Sign in to share Personas with your organization (Login in the header, or open Profile). Creating, editing, and applying still work without signing in.</p>
-        </div>
-        <aside class="persona-library-panel" aria-label="Persona files">
+          </div>
+          <div class="persona-registry-meta">
+          <p class="persona-root-help">Set a project folder path, then use <strong>Apply</strong> to apply the selected Persona to the project folder</p>
+          </div>
+          <aside class="persona-library-panel" aria-label="Local Persona files">
           <p class="persona-group-label">Select Persona</p>
           <div class="persona-bundle-row">
             <select id="persona-bundle-select" class="label-input persona-bundle-select" aria-label="Select Persona"></select>
-            <button type="button" class="persona-group-add" id="persona-bundle-new-btn">+ Add</button>
-            <button type="button" class="persona-bundle-delete-btn" id="persona-bundle-delete-btn" aria-label="Delete selected Persona" title="Delete selected Persona">×</button>
+            <button type="button" class="persona-group-add" id="persona-bundle-new-btn" aria-label="Add Persona" title="Add Persona">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            </button>
+            <button type="button" class="persona-bundle-delete-btn" id="persona-bundle-delete-btn" aria-label="Delete selected Persona" title="Delete selected Persona">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+            </button>
             <input type="text" id="persona-bundle-name" class="label-input persona-new-name" placeholder="persona-name" spellcheck="false" autocapitalize="off" autocomplete="off" hidden />
             <button type="button" class="btn-inline-action" id="persona-bundle-cancel-btn" hidden>Cancel</button>
             <button type="button" class="btn-inline-action" id="persona-bundle-create-btn" hidden>Create</button>
           </div>
+          <div class="persona-local-remote-status" id="persona-local-remote-status" role="status" aria-live="polite"></div>
+          <p class="persona-sync-warning" id="persona-sync-warning" hidden>Sign in to update or download organization Personas. Editing and Apply still work without signing in.</p>
           <p class="persona-root-hint" id="persona-root-hint"></p>
           <div class="persona-registry-body" id="persona-registry-body"></div>
-        </aside>
-        <div class="persona-workspace">
+          </aside>
+          <div class="persona-workspace">
           <div class="persona-editor-panel">
-            <p class="persona-about" id="persona-about"></p>
-
+            <details class="persona-agent-callout persona-agent-callout--workspace">
+              <summary class="persona-agent-callout-summary">
+                <svg class="persona-agent-callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.2 3.4a5.8 5.8 0 0 1-3.4 3.4L4 11l3.4 1.2a5.8 5.8 0 0 1 3.4 3.4L12 19l1.2-3.4a5.8 5.8 0 0 1 3.4-3.4L20 11l-3.4-1.2a5.8 5.8 0 0 1-3.4-3.4L12 3Z"/><path d="m19 3-.4 1.1a1.8 1.8 0 0 1-1.1 1.1l-1.1.4 1.1.4a1.8 1.8 0 0 1 1.1 1.1L19 8.2l.4-1.1A1.8 1.8 0 0 1 20.5 6l1.1-.4-1.1-.4a1.8 1.8 0 0 1-1.1-1.1L19 3Z"/></svg>
+                <p class="persona-agent-callout-title">Create Personas with Your AI</p>
+                <svg class="persona-agent-callout-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </summary>
+              <div class="persona-agent-callout-body">
+                <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. When applying without a project path, the Persona is applied globally on this device.</p>
+              </div>
+            </details>
             <div class="persona-picker" id="persona-picker" hidden>
               <input type="text" id="persona-new-name" class="label-input persona-new-name" placeholder="Please type a new rule title" spellcheck="false" autocapitalize="off" autocomplete="off" hidden />
             </div>
@@ -3507,31 +4313,66 @@ function dashboardHtml(): string {
                 <option value="general">General</option>
               </select>
             </div>
-            <div class="persona-content-stats" id="persona-content-stats" aria-live="polite">
-              <span class="persona-content-count" id="persona-content-count">≈ 0 tokens · 0 words</span>
-              <span class="persona-content-status" id="persona-content-status"></span>
+            <div class="persona-file-picker" id="persona-file-picker" hidden>
+              <button type="button" class="persona-file-btn" id="persona-file-btn" aria-haspopup="true" aria-expanded="false">
+                <span class="persona-file-current" id="persona-file-current">SKILL.md</span>
+                <svg class="persona-file-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <span class="persona-file-count" id="persona-file-count"></span>
+              <div class="persona-file-menu" id="persona-file-menu" role="listbox" aria-label="Skill files" hidden></div>
             </div>
-            <textarea id="persona-editor" class="persona-editor" spellcheck="false" placeholder="Loading…"></textarea>
+            <div class="persona-content-stats" id="persona-content-stats" aria-live="polite">
+              <span class="persona-content-file" id="persona-content-file">agents.md</span>
+              <div class="persona-content-metrics">
+                <span class="persona-content-count" id="persona-content-count">≈ 0 tokens · 0 words</span>
+                <span class="persona-content-status" id="persona-content-status"></span>
+              </div>
+            </div>
+            <div class="persona-code-editor" id="persona-code-editor">
+              <div class="persona-code-editor-host" id="persona-code-editor-host"></div>
+              <textarea id="persona-editor" class="persona-editor" spellcheck="false" placeholder="Loading…"></textarea>
+            </div>
 
             <div class="actions persona-actions">
               <button type="button" class="btn-primary" id="persona-save-btn" disabled>Save</button>
               <button type="button" class="btn-danger" id="persona-delete-btn" hidden>Delete</button>
             </div>
-            <p class="hint"><strong>Save</strong> updates the selected Persona only. Use <strong>Apply</strong> in the header to apply that Persona's Instruction, Rules, and Skills to the selected project.</p>
           </div>
-        </div>
-        <p class="persona-deploy-error" id="persona-deploy-error" hidden></p>
-        <div class="persona-log-wrap" id="persona-log-wrap" hidden>
+          </div>
+          <p class="persona-deploy-error" id="persona-deploy-error" hidden></p>
+          <div class="persona-log-wrap" id="persona-log-wrap" hidden>
           <button type="button" class="persona-log-close" id="persona-log-close" aria-label="Close apply log">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
           </button>
           <pre class="persona-log" id="persona-log"></pre>
+          </div>
         </div>
+        <section class="persona-remote-view" id="persona-remote-view" hidden>
+          <div class="persona-remote-head">
+            <div>
+              <h2 class="persona-remote-title">Organization</h2>
+              <p class="persona-remote-description" id="persona-remote-description">Compare this device with your organization&rsquo;s latest version.</p>
+            </div>
+            <button type="button" class="btn-inline-action" id="persona-remote-refresh-btn">
+              <svg class="persona-remote-refresh-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+              Refresh
+            </button>
+          </div>
+          <p class="persona-remote-notice" id="persona-remote-notice" role="status" aria-live="polite"></p>
+          <div class="persona-remote-list" id="persona-remote-list"></div>
+        </section>
       </div>
     </div>
 
     <div class="panel" id="panel-rbac">
-      <p id="rbac-token-warning" class="rbac-token-warning" hidden>Sign in first (Login in the header, or open Profile)</p>
+      <div class="panel-page-head">
+        <h2 class="panel-page-title">Permission</h2>
+        <p class="panel-page-description">Decide what your AI can do and when it needs your approval.</p>
+      </div>
+      <div id="rbac-signin" class="rbac-signin"></div>
+      <div id="rbac-signed-in" class="rbac-signed-in" hidden>
       <div class="guard-toggle-card">
         <div>
           <p class="guard-toggle-title">Activate Step-up Authentication</p>
@@ -3583,6 +4424,7 @@ function dashboardHtml(): string {
             </table>
           </div>
         </div>
+      </div>
       </div>
       <div id="rbac-toast" class="toast"></div>
     </div>
@@ -3675,14 +4517,6 @@ function dashboardHtml(): string {
     </div>
   </div>
 
-  <p class="dashboard-footer">
-    Ver ${CLI_VERSION} <code class="cli-cmd">transcodes version</code>
-    <span aria-hidden="true">·</span>
-    <a href="${TRANSCODES_GUARD_REPO_URL}" target="_blank" rel="noopener noreferrer">
-      <svg class="dashboard-footer-github-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-      GitHub
-    </a>
-  </p>
   <script>
     const toastHost = document.getElementById("toast-host");
 
@@ -3734,10 +4568,6 @@ function dashboardHtml(): string {
     const deployConfirmTargetLabel = document.getElementById("deploy-confirm-target-label");
     const deployConfirmProjectNote = document.getElementById("deploy-confirm-project-note");
     const deployConfirmSubmit = document.getElementById("deploy-confirm-submit");
-    const headerNetworkStatus = document.getElementById("header-network-status");
-    const headerNetworkLabel = headerNetworkStatus
-      ? headerNetworkStatus.querySelector(".status-label")
-      : null;
     const APP_ORG_URL = ${JSON.stringify(APP_ORG_URL)};
     const APP_HOME_URL = ${JSON.stringify(APP_HOME_URL)};
     const USER_HOME = ${JSON.stringify(os.homedir())};
@@ -3752,20 +4582,6 @@ function dashboardHtml(): string {
     let deployConfirmContext = { root: "" };
     let deferredInstallPrompt = null;
     const PWA_INSTALLED_KEY = "transcodes-pwa-installed";
-
-    function syncNetworkStatus() {
-      if (!headerNetworkStatus || !headerNetworkLabel) return;
-      const online = navigator.onLine !== false;
-      headerNetworkStatus.dataset.online = online ? "true" : "false";
-      headerNetworkLabel.textContent = online ? "Connected" : "No network";
-      headerNetworkStatus.setAttribute(
-        "aria-label",
-        online ? "Network connected" : "No network connection"
-      );
-    }
-    window.addEventListener("online", syncNetworkStatus);
-    window.addEventListener("offline", syncNetworkStatus);
-    syncNetworkStatus();
 
     function isStandalonePwa() {
       return (
@@ -3851,7 +4667,8 @@ function dashboardHtml(): string {
       return Array.isArray(s.tokens) && s.tokens.length > 0;
     }
 
-    // URL ?tab= ↔ internal panel ids (guideline / persona / tokens / rbac)
+    // Path /guide | /persona?tab=my | /persona?tab=team | /permission | /profile
+    // Legacy /persona/organization and ?tab=guide|persona|profile|permission still work.
     const TAB_URL_TO_INTERNAL = {
       guide: "guideline",
       guideline: "guideline",
@@ -3861,53 +4678,115 @@ function dashboardHtml(): string {
       permission: "rbac",
       rbac: "rbac",
     };
-    const TAB_INTERNAL_TO_URL = {
-      guideline: "guide",
-      persona: "persona",
-      tokens: "profile",
-      rbac: "permission",
+    const TAB_INTERNAL_TO_PATH = {
+      guideline: "/guide",
+      persona: "/persona",
+      tokens: "/profile",
+      rbac: "/permission",
     };
+    const PERSONA_TEAM_TABS = { team: true, organization: true, remote: true };
+    const PERSONA_MY_TABS = { my: true, personal: true, local: true };
+    const personaNavToggle = document.getElementById("persona-nav-toggle");
+    const personaNavSubmenu = document.getElementById("persona-nav-submenu");
 
     function resolveInternalTab(name) {
       if (!name) return "guideline";
       const key = String(name).toLowerCase();
-      if (TAB_INTERNAL_TO_URL[key]) return key;
+      if (TAB_INTERNAL_TO_PATH[key]) return key;
       return TAB_URL_TO_INTERNAL[key] || "guideline";
     }
 
-    function tabFromUrl() {
-      return resolveInternalTab(
-        new URLSearchParams(location.search).get("tab")
-      );
+    function normalizePathname(pathname) {
+      let trimmed = String(pathname || "/");
+      while (trimmed.length > 1 && trimmed.endsWith("/")) {
+        trimmed = trimmed.slice(0, -1);
+      }
+      return trimmed || "/";
     }
 
-    function syncTabUrl(internalName, replace) {
-      const urlTab = TAB_INTERNAL_TO_URL[internalName] || "guide";
+    function personaViewFromParam(value) {
+      const key = String(value || "").toLowerCase();
+      if (PERSONA_TEAM_TABS[key]) return "remote";
+      if (PERSONA_MY_TABS[key]) return "local";
+      return "";
+    }
+
+    function routeFromUrl() {
+      const path = normalizePathname(location.pathname).toLowerCase();
+      const segments = path === "/" ? [] : path.slice(1).split("/");
+      const page = segments[0] || "";
+      const sub = segments[1] || "";
+      const tabParam = new URLSearchParams(location.search).get("tab");
+      const personaView =
+        personaViewFromParam(tabParam) ||
+        personaViewFromParam(sub) ||
+        "local";
+
+      if (page === "persona" || page === "personas") {
+        return { tab: "persona", personaView };
+      }
+      if (tabParam === "my" || tabParam === "team") {
+        return { tab: "persona", personaView };
+      }
+      if (page && TAB_URL_TO_INTERNAL[page]) {
+        return { tab: TAB_URL_TO_INTERNAL[page], personaView: "local" };
+      }
+      if (tabParam) {
+        const tab = resolveInternalTab(tabParam);
+        return { tab, personaView: "local" };
+      }
+      return { tab: "guideline", personaView: "local" };
+    }
+
+    function pathForRoute(internalName) {
+      return TAB_INTERNAL_TO_PATH[internalName] || "/guide";
+    }
+
+    function syncRouteUrl(internalName, personaView, replace) {
       const url = new URL(location.href);
-      if (urlTab === "guide") url.searchParams.delete("tab");
-      else url.searchParams.set("tab", urlTab);
+      url.pathname = pathForRoute(internalName);
+      if (internalName === "persona") {
+        url.searchParams.set(
+          "tab",
+          personaView === "remote" ? "team" : "my"
+        );
+      } else {
+        url.searchParams.delete("tab");
+      }
       const next = url.pathname + url.search + url.hash;
       const current = location.pathname + location.search + location.hash;
       if (next === current) return;
-      if (replace) history.replaceState({ tab: internalName }, "", next);
-      else history.pushState({ tab: internalName }, "", next);
+      const state = { tab: internalName, personaView: personaView || "local" };
+      if (replace) history.replaceState(state, "", next);
+      else history.pushState(state, "", next);
     }
 
     function openTab(name, opts) {
       const options = opts || {};
       const tab = resolveInternalTab(name);
-      document.querySelectorAll(".card > .tabs > .tab[data-tab]").forEach((t) =>
+      document.querySelectorAll(".card > .tabs .tab[data-tab]").forEach((t) =>
         t.classList.toggle("active", t.getAttribute("data-tab") === tab));
+      const personaOpen = tab === "persona";
+      personaNavSubmenu.hidden = !personaOpen;
+      personaNavToggle.setAttribute("aria-expanded", String(personaOpen));
       document.querySelectorAll(".card > .panel").forEach((p) =>
         p.classList.toggle("active", p.id === "panel-" + tab));
-      if (!options.skipUrl) syncTabUrl(tab, !!options.replaceUrl);
-      if (tab === "rbac") loadRbac();
       if (tab === "persona") {
-        // initPersona() is guarded to run once; the sync row depends on the
-        // sign-in state, so it has to be re-rendered on every tab open.
-        initPersona();
-        renderPersonaSyncState();
+        const view = options.personaView || personaState.view || "local";
+        setPersonaView(view, { skipUrl: true });
+        // Wait for the local selection before matching it to Remote revisions.
+        void initPersona().then(() => renderPersonaSyncState());
       }
+      if (!options.skipUrl) {
+        syncRouteUrl(
+          tab,
+          tab === "persona"
+            ? (options.personaView || personaState.view || "local")
+            : undefined,
+          !!options.replaceUrl
+        );
+      }
+      if (tab === "rbac") loadRbac();
     }
 
     function appProjectBase(organizationId, projectId) {
@@ -4114,8 +4993,17 @@ function dashboardHtml(): string {
       });
     });
 
-    document.querySelectorAll(".card > .tabs > .tab[data-tab]").forEach((tab) => {
+    document.querySelectorAll(".card > .tabs .tab[data-tab]").forEach((tab) => {
       tab.addEventListener("click", () => {
+        if (
+          tab.getAttribute("data-tab") === "persona" &&
+          tab.classList.contains("active") &&
+          !personaNavSubmenu.hidden
+        ) {
+          personaNavSubmenu.hidden = true;
+          personaNavToggle.setAttribute("aria-expanded", "false");
+          return;
+        }
         openTab(tab.getAttribute("data-tab"));
       });
     });
@@ -4127,7 +5015,8 @@ function dashboardHtml(): string {
       });
     });
     window.addEventListener("popstate", () => {
-      openTab(tabFromUrl(), { skipUrl: true });
+      const route = routeFromUrl();
+      openTab(route.tab, { skipUrl: true, personaView: route.personaView });
     });
 
     function openCommandsModal() {
@@ -4311,10 +5200,15 @@ function dashboardHtml(): string {
     const personaOpenBtn = document.getElementById("persona-open-btn");
     const personaDeployBtn = document.getElementById("persona-deploy-btn");
     const personaDeployError = document.getElementById("persona-deploy-error");
-    const personaApplyStatus = document.getElementById("persona-apply-status");
-    const personaPushBtn = document.getElementById("persona-push-btn");
-    const personaPullBtn = document.getElementById("persona-pull-btn");
-    const personaSyncStatus = document.getElementById("persona-sync-status");
+    const personaLocalTab = document.getElementById("persona-local-tab");
+    const personaRemoteTab = document.getElementById("persona-remote-tab");
+    const personaLocalView = document.getElementById("persona-local-view");
+    const personaRemoteView = document.getElementById("persona-remote-view");
+    const personaLocalRemoteStatus = document.getElementById("persona-local-remote-status");
+    const personaRemoteRefreshBtn = document.getElementById("persona-remote-refresh-btn");
+    const personaRemoteDescription = document.getElementById("persona-remote-description");
+    const personaRemoteNotice = document.getElementById("persona-remote-notice");
+    const personaRemoteList = document.getElementById("persona-remote-list");
     const personaSyncWarning = document.getElementById("persona-sync-warning");
     const personaTargetInputs = Array.from(
       document.querySelectorAll('input[name="persona-target"]')
@@ -4329,17 +5223,79 @@ function dashboardHtml(): string {
     const personaNewName = document.getElementById("persona-new-name");
     const personaSaveError = document.getElementById("persona-save-error");
     const personaRegistryBody = document.getElementById("persona-registry-body");
-    const personaAbout = document.getElementById("persona-about");
     const personaTemplateRow = document.getElementById("persona-template-row");
     const personaTemplateSelect = document.getElementById("persona-template-select");
+    const personaContentFile = document.getElementById("persona-content-file");
     const personaContentCount = document.getElementById("persona-content-count");
     const personaContentStatus = document.getElementById("persona-content-status");
     const personaEditor = document.getElementById("persona-editor");
     const personaSaveBtn = document.getElementById("persona-save-btn");
     const personaDeleteBtn = document.getElementById("persona-delete-btn");
+    const personaFilePicker = document.getElementById("persona-file-picker");
+    const personaFileBtn = document.getElementById("persona-file-btn");
+    const personaFileCurrent = document.getElementById("persona-file-current");
+    const personaFileCount = document.getElementById("persona-file-count");
+    const personaFileMenu = document.getElementById("persona-file-menu");
     const personaLogWrap = document.getElementById("persona-log-wrap");
     const personaLog = document.getElementById("persona-log");
     const personaLogClose = document.getElementById("persona-log-close");
+    const personaGroupTooltip = document.createElement("div");
+    personaGroupTooltip.id = "persona-group-tooltip";
+    personaGroupTooltip.className = "persona-group-tooltip";
+    personaGroupTooltip.setAttribute("role", "tooltip");
+    personaGroupTooltip.hidden = true;
+    document.body.appendChild(personaGroupTooltip);
+
+    function hidePersonaGroupTooltip() {
+      personaGroupTooltip.hidden = true;
+    }
+
+    function showPersonaGroupTooltip(button) {
+      const text = button.getAttribute("data-tooltip") || "";
+      if (!text) return;
+      personaGroupTooltip.textContent = text;
+      personaGroupTooltip.hidden = false;
+
+      const anchor = button.getBoundingClientRect();
+      const margin = 12;
+      const gap = 8;
+      const width = personaGroupTooltip.offsetWidth;
+      const height = personaGroupTooltip.offsetHeight;
+      let left = anchor.right + gap;
+      if (left + width > window.innerWidth - margin) {
+        left = anchor.left - gap - width;
+      }
+      left = Math.max(
+        margin,
+        Math.min(left, window.innerWidth - margin - width)
+      );
+      const centeredTop = anchor.top + (anchor.height - height) / 2;
+      const top = Math.max(
+        margin,
+        Math.min(centeredTop, window.innerHeight - margin - height)
+      );
+      personaGroupTooltip.style.left = left + "px";
+      personaGroupTooltip.style.top = top + "px";
+    }
+
+    function bindPersonaGroupHelp() {
+      personaRegistryBody
+        .querySelectorAll(".persona-group-help")
+        .forEach((button) => {
+          button.setAttribute("aria-describedby", personaGroupTooltip.id);
+          button.addEventListener("mouseenter", () =>
+            showPersonaGroupTooltip(button)
+          );
+          button.addEventListener("mouseleave", hidePersonaGroupTooltip);
+          button.addEventListener("focus", () =>
+            showPersonaGroupTooltip(button)
+          );
+          button.addEventListener("blur", hidePersonaGroupTooltip);
+        });
+    }
+
+    window.addEventListener("resize", hidePersonaGroupTooltip);
+    window.addEventListener("scroll", hidePersonaGroupTooltip, true);
 
     function hidePersonaLog() {
       if (personaLogWrap) personaLogWrap.hidden = true;
@@ -4396,40 +5352,32 @@ function dashboardHtml(): string {
       persona: "",
       kind: "agent",
       name: "",
+      // Skill-root-relative path of the file open in the editor. Only
+      // meaningful while kind === "skill"; SKILL.md is the mandatory default.
+      file: "SKILL.md",
       listing: null,
       loaded: false,
+      initializing: false,
       savedContent: "",
       busy: false,
-      applyKey: "",
-      applyState: "",
+      view: "local",
+      remotePersonas: [],
+      // persona_id → { revision, synced_at, content_hash } for what this
+      // device last pushed or pulled.
+      syncedRevisions: {},
+      // persona_id → current bundle hash on disk. Compared against the
+      // synced content_hash to tell "edited here" apart from "behind".
+      localHashes: {},
+      // persona_id → local hash error. A broken bundle must never be treated
+      // as absent or safe to overwrite.
+      localHashErrors: {},
+      remoteLoading: false,
+      remoteLoadSequence: 0,
     };
-
-    function personaScopeKey() {
-      return personaState.root + "\\n" + personaState.persona;
-    }
 
     function syncPersonaEditState() {
       const dirty = personaEditor.value !== personaState.savedContent;
       personaSaveBtn.disabled = personaState.busy || !dirty;
-      const state = dirty
-        ? "dirty"
-        : personaState.applyKey === personaScopeKey()
-          ? personaState.applyState
-          : "";
-      const messages = {
-        dirty: "Unsaved changes",
-        pending: "Saved · Not applied yet",
-        applied: "Applied",
-        error: "Apply failed · Review the log and try again",
-      };
-      personaApplyStatus.dataset.state = state;
-      personaApplyStatus.textContent = messages[state] || "";
-    }
-
-    function setPersonaApplyState(state) {
-      personaState.applyKey = personaScopeKey();
-      personaState.applyState = state;
-      syncPersonaEditState();
     }
 
     function personaEntries(kind) {
@@ -4495,69 +5443,609 @@ function dashboardHtml(): string {
       personaBundleDeleteBtn.disabled = busy || !personaState.persona;
       personaRootInput.disabled = busy;
       syncPersonaEditState();
-      // Push/Pull are deliberately not in the list above: a blanket
-      // disabled = false would re-enable them for a signed-out user.
-      // Sync state decides last, so being signed out always wins.
+      // Organization actions are gated separately so signed-out state wins.
       renderPersonaSyncButtons();
     }
 
-    // Buttons and the sign-in notice only. Kept synchronous because
-    // personaBusy() calls it on every lock/unlock -- a fetch here would fire
-    // a remote lookup for each one.
     function renderPersonaSyncButtons() {
       const signedIn = hasSavedTokens(lastStatus);
-      personaSyncWarning.hidden = signedIn;
-      const disabled = !signedIn || personaState.busy;
-      personaPushBtn.disabled = disabled;
-      personaPullBtn.disabled = disabled;
-      personaPushBtn.title = signedIn
-        ? "Upload this Persona so your organization can use it"
-        : "Sign in to push";
-      personaPullBtn.title = signedIn
-        ? "Download your organization's copy of this Persona"
-        : "Sign in to pull";
-      if (!signedIn) personaSyncStatus.textContent = "";
+      personaSyncWarning.hidden = true;
+      personaRemoteRefreshBtn.disabled =
+        !signedIn || personaState.busy || personaState.remoteLoading;
+      personaRemoteView
+        .querySelectorAll("[data-remote-sync], [data-remote-upload]")
+        .forEach((button) => {
+          button.disabled =
+            !signedIn || personaState.busy || personaState.remoteLoading;
+        });
     }
 
-    // Adds the remote metadata row. Called on tab open and after a login
-    // completes -- initPersona() runs once, so it cannot own this.
-    async function renderPersonaSyncState() {
-      renderPersonaSyncButtons();
-      if (!hasSavedTokens(lastStatus)) return;
-      const persona = personaState.persona;
-      if (!persona) {
-        personaSyncStatus.textContent = "";
-        return;
-      }
-      try {
-        const data = await personaFetch("/api/persona/remote");
-        const remote = (data.personas || []).find(
-          (p) => p.persona_id === persona
-        );
-        personaSyncStatus.textContent = remote
-          ? describeRemotePersona(remote)
-          : "Not in your organization yet · Push to share it";
-      } catch (e) {
-        // A failed lookup must not block local editing.
-        personaSyncStatus.textContent =
-          "Could not read the organization's Personas · " +
-          (e.message || "request failed");
-      }
+    function formatPersonaRelativeTime(value) {
+      const when = new Date(value);
+      if (isNaN(when)) return "";
+      const seconds = Math.max(
+        0,
+        Math.floor((Date.now() - when.getTime()) / 1000)
+      );
+      if (seconds < 60) return "just now";
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return minutes + "m ago";
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return hours + "h ago";
+      const days = Math.floor(hours / 24);
+      if (days < 30) return days + "d ago";
+      return when.toLocaleDateString();
     }
 
     function describeRemotePersona(remote) {
-      const parts = ["Shared · revision " + remote.revision];
-      const count = remote.file_count;
-      if (typeof count === "number") {
-        parts.push(count + (count === 1 ? " file" : " files"));
-      }
+      const parts = [];
       const who = remote.updated_by_name || remote.updated_by_email;
-      if (who) parts.push("last push by " + who);
+      if (who) parts.push(who);
       if (remote.updated_at) {
-        const when = new Date(remote.updated_at);
-        if (!isNaN(when)) parts.push(when.toLocaleString());
+        const relative = formatPersonaRelativeTime(remote.updated_at);
+        if (relative) parts.push(relative);
       }
+      if (parts.length === 0) return "Organization copy";
       return parts.join(" · ");
+    }
+
+    /**
+     * Classify one Persona from three facts: the organization revision, the
+     * revision this device last synced, and whether the local bundle changed
+     * since that sync (current hash vs synced content_hash). Five states, one
+     * action each:
+     *
+     *   org newer  + unedited  → behind    → Get latest
+     *   org same   + edited    → edited    → Share
+     *   org newer  + edited    → conflict  → Get latest (backs up local edits)
+     *   org same   + unedited  → current   → nothing to do
+     *   no org copy            → local-only → Share
+     *   no local copy          → remote-only → Get latest
+     *
+     * The synced revision stays null when the Persona was never pushed or
+     * pulled here — 0 would read as a real "revision zero". Both copies
+     * existing without a sync record is treated as a conflict: a download
+     * would overwrite files whose history is unknown, so it must back up.
+     */
+    function personaSyncStatus(personaId) {
+      const remote =
+        personaState.remotePersonas.find(
+          (entry) => entry.persona_id === personaId
+        ) || null;
+      const org =
+        remote && typeof remote.revision === "number" ? remote.revision : null;
+      const entry = personaState.syncedRevisions[personaId];
+      const synced =
+        entry && typeof entry.revision === "number" ? entry.revision : null;
+      if (personaState.localHashErrors[personaId]) {
+        return {
+          state: "unknown",
+          label: "UNAVAILABLE",
+          local: synced,
+          org,
+          remote,
+          action: null,
+        };
+      }
+      const currentHash = personaState.localHashes[personaId] || null;
+      if (org === null) {
+        return {
+          state: "local-only",
+          label: "",
+          local: null,
+          org: null,
+          remote: null,
+          action: "share",
+        };
+      }
+      if (currentHash === null) {
+        return {
+          state: "remote-only",
+          label: "REMOTE ONLY",
+          local: null,
+          org,
+          remote,
+          action: "get",
+        };
+      }
+      const syncedHash =
+        entry && typeof entry.content_hash === "string"
+          ? entry.content_hash
+          : null;
+      if (synced === null || syncedHash === null) {
+        // No baseline to compare against — either this machine never synced,
+        // or it synced before content hashes existed. Local edits cannot be
+        // ruled out, so the only offered action downloads with a backup;
+        // that download also records the missing baseline.
+        return {
+          state: "conflict",
+          label: synced === null ? "CONFLICT" : "STATUS UNKNOWN",
+          local: synced,
+          org,
+          remote,
+          action: "get-backup",
+        };
+      }
+      const edited = currentHash !== syncedHash;
+      const behind = org > synced;
+      if (org < synced) {
+        return {
+          state: "conflict",
+          label: "CONFLICT",
+          local: synced,
+          org,
+          remote,
+          action: "get-backup",
+        };
+      }
+      if (behind && edited) {
+        return {
+          state: "conflict",
+          label: "CONFLICT",
+          local: synced,
+          org,
+          remote,
+          action: "get-backup",
+        };
+      }
+      if (behind) {
+        return {
+          state: "behind",
+          label: "UPDATE REQUIRED",
+          local: synced,
+          org,
+          remote,
+          action: "get",
+        };
+      }
+      if (edited) {
+        return {
+          state: "edited",
+          label: "EDITED",
+          local: synced,
+          org,
+          remote,
+          action: "share",
+        };
+      }
+      return {
+        state: "current",
+        label: "LATEST",
+        local: synced,
+        org,
+        remote,
+        action: null,
+      };
+    }
+
+    function renderLocalRemoteStatus() {
+      if (!hasSavedTokens(lastStatus)) {
+        personaLocalRemoteStatus.textContent = "";
+        personaLocalRemoteStatus.removeAttribute("data-state");
+        return;
+      }
+      if (!personaState.persona) {
+        personaLocalRemoteStatus.textContent = "";
+        personaLocalRemoteStatus.removeAttribute("data-state");
+        return;
+      }
+      const status = personaSyncStatus(personaState.persona);
+      personaLocalRemoteStatus.dataset.state = status.state;
+      const currentVersion = status.local === null ? "—" : "v" + status.local;
+      const remoteVersion = status.org === null ? "—" : "v" + status.org;
+      const updatedBy = status.remote
+        ? '<p class="persona-local-sync-meta">Updated by ' +
+          esc(describeRemotePersona(status.remote)) +
+          "</p>"
+        : "";
+      personaLocalRemoteStatus.innerHTML =
+        '<div class="persona-local-version-grid">' +
+        '<div class="persona-local-version"><span class="persona-local-version-label">Current</span><strong class="persona-local-version-value">' +
+        esc(currentVersion) +
+        "</strong></div>" +
+        '<div class="persona-local-version"><span class="persona-local-version-label">Remote</span><strong class="persona-local-version-value">' +
+        esc(remoteVersion) +
+        "</strong></div>" +
+        "</div>" +
+        (status.label
+          ? '<div class="persona-local-sync-state">' +
+            esc(status.label) +
+            "</div>"
+          : "") +
+        updatedBy;
+      personaLocalRemoteStatus.title =
+        status.remote && status.remote.updated_by_email
+          ? status.remote.updated_by_email
+          : "";
+    }
+
+    /**
+     * One card per Persona: name, where each copy stands, a status badge, and
+     * at most one action. In risky states the only button is the safe one —
+     * a conflict never offers Share, and Get always backs local edits up.
+     */
+    function personaVersionBlockHtml(label, value, extraClass, title) {
+      return (
+        '<div class="persona-version-block' +
+        (extraClass ? " " + extraClass : "") +
+        '"' +
+        (title ? ' title="' + esc(title) + '"' : "") +
+        '><span class="persona-version-label">' +
+        esc(label) +
+        '</span><strong class="persona-version-value">' +
+        esc(value) +
+        "</strong></div>"
+      );
+    }
+
+    function personaCardHtml(personaId, withActions) {
+      const status = personaSyncStatus(personaId);
+      // Current first, then Remote — the same reading order as the version
+      // card on My Personas, so both screens compare in one direction.
+      const versions = [];
+      versions.push(
+        personaVersionBlockHtml(
+          "Current Version",
+          status.local === null ? "—" : String(status.local),
+          "",
+          "The version this device is on (last downloaded or shared here)"
+        )
+      );
+      if (status.org !== null) {
+        versions.push(
+          personaVersionBlockHtml(
+            "Remote Version",
+            String(status.org),
+            "is-remote",
+            "The latest version shared in your organization"
+          )
+        );
+      } else {
+        versions.push(
+          personaVersionBlockHtml(
+            "Remote Version",
+            "—",
+            "is-remote",
+            "This Persona has not been published to your organization"
+          )
+        );
+      }
+      const updatedBy =
+        status.remote && status.remote.updated_by_email
+          ? status.remote.updated_by_email
+          : "";
+      const updateChip = status.remote
+        ? '<div class="persona-update-chip" title="' +
+          esc(updatedBy || "Who published the Remote version, and when") +
+          '"><span>Updated by ' +
+          esc(describeRemotePersona(status.remote)) +
+          "</span></div>"
+        : "";
+      let action = "";
+      if (withActions && status.action === "get") {
+        action =
+          '<button type="button" class="btn-inline-action persona-remote-sync-btn" data-remote-sync="' +
+          esc(personaId) +
+          '" title="Download the organization\\u2019s latest version to this device">GET LATEST</button>';
+      } else if (withActions && status.action === "get-backup") {
+        action =
+          '<button type="button" class="btn-inline-action persona-remote-sync-btn" data-remote-sync="' +
+          esc(personaId) +
+          '" title="Your local changes are backed up before anything is overwritten">GET V' +
+          esc(status.org) +
+          " · BACK UP LOCAL</button>";
+      } else if (withActions && status.action === "share") {
+        action =
+          '<button type="button" class="btn-inline-action persona-remote-sync-btn" data-remote-upload="' +
+          esc(personaId) +
+          '" title="' +
+          (status.state === "local-only"
+            ? "Publish this Persona to your organization"
+            : "Publish this device\\u2019s updated Persona version") +
+          '">' +
+          (status.state === "local-only" ? "PUBLISH" : "UPDATE") +
+          "</button>";
+      }
+      return (
+        '<article class="persona-remote-item">' +
+        '<div class="persona-remote-item-head"><p class="persona-remote-name">' +
+        esc(personaId) +
+        "</p>" +
+        (status.label
+          ? '<span class="persona-sync-state" data-state="' +
+            esc(status.state) +
+            '">' +
+            esc(status.label) +
+            "</span>"
+          : "") +
+        "</div>" +
+        '<div class="persona-version-row">' +
+        versions.join("") +
+        "</div>" +
+        updateChip +
+        '<div class="persona-remote-actions">' +
+        action +
+        "</div></article>"
+      );
+    }
+
+    function signInPitchCardHtml(opts) {
+      const feature = (icon, title, desc) =>
+        '<div class="signin-pitch-feature">' +
+        icon +
+        '<p class="signin-pitch-feature-title">' + title + "</p>" +
+        '<p class="signin-pitch-feature-desc">' + desc + "</p>" +
+        "</div>";
+      return (
+        '<div class="signin-pitch-card">' +
+        '<div class="signin-pitch-head">' +
+        '<div class="signin-pitch-icon">' + opts.icon + "</div>" +
+        '<p class="signin-pitch-title">' + opts.title + "</p>" +
+        '<p class="signin-pitch-sub">' + opts.sub + "</p>" +
+        "</div>" +
+        '<div class="signin-pitch-features">' +
+        opts.features.map((item) => feature(item.icon, item.title, item.desc)).join("") +
+        "</div>" +
+        '<div class="signin-pitch-cta">' +
+        '<button type="button" class="btn-session-login signin-pitch-btn" data-open-login>Login</button>' +
+        '<p class="signin-pitch-hint">Sign-in opens in your browser \u2014 it takes about 30 seconds.</p>' +
+        "</div>" +
+        "</div>"
+      );
+    }
+
+    const signInPitchIcons = {
+      sparkles: ${JSON.stringify(ICON_PERSONA)},
+      down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>',
+      up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>',
+      clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>',
+      user: ${JSON.stringify(ICON_PROFILE)},
+      key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" /></svg>',
+      fingerprint: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33" /></svg>',
+      shield: ${JSON.stringify(ICON_PERMISSION)},
+      list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>',
+      lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>',
+      clipboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18A2.25 2.25 0 0 0 20.25 16.5V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" /></svg>',
+    };
+
+    function personaSignInCardHtml() {
+      return signInPitchCardHtml({
+        icon: signInPitchIcons.sparkles,
+        title: "Sign in to use organization persona sharing",
+        sub: "Set up a Persona once, publish it, and every teammate runs the exact same version \u2014 no more copy-pasting configs between machines or setups drifting apart.",
+        features: [
+          {
+            icon: signInPitchIcons.down,
+            title: "Get the latest",
+            desc: "Pull Personas your teammates already built and refined \u2014 ready to apply in one click.",
+          },
+          {
+            icon: signInPitchIcons.up,
+            title: "Publish yours",
+            desc: "Push Personas from this device so the whole organization works from one version.",
+          },
+          {
+            icon: signInPitchIcons.clock,
+            title: "Stay in sync",
+            desc: "See who updated what and when, and grab the newer version the moment it lands.",
+          },
+        ],
+      });
+    }
+
+    function profileSignInCardHtml() {
+      return signInPitchCardHtml({
+        icon: signInPitchIcons.user,
+        title: "Sign in to manage your account",
+        sub: "See which Transcodes account this computer is using, add a passkey, and review the session on this device.",
+        features: [
+          {
+            icon: signInPitchIcons.user,
+            title: "Your account",
+            desc: "Email, organization, and project connected to this computer \u2014 in one place.",
+          },
+          {
+            icon: signInPitchIcons.key,
+            title: "Passkey",
+            desc: "Register a passkey or biometrics so Transcodes can ask you to confirm risky work.",
+          },
+          {
+            icon: signInPitchIcons.clock,
+            title: "This device",
+            desc: "See the session on this computer and sign out when you are done.",
+          },
+        ],
+      });
+    }
+
+    function permissionSignInCardHtml() {
+      return signInPitchCardHtml({
+        icon: signInPitchIcons.shield,
+        title: "Sign in to control what your AI can do",
+        sub: "Set limits, confirm risky work with your fingerprint, and keep a record of every decision.",
+        features: [
+          {
+            icon: signInPitchIcons.lock,
+            title: "Set limits",
+            desc: "Decide which actions run immediately, and which ones are blocked.",
+          },
+          {
+            icon: signInPitchIcons.fingerprint,
+            title: "Confirm with your finger",
+            desc: "Risky work only runs after a fingerprint or face check.",
+          },
+          {
+            icon: signInPitchIcons.clipboard,
+            title: "Keep a record",
+            desc: "See when something was approved or blocked.",
+          },
+        ],
+      });
+    }
+
+    if (profileEmptyEl) {
+      profileEmptyEl.innerHTML = profileSignInCardHtml();
+    }
+    const rbacSignInMount = document.getElementById("rbac-signin");
+    if (rbacSignInMount) {
+      rbacSignInMount.innerHTML = permissionSignInCardHtml();
+    }
+
+    function renderRemotePersonas() {
+      const localPersonas =
+        personaState.listing && personaState.listing.personas
+          ? personaState.listing.personas
+          : [];
+      const signedIn = hasSavedTokens(lastStatus);
+
+      // Union of both sides, organization order first so shared Personas
+      // keep a stable position, then local-only ones.
+      const remoteIds = personaState.remotePersonas.map(
+        (remote) => remote.persona_id
+      );
+      const ids = remoteIds.concat(
+        localPersonas.filter((persona) => remoteIds.indexOf(persona) === -1)
+      );
+
+      if (!signedIn) {
+        // Signed-out is not an error — it is the moment a solo user first
+        // meets organization sharing, so pitch the value instead of warning
+        // in red.
+        if (personaRemoteDescription) {
+          personaRemoteDescription.textContent =
+            "Share Personas with your organization — everyone runs the same version of the setup you built once.";
+        }
+        personaRemoteNotice.textContent = "";
+        personaRemoteNotice.removeAttribute("data-tone");
+        personaRemoteList.innerHTML = personaSignInCardHtml();
+        personaRemoteList.hidden = false;
+        renderPersonaSyncButtons();
+        return;
+      }
+
+      if (personaRemoteDescription) {
+        personaRemoteDescription.textContent =
+          "Compare this device with your organization\u2019s latest version.";
+      }
+      personaRemoteList.hidden = false;
+      personaRemoteNotice.removeAttribute("data-tone");
+
+      personaRemoteList.innerHTML =
+        ids.length === 0
+          ? '<p class="persona-remote-empty">No Personas yet — create one in My Personas, or wait for a teammate to publish one.</p>'
+          : ids.map((personaId) => personaCardHtml(personaId, signedIn)).join("");
+
+      personaRemoteView
+        .querySelectorAll("[data-remote-sync]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            pullPersona(button.getAttribute("data-remote-sync"));
+          });
+        });
+      personaRemoteView
+        .querySelectorAll("[data-remote-upload]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            pushPersona(button.getAttribute("data-remote-upload"));
+          });
+        });
+      renderPersonaSyncButtons();
+    }
+
+    async function loadRemotePersonas() {
+      const requestId = ++personaState.remoteLoadSequence;
+      renderPersonaSyncButtons();
+      if (!hasSavedTokens(lastStatus)) {
+        personaState.remotePersonas = [];
+        personaState.syncedRevisions = {};
+        personaState.localHashes = {};
+        personaState.localHashErrors = {};
+        personaState.remoteLoading = false;
+        renderLocalRemoteStatus();
+        renderRemotePersonas();
+        return;
+      }
+      personaState.remoteLoading = true;
+      renderPersonaSyncButtons();
+      personaRemoteNotice.textContent = "Loading Personas…";
+      personaRemoteNotice.removeAttribute("data-tone");
+      try {
+        const data = await personaFetch("/api/persona/remote");
+        if (requestId !== personaState.remoteLoadSequence) return;
+        personaState.remotePersonas = Array.isArray(data.personas)
+          ? data.personas
+          : [];
+        personaState.syncedRevisions =
+          data.synced && typeof data.synced === "object" ? data.synced : {};
+        personaState.localHashes =
+          data.local_hashes && typeof data.local_hashes === "object"
+            ? data.local_hashes
+            : {};
+        personaState.localHashErrors =
+          data.local_hash_errors && typeof data.local_hash_errors === "object"
+            ? data.local_hash_errors
+            : {};
+        personaRemoteNotice.textContent = "";
+        personaRemoteNotice.removeAttribute("data-tone");
+        renderLocalRemoteStatus();
+        renderRemotePersonas();
+      } catch (e) {
+        if (requestId !== personaState.remoteLoadSequence) return;
+        personaRemoteNotice.textContent =
+          "Could not load organization Personas · " +
+          (e.message || "Request failed");
+        personaRemoteNotice.dataset.tone = "warn";
+        // Without the organization side, no state can be classified safely —
+        // show local Personas without actions until the next refresh works.
+        personaLocalRemoteStatus.textContent =
+          "Organization status unavailable · Refresh to try again";
+        personaLocalRemoteStatus.dataset.state = "unknown";
+        const localPersonas =
+          personaState.listing && personaState.listing.personas
+            ? personaState.listing.personas
+            : [];
+        personaRemoteList.innerHTML = localPersonas
+          .map(
+            (personaId) =>
+              '<article class="persona-remote-item">' +
+              '<div class="persona-remote-item-head"><p class="persona-remote-name">' +
+              esc(personaId) +
+              '</p><span class="persona-sync-state" data-state="unknown">Status unavailable</span></div>' +
+              '<p class="persona-remote-meta">Could not compare this device with the organization. Refresh to try again.</p>' +
+              "</article>"
+          )
+          .join("");
+      } finally {
+        if (requestId === personaState.remoteLoadSequence) {
+          personaState.remoteLoading = false;
+          renderPersonaSyncButtons();
+        }
+      }
+    }
+
+    async function renderPersonaSyncState() {
+      await loadRemotePersonas();
+    }
+
+    function setPersonaView(view, opts) {
+      const options = opts || {};
+      const remote = view === "remote";
+      personaState.view = remote ? "remote" : "local";
+      personaLocalView.hidden = remote;
+      personaRemoteView.hidden = !remote;
+      personaLocalTab.classList.toggle("active", !remote);
+      personaRemoteTab.classList.toggle("active", remote);
+      if (remote) {
+        personaLocalTab.removeAttribute("aria-current");
+        personaRemoteTab.setAttribute("aria-current", "page");
+      } else {
+        personaLocalTab.setAttribute("aria-current", "page");
+        personaRemoteTab.removeAttribute("aria-current");
+      }
+      if (remote) void loadRemotePersonas();
+      if (!options.skipUrl) {
+        syncRouteUrl("persona", personaState.view, !!options.replaceUrl);
+      }
     }
 
     function personaItemHtml(kind, name) {
@@ -4577,9 +6065,11 @@ function dashboardHtml(): string {
         kind +
         '" data-delete-name="' +
         esc(name) +
-        '" aria-label="Remove ' +
+        '" aria-label="Delete ' +
         esc(name) +
-        '">×</button>' +
+        '" title="Delete ' +
+        esc(name) +
+        '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"></path></svg></button>' +
         "</li>"
       );
     }
@@ -4591,13 +6081,22 @@ function dashboardHtml(): string {
             kind +
             '" aria-label="Add ' +
             label +
-            '">+ Add</button>'
+            '" title="Add ' +
+            label +
+            '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>'
           : "";
+      const helpButton =
+        '<button type="button" class="persona-group-help" aria-label="About ' +
+        label +
+        '" data-tooltip="' +
+        esc(PERSONA_GROUP_HELP[kind] || "") +
+        '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"></path></svg></button>';
       return (
         '<div class="persona-group"><p class="persona-group-label"><span>' +
         label +
         "</span>" +
         addButton +
+        helpButton +
         "</p>" +
         (items.length > 0
           ? '<ul class="persona-list">' + items.join("") + "</ul>"
@@ -4623,6 +6122,7 @@ function dashboardHtml(): string {
     }
 
     function renderPersonaRegistry() {
+      hidePersonaGroupTooltip();
       const listing = personaState.listing;
       if (!listing) {
         personaRegistryBody.innerHTML =
@@ -4638,12 +6138,24 @@ function dashboardHtml(): string {
       const skillItems = (listing.skills || []).map((e) =>
         personaItemHtml("skill", e.name));
 
+      const bundleName = listing.persona || personaState.persona;
+      const bundleHead = bundleName
+        ? '<p class="persona-bundle-card-head">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"></path></svg>' +
+          '<span class="persona-bundle-card-name">' +
+          esc(bundleName) +
+          "</span></p>"
+        : "";
+
       personaRegistryBody.innerHTML =
+        '<div class="persona-bundle-card">' +
+        bundleHead +
         '<div class="persona-child-tree">' +
         personaGroupHtml("Instruction", agentItems, "agent") +
         personaGroupHtml("Rule", ruleItems, "rule") +
         personaGroupHtml("Skill", skillItems, "skill") +
-        "</div>";
+        "</div></div>";
+      bindPersonaGroupHelp();
 
       personaRegistryBody.querySelectorAll("[data-add-kind]").forEach((btn) => {
         btn.addEventListener("click", () =>
@@ -4669,6 +6181,15 @@ function dashboardHtml(): string {
     }
 
     async function deletePersonaEntry(kind, name) {
+      const deletingOpenEntry =
+        kind === personaState.kind &&
+        (kind === "agent" || name === personaState.name);
+      if (
+        !deletingOpenEntry &&
+        !(await confirmDiscardPersonaChanges("delete another file"))
+      ) {
+        return;
+      }
       const kindLabel =
         kind === "agent" ? "Instruction" : kind === "skill" ? "Skill" : "Rule";
       const fileLabel = kind === "agent" ? "agents.md" : name;
@@ -4709,7 +6230,7 @@ function dashboardHtml(): string {
         if (personaState.kind === kind) {
           try { await loadPersonaFile(); } catch (_) { /* ignore */ }
         }
-        setPersonaApplyState("pending");
+        if (hasSavedTokens(lastStatus)) await loadRemotePersonas();
       } catch (e) {
         showToast(e.message || "Could not remove", "error");
       } finally {
@@ -4718,7 +6239,9 @@ function dashboardHtml(): string {
     }
 
     async function openPersonaEntry(kind, name) {
+      if (!(await confirmDiscardPersonaChanges("the selected file"))) return;
       personaState.name = kind === "agent" ? "" : name;
+      personaState.file = "SKILL.md";
       selectPersonaKind(kind);
       showPersonaNewName(false);
       try {
@@ -4730,7 +6253,9 @@ function dashboardHtml(): string {
     }
 
     async function beginPersonaEntry(kind) {
+      if (!(await confirmDiscardPersonaChanges("a new file"))) return;
       personaState.name = "";
+      personaState.file = "SKILL.md";
       selectPersonaKind(kind);
       showPersonaNewName(false);
       hidePersonaLog();
@@ -4750,16 +6275,13 @@ function dashboardHtml(): string {
       }
     }
 
-    const PERSONA_ABOUT = {
+    const PERSONA_GROUP_HELP = {
       agent:
-        "<strong>Instruction (<code class='cli-cmd'>AGENTS.md</code>, <code class='cli-cmd'>CLAUDE.md</code>) — the agent's identity and project background.</strong> " +
-        "Keep always-loaded guidance focused: 500–1,500 tokens; above 2,000, move conditional policy into separate Rule files and procedures into separate Skill files.",
+        "Instruction (AGENTS.md / CLAUDE.md) defines the agent's identity and project background. Keep always-loaded guidance focused at 500–1,500 tokens; move conditional policies to Rules and procedures to Skills.",
       rule:
-        "<strong>Rule (<code class='cli-cmd'>rule.md</code>) — one focused policy file (Must / Never).</strong> " +
-        "Keep 100–500 tokens. One policy topic per file — split unrelated Must/Never groups into separate Rules. Do not put workflows or step-by-step procedures here.",
+        "Rule is one focused policy file (Must / Never). Keep it at 100–500 tokens, split unrelated policies, and do not put workflows or step-by-step procedures here.",
       skill:
-        "<strong>Skill (<code class='cli-cmd'>SKILL.md</code>) — one focused workflow file.</strong> " +
-        "Use 500–2,000 tokens for Prerequisites, Steps, templates, and done criteria. One workflow per file — split distinct workflows into separate Skills. Do not put standing policies or Must/Never rules here.",
+        "Skill is one focused workflow file. Use 500–2,000 tokens for prerequisites, steps, templates, and done criteria; split distinct workflows and keep standing policies in Rules.",
     };
 
     const PERSONA_CONTENT_BUDGETS = {
@@ -4787,49 +6309,425 @@ function dashboardHtml(): string {
       return Math.ceil(asianCharacters * 1.5 + otherCharacters / 4);
     }
 
+    function currentPersonaFileLabel() {
+      if (personaState.kind === "agent") return "agents.md";
+      if (personaState.kind === "rule") {
+        return personaState.name ? personaState.name + ".md" : "New rule";
+      }
+      return personaState.name
+        ? personaState.name + "/" + (personaState.file || "SKILL.md")
+        : "New skill";
+    }
+
     function updatePersonaContentStats() {
-      if (!personaContentCount || !personaContentStatus || !personaEditor) return;
+      if (
+        !personaContentFile ||
+        !personaContentCount ||
+        !personaContentStatus ||
+        !personaEditor
+      ) return;
       const text = personaEditor.value || "";
       const words = text.trim() ? text.trim().split(/\\s+/).length : 0;
       const tokens = text.trim() ? approximatePersonaTokens(text) : 0;
       const budget = PERSONA_CONTENT_BUDGETS[personaState.kind];
+      personaContentFile.textContent = currentPersonaFileLabel();
       personaContentCount.textContent =
         "≈ " + tokens.toLocaleString() + " tokens · " + words.toLocaleString() + " words";
-      personaContentStatus.textContent = "Best Length: " + budget;
+      // Token budgets are calibrated for instruction files, not for a Skill's
+      // companion scripts or reference docs.
+      const companionFileOpen =
+        personaState.kind === "skill" && personaState.file !== "SKILL.md";
+      personaContentStatus.textContent = companionFileOpen
+        ? ""
+        : "Best Length: " + budget;
+    }
+
+    function currentSkillEntry() {
+      const listing = personaState.listing;
+      if (!listing || !listing.skills) return null;
+      return (
+        listing.skills.find((skill) => skill.name === personaState.name) ||
+        null
+      );
+    }
+
+    function currentSkillFiles() {
+      const entry = currentSkillEntry();
+      if (!entry || !Array.isArray(entry.files) || entry.files.length === 0) {
+        return ["SKILL.md"];
+      }
+      return entry.files;
+    }
+
+    function currentSkillDirs() {
+      const entry = currentSkillEntry();
+      return entry && Array.isArray(entry.dirs) ? entry.dirs : [];
+    }
+
+    function addSkillFileToListing(file) {
+      const entry = currentSkillEntry();
+      if (!entry) return;
+      if (!Array.isArray(entry.files)) entry.files = ["SKILL.md"];
+      if (entry.files.indexOf(file) === -1) entry.files.push(file);
+      // Same order the server uses: SKILL.md, root files, folder contents.
+      entry.files.sort((a, b) => {
+        if (a === "SKILL.md") return -1;
+        if (b === "SKILL.md") return 1;
+        const aNested = a.indexOf("/") !== -1;
+        const bNested = b.indexOf("/") !== -1;
+        if (aNested !== bNested) return aNested ? 1 : -1;
+        return a.localeCompare(b);
+      });
+    }
+
+    function addSkillDirToListing(dir) {
+      const entry = currentSkillEntry();
+      if (!entry) return;
+      if (!Array.isArray(entry.dirs)) entry.dirs = [];
+      if (entry.dirs.indexOf(dir) === -1) entry.dirs.push(dir);
+      entry.dirs.sort();
+    }
+
+    // Pending "new file" / "new folder" input inside the file menu.
+    let personaFileDraft = null;
+
+    function closePersonaFileMenu() {
+      if (!personaFileMenu || !personaFileBtn) return;
+      personaFileDraft = null;
+      personaFileMenu.hidden = true;
+      personaFileBtn.setAttribute("aria-expanded", "false");
+    }
+
+    function personaFileMenuItemHtml(file, label, nested) {
+      return (
+        '<button type="button" class="persona-file-item' +
+        (nested ? " nested" : "") +
+        (file === personaState.file ? " active" : "") +
+        '" role="option" data-skill-file="' +
+        esc(file) +
+        '" title="' +
+        esc(file) +
+        '">' +
+        esc(label) +
+        "</button>"
+      );
+    }
+
+    function personaFileNewInputHtml(root) {
+      const folderDraft = personaFileDraft && personaFileDraft.type === "folder";
+      return (
+        '<div class="persona-file-new' +
+        (root ? " root" : "") +
+        '">' +
+        '<input type="text" id="persona-file-new-input" placeholder="' +
+        (folderDraft ? "folder-name" : "file-name.md") +
+        '" autocomplete="off" spellcheck="false" aria-label="' +
+        (folderDraft ? "New folder name" : "New file name") +
+        '">' +
+        '<button type="button" class="persona-file-new-confirm" id="persona-file-new-confirm">Add</button>' +
+        "</div>"
+      );
+    }
+
+    function renderPersonaFilePicker() {
+      if (!personaFilePicker) return;
+      const visible =
+        personaState.kind === "skill" &&
+        !!personaState.name &&
+        !isCreatingPersonaEntry();
+      personaFilePicker.hidden = !visible;
+      if (!visible) {
+        closePersonaFileMenu();
+        return;
+      }
+
+      const files = currentSkillFiles();
+      personaFileCurrent.textContent = personaState.file;
+      personaFileCount.textContent =
+        files.length + (files.length === 1 ? " file" : " files");
+
+      // Root files first (SKILL.md is always first), then one group per
+      // top-level folder, mirroring the on-disk layout. Folders come from
+      // both file paths and the dirs listing, so empty folders show too.
+      const rootFiles = files.filter((file) => file.indexOf("/") === -1);
+      const folders = [];
+      files.forEach((file) => {
+        const slash = file.indexOf("/");
+        if (slash === -1) return;
+        const folder = file.slice(0, slash);
+        if (folders.indexOf(folder) === -1) folders.push(folder);
+      });
+      currentSkillDirs().forEach((dir) => {
+        const folder = dir.split("/")[0];
+        if (folders.indexOf(folder) === -1) folders.push(folder);
+      });
+      folders.sort();
+
+      let html = rootFiles
+        .map((file) => personaFileMenuItemHtml(file, file, false))
+        .join("");
+      folders.forEach((folder) => {
+        html +=
+          '<div class="persona-file-group">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"></path></svg>' +
+          esc(folder) +
+          "/" +
+          '<button type="button" class="persona-file-add" data-add-dir="' +
+          esc(folder) +
+          '" title="New file in ' +
+          esc(folder) +
+          '/" aria-label="New file in ' +
+          esc(folder) +
+          '/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>' +
+          "</div>" +
+          (personaFileDraft &&
+          personaFileDraft.type === "file" &&
+          personaFileDraft.dir === folder
+            ? personaFileNewInputHtml(false)
+            : "") +
+          files
+            .filter((file) => file.indexOf(folder + "/") === 0)
+            .map((file) =>
+              personaFileMenuItemHtml(
+                file,
+                file.slice(folder.length + 1),
+                true
+              ))
+            .join("");
+      });
+      html +=
+        '<div class="persona-file-menu-footer">' +
+        (personaFileDraft && personaFileDraft.type === "folder"
+          ? personaFileNewInputHtml(true)
+          : '<button type="button" class="persona-file-new-folder-btn" id="persona-file-new-folder">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 10.5v6m3-3H9m4.06-7.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"></path></svg>' +
+            "New folder</button>") +
+        "</div>";
+      personaFileMenu.innerHTML = html;
+
+      personaFileMenu
+        .querySelectorAll("[data-skill-file]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            openSkillFile(button.getAttribute("data-skill-file"));
+          });
+        });
+      personaFileMenu.querySelectorAll("[data-add-dir]").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          personaFileDraft = {
+            type: "file",
+            dir: button.getAttribute("data-add-dir"),
+          };
+          renderPersonaFilePicker();
+          focusPersonaFileDraftInput();
+        });
+      });
+      const newFolderBtn = personaFileMenu.querySelector(
+        "#persona-file-new-folder"
+      );
+      if (newFolderBtn) {
+        newFolderBtn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          personaFileDraft = { type: "folder" };
+          renderPersonaFilePicker();
+          focusPersonaFileDraftInput();
+        });
+      }
+      const draftInput = personaFileMenu.querySelector(
+        "#persona-file-new-input"
+      );
+      if (draftInput) {
+        draftInput.addEventListener("keydown", (event) => {
+          event.stopPropagation();
+          if (event.key === "Enter") {
+            event.preventDefault();
+            submitPersonaFileDraft(draftInput.value);
+          } else if (event.key === "Escape") {
+            personaFileDraft = null;
+            renderPersonaFilePicker();
+          }
+        });
+        draftInput.addEventListener("click", (event) =>
+          event.stopPropagation()
+        );
+      }
+      const draftConfirm = personaFileMenu.querySelector(
+        "#persona-file-new-confirm"
+      );
+      if (draftConfirm) {
+        draftConfirm.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const input = personaFileMenu.querySelector(
+            "#persona-file-new-input"
+          );
+          submitPersonaFileDraft(input ? input.value : "");
+        });
+      }
+    }
+
+    function focusPersonaFileDraftInput() {
+      const input = personaFileMenu.querySelector("#persona-file-new-input");
+      if (input) input.focus();
+    }
+
+    async function submitPersonaFileDraft(value) {
+      if (!personaFileDraft) return;
+      const draft = personaFileDraft;
+      const name = (value || "").trim();
+      if (!name) return;
+      const rootParam =
+        personaRootInput.value.trim() || personaState.root;
+
+      if (draft.type === "folder") {
+        try {
+          await personaFetch("/api/persona/create-folder", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              root: rootParam,
+              persona: personaState.persona,
+              name: personaState.name,
+              dir: name,
+            }),
+          });
+          addSkillDirToListing(name);
+          personaFileDraft = null;
+          renderPersonaFilePicker();
+        } catch (e) {
+          showToast(e.message || "Could not create the folder", "error");
+        }
+        return;
+      }
+
+      const file = draft.dir ? draft.dir + "/" + name : name;
+      if (currentSkillFiles().indexOf(file) !== -1) {
+        showToast("“" + file + "” already exists", "error");
+        return;
+      }
+      try {
+        await personaFetch("/api/persona/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            root: rootParam,
+            persona: personaState.persona,
+            kind: "skill",
+            name: personaState.name,
+            file: file,
+            content: "",
+          }),
+        });
+        addSkillFileToListing(file);
+        personaFileDraft = null;
+        renderPersonaFilePicker();
+        await openSkillFile(file);
+      } catch (e) {
+        showToast(e.message || "Could not create the file", "error");
+      }
+    }
+
+    async function openSkillFile(file) {
+      closePersonaFileMenu();
+      if (!file || file === personaState.file) return;
+      if (!(await confirmDiscardPersonaChanges("open another file"))) return;
+      const params =
+        "root=" + encodeURIComponent(personaRootInput.value.trim() || personaState.root) +
+        "&persona=" + encodeURIComponent(personaState.persona) +
+        "&kind=skill" +
+        "&name=" + encodeURIComponent(personaState.name || "") +
+        "&file=" + encodeURIComponent(file);
+      try {
+        const data = await personaFetch("/api/persona/file?" + params);
+        if (data.binary) {
+          showToast("“" + file + "” is a binary file and can’t be edited here", "error");
+          return;
+        }
+        personaState.file = file;
+        setPersonaEditorContent(data.content);
+        scrollPersonaEditorToTop();
+      } catch (e) {
+        showToast(e.message || "Could not open that file", "error");
+      }
+    }
+
+    if (personaFileBtn) {
+      personaFileBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const expanded = personaFileBtn.getAttribute("aria-expanded") === "true";
+        if (expanded) {
+          closePersonaFileMenu();
+        } else {
+          renderPersonaFilePicker();
+          personaFileMenu.hidden = false;
+          personaFileBtn.setAttribute("aria-expanded", "true");
+        }
+      });
+      document.addEventListener("click", (event) => {
+        if (personaFileMenu.hidden) return;
+        if (personaFilePicker.contains(event.target)) return;
+        closePersonaFileMenu();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closePersonaFileMenu();
+      });
     }
 
     function setPersonaEditorContent(content, saved = true) {
       personaEditor.value = content || "";
+      if (window.personaCodeEditor) {
+        window.personaCodeEditor.setValue(personaEditor.value);
+      }
       if (saved) personaState.savedContent = personaEditor.value;
       updatePersonaContentStats();
+      renderPersonaFilePicker();
       syncPersonaEditState();
+    }
+
+    async function confirmDiscardPersonaChanges(destination) {
+      if (personaEditor.value === personaState.savedContent) return true;
+      const editedLabel =
+        personaState.kind === "skill" && personaState.file !== "SKILL.md"
+          ? personaState.name + "/" + personaState.file
+          : personaState.name || "agents.md";
+      return confirmAction({
+        title: "Discard unsaved changes?",
+        description:
+          "Your edits to “" +
+          editedLabel +
+          "” have not been saved" +
+          (destination ? ". Continue to " + destination + "?" : "."),
+        warning: "Unsaved editor content will be lost",
+        confirmLabel: "Discard changes",
+        danger: true,
+      });
+    }
+
+    function focusPersonaEditor() {
+      if (window.personaCodeEditor) {
+        window.personaCodeEditor.focus();
+        return;
+      }
+      personaEditor.focus();
+    }
+
+    function scrollPersonaEditorToTop() {
+      personaEditor.scrollTop = 0;
+      if (window.personaCodeEditor) {
+        window.personaCodeEditor.scrollToTop();
+      }
     }
 
     function selectPersonaKind(kind) {
       personaState.kind = kind;
-      renderPersonaAbout();
       personaTemplateRow.hidden = true;
       personaTemplateSelect.value = "";
       updatePersonaContentStats();
       syncPersonaDeleteButton();
     }
 
-    function renderPersonaAbout() {
-      const title =
-        personaState.kind === "agent"
-          ? "agents.md"
-          : personaState.name ||
-            (personaState.kind === "skill" ? "New Skill" : "New Rule");
-      personaAbout.innerHTML =
-        '<span class="persona-about-title">' +
-        esc(title) +
-        "</span>" +
-        (PERSONA_ABOUT[personaState.kind] || "");
-    }
-
     function syncPersonaEntryForm() {
       showPersonaNewName(false);
-      renderPersonaAbout();
       syncPersonaDeleteButton();
     }
 
@@ -4852,7 +6750,14 @@ function dashboardHtml(): string {
     async function personaFetch(url, options) {
       const res = await fetch(url, options);
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Request failed");
+      if (!res.ok) {
+        const error = new Error(data.error || "Request failed");
+        error.status = res.status;
+        error.errorCode = data.errorCode;
+        error.saved = data.saved === true;
+        error.file = data.file;
+        throw error;
+      }
       return data;
     }
 
@@ -4871,6 +6776,7 @@ function dashboardHtml(): string {
       renderPersonaBundles();
       clearPersonaDeployError();
       setPersonaHint("", false);
+      renderLocalRemoteStatus();
       return listing;
     }
 
@@ -4888,10 +6794,13 @@ function dashboardHtml(): string {
         "root=" + encodeURIComponent(personaRootInput.value.trim() || personaState.root) +
         "&persona=" + encodeURIComponent(personaState.persona) +
         "&kind=" + encodeURIComponent(personaState.kind) +
-        "&name=" + encodeURIComponent(personaState.name || "");
+        "&name=" + encodeURIComponent(personaState.name || "") +
+        (personaState.kind === "skill"
+          ? "&file=" + encodeURIComponent(personaState.file || "SKILL.md")
+          : "");
       const file = await personaFetch("/api/persona/file?" + params);
       setPersonaEditorContent(file.content);
-      personaEditor.scrollTop = 0;
+      scrollPersonaEditorToTop();
     }
 
     function renderPersonaTemplateOptions() {
@@ -4923,9 +6832,9 @@ function dashboardHtml(): string {
           "&name=" + encodeURIComponent(name || "general");
         const data = await personaFetch("/api/persona/template?" + params);
         setPersonaEditorContent(data.content, false);
-        personaEditor.scrollTop = 0;
+        scrollPersonaEditorToTop();
         clearPersonaSaveError();
-        personaEditor.focus();
+        focusPersonaEditor();
         showToast("Template loaded", "success");
       } catch (e) {
         showPersonaSaveError(e.message || "Could not load the template");
@@ -4942,43 +6851,52 @@ function dashboardHtml(): string {
         syncPersonaEntryForm();
         await loadPersonaFile();
         renderPersonaRegistry();
+        return true;
       } catch (e) {
         setPersonaHint(e.message || "Could not read that folder", true);
         personaState.listing = null;
         renderPersonaRegistry();
         setPersonaEditorContent("");
+        return false;
       } finally {
         personaBusy(false);
       }
     }
 
     async function initPersona() {
-      if (personaState.loaded) return;
-      personaState.loaded = true;
+      if (personaState.loaded || personaState.initializing) return;
+      personaState.initializing = true;
       selectPersonaKind(personaState.kind);
       try {
-        const data = await personaFetch("/api/persona/root");
-        personaRootInput.value = data.root || "";
-      } catch (e) {
-        setPersonaHint(e.message || "Could not resolve the folder", true);
+        try {
+          const data = await personaFetch("/api/persona/root");
+          personaRootInput.value = data.root || "";
+        } catch (e) {
+          setPersonaHint(e.message || "Could not resolve the folder", true);
+        }
+        personaState.loaded = await refreshPersona();
+      } finally {
+        personaState.initializing = false;
       }
-      await refreshPersona();
     }
 
     function applyPersonaListing(data, toastMsg) {
       personaState.root = data.root;
       personaState.persona = data.persona;
       personaState.name = "";
+      personaState.file = "SKILL.md";
       personaRootInput.value = data.root;
       personaState.listing = data;
       renderPersonaBundles();
       syncPersonaEntryForm();
       clearPersonaDeployError();
       setPersonaHint("", false);
+      renderLocalRemoteStatus();
       if (toastMsg) showToast(toastMsg, "success");
     }
 
     personaChangeBtn.addEventListener("click", async () => {
+      if (!(await confirmDiscardPersonaChanges("another project folder"))) return;
       personaBusy(true);
       try {
         const data = await personaFetch("/api/persona/change", {
@@ -5017,20 +6935,24 @@ function dashboardHtml(): string {
       }
     });
 
-    function applyTypedPersonaRoot() {
+    async function applyTypedPersonaRoot() {
       const next = personaRootInput.value.trim();
       if (!next || next === personaState.root) return;
+      if (!(await confirmDiscardPersonaChanges("another project folder"))) {
+        personaRootInput.value = personaState.root;
+        return;
+      }
       personaState.name = "";
-      refreshPersona(next);
+      await refreshPersona(next);
     }
 
     personaRootInput.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       e.preventDefault();
-      applyTypedPersonaRoot();
+      void applyTypedPersonaRoot();
     });
     personaRootInput.addEventListener("change", () => {
-      applyTypedPersonaRoot();
+      void applyTypedPersonaRoot();
     });
 
     function showNewPersona(show) {
@@ -5071,6 +6993,7 @@ function dashboardHtml(): string {
         applyPersonaListing(data, "Removed Persona “" + name + "”");
         await loadPersonaFile();
         renderPersonaRegistry();
+        await renderPersonaSyncState();
       } catch (e) {
         showToast(e.message || "Could not remove Persona", "error");
       } finally {
@@ -5085,6 +7008,7 @@ function dashboardHtml(): string {
         personaBundleName.focus();
         return;
       }
+      if (!(await confirmDiscardPersonaChanges("the new Persona"))) return;
       personaBusy(true);
       try {
         const data = await personaFetch("/api/persona/create-persona", {
@@ -5100,6 +7024,7 @@ function dashboardHtml(): string {
         applyPersonaListing(data, "Created Persona “" + data.persona + "”");
         renderPersonaRegistry();
         await loadPersonaFile();
+        await renderPersonaSyncState();
       } catch (e) {
         showToast(e.message || "Could not create Persona", "error");
       } finally {
@@ -5110,17 +7035,27 @@ function dashboardHtml(): string {
     personaBundleNewBtn.addEventListener("click", () => showNewPersona(true));
     personaBundleCancelBtn.addEventListener("click", () => showNewPersona(false));
     personaBundleCreateBtn.addEventListener("click", createPersonaBundle);
+    personaLocalTab.addEventListener("click", () => setPersonaView("local"));
+    personaRemoteTab.addEventListener("click", () => setPersonaView("remote"));
+    personaRemoteRefreshBtn.addEventListener("click", () => {
+      void loadRemotePersonas();
+    });
     personaBundleDeleteBtn.addEventListener("click", () => {
       if (personaState.persona) deletePersonaBundle(personaState.persona);
     });
     personaBundleSelect.addEventListener("change", async () => {
       const persona = personaBundleSelect.value;
       if (!persona || persona === personaState.persona) return;
+      if (!(await confirmDiscardPersonaChanges("another Persona"))) {
+        personaBundleSelect.value = personaState.persona;
+        return;
+      }
       personaState.persona = persona;
       personaState.name = "";
       selectPersonaKind("agent");
       showPersonaNewName(false);
       await refreshPersona(personaRootInput.value.trim());
+      await renderPersonaSyncState();
     });
     personaBundleName.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
@@ -5139,6 +7074,11 @@ function dashboardHtml(): string {
       updatePersonaContentStats();
       syncPersonaEditState();
       if (isCreatingPersonaEntry()) clearPersonaSaveError();
+    });
+    window.addEventListener("beforeunload", (event) => {
+      if (personaEditor.value === personaState.savedContent) return;
+      event.preventDefault();
+      event.returnValue = "";
     });
     personaTemplateSelect.addEventListener("change", () => {
       applyPersonaTemplate();
@@ -5160,23 +7100,22 @@ function dashboardHtml(): string {
         }
         if (!personaEditor.value.trim()) {
           showPersonaSaveError("Enter content for the new " + kindLabel + ".");
-          personaEditor.focus();
+          focusPersonaEditor();
           return;
         }
         personaState.name = name;
-        renderPersonaAbout();
       } else if (personaState.kind !== "agent" && !name) {
         showPersonaSaveError("Name the " + kindLabel + " first.");
         return;
       } else if (!personaEditor.value.trim()) {
         showPersonaSaveError("Content cannot be empty.");
-        personaEditor.focus();
+        focusPersonaEditor();
         return;
       }
 
       personaBusy(true);
       try {
-        await personaFetch("/api/persona/save", {
+        const data = await personaFetch("/api/persona/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -5184,6 +7123,10 @@ function dashboardHtml(): string {
             persona: personaState.persona,
             kind: personaState.kind,
             name,
+            file:
+              personaState.kind === "skill" && !creating
+                ? personaState.file
+                : undefined,
             content,
           }),
         });
@@ -5191,7 +7134,11 @@ function dashboardHtml(): string {
         const savedLabel =
           personaState.kind === "agent"
             ? "Instruction"
-            : name || (personaState.kind === "skill" ? "skill" : "rule");
+            : personaState.kind === "skill" &&
+                !creating &&
+                personaState.file !== "SKILL.md"
+              ? name + "/" + personaState.file
+              : name || (personaState.kind === "skill" ? "skill" : "rule");
         showToast(
           (creating ? "Created " : "Saved ") + savedLabel + " successfully",
           "success"
@@ -5202,11 +7149,12 @@ function dashboardHtml(): string {
         );
         syncPersonaEntryForm();
         renderPersonaRegistry();
-        if (personaState.kind !== "agent" && personaBundleSelect) {
-          personaBundleSelect.value = name;
-        }
-        personaState.savedContent = content;
-        setPersonaApplyState("pending");
+        setPersonaEditorContent(
+          data.saved && typeof data.saved.content === "string"
+            ? data.saved.content
+            : content
+        );
+        if (hasSavedTokens(lastStatus)) await loadRemotePersonas();
       } catch (e) {
         if (creating) {
           personaNewName.hidden = false;
@@ -5228,6 +7176,14 @@ function dashboardHtml(): string {
         return;
       }
       clearPersonaDeployError();
+      const content = personaEditor.value;
+      if (!content.trim()) {
+        showPersonaDeployError(
+          "Content cannot be empty. Save or select another file before applying."
+        );
+        focusPersonaEditor();
+        return;
+      }
 
       const confirm = await confirmPersonaDeploy(
         personaState.persona,
@@ -5253,7 +7209,6 @@ function dashboardHtml(): string {
 
       personaBusy(true);
       hidePersonaLog();
-      const content = personaEditor.value;
       try {
         const data = await personaFetch("/api/persona/deploy", {
           method: "POST",
@@ -5263,6 +7218,8 @@ function dashboardHtml(): string {
             persona: personaState.persona,
             kind: personaState.kind,
             name: personaState.name,
+            file:
+              personaState.kind === "skill" ? personaState.file : undefined,
             content,
             targets: deployTargets.map((entry) => entry.target),
             global: global,
@@ -5272,8 +7229,12 @@ function dashboardHtml(): string {
         await loadPersonaListing(root, personaState.persona);
         syncPersonaEntryForm();
         renderPersonaRegistry();
-        personaState.savedContent = content;
-        setPersonaApplyState("applied");
+        setPersonaEditorContent(
+          data.file && typeof data.file.content === "string"
+            ? data.file.content
+            : content
+        );
+        if (hasSavedTokens(lastStatus)) await loadRemotePersonas();
         showToast(
           (global ? "Applied globally “" : "Applied Persona “") +
             personaState.persona +
@@ -5281,7 +7242,14 @@ function dashboardHtml(): string {
           "success"
         );
       } catch (e) {
-        setPersonaApplyState("error");
+        if (e.saved) {
+          setPersonaEditorContent(
+            e.file && typeof e.file.content === "string"
+              ? e.file.content
+              : content
+          );
+          if (hasSavedTokens(lastStatus)) await loadRemotePersonas();
+        }
         showPersonaLog(e.message || "Apply failed");
         showToast(e.message || "Apply failed", "error");
       } finally {
@@ -5289,19 +7257,49 @@ function dashboardHtml(): string {
       }
     }
 
-    async function pushPersona() {
-      if (!personaState.persona) {
+    async function pushPersona(personaInput) {
+      const persona = personaInput || personaState.persona;
+      if (!persona) {
         showToast("Select a Persona first", "error");
+        return;
+      }
+      // Organization owns every upload entry point. If this card represents
+      // the Persona currently open in Personal, include its editor contents
+      // even when Save was not clicked yet.
+      const isOpen = persona === personaState.persona;
+      const isFirstPublish =
+        personaSyncStatus(persona).state === "local-only";
+      const hasUnsavedChanges =
+        isOpen && personaEditor.value !== personaState.savedContent;
+      const content = isOpen ? personaEditor.value : "";
+      if (hasUnsavedChanges && !content.trim()) {
+        showToast(
+          "Unsaved content is empty. Save valid content before updating.",
+          "error"
+        );
+        focusPersonaEditor();
         return;
       }
       // The agent prompt requires a confirmation before either sync action;
       // the dashboard is a third entry point and needs the same gate.
       const ok = window.confirm(
-        "Share Persona “" + personaState.persona + "” with your organization?\\n\\nEveryone in the organization will be able to read and pull it."
+        (isFirstPublish ? "Publish “" : "Update “") +
+          persona +
+          (isFirstPublish
+            ? "” to your organization?"
+            : "” in your organization?") +
+          "\\n\\nThis device\\u2019s version will become the latest organization version." +
+          (hasUnsavedChanges
+            ? "\\n\\nYour open editor changes will be saved and included."
+            : "")
       );
       if (!ok) return;
 
-      const content = personaEditor.value;
+      // Only the Persona open in the editor has unsaved contents to flush;
+      // uploading any other one must push what is already on disk.
+      // Filled on a 409 and shown after the finally block, so the busy state
+      // and the list are already settled by the time the dialog opens.
+      let conflictPrompt = null;
       personaBusy(true);
       try {
         // Send the editor contents so the route can flush them to disk
@@ -5310,10 +7308,14 @@ function dashboardHtml(): string {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            root: personaState.root,
-            persona: personaState.persona,
-            kind: personaState.kind,
-            name: personaState.name,
+            root: personaRootInput.value.trim() || personaState.root,
+            persona,
+            kind: isOpen ? personaState.kind : "agent",
+            name: isOpen ? personaState.name : "",
+            file:
+              isOpen && personaState.kind === "skill"
+                ? personaState.file
+                : undefined,
             content,
           }),
         });
@@ -5322,13 +7324,16 @@ function dashboardHtml(): string {
         // The route skips the disk write when the editor is empty, so the
         // unsaved marker may only clear when it says the write happened.
         if (data.saved) {
-          personaState.savedContent = content;
-          syncPersonaEditState();
+          setPersonaEditorContent(
+            data.file && typeof data.file.content === "string"
+              ? data.file.content
+              : content
+          );
         }
         let message =
-          "Pushed “" +
-          personaState.persona +
-          "” · revision " +
+          (isFirstPublish ? "Published “" : "Updated “") +
+          persona +
+          "” · version " +
           push.revision +
           " · " +
           push.uploaded +
@@ -5338,28 +7343,94 @@ function dashboardHtml(): string {
         // Say so rather than let the editor and the shared copy disagree in
         // silence: an empty editor is never written, so what went up is
         // whatever the file already held.
-        if (!data.saved && content.trim() === "") {
+        if (isOpen && !data.saved && content.trim() === "") {
           message += " · editor was empty, so the file on disk was pushed as is";
         }
         showToast(message, "success");
       } catch (e) {
-        showToast(e.message || "Push failed", "error");
+        if (e.saved) {
+          setPersonaEditorContent(
+            e.file && typeof e.file.content === "string"
+              ? e.file.content
+              : content
+          );
+        }
+        // A revision mismatch means someone shared a newer version while this
+        // device worked from an older one. Overwriting the server copy is
+        // never offered — the only way forward is to get the latest, with
+        // local edits backed up first, so neither side loses work silently.
+        if (
+          e.errorCode === "PERSONA_REVISION_MISMATCH" ||
+          e.errorCode === "PERSONA_MANIFEST_CONFLICT"
+        ) {
+          const remote = personaState.remotePersonas.find(
+            (entry) => entry.persona_id === persona
+          );
+          const entry = personaState.syncedRevisions[persona];
+          const who =
+            remote && (remote.updated_by_name || remote.updated_by_email);
+          conflictPrompt =
+            "Can\\u2019t update “" +
+            persona +
+            "”.\\n\\n" +
+            (remote
+              ? (who ? who : "A teammate") +
+                " published v" +
+                remote.revision +
+                ".\\n"
+              : "A teammate published a newer version.\\n") +
+            (entry && typeof entry.revision === "number"
+              ? "You worked from v" + entry.revision + ".\\n"
+              : "") +
+            "\\nGet the latest now? Your local changes will be backed up first.";
+        } else {
+          showToast(e.message || "Update failed", "error");
+        }
       } finally {
-        personaBusy(false);
-        await renderPersonaSyncState();
+        try {
+          await loadRemotePersonas();
+        } finally {
+          personaBusy(false);
+        }
+      }
+      if (conflictPrompt && window.confirm(conflictPrompt)) {
+        await pullPersona(persona, { skipConfirm: true });
       }
     }
 
-    async function pullPersona() {
-      if (!personaState.persona) {
+    async function pullPersona(personaInput, options) {
+      const persona = personaInput || personaState.persona;
+      if (!persona) {
         showToast("Select a Persona first", "error");
         return;
       }
-      // Pull overwrites files, so it gets the same gate as Push. Unsaved
-      // editor contents go too, which the modal has to say out loud.
-      const ok = window.confirm(
-        "Download your organization's copy of “" + personaState.persona + "”?\\n\\nLocal files whose contents differ will be overwritten, including anything unsaved in the editor. Local files the organization copy does not have are kept."
-      );
+      const samePersona = persona === personaState.persona;
+      const hasUnsavedChanges =
+        samePersona && personaEditor.value !== personaState.savedContent;
+      const draftName =
+        samePersona && personaState.kind !== "agent"
+          ? personaState.name ||
+            (isCreatingPersonaEntry() ? personaNewName.value.trim() : "")
+          : "";
+      if (
+        hasUnsavedChanges &&
+        personaState.kind !== "agent" &&
+        !draftName
+      ) {
+        showPersonaSaveError(
+          "Name the draft before getting the organization version."
+        );
+        personaNewName.focus();
+        return;
+      }
+      // Pull overwrites files, so it gets the same gate as Share — unless the
+      // caller already asked (the share-conflict dialog is itself a confirm).
+      const skipConfirm = options && options.skipConfirm;
+      const ok =
+        skipConfirm ||
+        window.confirm(
+          "Get your organization's latest “" + persona + "” onto this device?\\n\\nLocal files whose contents differ will be overwritten — they are backed up first, including anything unsaved in the editor. Local files the organization copy does not have are kept."
+        );
       if (!ok) return;
 
       // applyPersonaListing() clears the selected name because its other
@@ -5367,33 +7438,63 @@ function dashboardHtml(): string {
       // refreshes the Persona already open, so the file the user was editing
       // has to be restored — otherwise the picker falls back to the first
       // entry and the editor silently jumps to a different file.
-      const openKind = personaState.kind;
-      const openName = personaState.name;
+      const openKind = samePersona ? personaState.kind : "agent";
+      const openName = samePersona
+        ? personaState.kind === "agent"
+          ? ""
+          : draftName
+        : "";
+      const preserve =
+        samePersona && personaEditor.value !== personaState.savedContent
+          ? {
+              kind: personaState.kind,
+              name: draftName,
+              content: personaEditor.value,
+            }
+          : null;
       personaBusy(true);
       try {
         const data = await personaFetch("/api/persona/pull", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            root: personaState.root,
-            persona: personaState.persona,
+            root: personaRootInput.value.trim() || personaState.root,
+            persona,
+            preserve,
           }),
         });
         const pull = data.pull;
         if (!pull) throw new Error("Pull returned no result");
-        applyPersonaListing(data);
-        selectPersonaTab(openKind);
-        // renderPersonaPicker() keeps the name only if it still exists in the
-        // pulled listing, so a file that vanished falls back on its own.
-        personaState.name = openName;
-        renderPersonaPicker();
-        await loadPersonaFile();
-        renderPersonaRegistry();
+        if (samePersona) {
+          applyPersonaListing(data);
+          selectPersonaKind(openKind);
+          if (openKind === "agent") {
+            personaState.name = "";
+          } else {
+            const entries = personaEntries(openKind);
+            personaState.name = entries.some((entry) => entry.name === openName)
+              ? openName
+              : entries.length > 0
+                ? entries[0].name
+                : "";
+          }
+          syncPersonaEntryForm();
+          await loadPersonaFile();
+          renderPersonaRegistry();
+        } else {
+          // Getting another card must not switch the Personal editor or
+          // discard its draft. Refresh only the bundle selector/listing.
+          await loadPersonaListing(
+            personaRootInput.value.trim() || personaState.root,
+            personaState.persona
+          );
+          renderPersonaRegistry();
+        }
         const downloaded = (pull.downloaded || []).length;
         let message =
-          "Pulled “" +
+          "Got “" +
           pull.persona +
-          "” · revision " +
+          "” · version " +
           pull.revision +
           " · " +
           (downloaded === 0
@@ -5406,14 +7507,27 @@ function dashboardHtml(): string {
             " · " +
             localOnly +
             (localOnly === 1 ? " local file" : " local files") +
-            " kept (not shared yet)";
+            " kept (not published yet)";
+        }
+        if (pull.backup_dir) {
+          message += " · previous local files backed up to " + pull.backup_dir;
         }
         showToast(message, "success");
       } catch (e) {
-        showToast(e.message || "Pull failed", "error");
+        if (e.saved && samePersona) {
+          setPersonaEditorContent(
+            e.file && typeof e.file.content === "string"
+              ? e.file.content
+              : personaEditor.value
+          );
+        }
+        showToast(e.message || "Get latest failed", "error");
       } finally {
-        personaBusy(false);
-        await renderPersonaSyncState();
+        try {
+          await loadRemotePersonas();
+        } finally {
+          personaBusy(false);
+        }
       }
     }
 
@@ -5423,8 +7537,6 @@ function dashboardHtml(): string {
       deletePersonaEntry(personaState.kind, personaState.name);
     });
     personaDeployBtn.addEventListener("click", () => deployAllPersona());
-    personaPushBtn.addEventListener("click", () => pushPersona());
-    personaPullBtn.addEventListener("click", () => pullPersona());
     personaTargetInputs.forEach((input) => {
       input.addEventListener("change", () => {
         clearPersonaDeployError();
@@ -5481,11 +7593,21 @@ function dashboardHtml(): string {
 
     async function refresh() {
       try {
+        const wasSignedIn = hasSavedTokens(lastStatus);
         const res = await fetch("/api/status");
         if (!res.ok) throw new Error("Could not refresh status");
         lastStatus = await res.json();
+        const signedIn = hasSavedTokens(lastStatus);
         renderSessionCard(lastStatus);
         renderGuardStatus(lastStatus);
+        renderRbacAuthGate(signedIn);
+        if (
+          signedIn &&
+          !wasSignedIn &&
+          document.getElementById("panel-rbac").classList.contains("active")
+        ) {
+          void loadRbac();
+        }
         // Login and logout both land here, so Push/Pull follow the session
         // without either flow having to remember to update them.
         void renderPersonaSyncState();
@@ -5497,10 +7619,21 @@ function dashboardHtml(): string {
     document.querySelectorAll("[data-console-open]").forEach((btn) => {
       btn.addEventListener("click", () => { openConsole(); });
     });
+    function renderRbacAuthGate(signedIn) {
+      const rbacSignInEl = document.getElementById("rbac-signin");
+      const rbacSignedInEl = document.getElementById("rbac-signed-in");
+      if (rbacSignInEl) rbacSignInEl.hidden = !!signedIn;
+      if (rbacSignedInEl) rbacSignedInEl.hidden = !signedIn;
+    }
+
     headerLoginBtn.addEventListener("click", () => { openLogin(); });
+    document.addEventListener("click", (event) => {
+      if (event.target.closest("[data-open-login]")) {
+        openLogin();
+      }
+    });
     headerLogoutBtn.addEventListener("click", () => { openLogout(); });
 
-    const rbacTokenWarningEl = document.getElementById("rbac-token-warning");
     const guardEnabledToggleEl = document.getElementById("guard-enabled-toggle");
     const guardToggleDescEl = document.getElementById("guard-toggle-desc");
     const resourcesTbody = document.getElementById("resources-tbody");
@@ -5645,8 +7778,9 @@ function dashboardHtml(): string {
     }
 
     async function loadRbac() {
-      rbacTokenWarningEl.hidden = hasSavedTokens(lastStatus);
-      if (!hasSavedTokens(lastStatus)) return;
+      const signedIn = hasSavedTokens(lastStatus);
+      renderRbacAuthGate(signedIn);
+      if (!signedIn) return;
       try {
         const res = await fetch("/api/rbac");
         const data = await res.json();
@@ -5669,7 +7803,12 @@ function dashboardHtml(): string {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
 
-    openTab(tabFromUrl(), { replaceUrl: true });
+    const initialRoute = routeFromUrl();
+    openTab(initialRoute.tab, {
+      replaceUrl: true,
+      personaView: initialRoute.personaView,
+    });
+    renderRbacAuthGate(hasSavedTokens(lastStatus));
     refresh();
   </script>
 </body>
@@ -5756,7 +7895,8 @@ async function handlePersonaRoute(params: {
       if (typeof body.persona !== 'string' || !body.persona.trim()) {
         throw new Error('Persona name is required.');
       }
-      await deletePersona(body.persona);
+      const deletedPersona = await deletePersona(body.persona);
+      await clearPersonaSyncRevision(deletedPersona);
       const root =
         typeof body.root === 'string' && body.root.trim()
           ? body.root
@@ -5781,6 +7921,7 @@ async function handlePersonaRoute(params: {
           persona,
           kind: parsePersonaKind(query.get('kind')),
           name: query.get('name') ?? '',
+          file: query.get('file') ?? undefined,
         }),
       );
       return;
@@ -5856,6 +7997,11 @@ async function handlePersonaRoute(params: {
       const persona = body.persona;
       const name = typeof body.name === 'string' ? body.name : '';
       const content = typeof body.content === 'string' ? body.content : '';
+      if (!content.trim()) {
+        throw new Error(
+          'Content cannot be empty. Save or select another file before applying.',
+        );
+      }
       const global = body.global === true;
       const supportedTargets = new Set([
         'claudecode',
@@ -5887,15 +8033,17 @@ async function handlePersonaRoute(params: {
       // Deploy All includes the editor's current contents. Without this step,
       // a new template shown in the editor exists only in the browser and
       // generate has no source file to deploy.
-      if (kind === 'agent' || name.trim()) {
-        await savePersonaFile({
-          root,
-          persona,
-          kind,
-          name,
-          content,
-        });
+      if (kind !== 'agent' && !name.trim()) {
+        throw new Error('Select a Rule or Skill before applying.');
       }
+      const savedFile = await savePersonaFile({
+        root,
+        persona,
+        kind,
+        name,
+        file: typeof body.file === 'string' ? body.file : undefined,
+        content,
+      });
       const deployed = await deployPersona({
         root: deployRoot,
         persona,
@@ -5904,6 +8052,8 @@ async function handlePersonaRoute(params: {
       });
       sendJson(res, deployed.ok ? 200 : 400, {
         ok: deployed.ok,
+        saved: true,
+        file: savedFile,
         deploy: deployed,
         ...(deployed.ok
           ? {}
@@ -5915,8 +8065,27 @@ async function handlePersonaRoute(params: {
     if (method === 'GET' && url === '/api/persona/remote') {
       // Metadata only — no manifest fetch, so opening the tab never spends a
       // presigned-URL round trip. Differences surface in the push/pull result.
+      // `synced` is what this machine last pushed or pulled; `local_hashes`
+      // is the bundle hash right now. Together they classify each Persona
+      // (behind / edited here / conflict / current) without a network call.
+      const localHashes: Record<string, string> = {};
+      const localHashErrors: Record<string, string> = {};
+      await Promise.all(
+        (await listPersonaIds()).map(async (persona) => {
+          try {
+            const hash = await computePersonaContentHash(persona);
+            if (hash) localHashes[persona] = hash;
+          } catch (error) {
+            localHashErrors[persona] =
+              error instanceof Error ? error.message : String(error);
+          }
+        }),
+      );
       sendJson(res, 200, {
         personas: await fetchPersonaList(loadPersonaConfig()),
+        synced: await readPersonaSyncRevisions(),
+        local_hashes: localHashes,
+        local_hash_errors: localHashErrors,
       });
       return;
     }
@@ -5936,8 +8105,9 @@ async function handlePersonaRoute(params: {
       // (a 409 is routine), and truncating the file on the way to a failure
       // would contradict the "local files were not modified" guidance.
       const saved = content.trim() !== '' && (kind === 'agent' || name.trim());
+      let savedFile: Awaited<ReturnType<typeof savePersonaFile>> | undefined;
       if (saved) {
-        await savePersonaFile({
+        savedFile = await savePersonaFile({
           root:
             typeof body.root === 'string' && body.root.trim()
               ? body.root
@@ -5945,6 +8115,7 @@ async function handlePersonaRoute(params: {
           persona,
           kind,
           name,
+          file: typeof body.file === 'string' ? body.file : undefined,
           content,
         });
       }
@@ -5952,11 +8123,19 @@ async function handlePersonaRoute(params: {
       // condition above: only the route knows whether the editor contents
       // reached the disk, and clearing the unsaved-changes marker when they
       // did not would claim a write that never happened.
-      sendJson(res, 200, {
-        ok: true,
-        saved,
-        push: await pushPersonaSync(persona),
-      });
+      try {
+        sendJson(res, 200, {
+          ok: true,
+          saved,
+          file: savedFile,
+          push: await pushPersonaSync(persona),
+        });
+      } catch (error) {
+        if (error && typeof error === 'object') {
+          Object.assign(error, { saved, file: savedFile });
+        }
+        throw error;
+      }
       return;
     }
 
@@ -5965,7 +8144,43 @@ async function handlePersonaRoute(params: {
       if (typeof body.persona !== 'string' || !body.persona.trim()) {
         throw new Error('Select a Persona first.');
       }
-      const pull = await pullPersonaSync(body.persona);
+      let preserved = false;
+      let preservedFile:
+        | Awaited<ReturnType<typeof savePersonaFile>>
+        | undefined;
+      if (
+        body.preserve &&
+        typeof body.preserve === 'object' &&
+        !Array.isArray(body.preserve)
+      ) {
+        const preserve = body.preserve as Record<string, unknown>;
+        if (typeof preserve.content !== 'string') {
+          throw new Error('Unsaved Persona content was invalid.');
+        }
+        preservedFile = await savePersonaFile({
+          root:
+            typeof body.root === 'string' && body.root.trim()
+              ? body.root
+              : undefined,
+          persona: body.persona,
+          kind: parsePersonaKind(preserve.kind),
+          name: typeof preserve.name === 'string' ? preserve.name : '',
+          content: preserve.content,
+        });
+        preserved = true;
+      }
+      let pull: Awaited<ReturnType<typeof pullPersonaSync>>;
+      try {
+        pull = await pullPersonaSync(body.persona);
+      } catch (error) {
+        if (error && typeof error === 'object') {
+          Object.assign(error, {
+            saved: preserved,
+            file: preservedFile,
+          });
+        }
+        throw error;
+      }
       const root =
         typeof body.root === 'string' && body.root.trim()
           ? body.root
@@ -5973,6 +8188,7 @@ async function handlePersonaRoute(params: {
       // Re-read the listing so the editor shows the pulled bytes.
       sendJson(res, 200, {
         ok: true,
+        preserved,
         pull,
         ...(await listPersona(root, pull.persona)),
       });
@@ -5998,6 +8214,7 @@ async function handlePersonaRoute(params: {
         persona,
         kind,
         name: typeof body.name === 'string' ? body.name : '',
+        file: typeof body.file === 'string' ? body.file : undefined,
         content: typeof body.content === 'string' ? body.content : '',
       });
 
@@ -6015,6 +8232,27 @@ async function handlePersonaRoute(params: {
           ? {}
           : { error: deployed.output || 'transcodes sync generate failed' }),
       });
+      return;
+    }
+
+    if (method === 'POST' && url === '/api/persona/create-folder') {
+      const body = await readJsonBody(req);
+      if (typeof body.persona !== 'string' || !body.persona.trim()) {
+        throw new Error('Select a Persona first.');
+      }
+      if (typeof body.dir !== 'string' || !body.dir.trim()) {
+        throw new Error('Folder name is required.');
+      }
+      const created = await createSkillFolder({
+        root:
+          typeof body.root === 'string' && body.root.trim()
+            ? body.root
+            : undefined,
+        persona: body.persona,
+        name: typeof body.name === 'string' ? body.name : '',
+        dir: body.dir,
+      });
+      sendJson(res, 200, { ok: true, created });
       return;
     }
 
@@ -6041,10 +8279,48 @@ async function handlePersonaRoute(params: {
 
     sendJson(res, 404, { error: 'not found' });
   } catch (err) {
-    sendJson(res, statusForError(err, 400), {
+    const saved =
+      err && typeof err === 'object' && 'saved' in err
+        ? (err as { saved?: unknown }).saved === true
+        : false;
+    const status =
+      err instanceof PersonaApiError
+        ? err.status
+        : statusForError(err, 400);
+    sendJson(res, status, {
       error: err instanceof Error ? err.message : String(err),
+      ...(err instanceof PersonaApiError && err.errorCode
+        ? { errorCode: err.errorCode }
+        : {}),
+      ...(saved ? { saved: true } : {}),
+      ...(err && typeof err === 'object' && 'file' in err
+        ? { file: (err as { file?: unknown }).file }
+        : {}),
     });
   }
+}
+
+const DASHBOARD_PAGE_PATHS = new Set([
+  '/',
+  '/index.html',
+  '/guide',
+  '/guideline',
+  '/persona',
+  '/persona/my',
+  '/persona/personal',
+  '/persona/local',
+  '/persona/team',
+  '/persona/organization',
+  '/persona/remote',
+  '/permission',
+  '/rbac',
+  '/profile',
+  '/tokens',
+]);
+
+function isDashboardPagePath(pathname: string): boolean {
+  const normalized = pathname.replace(/\/+$/, '') || '/';
+  return DASHBOARD_PAGE_PATHS.has(normalized);
 }
 
 function listen(port: number): Promise<ReturnType<typeof createServer>> {
@@ -6094,7 +8370,7 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
           return;
         }
 
-        if (method === 'GET' && (url === '/' || url === '/index.html')) {
+        if (method === 'GET' && isDashboardPagePath(url)) {
           res.writeHead(200, {
             'Content-Type': 'text/html; charset=utf-8',
             'Cache-Control': 'no-store',

@@ -67,7 +67,7 @@ export const CLI_COMMAND_SPECS: readonly CliCommandSpec[] = [
   {
     usage: 'transcodes sync add',
     description:
-      'Scaffold a rule or skill under .transcodes/ (rule|skill --name)',
+      'Scaffold a rule or skill under .transcodes/ (rule|skill --name; skills: SKILL.md required, --folder scripts,references,assets or --full for optional dirs, --lang python|node|bash for a starter script)',
   },
   {
     usage: 'transcodes help',

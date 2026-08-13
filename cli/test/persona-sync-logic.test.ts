@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  bundleContentHash,
   personaSyncGuidance,
   planPull,
   sha256Hex,
@@ -39,6 +40,23 @@ test('planPull: a blank machine downloads the whole manifest', () => {
   assert.deepEqual(plan.download, ['instruction/agents.md', 'rules/tone.md']);
   assert.deepEqual(plan.unchanged, []);
   assert.deepEqual(plan.localOnly, []);
+});
+
+test('bundleContentHash: order-independent, content- and path-sensitive', () => {
+  const files = [
+    { path: 'instruction/agents.md', sha256: 'h1' },
+    { path: 'rules/tone.md', sha256: 'h2' },
+  ];
+  const reversed = [files[1], files[0]];
+  assert.equal(bundleContentHash(files), bundleContentHash(reversed));
+  assert.notEqual(
+    bundleContentHash(files),
+    bundleContentHash([files[0], { path: 'rules/tone.md', sha256: 'edited' }]),
+  );
+  assert.notEqual(
+    bundleContentHash(files),
+    bundleContentHash([files[0], { path: 'rules/other.md', sha256: 'h2' }]),
+  );
 });
 
 test('sha256Hex: lowercase hex over raw bytes (NIST "abc" vector)', () => {

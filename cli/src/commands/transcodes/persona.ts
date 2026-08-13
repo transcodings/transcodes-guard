@@ -13,6 +13,7 @@ import {
   mkdtemp,
   readdir,
   readFile,
+  rename,
   rm,
   stat,
   writeFile,
@@ -29,7 +30,10 @@ import {
   RULESYNC_RULES_RELATIVE_DIR_PATH,
   RULESYNC_SKILLS_RELATIVE_DIR_PATH,
 } from '../sync/constants/rulesync-paths.js';
-import { createFeatureScaffold } from '../sync/lib/feature-scaffold.js';
+import {
+  APPLIED_RULES_SKILLS_OUTPUT_LINE,
+  createFeatureScaffold,
+} from '../sync/lib/feature-scaffold.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -39,6 +43,17 @@ export type PersonaEntry = {
   name: string;
   /** Path relative to the project root, e.g. `.transcodes/rules/backend.md`. */
   relativePath: string;
+  /**
+   * Skill-root-relative POSIX paths of every file in the Skill folder
+   * (SKILL.md first). Only present for skills.
+   */
+  files?: string[];
+  /**
+   * Skill-root-relative POSIX paths of every directory in the Skill folder,
+   * including empty ones (so freshly created folders show up in the
+   * dashboard). Only present for skills.
+   */
+  dirs?: string[];
 };
 
 export type PersonaListing = {
@@ -61,9 +76,13 @@ export type PersonaListing = {
 export type PersonaFile = {
   kind: PersonaKind;
   name: string;
+  /** Skill-root-relative path of the file being read/saved (skills only). */
+  file?: string;
   relativePath: string;
   absolutePath: string;
   exists: boolean;
+  /** True when the file is not UTF-8 text; `content` is empty then. */
+  binary?: boolean;
   content: string;
 };
 
@@ -135,6 +154,25 @@ export function assertPersonaName(kind: PersonaKind, name: string): string {
   return normalized;
 }
 
+/**
+ * Validate a Skill-root-relative file path from the dashboard. Every segment
+ * must start with an alphanumeric character, which also rules out `..` and
+ * dotfiles. Empty input means the mandatory SKILL.md.
+ */
+export function assertSkillFilePath(file: string): string {
+  const normalized = file.trim();
+  if (!normalized) return SKILL_FILE_NAME;
+  if (normalized.includes('\\')) {
+    throw new Error(`Invalid Skill file path "${file}".`);
+  }
+  for (const segment of normalized.split('/')) {
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._ -]*$/.test(segment) || /\s$/.test(segment)) {
+      throw new Error(`Invalid Skill file path "${file}".`);
+    }
+  }
+  return normalized;
+}
+
 export function assertPersonaId(name: string): string {
   const normalized = name.trim().toLowerCase().replace(/\s+/g, '-');
   if (!NAME_PATTERN.test(normalized)) {
@@ -191,7 +229,7 @@ function resolveInsidePersona(persona: string, relativePath: string): string {
   return target;
 }
 
-async function listPersonaIds(): Promise<string[]> {
+export async function listPersonaIds(): Promise<string[]> {
   const names = await readdirSafe(personasRoot());
   const personas: string[] = [];
   for (const name of names.sort()) {
@@ -382,12 +420,63 @@ async function listSkills(
   for (const name of names.sort()) {
     if (name.startsWith('.')) continue;
     if (!(await isFile(path.join(dir, name, SKILL_FILE_NAME)))) continue;
+    const tree = await listSkillTree(bundleRoot, name);
     entries.push({
       name,
       relativePath: personaRelativePath(persona, 'skill', name),
+      files: tree.files,
+      dirs: tree.dirs,
     });
   }
   return entries;
+}
+
+/**
+ * Every file in a Skill folder as skill-root-relative POSIX paths. Dotfiles
+ * and symlinks are skipped; SKILL.md sorts first, then remaining root files,
+ * then folder contents alphabetically.
+ */
+async function listSkillTree(
+  bundleRoot: string,
+  skillName: string,
+): Promise<{ files: string[]; dirs: string[] }> {
+  const skillRoot = path.join(bundleRoot, 'skills', skillName);
+  const files: string[] = [];
+  const dirs: string[] = [];
+  const walk = async (relativeDir: string): Promise<void> => {
+    let entries;
+    try {
+      entries = await readdir(path.join(skillRoot, relativeDir), {
+        withFileTypes: true,
+      });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      if (entry.isSymbolicLink()) continue;
+      const relative = relativeDir
+        ? `${relativeDir}/${entry.name}`
+        : entry.name;
+      if (entry.isDirectory()) {
+        dirs.push(relative);
+        await walk(relative);
+      } else if (entry.isFile()) {
+        files.push(relative);
+      }
+    }
+  };
+  await walk('');
+  files.sort((a, b) => {
+    if (a === SKILL_FILE_NAME) return -1;
+    if (b === SKILL_FILE_NAME) return 1;
+    const aNested = a.includes('/');
+    const bNested = b.includes('/');
+    if (aNested !== bNested) return aNested ? 1 : -1;
+    return a.localeCompare(b);
+  });
+  dirs.sort((a, b) => a.localeCompare(b));
+  return { files, dirs };
 }
 
 export type CollectedPersonaFile = {
@@ -433,13 +522,17 @@ export async function collectPersonaFiles(
     });
   }
   for (const skill of await listSkills(persona, bundleRoot)) {
-    const bundlePath = personaBundleRelativePath('skill', skill.name);
-    files.push({
-      kind: 'skill',
-      name: skill.name,
-      bundlePath,
-      absolutePath: resolveInsidePersona(persona, bundlePath),
-    });
+    // The whole Skill folder syncs, not only SKILL.md — scripts, references,
+    // and assets belong to the same versioned unit.
+    for (const skillFile of skill.files ?? [SKILL_FILE_NAME]) {
+      const bundlePath = path.posix.join('skills', skill.name, skillFile);
+      files.push({
+        kind: 'skill',
+        name: skill.name,
+        bundlePath,
+        absolutePath: resolveInsidePersona(persona, bundlePath),
+      });
+    }
   }
   return files;
 }
@@ -462,16 +555,123 @@ export async function writePersonaBundleFile(
   return absolutePath;
 }
 
+/**
+ * Replace a set of bundle files as one directory transaction.
+ *
+ * The existing bundle is copied to a hidden staging directory first, so files
+ * absent from the remote manifest are preserved. Only after every replacement
+ * has been written does the staged directory swap into place. If the swap
+ * fails, the original directory is restored before the error escapes.
+ */
+export async function replacePersonaBundleFiles(
+  personaInput: string,
+  files: Array<{ bundlePath: string; bytes: Buffer }>,
+): Promise<void> {
+  await ensurePersonaStorage();
+  const persona = assertPersonaId(personaInput);
+  const bundleRoot = personaDir(persona);
+  const transactionRoot = await mkdtemp(
+    path.join(personasRoot(), '.persona-pull-'),
+  );
+  const stagedRoot = path.join(transactionRoot, 'next');
+  const previousRoot = path.join(transactionRoot, 'previous');
+  let movedPrevious = false;
+
+  try {
+    if (await isDirectory(bundleRoot)) {
+      await cp(bundleRoot, stagedRoot, { recursive: true });
+    } else {
+      await mkdir(stagedRoot, { recursive: true });
+    }
+
+    for (const file of files) {
+      // Validate against the real Persona root, then independently re-anchor
+      // the same relative path inside staging.
+      resolveInsidePersona(persona, file.bundlePath);
+      const stagedPath = path.resolve(stagedRoot, file.bundlePath);
+      const rel = path.relative(stagedRoot, stagedPath);
+      if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        throw new Error(
+          `Refusing to stage a path outside Persona "${persona}": ${file.bundlePath}`,
+        );
+      }
+      await mkdir(path.dirname(stagedPath), { recursive: true });
+      await writeFile(stagedPath, file.bytes);
+    }
+
+    if (await isDirectory(bundleRoot)) {
+      await rename(bundleRoot, previousRoot);
+      movedPrevious = true;
+    }
+
+    try {
+      await rename(stagedRoot, bundleRoot);
+    } catch (error) {
+      if (movedPrevious) {
+        await rename(previousRoot, bundleRoot);
+        movedPrevious = false;
+      }
+      throw error;
+    }
+  } finally {
+    await rm(transactionRoot, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 export async function readPersonaFile(params: {
   root?: string;
   persona: string;
   kind: PersonaKind;
   name?: string;
+  /** Skill-root-relative path of the file to read. Defaults to SKILL.md. */
+  file?: string;
 }): Promise<PersonaFile> {
   await resolvePersonaRoot(params.root);
   await ensurePersonaStorage();
   const persona = assertPersonaId(params.persona);
   const name = assertPersonaName(params.kind, params.name ?? '');
+  const skillFile =
+    params.kind === 'skill'
+      ? assertSkillFilePath(params.file ?? '')
+      : undefined;
+
+  // Companion Skill files (scripts, references, assets) are read verbatim —
+  // no frontmatter sanitizing and no starter template for missing files.
+  if (skillFile && skillFile !== SKILL_FILE_NAME) {
+    const bundlePath = path.posix.join('skills', name, skillFile);
+    const absolutePath = resolveInsidePersona(persona, bundlePath);
+    const relativePath = path.posix.join(
+      RULESYNC_RELATIVE_DIR_PATH,
+      PERSONAS_DIR_NAME,
+      persona,
+      bundlePath,
+    );
+    try {
+      const bytes = await readFile(absolutePath);
+      const binary = bytes.includes(0);
+      return {
+        kind: params.kind,
+        name,
+        file: skillFile,
+        relativePath,
+        absolutePath,
+        exists: true,
+        binary,
+        content: binary ? '' : bytes.toString('utf-8'),
+      };
+    } catch {
+      return {
+        kind: params.kind,
+        name,
+        file: skillFile,
+        relativePath,
+        absolutePath,
+        exists: false,
+        content: '',
+      };
+    }
+  }
+
   const relativePath = personaRelativePath(persona, params.kind, name);
   const absolutePath = resolveInsidePersona(
     persona,
@@ -483,6 +683,7 @@ export async function readPersonaFile(params: {
     return {
       kind: params.kind,
       name,
+      ...(skillFile ? { file: skillFile } : {}),
       relativePath,
       absolutePath,
       exists: true,
@@ -492,6 +693,7 @@ export async function readPersonaFile(params: {
     return {
       kind: params.kind,
       name,
+      ...(skillFile ? { file: skillFile } : {}),
       relativePath,
       absolutePath,
       exists: false,
@@ -522,9 +724,48 @@ function stripLegacyTargetsFrontmatter(content: string): string {
   return cleaned === fm ? content : cleaned + body;
 }
 
+const LEGACY_APPLIED_RULES_SKILLS_OUTPUT_LINES = new Set([
+  '- If any Rules or Skills were applied, you MUST include a list of the names of the Rules and Skills in the response.',
+  '- End each response with exactly one short line: `Applied: Rules <names> · Skills <names>`. Include names only, omit empty categories, and omit the entire line when no Rule or Skill was applied.',
+  '- Start each response with exactly one short line: `Applied: Rules [<names>] · Skills [<names>]`. Include names only, omit empty categories, and omit the entire line when no Rule or Skill was applied.',
+  '- Tell the user which Rules and Skills were applied in the response.',
+  '- If any Rules or Skills were applied, you MUST briefly identify which ones in the response.',
+]);
+
+/** Keep mandatory Rule/Skill attribution in every generated host Instruction. */
+export function ensurePersonaInstructionOutput(content: string): string {
+  const lines = content.split(/\r?\n/);
+  const isAttributionLine = (line: string): boolean => {
+    const normalized = line.trim();
+    return (
+      normalized === APPLIED_RULES_SKILLS_OUTPUT_LINE ||
+      LEGACY_APPLIED_RULES_SKILLS_OUTPUT_LINES.has(normalized)
+    );
+  };
+  const existingIndex = lines.findIndex(isAttributionLine);
+
+  if (existingIndex >= 0) {
+    lines[existingIndex] = APPLIED_RULES_SKILLS_OUTPUT_LINE;
+    return lines
+      .filter(
+        (line, index) => index === existingIndex || !isAttributionLine(line),
+      )
+      .join('\n');
+  }
+
+  const outputIndex = lines.findIndex((line) => line.trim() === '# Output');
+  if (outputIndex >= 0) {
+    lines.splice(outputIndex + 1, 0, APPLIED_RULES_SKILLS_OUTPUT_LINE);
+    return lines.join('\n');
+  }
+
+  const body = content.replace(/\s+$/, '');
+  return `${body}${body ? '\n\n' : ''}# Output\n${APPLIED_RULES_SKILLS_OUTPUT_LINE}\n`;
+}
+
 function sanitizePersonaContent(kind: PersonaKind, content: string): string {
   return kind === 'agent'
-    ? stripLeadingFrontmatter(content)
+    ? ensurePersonaInstructionOutput(stripLeadingFrontmatter(content))
     : stripLegacyTargetsFrontmatter(content);
 }
 
@@ -556,6 +797,8 @@ export async function savePersonaFile(params: {
   persona: string;
   kind: PersonaKind;
   name?: string;
+  /** Skill-root-relative path of the file to save. Defaults to SKILL.md. */
+  file?: string;
   content: string;
 }): Promise<PersonaFile> {
   const { root } = await resolvePersonaRoot(params.root);
@@ -565,6 +808,35 @@ export async function savePersonaFile(params: {
     throw new Error(`Persona "${persona}" does not exist.`);
   }
   const name = assertPersonaName(params.kind, params.name ?? '');
+  const skillFile =
+    params.kind === 'skill'
+      ? assertSkillFilePath(params.file ?? '')
+      : undefined;
+
+  // Companion Skill files are written verbatim: scripts and reference docs
+  // must not get frontmatter name-sync or Markdown sanitizing.
+  if (skillFile && skillFile !== SKILL_FILE_NAME) {
+    const bundlePath = path.posix.join('skills', name, skillFile);
+    const absolutePath = resolveInsidePersona(persona, bundlePath);
+    await mkdir(path.dirname(absolutePath), { recursive: true });
+    await writeFile(absolutePath, params.content, 'utf-8');
+    await writeLastRoot(root);
+    return {
+      kind: params.kind,
+      name,
+      file: skillFile,
+      relativePath: path.posix.join(
+        RULESYNC_RELATIVE_DIR_PATH,
+        PERSONAS_DIR_NAME,
+        persona,
+        bundlePath,
+      ),
+      absolutePath,
+      exists: true,
+      content: params.content,
+    };
+  }
+
   const relativePath = personaRelativePath(persona, params.kind, name);
   const absolutePath = resolveInsidePersona(
     persona,
@@ -587,6 +859,41 @@ export async function savePersonaFile(params: {
     exists: true,
     content,
   };
+}
+
+/**
+ * Create an (empty) directory inside a Skill's folder so the dashboard can
+ * scaffold folders before their first file exists. `dirs` in the listing
+ * surfaces them even while empty.
+ */
+export async function createSkillFolder(params: {
+  root?: string;
+  persona: string;
+  name?: string;
+  /** Skill-root-relative directory path, e.g. `scripts` or `assets/icons`. */
+  dir: string;
+}): Promise<{ name: string; dir: string }> {
+  const { root } = await resolvePersonaRoot(params.root);
+  await ensurePersonaStorage();
+  const persona = assertPersonaId(params.persona);
+  if (!(await isDirectory(personaDir(persona)))) {
+    throw new Error(`Persona "${persona}" does not exist.`);
+  }
+  const name = assertPersonaName('skill', params.name ?? '');
+  if (!params.dir.trim()) {
+    throw new Error('Folder name is required.');
+  }
+  // Same segment rules as skill files: no dotfiles, no traversal, no
+  // backslashes. assertSkillFilePath falls back to SKILL.md only for empty
+  // input, which the guard above already rejects.
+  const dir = assertSkillFilePath(params.dir);
+  const absolutePath = resolveInsidePersona(
+    persona,
+    path.posix.join('skills', name, dir),
+  );
+  await mkdir(absolutePath, { recursive: true });
+  await writeLastRoot(root);
+  return { name, dir };
 }
 
 /**
