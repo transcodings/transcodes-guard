@@ -6641,6 +6641,10 @@ function dashboardHtml(): string {
         const data = await personaFetch("/api/persona/file?" + params);
         if (data.binary) {
           showToast("“" + file + "” is a binary file and can’t be edited here", "error");
+          // personaState.file never moved, but the menu already closed against
+          // the clicked entry — re-render so the picker shows the file the
+          // editor is actually holding.
+          renderPersonaFilePicker();
           return;
         }
         personaState.file = file;
@@ -6648,6 +6652,7 @@ function dashboardHtml(): string {
         scrollPersonaEditorToTop();
       } catch (e) {
         showToast(e.message || "Could not open that file", "error");
+        renderPersonaFilePicker();
       }
     }
 
@@ -7444,11 +7449,20 @@ function dashboardHtml(): string {
           ? ""
           : draftName
         : "";
+      // applyPersonaListing() resets the open file too, so a companion has to
+      // be carried across the same way the name is. Without this the editor
+      // reloads SKILL.md and the user reads it as their edit having vanished.
+      const openFile = samePersona ? personaState.file : "SKILL.md";
+      // The open file travels with the contents. Without it the route falls
+      // back to SKILL.md, so preserving an edited companion would overwrite
+      // the Skill's own SKILL.md and lose both files at once.
       const preserve =
         samePersona && personaEditor.value !== personaState.savedContent
           ? {
               kind: personaState.kind,
               name: draftName,
+              file:
+                personaState.kind === "skill" ? personaState.file : undefined,
               content: personaEditor.value,
             }
           : null;
@@ -7477,6 +7491,15 @@ function dashboardHtml(): string {
               : entries.length > 0
                 ? entries[0].name
                 : "";
+          }
+          // After the name, because the file list is looked up by it. The pull
+          // may have removed the file, in which case SKILL.md is the only
+          // honest place to land.
+          if (openKind === "skill" && personaState.name === openName) {
+            personaState.file =
+              currentSkillFiles().indexOf(openFile) !== -1
+                ? openFile
+                : "SKILL.md";
           }
           syncPersonaEntryForm();
           await loadPersonaFile();
@@ -8104,7 +8127,11 @@ async function handlePersonaRoute(params: {
       // Empty content is never flushed: push fails far more often than deploy
       // (a 409 is routine), and truncating the file on the way to a failure
       // would contradict the "local files were not modified" guidance.
-      const saved = content.trim() !== '' && (kind === 'agent' || name.trim());
+      // Stays a boolean: the error path below compares it with `=== true`, so
+      // a truthy string would be dropped and a completed write reported as if
+      // it never happened.
+      const saved =
+        content.trim() !== '' && (kind === 'agent' || name.trim() !== '');
       let savedFile: Awaited<ReturnType<typeof savePersonaFile>> | undefined;
       if (saved) {
         savedFile = await savePersonaFile({
@@ -8165,6 +8192,10 @@ async function handlePersonaRoute(params: {
           persona: body.persona,
           kind: parsePersonaKind(preserve.kind),
           name: typeof preserve.name === 'string' ? preserve.name : '',
+          // Skills are folder bundles, so the editor may hold a companion
+          // rather than SKILL.md — which is where an absent `file` would put
+          // these bytes, destroying the Skill's own instructions.
+          file: typeof preserve.file === 'string' ? preserve.file : undefined,
           content: preserve.content,
         });
         preserved = true;
@@ -8284,9 +8315,7 @@ async function handlePersonaRoute(params: {
         ? (err as { saved?: unknown }).saved === true
         : false;
     const status =
-      err instanceof PersonaApiError
-        ? err.status
-        : statusForError(err, 400);
+      err instanceof PersonaApiError ? err.status : statusForError(err, 400);
     sendJson(res, status, {
       error: err instanceof Error ? err.message : String(err),
       ...(err instanceof PersonaApiError && err.errorCode

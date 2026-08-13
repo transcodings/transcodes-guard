@@ -14,6 +14,10 @@ const personaSource = readFileSync(
   new URL("../src/commands/transcodes/persona.ts", import.meta.url),
   "utf8",
 );
+const scaffoldCommandSource = readFileSync(
+  new URL("../src/commands/transcodes/sync.ts", import.meta.url),
+  "utf8",
+);
 
 test("the CSRF guard stays wired at the request entry point", () => {
   // Both checks live in dashboard-csrf.ts and are unit-tested there. What that
@@ -151,6 +155,64 @@ test("skill bundles enumerate every file and sync them all", () => {
   assert.match(
     personaSource,
     /for \(const skillFile of skill\.files \?\? \[SKILL_FILE_NAME\]\)/,
+  );
+});
+
+test("pull preserves the file the editor actually holds", () => {
+  // Both halves are load-bearing. Without `file` the route defaults to
+  // SKILL.md, so preserving an edited companion (scripts/extract.py) would
+  // write Python into the Skill's instructions and lose both files.
+  assert.match(
+    source,
+    /const preserve =[\s\S]{0,400}?file:\s*\n?\s*personaState\.kind === "skill" \? personaState\.file : undefined,/,
+  );
+  assert.match(
+    source,
+    /preservedFile = await savePersonaFile\(\{[\s\S]{0,900}?file: typeof preserve\.file === 'string' \? preserve\.file : undefined,/,
+  );
+});
+
+test("pull returns the editor to the file it was on", () => {
+  // Preserving the companion on disk is only half of it. applyPersonaListing()
+  // resets personaState.file to SKILL.md, so without restoring it the editor
+  // reloads the instructions and the user reads that as their edit being gone.
+  assert.match(source, /const openFile = samePersona \? personaState\.file : "SKILL\.md";/);
+  assert.match(
+    source,
+    /personaState\.name = entries\.some[\s\S]{0,600}?personaState\.file =\s*\n?\s*currentSkillFiles\(\)\.indexOf\(openFile\) !== -1\s*\n?\s*\? openFile\s*\n?\s*: "SKILL\.md";/,
+  );
+});
+
+test("push reports whether the editor contents reached the disk", () => {
+  // `saved` must be a boolean: the catch block hands it to the error handler,
+  // which tests `=== true`. A truthy string would be dropped there and a
+  // completed write would surface to the browser as "not saved".
+  assert.match(
+    source,
+    /const saved =\s*\n?\s*content\.trim\(\) !== '' && \(kind === 'agent' \|\| name\.trim\(\) !== ''\);/,
+  );
+  assert.match(source, /\.saved === true/);
+});
+
+test("a Skill file that cannot be opened leaves the picker consistent", () => {
+  // personaState.file never moves on these paths, but the menu already closed
+  // against the clicked entry, so the picker has to be re-rendered.
+  assert.match(
+    source,
+    /if \(data\.binary\) \{[\s\S]{0,400}?renderPersonaFilePicker\(\);\s*\n\s*return;/,
+  );
+  assert.match(
+    source,
+    /showToast\(e\.message \|\| "Could not open that file", "error"\);\s*\n\s*renderPersonaFilePicker\(\);/,
+  );
+});
+
+test("--force refreshes the whole Skill bundle, not only SKILL.md", () => {
+  // Without this the flag rewrites SKILL.md from the current template while
+  // scripts/ and references/ keep the old one, leaving the two out of step.
+  assert.match(
+    scaffoldCommandSource,
+    /for \(const extra of scaffold\.extraFiles\)[\s\S]{0,600}?if \(\(await fileExists\(extraPath\)\) && !force\)/,
   );
 });
 
@@ -545,7 +607,7 @@ test("pull restores the file the user had open", () => {
   assert.match(source, /selectPersonaKind\(openKind\);[\s\S]{0,400}?entry\.name === openName/);
   assert.match(
     source,
-    /if \(samePersona\) \{[\s\S]{0,900}?\} else \{[\s\S]{0,300}?must not switch the Personal editor/,
+    /if \(samePersona\) \{[\s\S]{0,1300}?\} else \{[\s\S]{0,300}?must not switch the Personal editor/,
   );
   assert.doesNotMatch(source, /selectPersonaTab\(/);
   assert.doesNotMatch(source, /renderPersonaPicker\(/);
