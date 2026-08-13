@@ -72,10 +72,13 @@ const MESSAGES = {
     tokenTooMany:
       'Too many invalid attempts — run `transcodes install` again later.',
     congratsBar: '────────────────────────────────────────────────────',
-    congrats1: 'Setup complete.',
+    congrats1: 'Plugin installation complete.',
     congrats2: 'Opening the Transcodes dashboard…',
     congratsBody:
-      'Plugins are installed. Sign in from the dashboard to get started.',
+      'Sign in from the dashboard if needed. Start a new AI app session, review and trust the plugin hooks when prompted, then use the Transcodes Skill.',
+    setupIncomplete: 'Setup incomplete.',
+    setupIncompleteBody:
+      'One or more plugins failed to install. Review the install summary above and retry; the dashboard was not opened.',
     pressEnterDashboard: 'Press ENTER to open the transcodes CLI dashboard … ',
     installSummary: '── Install summary ──',
     dashboardOpened: 'Transcodes dashboard is open: {url}',
@@ -143,9 +146,13 @@ const MESSAGES = {
     tokenTooMany:
       '잘못된 입력이 너무 많습니다 — 나중에 `transcodes install`을 다시 실행하세요.',
     congratsBar: '────────────────────────────────────────────────────',
-    congrats1: '설정이 완료되었습니다.',
+    congrats1: '플러그인 설치가 완료되었습니다.',
     congrats2: 'Transcodes 대시보드를 엽니다…',
-    congratsBody: '플러그인 설치가 끝났습니다. 대시보드에서 로그인하세요.',
+    congratsBody:
+      '필요하면 대시보드에서 로그인하세요. 새 AI 앱 세션을 시작하고, 표시되는 플러그인 hook 신뢰 요청을 검토·승인한 뒤 Transcodes Skill을 사용하세요.',
+    setupIncomplete: '설정이 완료되지 않았습니다.',
+    setupIncompleteBody:
+      '하나 이상의 플러그인 설치에 실패했습니다. 위 설치 요약을 확인한 뒤 다시 시도하세요. 대시보드는 열지 않았습니다.',
     pressEnterDashboard: 'ENTER를 누르면 transcodes CLI 대시보드를 엽니다 … ',
     installSummary: '── 설치 요약 ──',
     dashboardOpened: 'Transcodes 대시보드가 열렸습니다: {url}',

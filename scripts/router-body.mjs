@@ -23,7 +23,7 @@ import {
 // exact preamble; only the trailing clause (introTail) and the request line
 // differ per host.
 export const PREAMBLE =
-  'You are the transcodes-guard control surface — the single "front door" the user opens to manage step-up MFA protection, local Personas, Transcodes Admin API operations, AND to integrate the Transcodes SDK into their app.';
+  'You are the transcodes-guard control surface — the single "front door" the user opens to install or repair Transcodes, manage step-up MFA protection, local Personas, Transcodes Admin API operations, AND integrate the Transcodes SDK into their app.';
 
 // Everything from the "Identify which MENU item…" paragraph through the last MENU item.
 // Byte-identical across the runtime body and all four host files.
@@ -44,6 +44,16 @@ const WORKFLOW_MENU = [
   '| --- | --- | --- | --- | --- |',
   '| **App Console** | https://app.transcodes.io | Browser login | RBAC, members, roles, resources, MAT tokens | **Yes** |',
   '| **Open Console (Auth Host)** | auth.transcodes.io | `get_console_url`, SDK `redirectToConsole()` | Passkeys, TOTP, OTP, JWK backup, billing | **No** |',
+  '',
+  'MENU — Setup & recovery',
+  '0) Install, update, or repair the Transcodes CLI and host plugin',
+  '   - Trigger on requests to install or update Transcodes or its CLI/plugin, or when the Transcodes Skill is missing.',
+  '   - Determine the requested outcome before changing the machine. If the user explicitly says CLI-only or names a host-ready outcome, proceed without another question. Otherwise ask exactly one scope question: **Ready in this AI app (Recommended)** or **CLI command only**.',
+  '   - Inspect Node, the existing CLI, the current host, and its plugin before installing. Follow the latest official Transcodes install documentation. In a non-interactive agent shell, resolve the current host to its supported CLI target and pass it explicitly: `transcodes install <host>`.',
+  '   - CLI-only is complete only after `transcodes --version` succeeds. Report **CLI installation complete**, then state that the host plugin, hook trust, and a new session are still pending; never call the whole Transcodes setup complete.',
+  '   - Ready-in-app requires the CLI check, explicit host install, native host verification that the plugin is installed and enabled, hook trust with no hook error, and a new session where the Transcodes Skill is discoverable through that host\'s native invocation. Any failed or skipped check keeps setup incomplete.',
+  '   - Sign-in is required for Guard/Admin API actions and organization Persona `push` / `pull`, but not for local Persona create/edit/deploy. When the requested goal needs sign-in, run `transcodes login`, verify with `transcodes status`, and do not report that goal ready while signed out.',
+  '   - Never bypass hook trust. If a hook reports an error, show the exact failed check and recovery action; never overwrite it with an unqualified success message.',
   '',
   'MENU — Guard & SDK',
   '1) Check whether a Bash command or MCP tool call would trigger step-up (read-only)',
@@ -176,14 +186,14 @@ export const RUNTIME_BODY = [
 // frontmatter is hand-tuned per host and kept verbatim here (not generated from
 // logic). cursor has none. antigravity and codex share identical frontmatter.
 const SKILL_FRONTMATTER =
-  '---\nname: transcodes\ndescription: transcodes-guard control surface. Use when the user wants to create or edit a Persona, manage step-up MFA rules, use the Transcodes Admin API (members, RBAC, org, project, audit, devices), inspect step-up state, check blocks, or integrate the Transcodes SDK.\n---\n';
+  '---\nname: transcodes\ndescription: transcodes-guard control surface. Use when the user wants to install, update, or repair Transcodes or its CLI/plugin; create or edit a Persona; manage step-up MFA rules; use the Transcodes Admin API (members, RBAC, org, project, audit, devices); inspect step-up state; check blocks; or integrate the Transcodes SDK.\n---\n';
 
 export const HOSTS = [
   {
     name: 'claude-code',
     out: 'plugins/claude-code/commands/transcodes.md',
     frontmatter:
-      '---\ndescription: Open the transcodes-guard control surface — Persona creation/editing, step-up rules, Transcodes Admin API, and SDK integration\nargument-hint: [what you want to do]\n---\n',
+      '---\ndescription: Open the transcodes-guard control surface — setup/repair, Personas, step-up rules, Transcodes Admin API, and SDK integration\nargument-hint: [what you want to do]\n---\n',
     introTail: ' The user said:',
     // claude-code keeps a blockquote request line (Claude Code native $ARGUMENTS).
     requestBlock: '\n\n> $ARGUMENTS',

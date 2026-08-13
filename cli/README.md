@@ -20,6 +20,18 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercont
 
 Or: `npm install -g @bigstrider/transcodes-cli` (Node ≥ 20).
 
+These commands install the **CLI only**. To add the plugin for an AI app, run:
+
+```bash
+transcodes install
+```
+
+Choose the installed AI apps in the prompt. Only successful host installs are
+reported as complete. Then start a new session, review and trust the plugin
+hooks when prompted, and verify that the Transcodes Skill is available. Sign in
+from the dashboard or with `transcodes login` when using Guard/Admin API actions
+or organization Persona sharing.
+
 ## Commands
 
 | Command | What it does |

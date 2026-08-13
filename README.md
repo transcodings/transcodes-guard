@@ -30,7 +30,7 @@ Do this **in order**. Without a token the plugin can still DENY danger commands,
 
 ### Quickstart — `transcodes install` (recommended)
 
-The fastest path is the guided installer — plugins, token, then dashboard in one flow.
+The fastest path is the guided installer — host plugins, then dashboard in one flow.
 Node is optional for this step: the bootstrap script installs an LTS if missing.
 
 ```bash
@@ -43,7 +43,7 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
-Already have Node ≥ 20? `npm install -g @bigstrider/transcodes-cli` works too.
+Already have Node ≥ 20? `npm install -g @bigstrider/transcodes-cli` installs the **CLI command only**. Run `transcodes install` afterward to add host plugins.
 
 What `transcodes install` does:
 
@@ -52,15 +52,12 @@ What `transcodes install` does:
    - `↑`/`↓` move · `space` select · `a` all/none · `enter` install selection · `Next Step →` continue · `q` quit
    - Already-installed hosts show `[Installed ✓]`. Selecting them again updates in place.
    - For each selected host it ensures the host CLI (`claude` / `codex` / `cursor-agent` / `agy`) — installing the vendor one-liner when needed — then installs the plugin (Claude/Codex via native host CLIs; Cursor/Antigravity via a temporary repo clone).
-3. **Token setup** — three choices:
-   - **Yes** — paste a Member Access Token (MAT) + label (saved to `~/.transcodes/config.json`)
-   - **No** — press ENTER to open [app.transcodes.io](https://app.transcodes.io), create a project/member, issue a MAT, then paste it back in the terminal
-   - **Skip — token already configured** — keep the existing token and continue
-4. **Finish** — after a token is saved, restart your CLI/desktop app so plugins pick it up, then press ENTER to open the local dashboard (`transcodes`).
+3. **Finish** — only when every selected plugin install succeeds, open the local dashboard (`transcodes`). Any failed install exits non-zero and does not report setup complete.
+4. **Sign in when needed** — use the dashboard or `transcodes login`. Sign-in is required for Guard/Admin API actions and organization Persona sharing, but local Persona authoring works signed out.
 
 Non-interactive: `transcodes install --all` or `transcodes install claude codex cursor antigravity`.
 
-Once the dashboard is open, use **Quick Demo** for a one-prompt step-up test, or expand **Steps** for RBAC / passkey / audit / Slack·Discord webhook guidance.
+After plugin installation, start a **new AI app chat or CLI session**, then review and trust the plugin hooks when prompted before using the Transcodes Skill. Once the dashboard is open, use **Quick Demo** for a one-prompt step-up test, or expand **Steps** for RBAC / passkey / audit / Slack·Discord webhook guidance.
 
 ### Update — `transcodes update`
 
@@ -93,7 +90,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercont
 
 Then: `transcodes` — opens the local dashboard (default port 3847; if busy it tries the next free port, and frees the range once if all are taken).
 
-Fallback if you already have Node ≥ 20: `npm install -g @bigstrider/transcodes-cli` or `npx @bigstrider/transcodes-cli`.
+Fallback if you already have Node ≥ 20: `npm install -g @bigstrider/transcodes-cli` or `npx @bigstrider/transcodes-cli`. These install/run the CLI only; continue with `transcodes install` for host plugins.
 
 ### 2. Create a project in Transcodes Console and save the token
 

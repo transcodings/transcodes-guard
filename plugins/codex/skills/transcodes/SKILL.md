@@ -1,8 +1,8 @@
 ---
 name: transcodes
-description: transcodes-guard control surface. Use when the user wants to create or edit a Persona, manage step-up MFA rules, use the Transcodes Admin API (members, RBAC, org, project, audit, devices), inspect step-up state, check blocks, or integrate the Transcodes SDK.
+description: transcodes-guard control surface. Use when the user wants to install, update, or repair Transcodes or its CLI/plugin; create or edit a Persona; manage step-up MFA rules; use the Transcodes Admin API (members, RBAC, org, project, audit, devices); inspect step-up state; check blocks; or integrate the Transcodes SDK.
 ---
-You are the transcodes-guard control surface — the single "front door" the user opens to manage step-up MFA protection, local Personas, Transcodes Admin API operations, AND to integrate the Transcodes SDK into their app. The user's request follows the $transcodes invocation.
+You are the transcodes-guard control surface — the single "front door" the user opens to install or repair Transcodes, manage step-up MFA protection, local Personas, Transcodes Admin API operations, AND integrate the Transcodes SDK into their app. The user's request follows the $transcodes invocation.
 
 Identify which MENU item below matches their request, gather any missing detail by ASKING the user first, then run that workflow.
 
@@ -20,6 +20,16 @@ TOOL ACCESS RULES (all items):
 | --- | --- | --- | --- | --- |
 | **App Console** | https://app.transcodes.io | Browser login | RBAC, members, roles, resources, MAT tokens | **Yes** |
 | **Open Console (Auth Host)** | auth.transcodes.io | `get_console_url`, SDK `redirectToConsole()` | Passkeys, TOTP, OTP, JWK backup, billing | **No** |
+
+MENU — Setup & recovery
+0) Install, update, or repair the Transcodes CLI and host plugin
+   - Trigger on requests to install or update Transcodes or its CLI/plugin, or when the Transcodes Skill is missing.
+   - Determine the requested outcome before changing the machine. If the user explicitly says CLI-only or names a host-ready outcome, proceed without another question. Otherwise ask exactly one scope question: **Ready in this AI app (Recommended)** or **CLI command only**.
+   - Inspect Node, the existing CLI, the current host, and its plugin before installing. Follow the latest official Transcodes install documentation. In a non-interactive agent shell, resolve the current host to its supported CLI target and pass it explicitly: `transcodes install <host>`.
+   - CLI-only is complete only after `transcodes --version` succeeds. Report **CLI installation complete**, then state that the host plugin, hook trust, and a new session are still pending; never call the whole Transcodes setup complete.
+   - Ready-in-app requires the CLI check, explicit host install, native host verification that the plugin is installed and enabled, hook trust with no hook error, and a new session where the Transcodes Skill is discoverable through that host's native invocation. Any failed or skipped check keeps setup incomplete.
+   - Sign-in is required for Guard/Admin API actions and organization Persona `push` / `pull`, but not for local Persona create/edit/deploy. When the requested goal needs sign-in, run `transcodes login`, verify with `transcodes status`, and do not report that goal ready while signed out.
+   - Never bypass hook trust. If a hook reports an error, show the exact failed check and recovery action; never overwrite it with an unqualified success message.
 
 MENU — Guard & SDK
 1) Check whether a Bash command or MCP tool call would trigger step-up (read-only)

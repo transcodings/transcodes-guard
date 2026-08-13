@@ -1073,7 +1073,9 @@ function arrowChoose(
 }
 
 /** Ensure host CLI + install plugin for each selected platform, then summarize. */
-async function runInstalls(ids: readonly PlatformId[]): Promise<void> {
+async function runInstalls(
+  ids: readonly PlatformId[],
+): Promise<ReadonlyMap<PlatformId, boolean>> {
   const clonedRepoDir = await cloneRepoIfNeeded(ids);
   const results = new Map<PlatformId, boolean>();
   try {
@@ -1093,6 +1095,7 @@ async function runInstalls(ids: readonly PlatformId[]): Promise<void> {
     const label = PLATFORMS.find((p) => p.id === id)?.label ?? id;
     log(`  ${results.get(id) ? '✓' : '✗'} ${label}`);
   }
+  return results;
 }
 
 /** Install one host plugin. Ensures host CLI first. */
@@ -1175,6 +1178,13 @@ function printSetupComplete(): void {
   log(t('congratsBar'));
   log('');
   log(t('congratsBody'));
+  log('');
+}
+
+function printSetupIncomplete(): void {
+  log('');
+  log(t('setupIncomplete'));
+  log(t('setupIncompleteBody'));
   log('');
 }
 
@@ -1266,6 +1276,7 @@ export async function cmdInstall(args: string[]): Promise<void> {
   log('');
 
   const selection = parseSelection(args);
+  const installResults = new Map<PlatformId, boolean>();
 
   if (selection === 'interactive') {
     if (!isTty()) {
@@ -1298,7 +1309,6 @@ export async function cmdInstall(args: string[]): Promise<void> {
         process.exit(0);
       }
       if (choice.kind === 'next') {
-        clearScreen();
         break;
       }
       if (choice.ids.length === 0) {
@@ -1308,7 +1318,9 @@ export async function cmdInstall(args: string[]): Promise<void> {
       // Remember the selection so the next round re-checks the same boxes.
       checked.clear();
       for (const id of choice.ids) checked.add(id);
-      await runInstalls(choice.ids);
+      for (const [id, ok] of await runInstalls(choice.ids)) {
+        installResults.set(id, ok);
+      }
     }
   } else {
     if (selection.length === 0) {
@@ -1322,8 +1334,14 @@ export async function cmdInstall(args: string[]): Promise<void> {
           .join(', '),
       })}`,
     );
-    await runInstalls(selection);
-    clearScreen();
+    for (const [id, ok] of await runInstalls(selection)) {
+      installResults.set(id, ok);
+    }
+  }
+
+  if ([...installResults.values()].includes(false)) {
+    printSetupIncomplete();
+    process.exit(1);
   }
 
   printSetupComplete();

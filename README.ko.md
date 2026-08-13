@@ -30,7 +30,7 @@
 
 ### 빠른 시작 — `transcodes install` (권장)
 
-가장 빠른 방법은 대화형 설치 마법사입니다. 플러그인 → 토큰 → 대시보드까지 한 번에 진행합니다.
+가장 빠른 방법은 대화형 설치 마법사입니다. 호스트 플러그인 → 대시보드까지 한 번에 진행합니다.
 이 단계에서는 Node가 없어도 됩니다. 부트스트랩 스크립트가 없으면 LTS를 설치합니다.
 
 ```bash
@@ -43,7 +43,7 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.ps1 | iex; transcodes install
 ```
 
-이미 Node ≥ 20이 있다면 `npm install -g @bigstrider/transcodes-cli`도 됩니다.
+이미 Node ≥ 20이 있다면 `npm install -g @bigstrider/transcodes-cli`로 **CLI 명령어만** 설치할 수 있습니다. 호스트 플러그인은 이어서 `transcodes install`로 설치하세요.
 
 `transcodes install`이 하는 일:
 
@@ -52,15 +52,12 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercont
    - `↑`/`↓` 이동 · `space` 선택 · `a` 전체/해제 · `enter` 선택분 설치 · `Next Step →` 다음 · `q` 종료
    - 이미 설치된 호스트는 `[Installed ✓]`로 표시됩니다. 다시 선택하면 in-place 업데이트입니다.
    - 선택한 각 호스트에 대해 호스트 CLI(`claude` / `codex` / `cursor-agent` / `agy`)를 확인하고, 없으면 공식 원라이너로 설치한 뒤 플러그인을 설치합니다(Claude·Codex는 네이티브 CLI, Cursor·Antigravity는 임시 저장소 클론).
-3. **토큰 설정** — 세 가지 선택지:
-   - **Yes** — Member Access Token(MAT) + label을 붙여넣어 저장(`~/.transcodes/config.json`)
-   - **No** — ENTER로 [app.transcodes.io](https://app.transcodes.io)를 열고, 프로젝트/멤버·MAT 발급 후 터미널에 다시 붙여넣기
-   - **Skip — token already configured** — 이미 저장된 토큰을 쓰고 계속 진행
-4. **완료** — 토큰 저장 후 CLI/데스크톱 앱을 재시작해 플러그인이 반영되게 한 다음, ENTER로 로컬 대시보드(`transcodes`)를 엽니다.
+3. **완료** — 선택한 모든 플러그인 설치가 성공한 경우에만 로컬 대시보드(`transcodes`)를 엽니다. 하나라도 실패하면 종료 코드 1로 끝나며 설정 완료로 보고하지 않습니다.
+4. **필요할 때 로그인** — 대시보드 또는 `transcodes login`을 사용합니다. Guard/Admin API와 조직 Persona 공유에는 로그인이 필요하지만 로컬 Persona 작성은 로그아웃 상태에서도 가능합니다.
 
 비대화형: `transcodes install --all` 또는 `transcodes install claude codex cursor antigravity`.
 
-대시보드가 열리면 **Quick Demo**로 step-up을 바로 시험하거나, **Steps**를 펼쳐 RBAC / 패스키 / 감사 로그 / Slack·Discord webhook 안내를 따라가면 됩니다.
+플러그인 설치 후 **새 AI 앱 채팅 또는 CLI 세션**을 시작하고, 표시되는 플러그인 hook 신뢰 요청을 검토·승인한 뒤 Transcodes Skill을 사용하세요. 대시보드가 열리면 **Quick Demo**로 step-up을 바로 시험하거나, **Steps**를 펼쳐 RBAC / 패스키 / 감사 로그 / Slack·Discord webhook 안내를 따라가면 됩니다.
 
 ### 업데이트 — `transcodes update`
 
@@ -93,7 +90,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercont
 
 그다음 `transcodes` — 로컬 대시보드를 엽니다(기본 포트 3847; 사용 중이면 다음 빈 포트를 찾고, 구간이 모두 차면 한 번 정리 후 재시도).
 
-이미 Node ≥ 20이 있다면: `npm install -g @bigstrider/transcodes-cli` 또는 `npx @bigstrider/transcodes-cli`.
+이미 Node ≥ 20이 있다면: `npm install -g @bigstrider/transcodes-cli` 또는 `npx @bigstrider/transcodes-cli`. 이 명령은 CLI만 설치·실행하므로 호스트 플러그인은 `transcodes install`로 이어서 설치하세요.
 
 ### 2. Transcodes Console에서 프로젝트 생성 후 토큰 입력
 
