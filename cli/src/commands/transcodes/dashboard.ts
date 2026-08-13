@@ -7449,6 +7449,10 @@ function dashboardHtml(): string {
           ? ""
           : draftName
         : "";
+      // applyPersonaListing() resets the open file too, so a companion has to
+      // be carried across the same way the name is. Without this the editor
+      // reloads SKILL.md and the user reads it as their edit having vanished.
+      const openFile = samePersona ? personaState.file : "SKILL.md";
       // The open file travels with the contents. Without it the route falls
       // back to SKILL.md, so preserving an edited companion would overwrite
       // the Skill's own SKILL.md and lose both files at once.
@@ -7487,6 +7491,15 @@ function dashboardHtml(): string {
               : entries.length > 0
                 ? entries[0].name
                 : "";
+          }
+          // After the name, because the file list is looked up by it. The pull
+          // may have removed the file, in which case SKILL.md is the only
+          // honest place to land.
+          if (openKind === "skill" && personaState.name === openName) {
+            personaState.file =
+              currentSkillFiles().indexOf(openFile) !== -1
+                ? openFile
+                : "SKILL.md";
           }
           syncPersonaEntryForm();
           await loadPersonaFile();

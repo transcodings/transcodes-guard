@@ -172,6 +172,17 @@ test("pull preserves the file the editor actually holds", () => {
   );
 });
 
+test("pull returns the editor to the file it was on", () => {
+  // Preserving the companion on disk is only half of it. applyPersonaListing()
+  // resets personaState.file to SKILL.md, so without restoring it the editor
+  // reloads the instructions and the user reads that as their edit being gone.
+  assert.match(source, /const openFile = samePersona \? personaState\.file : "SKILL\.md";/);
+  assert.match(
+    source,
+    /personaState\.name = entries\.some[\s\S]{0,600}?personaState\.file =\s*\n?\s*currentSkillFiles\(\)\.indexOf\(openFile\) !== -1\s*\n?\s*\? openFile\s*\n?\s*: "SKILL\.md";/,
+  );
+});
+
 test("push reports whether the editor contents reached the disk", () => {
   // `saved` must be a boolean: the catch block hands it to the error handler,
   // which tests `=== true`. A truthy string would be dropped there and a
@@ -596,7 +607,7 @@ test("pull restores the file the user had open", () => {
   assert.match(source, /selectPersonaKind\(openKind\);[\s\S]{0,400}?entry\.name === openName/);
   assert.match(
     source,
-    /if \(samePersona\) \{[\s\S]{0,900}?\} else \{[\s\S]{0,300}?must not switch the Personal editor/,
+    /if \(samePersona\) \{[\s\S]{0,1300}?\} else \{[\s\S]{0,300}?must not switch the Personal editor/,
   );
   assert.doesNotMatch(source, /selectPersonaTab\(/);
   assert.doesNotMatch(source, /renderPersonaPicker\(/);
