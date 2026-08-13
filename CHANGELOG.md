@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.70.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.70.0...transcodes-guard-v0.70.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* **cli:** Persona pull 데이터 손실과 Skill 번들 후속 4건 ([#258](https://github.com/transcodings/transcodes-guard/issues/258)) ([78d42d0](https://github.com/transcodings/transcodes-guard/commit/78d42d00630afdbacaa257f0ad7bad92f153b4f4))
+
 ## [0.70.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.69.4...transcodes-guard-v0.70.0) (2026-08-13)
 
 
