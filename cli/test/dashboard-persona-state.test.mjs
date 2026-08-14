@@ -34,13 +34,19 @@ test("Guide footer links to the Transcodes tutorial channel", () => {
   );
   assert.match(
     source,
+    /\.guide-footer-line a \{[\s\S]{0,40}?color: var\(--highlight\);/,
+  );
+  assert.match(
+    source,
     /More tutorials:[\s\S]*Questions or trouble setting up\?[\s\S]*Full documentation:/,
   );
 });
 
 test("Persona Save state is button-only, without a status banner", () => {
-  assert.match(source, /id="persona-save-btn" disabled/);
+  assert.match(source, /class="btn-save" id="persona-save-btn" disabled/);
   assert.match(source, /personaEditor\.value !== personaState\.savedContent/);
+  assert.match(source, /\.btn-save:not\(:disabled\) \{[\s\S]{0,80}?background: var\(--accent\);/);
+  assert.match(source, /\.actions \.btn-save:disabled \{[\s\S]{0,60}?opacity: 1;/);
   assert.match(
     source,
     /Set a project folder path, then use <strong>Apply<\/strong> to apply the selected Persona to the project folder/,
@@ -71,6 +77,12 @@ test("Persona AI agent callout is a collapsible accordion", () => {
     /\.persona-agent-callout--workspace\[open\] \.persona-agent-callout-chevron/,
   );
   assert.match(source, /Create Personas with Your AI/);
+  assert.match(
+    source,
+    /ICON_PERSONA\.replace\(\s*'<svg ',\s*'<svg class="persona-agent-callout-icon" '\s*\)/,
+  );
+  assert.match(source, /M9\.813 15\.904/);
+  assert.doesNotMatch(source, /m12 3-1\.2 3\.4/);
   assert.match(source, /Your AI can handle every Persona action in this panel/);
   assert.match(
     source,
@@ -97,6 +109,12 @@ test("the file list renders inside the selected Persona bundle", () => {
     /'<div class="persona-bundle-card">' \+\s*bundleHead \+\s*'<div class="persona-child-tree">'/,
   );
   assert.match(source, /class="persona-bundle-card-head"/);
+  assert.match(source, /id="persona-bundle-remote-ver"/);
+  assert.match(source, /function personaBundleVersionText\(\)/);
+  assert.match(
+    source,
+    /"Current " \+ current \+ " · Remote " \+ remote/,
+  );
   assert.doesNotMatch(source, /class="persona-bundle-card-count"/);
   assert.doesNotMatch(source, /class="persona-group-count"/);
   assert.doesNotMatch(source, /\.persona-child-tree::before/);
@@ -263,8 +281,8 @@ test("Persona group explanations live in accessible info tooltips", () => {
 });
 
 test("Persona sync is gated on being signed in", () => {
-  // GET LATEST / UPDATE live on the unified Organization list; Personal does not
-  // duplicate them.
+  // GET FROM REMOTE / PUBLISH TO REMOTE live on the unified Organization
+  // list; Personal does not duplicate them.
   assert.doesNotMatch(source, /id="persona-push-btn"/);
   assert.match(source, /data-remote-sync="/);
   assert.match(source, /data-remote-upload="/);
@@ -328,6 +346,10 @@ test("Persona exposes My Personas and Organization from a sidebar accordion", ()
   assert.match(source, /data-remote-sync="/);
   assert.match(source, /id="persona-local-tab" aria-current="page">My Personas</);
   assert.match(source, /id="persona-remote-tab">Organization</);
+  assert.match(
+    source,
+    /class="persona-bundle-help">Only Personas on this device are listed here/,
+  );
   assert.doesNotMatch(source, /id="persona-local-tab" aria-current="page">Personal</);
   assert.doesNotMatch(source, /id="persona-remote-tab">Team</);
   assert.doesNotMatch(source, /class="persona-mode-tabs"/);
@@ -366,6 +388,23 @@ test("dashboard keeps the desktop sidebar layout at narrow window widths", () =>
   assert.doesNotMatch(source, /@media \(max-width: 680px\)/);
 });
 
+test("dashboard palette matches the Transcodes console grayscale", () => {
+  assert.match(source, /--bg: #F9FAFB;/);
+  assert.match(source, /--line: #E5E7EB;/);
+  assert.match(source, /--ink: #111827;/);
+  assert.match(source, /--muted: #6B7280;/);
+  assert.match(source, /--accent: #111827;/);
+  assert.match(source, /--accent-soft: #F3F4F6;/);
+  assert.match(source, /--highlight: #5b54e6;/);
+  assert.match(source, /--highlight-soft: #eeedfb;/);
+  assert.match(source, /--action: var\(--highlight\);/);
+  assert.match(source, /class="btn-action persona-deploy-btn"/);
+  assert.match(
+    source,
+    /\.persona-agent-callout \{[\s\S]{0,220}?background: var\(--highlight-soft\);/,
+  );
+});
+
 test("dashboard fills the viewport and keeps version at sidebar bottom", () => {
   assert.match(
     source,
@@ -392,6 +431,18 @@ test("dashboard fills the viewport and keeps version at sidebar bottom", () => {
     source,
     /\.tab-beta \{[\s\S]{0,280}?text-transform: uppercase;/,
   );
+  assert.match(
+    source,
+    /\.tab-beta \{[\s\S]{0,220}?background: var\(--highlight-soft\);[\s\S]{0,40}?color: var\(--highlight\);/,
+  );
+  assert.match(
+    source,
+    /\.card > \.tabs > \.tab,[\s\S]{0,180}?padding: 11px 24px 11px 13px;/,
+  );
+  assert.match(
+    source,
+    /\.card > \.tabs > \.tab\.active,[\s\S]{0,120}?background: var\(--accent-soft\);/,
+  );
   assert.doesNotMatch(source, /class="dashboard-footer"/);
   assert.match(
     source,
@@ -411,7 +462,7 @@ test("Persona editor fills available height and keeps actions at the bottom", ()
   );
   assert.match(
     source,
-    /#panel-persona \.persona-registry-body \{[\s\S]{0,160}?flex: 1;[\s\S]{0,120}?width: 100%;[\s\S]{0,100}?min-height: 0;[\s\S]{0,180}?overflow-x: hidden;[\s\S]{0,80}?overflow-y: auto;/,
+    /#panel-persona \.persona-registry-body \{[\s\S]{0,160}?flex: 1;[\s\S]{0,120}?width: 100%;[\s\S]{0,100}?min-height: 0;[\s\S]{0,180}?overflow-x: hidden;[\s\S]{0,80}?overflow-y: auto;[\s\S]{0,40}?scrollbar-width: none;/,
   );
   assert.match(
     source,
@@ -436,7 +487,11 @@ test("Organization view renders one unified Persona list", () => {
   // every Persona meet on one card.
   assert.match(
     source,
-    /#panel-persona \.persona-remote-view \{[\s\S]{0,220}?width: calc\(100% - 68px\);[\s\S]{0,180}?max-width: 1160px;[\s\S]{0,180}?padding: 30px 0 40px;/,
+    /#panel-persona \.persona-remote-view \{[\s\S]{0,220}?width: 100%;[\s\S]{0,180}?padding: 30px 36px 40px;/,
+  );
+  assert.match(
+    source,
+    /#panel-persona \.persona-remote-list \{[\s\S]{0,80}?max-width: 1160px;/,
   );
   assert.doesNotMatch(source, /id="persona-remote-local"/);
   assert.doesNotMatch(source, /class="persona-remote-title">Local Personas</);
@@ -444,6 +499,14 @@ test("Organization view renders one unified Persona list", () => {
   assert.match(
     source,
     /id="persona-remote-refresh-btn"[\s\S]*?class="persona-remote-refresh-icon"[\s\S]*?Refresh/,
+  );
+  assert.match(
+    source,
+    /persona-remote-head-actions[\s\S]*?data-app-tab="personas"[\s\S]*?View Personas/,
+  );
+  assert.match(
+    source,
+    /function appPersonasUrl\(organizationId\)[\s\S]*?\/access\?section=personas/,
   );
   assert.match(source, /function personaCardHtml\(personaId, withActions\)/);
   // Organization order first, then local-only Personas appended once.
@@ -487,11 +550,25 @@ test("each card shows both versions, a status badge, and updater metadata", () =
   );
   assert.doesNotMatch(source, /persona-update-chip svg/);
   assert.match(source, /class="persona-sync-state" data-state="/);
+  assert.match(source, /function personaSyncExplain\(status\)/);
+  assert.match(
+    source,
+    /case "local-only":\s*return "On this device only — not on remote yet\. Upload it"/,
+  );
+  assert.match(
+    source,
+    /case "remote-only":\s*return "Only on remote — you can download it to this device"/,
+  );
+  assert.match(
+    source,
+    /case "edited":\s*return "Changed on this device\. Upload to update remote"/,
+  );
+  assert.match(source, /class="persona-sync-explain"/);
 });
 
 test("the status classifier maps every state to exactly one safe action", () => {
-  // org newer + unedited → GET LATEST; org same + edited → UPDATE;
-  // org newer + edited → conflict (Get with backup); equal → nothing.
+  // org newer + unedited → GET FROM REMOTE; org same + edited → UPDATE REMOTE;
+  // org newer + edited → conflict (Get from remote with backup); equal → nothing.
   assert.match(source, /function personaSyncStatus\(personaId\)/);
   assert.match(source, /const edited = currentHash !== syncedHash;/);
   assert.match(source, /const behind = org > synced;/);
@@ -504,20 +581,15 @@ test("the status classifier maps every state to exactly one safe action", () => 
     source,
     /status\.label\s*\?\s*'<span class="persona-sync-state"/,
   );
-  assert.match(source, /class="persona-local-version-grid"/);
+  assert.doesNotMatch(source, /class="persona-local-version-grid"/);
   assert.doesNotMatch(source, /UNVERSIONED/);
-  assert.match(
-    source,
-    /const currentVersion = status\.local === null \? "—" : "v" \+ status\.local;/,
-  );
-  assert.match(source, /class="persona-local-sync-state"/);
-  assert.match(
-    source,
-    /personaLocalRemoteStatus\.innerHTML =[\s\S]{0,900}?persona-local-version-label">Current<[\s\S]{0,400}?persona-local-version-label">Remote</,
-  );
-  // A conflict never offers UPDATE — the only button downloads with a backup.
+  assert.doesNotMatch(source, /class="persona-local-sync-state"/);
+  assert.match(source, /id="persona-bundle-remote-ver"/);
+  // A conflict never offers UPDATE REMOTE — the only button downloads with a backup.
   assert.match(source, /action: "get-backup"/);
-  assert.match(source, /BACK UP LOCAL<\/button>/);
+  assert.match(source, /GET FROM REMOTE · BACK UP LOCAL<\/button>/);
+  assert.match(source, />GET FROM REMOTE<\/button>/);
+  assert.match(source, /status\.state === "local-only"\s*\?\s*"PUBLISH TO REMOTE"\s*:\s*"UPDATE REMOTE"/);
   // Sharing still includes unsaved Personal editor text after the confirm.
   assert.match(
     source,
