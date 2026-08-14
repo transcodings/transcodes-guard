@@ -99,6 +99,7 @@ const PWA_ICON_PNG = Buffer.from(
  * Console org base — app deep-links:
  * - permissions: `/{oid}/project/{pid}?tab=permissions`
  * - webhooks:    `/{oid}/project/{pid}/settings?tab=webhooks`
+ * - personas:    `/{oid}/access?section=personas`
  */
 const APP_ORG_URL = 'https://app.transcodes.io/en/org';
 /** Fallback when no MCP token / organization id is available. */
@@ -333,7 +334,7 @@ function dashboardHtml(): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Transcodes — CLI Panel</title>
-  <meta name="theme-color" content="#16161a" />
+  <meta name="theme-color" content="#111827" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Transcodes" />
@@ -343,14 +344,23 @@ function dashboardHtml(): string {
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     :root {
-      --bg: #f4f4f6;
+      --bg: #F9FAFB;
       --card: #ffffff;
-      --line: #ececf0;
-      --ink: #16161a;
-      --muted: #8a8a94;
-      --accent: #5b54e6;
-      --accent-soft: #eeedfb;
+      --line: #E5E7EB;
+      --ink: #111827;
+      --muted: #6B7280;
+      --accent: #111827;
+      --accent-hover: #1F2937;
+      --accent-soft: #F3F4F6;
+      --accent-soft-hover: #E5E7EB;
+      --highlight: #5b54e6;
+      --highlight-hover: #4a43d4;
+      --highlight-soft: #eeedfb;
+      --action: var(--highlight);
+      --action-hover: var(--highlight-hover);
+      --action-soft: var(--highlight-soft);
       --card-max: 894px;
+      --text-3xs: 11px;
       --text-2xs: 13px;
       --text-xs: 14px;
       --text-sm: 15px;
@@ -424,7 +434,7 @@ function dashboardHtml(): string {
       position: absolute;
       inset: -1px;
       border-radius: inherit;
-      border: 1px solid rgba(91, 84, 230, 0.28);
+      border: 1px solid rgba(17, 24, 39, 0.28);
       opacity: 0;
       pointer-events: none;
       z-index: -1;
@@ -455,13 +465,13 @@ function dashboardHtml(): string {
     }
     @keyframes install-pulse {
       0% {
-        box-shadow: 0 0 0 0 rgba(91, 84, 230, 0.18);
+        box-shadow: 0 0 0 0 rgba(17, 24, 39, 0.18);
       }
       70% {
-        box-shadow: 0 0 0 10px rgba(91, 84, 230, 0);
+        box-shadow: 0 0 0 10px rgba(17, 24, 39, 0);
       }
       100% {
-        box-shadow: 0 0 0 0 rgba(91, 84, 230, 0);
+        box-shadow: 0 0 0 0 rgba(17, 24, 39, 0);
       }
     }
     @keyframes install-pulse-ring {
@@ -600,7 +610,7 @@ function dashboardHtml(): string {
       padding: 13px 14px;
       border: 1px solid var(--line);
       border-radius: 12px;
-      background: #fafafd;
+      background: #F9FAFB;
     }
     .deploy-confirm-target-label {
       display: block;
@@ -697,9 +707,9 @@ function dashboardHtml(): string {
     }
     .deploy-confirm-cancel:hover { background: #f7f7f9; }
     .deploy-confirm-submit {
-      border: 1px solid var(--accent);
+      border: 1px solid var(--action);
       color: #fff;
-      background: var(--accent);
+      background: var(--action);
     }
     .deploy-confirm-submit:hover { opacity: 0.9; }
     .deploy-confirm-submit:disabled {
@@ -988,9 +998,9 @@ function dashboardHtml(): string {
       font-size: var(--text-sm);
       font-weight: 600;
       color: #fff;
-      background: var(--accent);
+      background: var(--action);
       cursor: pointer;
-      transition: opacity 0.15s ease;
+      transition: background 0.15s ease, opacity 0.15s ease;
     }
     .btn-session-logout {
       flex-shrink: 0;
@@ -1012,7 +1022,7 @@ function dashboardHtml(): string {
       flex-shrink: 0;
     }
     .btn-manage-auth:hover:not(:disabled),
-    .btn-session-login:hover:not(:disabled) { opacity: 0.92; }
+    .btn-session-login:hover:not(:disabled) { background: var(--action-hover); }
     .btn-session-logout:hover:not(:disabled) { color: var(--ink); }
     .btn-manage-auth:disabled,
     .btn-session-login:disabled,
@@ -1058,8 +1068,8 @@ function dashboardHtml(): string {
     .cli-cmd,
     .cli-map-row code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      background: var(--accent-soft);
-      color: var(--accent);
+      background: var(--highlight-soft);
+      color: var(--highlight);
       padding: 2px 8px;
       border-radius: 6px;
       font-size: var(--text-2xs);
@@ -1102,8 +1112,8 @@ function dashboardHtml(): string {
       margin-left: 2px;
       padding: 2px 8px;
       border-radius: 999px;
-      background: var(--accent-soft);
-      color: var(--accent);
+      background: var(--highlight-soft);
+      color: var(--highlight);
       font-size: 12px;
       font-weight: 700;
       letter-spacing: 0.01em;
@@ -1184,7 +1194,7 @@ function dashboardHtml(): string {
       margin: 0 0 16px;
     }
     .section-sub a {
-      color: var(--accent);
+      color: var(--highlight);
       font-weight: 600;
       text-decoration: none;
     }
@@ -1243,7 +1253,7 @@ function dashboardHtml(): string {
     textarea:focus {
       background: #fff;
       border-color: var(--accent);
-      box-shadow: 0 0 0 4px rgba(91, 84, 230, 0.12);
+      box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.12);
     }
     textarea::placeholder { color: #b9b9c2; }
     .label-input {
@@ -1261,7 +1271,7 @@ function dashboardHtml(): string {
     .label-input:focus {
       background: #fff;
       border-color: var(--accent);
-      box-shadow: 0 0 0 4px rgba(91, 84, 230, 0.12);
+      box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.12);
     }
     .label-input::placeholder { color: #b9b9c2; }
     .actions {
@@ -1282,7 +1292,22 @@ function dashboardHtml(): string {
     .actions button:active:not(:disabled) { transform: translateY(1px); }
     .actions button:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: var(--accent); color: #fff; }
-    .btn-primary:hover:not(:disabled) { background: #4a43d4; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-action { background: var(--action); color: #fff; }
+    .btn-action:hover:not(:disabled) { background: var(--action-hover); }
+    .btn-save {
+      background: var(--accent-soft);
+      color: #9CA3AF;
+    }
+    .btn-save:not(:disabled) {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-save:hover:not(:disabled) { background: var(--accent-hover); }
+    .actions .btn-save:disabled {
+      opacity: 1;
+      cursor: default;
+    }
     .btn-secondary {
       background: #f4f4f6;
       color: #5a5a64;
@@ -1295,8 +1320,8 @@ function dashboardHtml(): string {
       padding: 7px 14px;
       font-size: var(--text-2xs);
       font-weight: 600;
-      color: var(--accent);
-      background: var(--accent-soft);
+      color: var(--highlight);
+      background: var(--highlight-soft);
       border: none;
       border-radius: 9px;
       cursor: pointer;
@@ -1304,6 +1329,7 @@ function dashboardHtml(): string {
     }
     .btn-inline-action:hover:not(:disabled) { background: #e3e1f7; }
     .btn-inline-action:disabled { opacity: 0.55; cursor: default; }
+    a.btn-inline-action { text-decoration: underline; }
     .danger-zone {
       display: flex;
       align-items: center;
@@ -1400,7 +1426,7 @@ function dashboardHtml(): string {
       transform: translateX(20px);
     }
     .guard-switch input:focus-visible + .guard-switch-track {
-      outline: 3px solid rgba(91, 84, 230, 0.22);
+      outline: 3px solid rgba(17, 24, 39, 0.22);
       outline-offset: 2px;
     }
     .guard-switch input:disabled + .guard-switch-track {
@@ -1522,81 +1548,12 @@ function dashboardHtml(): string {
     .persona-local-remote-status {
       margin: 0 0 14px;
       padding: 12px;
-      border: 1px solid #e7e7ef;
+      border: 1px solid #E5E7EB;
       border-radius: 12px;
-      background: #fafafe;
+      background: #F9FAFB;
       color: var(--muted);
     }
     .persona-local-remote-status:empty { display: none; }
-    .persona-local-version-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .persona-local-version {
-      min-width: 0;
-      padding: 8px 9px;
-      border: 1px solid #ededf3;
-      border-radius: 9px;
-      background: #fff;
-    }
-    .persona-local-version-label {
-      display: block;
-      color: #92929f;
-      font-size: 9px;
-      font-weight: 750;
-      letter-spacing: .08em;
-      line-height: 1.2;
-      text-transform: uppercase;
-    }
-    .persona-local-version-value {
-      display: block;
-      margin-top: 3px;
-      color: var(--ink);
-      font-size: 14px;
-      font-weight: 780;
-      line-height: 1.2;
-    }
-    .persona-local-sync-state {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 30px;
-      margin-top: 8px;
-      padding: 6px 10px;
-      border-radius: 8px;
-      background: #edf8f1;
-      color: #2f8f5b;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: .06em;
-      line-height: 1.2;
-      text-align: center;
-    }
-    .persona-local-remote-status[data-state="behind"] .persona-local-sync-state,
-    .persona-local-remote-status[data-state="edited"] .persona-local-sync-state,
-    .persona-local-remote-status[data-state="local-only"] .persona-local-sync-state {
-      background: #fff5e8;
-      color: #9a5b13;
-    }
-    .persona-local-remote-status[data-state="conflict"] .persona-local-sync-state {
-      background: #fff0ef;
-      color: #c0392f;
-    }
-    .persona-local-remote-status[data-state="remote-only"] .persona-local-sync-state,
-    .persona-local-remote-status[data-state="unknown"] .persona-local-sync-state {
-      background: #f0f1f5;
-      color: #6d6d79;
-    }
-    .persona-local-sync-meta {
-      margin: 7px 1px 0;
-      overflow: hidden;
-      color: #9797a3;
-      font-size: 10px;
-      line-height: 1.35;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
     .persona-sync-warning {
       margin: 8px 0 0;
       color: #c0392f;
@@ -1615,6 +1572,13 @@ function dashboardHtml(): string {
       justify-content: space-between;
       gap: 24px;
       margin-bottom: 20px;
+    }
+    .persona-remote-head-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      flex: 0 0 auto;
     }
     .persona-remote-title {
       margin: 0;
@@ -1652,7 +1616,7 @@ function dashboardHtml(): string {
       padding: 36px 38px 34px;
       border-radius: 18px;
       border: 1px solid var(--line);
-      background: linear-gradient(180deg, #fdfdff 0%, #f6f6fb 100%);
+      background: linear-gradient(180deg, #FFFFFF 0%, #F3F4F6 100%);
       display: flex;
       flex-direction: column;
       gap: 24px;
@@ -1757,7 +1721,7 @@ function dashboardHtml(): string {
       min-height: 142px;
       min-width: 0;
       padding: 18px;
-      border: 1px solid #e8e8ee;
+      border: 1px solid #E5E7EB;
       border-radius: 14px;
       background: #fff;
       box-shadow: 0 1px 2px rgba(24, 24, 35, 0.025);
@@ -1785,6 +1749,13 @@ function dashboardHtml(): string {
       line-height: 1.35;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .persona-sync-explain {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      font-weight: 400;
     }
     .persona-remote-meta {
       margin: 11px 0 14px;
@@ -1880,8 +1851,8 @@ function dashboardHtml(): string {
       color: #c0392f;
     }
     .persona-sync-state[data-state="current"] {
-      background: #eaf7ef;
-      color: #1a7f45;
+      background: var(--action-soft);
+      color: var(--action);
     }
     .persona-remote-empty {
       grid-column: 1 / -1;
@@ -1892,6 +1863,15 @@ function dashboardHtml(): string {
       color: var(--muted);
       font-size: var(--text-2xs);
       text-align: center;
+    }
+    .persona-bundle-help {
+      margin: -2px 0 10px;
+      font-size: var(--text-3xs);
+      line-height: 1.45;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--muted);
     }
     .persona-bundle-row {
       display: flex;
@@ -2024,7 +2004,7 @@ function dashboardHtml(): string {
     }
     .persona-bundle-card-head {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 7px;
       margin: 0;
       padding: 9px 11px;
@@ -2039,14 +2019,28 @@ function dashboardHtml(): string {
       flex: 0 0 auto;
       width: 15px;
       height: 15px;
+      margin-top: 2px;
+    }
+    .persona-bundle-card-titles {
+      min-width: 0;
+      flex: 1;
     }
     .persona-bundle-card-name {
-      flex: 1;
-      min-width: 0;
+      display: block;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
+    .persona-bundle-remote-ver {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 1.35;
+    }
+    .persona-bundle-remote-ver[hidden] { display: none; }
     .persona-bundle-card .persona-child-tree {
       padding: 12px 11px;
     }
@@ -2252,9 +2246,9 @@ function dashboardHtml(): string {
       gap: 12px;
       margin: 18px 0;
       padding: 16px;
-      border: 1px solid rgba(91, 84, 230, 0.2);
+      border: 1px solid rgba(91, 84, 230, 0.28);
       border-radius: 14px;
-      background: linear-gradient(135deg, rgba(91, 84, 230, 0.08), rgba(91, 84, 230, 0.03));
+      background: var(--highlight-soft);
     }
     .persona-agent-callout--workspace {
       display: block;
@@ -2292,7 +2286,7 @@ function dashboardHtml(): string {
       flex: 0 0 auto;
       width: 22px;
       height: 22px;
-      color: var(--accent);
+      color: var(--highlight);
     }
     .persona-agent-callout-title {
       margin: 0 0 4px;
@@ -2514,7 +2508,7 @@ function dashboardHtml(): string {
     .persona-editor:focus {
       background: #fff;
       border-color: var(--accent);
-      box-shadow: 0 0 0 4px rgba(91, 84, 230, 0.12);
+      box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.12);
     }
     .persona-code-editor {
       overflow: hidden;
@@ -2525,7 +2519,7 @@ function dashboardHtml(): string {
     }
     .persona-code-editor:focus-within {
       border-color: var(--accent);
-      box-shadow: 0 0 0 4px rgba(91, 84, 230, 0.12);
+      box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.12);
     }
     .persona-code-editor-host { display: none; }
     .persona-code-editor.is-ready .persona-code-editor-host { display: block; }
@@ -2556,7 +2550,7 @@ function dashboardHtml(): string {
     .persona-code-editor .cm-line { padding: 0 18px 0 10px; }
     .persona-code-editor .cm-gutters {
       border-right: 1px solid #ececf1;
-      background: #fafafd;
+      background: #F9FAFB;
       color: #aaaab4;
     }
     .persona-code-editor .cm-lineNumbers .cm-gutterElement {
@@ -2882,7 +2876,7 @@ function dashboardHtml(): string {
       padding-top: 12px;
       border-top: 1px solid var(--line);
     }
-    .token-row.active .token-actions { border-top-color: rgba(91, 84, 230, 0.18); }
+    .token-row.active .token-actions { border-top-color: rgba(17, 24, 39, 0.18); }
     .token-actions button {
       flex: 1;
       padding: 9px 12px;
@@ -2912,7 +2906,7 @@ function dashboardHtml(): string {
       border: 1px solid var(--accent);
       border-radius: 9px;
       outline: none;
-      box-shadow: 0 0 0 4px rgba(91, 84, 230, 0.12);
+      box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.12);
     }
     .pattern-edit-regex {
       margin-top: 8px;
@@ -2937,7 +2931,7 @@ function dashboardHtml(): string {
       margin: 0 0 20px;
       padding: 16px 18px;
       background: var(--accent-soft);
-      border: 1px solid rgba(91, 84, 230, 0.18);
+      border: 1px solid rgba(17, 24, 39, 0.18);
       border-radius: 14px;
     }
     .usage-title {
@@ -2969,7 +2963,7 @@ function dashboardHtml(): string {
       margin-top: 10px;
       padding: 10px 12px;
       background: #fff;
-      border: 1px dashed rgba(91, 84, 230, 0.35);
+      border: 1px dashed rgba(17, 24, 39, 0.35);
       border-radius: 10px;
       font-size: var(--text-sm);
       color: var(--ink);
@@ -2980,9 +2974,9 @@ function dashboardHtml(): string {
       display: inline-block;
       margin: 6px 0;
       padding: 4px 8px;
-      background: rgba(91, 84, 230, 0.10);
+      background: rgba(17, 24, 39, 0.10);
       border-radius: 6px;
-      color: var(--accent, #5b54e6);
+      color: var(--accent, #111827);
       font-weight: 600;
     }
     .cmd-list { display: flex; flex-direction: column; gap: 10px; }
@@ -3034,7 +3028,7 @@ function dashboardHtml(): string {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      border: 1px solid rgba(91, 84, 230, 0.35);
+      border: 1px solid rgba(17, 24, 39, 0.35);
       border-radius: 999px;
       padding: 6px 12px;
       font-size: var(--text-xs);
@@ -3045,8 +3039,8 @@ function dashboardHtml(): string {
       transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
     .guide-video-toggle:hover {
-      background: #e3e1f7;
-      border-color: rgba(91, 84, 230, 0.5);
+      background: #E5E7EB;
+      border-color: rgba(17, 24, 39, 0.5);
     }
     /* Hide = secondary once the video is already open */
     .guide-video-toggle[aria-expanded="true"] {
@@ -3072,7 +3066,7 @@ function dashboardHtml(): string {
       width: 100%;
       height: 100%;
       display: block;
-      --media-accent-color: #5b54e6;
+      --media-accent-color: #111827;
       --controls-backdrop-color: transparent;
       --media-control-background: transparent;
       --media-control-hover-background: rgb(0 0 0 / 25%);
@@ -3123,7 +3117,7 @@ function dashboardHtml(): string {
       line-height: 0;
       transition: color 0.15s ease;
     }
-    .guide-group--panel .guide-group-label { color: var(--accent); }
+    .guide-group--panel .guide-group-label { color: var(--highlight); }
     .guide-group--agent .guide-group-label { color: #5a5a64; }
     .guide-step {
       display: flex;
@@ -3203,7 +3197,7 @@ function dashboardHtml(): string {
       margin: 0;
       font-size: var(--text-xs);
       font-weight: 700;
-      color: var(--accent);
+      color: var(--highlight);
       cursor: pointer;
       font-variant-numeric: tabular-nums;
       line-height: 1.2;
@@ -3217,7 +3211,7 @@ function dashboardHtml(): string {
     }
     .guide-step-desc a,
     .guide-console-link {
-      color: var(--accent);
+      color: var(--highlight);
       font-weight: 600;
       text-decoration: underline;
       background: none;
@@ -3238,8 +3232,8 @@ function dashboardHtml(): string {
       border-radius: 6px;
     }
     .guide-step-desc code.cli-cmd {
-      color: var(--accent);
-      background: var(--accent-soft);
+      color: var(--highlight);
+      background: var(--highlight-soft);
       border: none;
       padding: 2px 8px;
       font-weight: 600;
@@ -3356,7 +3350,7 @@ function dashboardHtml(): string {
     }
     .guide-help-body {
       padding: 0 18px 16px;
-      border-top: 1px solid rgba(91, 84, 230, 0.12);
+      border-top: 1px solid rgba(17, 24, 39, 0.12);
     }
     .guide-help-line {
       margin: 12px 0 0;
@@ -3366,7 +3360,7 @@ function dashboardHtml(): string {
     }
     .guide-help-line + .guide-help-line { margin-top: 6px; }
     .guide-help-line a {
-      color: var(--accent);
+      color: var(--highlight);
       font-weight: 600;
       text-decoration: none;
     }
@@ -3464,7 +3458,7 @@ function dashboardHtml(): string {
     }
     .guide-footer-line + .guide-footer-line { margin-top: 4px; }
     .guide-footer-line a {
-      color: var(--accent);
+      color: var(--highlight);
       font-weight: 600;
       text-decoration: none;
     }
@@ -3608,7 +3602,7 @@ function dashboardHtml(): string {
         gap: 6px;
         border-right: 1px solid var(--line);
         border-radius: 0;
-        background: #fafafd;
+        background: #F9FAFB;
       }
       .card > .tabs > .tab,
       .card > .tabs > .persona-nav-group > .tab {
@@ -3616,15 +3610,18 @@ function dashboardHtml(): string {
         width: 100%;
         justify-content: flex-start;
         gap: 11px;
-        padding: 11px 13px;
+        padding: 11px 24px 11px 13px;
         border-radius: 11px;
         text-align: left;
       }
       .card > .tabs > .tab.active,
       .card > .tabs > .persona-nav-group > .tab.active {
-        color: var(--accent);
+        color: var(--ink);
         background: var(--accent-soft);
         box-shadow: none;
+      }
+      .card > .tabs > .tab .tab-beta {
+        margin-right: 6px;
       }
       .card > .tabs > .persona-nav-group {
         flex: none;
@@ -3718,12 +3715,20 @@ function dashboardHtml(): string {
       }
       #panel-persona .persona-remote-view {
         flex: 1;
-        width: calc(100% - 68px);
-        max-width: 1160px;
+        width: 100%;
+        max-width: none;
         min-height: 0;
-        margin: 0 auto;
-        padding: 30px 0 40px;
+        margin: 0;
+        padding: 30px 36px 40px;
         overflow-y: auto;
+      }
+      #panel-persona .persona-remote-head,
+      #panel-persona .persona-remote-notice,
+      #panel-persona .persona-remote-list {
+        width: 100%;
+        max-width: 1160px;
+        margin-left: auto;
+        margin-right: auto;
       }
       #panel-persona .persona-bundle-row {
         width: 100%;
@@ -3765,6 +3770,10 @@ function dashboardHtml(): string {
         border-top: none;
         overflow-x: hidden;
         overflow-y: auto;
+        scrollbar-width: none;
+      }
+      #panel-persona .persona-registry-body::-webkit-scrollbar {
+        display: none;
       }
       #panel-persona .persona-editor-panel {
         grid-column: 2;
@@ -3990,7 +3999,7 @@ function dashboardHtml(): string {
             id="guide-mux-player"
             playback-id="${GUIDELINE_MUX_PLAYBACK_ID}"
             stream-type="on-demand"
-            accent-color="#5b54e6"
+            accent-color="#111827"
             primary-color="#ffffff"
             metadata-video-title="Transcodes getting started"
           ></mux-player>
@@ -4163,7 +4172,10 @@ function dashboardHtml(): string {
               <p class="guide-help-line">Keep Rules and Skills separate so each file has one clear job. Select a Persona and project folder, then apply the complete onboarding kit.</p>
             </div>
             <div class="persona-agent-callout">
-              <svg class="persona-agent-callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.2 3.4a5.8 5.8 0 0 1-3.4 3.4L4 11l3.4 1.2a5.8 5.8 0 0 1 3.4 3.4L12 19l1.2-3.4a5.8 5.8 0 0 1 3.4-3.4L20 11l-3.4-1.2a5.8 5.8 0 0 1-3.4-3.4L12 3Z"/><path d="m19 3-.4 1.1a1.8 1.8 0 0 1-1.1 1.1l-1.1.4 1.1.4a1.8 1.8 0 0 1 1.1 1.1L19 8.2l.4-1.1A1.8 1.8 0 0 1 20.5 6l1.1-.4-1.1-.4a1.8 1.8 0 0 1-1.1-1.1L19 3Z"/></svg>
+              ${ICON_PERSONA.replace(
+                '<svg ',
+                '<svg class="persona-agent-callout-icon" ',
+              )}
               <div>
                 <p class="persona-agent-callout-title">Create Personas with Your AI</p>
                 <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. When applying without a project path, the Persona is applied globally on this device.</p>
@@ -4171,6 +4183,7 @@ function dashboardHtml(): string {
             </div>
             <div class="guide-topic-actions">
               <button type="button" class="btn-inline-action" data-open-tab="persona">Open Persona</button>
+              <a class="btn-inline-action" href="${APP_ORG_URL}" data-app-tab="personas" target="_blank" rel="noopener noreferrer">View Personas</a>
             </div>
           </div>
         </details>
@@ -4294,7 +4307,7 @@ function dashboardHtml(): string {
           <button type="button" class="btn-inline-action" id="persona-open-btn" title="Open this project folder">
             Open
           </button>
-          <button type="button" class="btn-primary persona-deploy-btn" id="persona-deploy-btn" title="Apply the selected Persona to this folder">
+          <button type="button" class="btn-action persona-deploy-btn" id="persona-deploy-btn" title="Apply the selected Persona to this folder">
             Apply
           </button>
           </div>
@@ -4303,6 +4316,7 @@ function dashboardHtml(): string {
           </div>
           <aside class="persona-library-panel" aria-label="Local Persona files">
           <p class="persona-group-label">Select Persona</p>
+          <p class="persona-bundle-help">Only Personas on this device are listed here</p>
           <div class="persona-bundle-row">
             <select id="persona-bundle-select" class="label-input persona-bundle-select" aria-label="Select Persona"></select>
             <button type="button" class="persona-group-add" id="persona-bundle-new-btn" aria-label="Add Persona" title="Add Persona">
@@ -4324,7 +4338,10 @@ function dashboardHtml(): string {
           <div class="persona-editor-panel">
             <details class="persona-agent-callout persona-agent-callout--workspace">
               <summary class="persona-agent-callout-summary">
-                <svg class="persona-agent-callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.2 3.4a5.8 5.8 0 0 1-3.4 3.4L4 11l3.4 1.2a5.8 5.8 0 0 1 3.4 3.4L12 19l1.2-3.4a5.8 5.8 0 0 1 3.4-3.4L20 11l-3.4-1.2a5.8 5.8 0 0 1-3.4-3.4L12 3Z"/><path d="m19 3-.4 1.1a1.8 1.8 0 0 1-1.1 1.1l-1.1.4 1.1.4a1.8 1.8 0 0 1 1.1 1.1L19 8.2l.4-1.1A1.8 1.8 0 0 1 20.5 6l1.1-.4-1.1-.4a1.8 1.8 0 0 1-1.1-1.1L19 3Z"/></svg>
+                ${ICON_PERSONA.replace(
+                  '<svg ',
+                  '<svg class="persona-agent-callout-icon" ',
+                )}
                 <p class="persona-agent-callout-title">Create Personas with Your AI</p>
                 <svg class="persona-agent-callout-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
               </summary>
@@ -4364,7 +4381,7 @@ function dashboardHtml(): string {
             </div>
 
             <div class="actions persona-actions">
-              <button type="button" class="btn-primary" id="persona-save-btn" disabled>Save</button>
+              <button type="button" class="btn-save" id="persona-save-btn" disabled>Save</button>
               <button type="button" class="btn-danger" id="persona-delete-btn" hidden>Delete</button>
             </div>
           </div>
@@ -4383,12 +4400,15 @@ function dashboardHtml(): string {
               <h2 class="persona-remote-title">Organization</h2>
               <p class="persona-remote-description" id="persona-remote-description">Compare this device with your organization&rsquo;s latest version.</p>
             </div>
-            <button type="button" class="btn-inline-action" id="persona-remote-refresh-btn">
-              <svg class="persona-remote-refresh-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-              </svg>
-              Refresh
-            </button>
+            <div class="persona-remote-head-actions">
+              <a class="btn-inline-action" href="${APP_ORG_URL}" data-app-tab="personas" target="_blank" rel="noopener noreferrer">View Personas</a>
+              <button type="button" class="btn-inline-action" id="persona-remote-refresh-btn">
+                <svg class="persona-remote-refresh-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                Refresh
+              </button>
+            </div>
           </div>
           <p class="persona-remote-notice" id="persona-remote-notice" role="status" aria-live="polite"></p>
           <div class="persona-remote-list" id="persona-remote-list"></div>
@@ -4849,7 +4869,20 @@ function dashboardHtml(): string {
       return appProjectBase(organizationId, projectId) + "?tab=members";
     }
 
+    // personas → .../org/{oid}/access?section=personas
+    function appPersonasUrl(organizationId) {
+      return (
+        APP_ORG_URL +
+        "/" +
+        encodeURIComponent(organizationId) +
+        "/access?section=personas"
+      );
+    }
+
     function appDeepLinkHref(tab, organizationId, projectId) {
+      if (tab === "personas") {
+        return appPersonasUrl(organizationId);
+      }
       if (tab === "webhooks" || tab === "settings") {
         return appWebhooksSettingsUrl(organizationId, projectId);
       }
@@ -4865,7 +4898,9 @@ function dashboardHtml(): string {
       const pid = s && s.activeMember && s.activeMember.projectId;
       document.querySelectorAll("[data-app-tab]").forEach((a) => {
         const tab = a.getAttribute("data-app-tab");
-        if (oid && pid && tab) {
+        if (tab === "personas" && oid) {
+          a.href = appPersonasUrl(oid);
+        } else if (oid && pid && tab) {
           a.href = appDeepLinkHref(tab, oid, pid);
         } else if (oid) {
           a.href = APP_ORG_URL + "/" + encodeURIComponent(oid);
@@ -5528,12 +5563,12 @@ function dashboardHtml(): string {
      * since that sync (current hash vs synced content_hash). Five states, one
      * action each:
      *
-     *   org newer  + unedited  → behind    → Get latest
-     *   org same   + edited    → edited    → Share
-     *   org newer  + edited    → conflict  → Get latest (backs up local edits)
+     *   org newer  + unedited  → behind    → Get from remote
+     *   org same   + edited    → edited    → Update remote
+     *   org newer  + edited    → conflict  → Get from remote (backs up local)
      *   org same   + unedited  → current   → nothing to do
-     *   no org copy            → local-only → Share
-     *   no local copy          → remote-only → Get latest
+     *   no org copy            → local-only → Publish to remote
+     *   no local copy          → remote-only → Get from remote
      *
      * The synced revision stays null when the Persona was never pushed or
      * pulled here — 0 would read as a real "revision zero". Both copies
@@ -5651,45 +5686,27 @@ function dashboardHtml(): string {
       };
     }
 
-    function renderLocalRemoteStatus() {
-      if (!hasSavedTokens(lastStatus)) {
-        personaLocalRemoteStatus.textContent = "";
-        personaLocalRemoteStatus.removeAttribute("data-state");
-        return;
-      }
-      if (!personaState.persona) {
-        personaLocalRemoteStatus.textContent = "";
-        personaLocalRemoteStatus.removeAttribute("data-state");
-        return;
-      }
+    function personaBundleVersionText() {
+      if (!hasSavedTokens(lastStatus) || !personaState.persona) return "";
       const status = personaSyncStatus(personaState.persona);
-      personaLocalRemoteStatus.dataset.state = status.state;
-      const currentVersion = status.local === null ? "—" : "v" + status.local;
-      const remoteVersion = status.org === null ? "—" : "v" + status.org;
-      const updatedBy = status.remote
-        ? '<p class="persona-local-sync-meta">Updated by ' +
-          esc(describeRemotePersona(status.remote)) +
-          "</p>"
-        : "";
-      personaLocalRemoteStatus.innerHTML =
-        '<div class="persona-local-version-grid">' +
-        '<div class="persona-local-version"><span class="persona-local-version-label">Current</span><strong class="persona-local-version-value">' +
-        esc(currentVersion) +
-        "</strong></div>" +
-        '<div class="persona-local-version"><span class="persona-local-version-label">Remote</span><strong class="persona-local-version-value">' +
-        esc(remoteVersion) +
-        "</strong></div>" +
-        "</div>" +
-        (status.label
-          ? '<div class="persona-local-sync-state">' +
-            esc(status.label) +
-            "</div>"
-          : "") +
-        updatedBy;
-      personaLocalRemoteStatus.title =
-        status.remote && status.remote.updated_by_email
-          ? status.remote.updated_by_email
-          : "";
+      const current = status.local === null ? "—" : "v" + status.local;
+      const remote = status.org === null ? "—" : "v" + status.org;
+      return "Current " + current + " · Remote " + remote;
+    }
+
+    function renderPersonaBundleRemoteVersion() {
+      const el = document.getElementById("persona-bundle-remote-ver");
+      if (!el) return;
+      const text = personaBundleVersionText();
+      el.textContent = text;
+      el.hidden = !text;
+    }
+
+    function renderLocalRemoteStatus() {
+      personaLocalRemoteStatus.textContent = "";
+      personaLocalRemoteStatus.removeAttribute("data-state");
+      personaLocalRemoteStatus.removeAttribute("title");
+      renderPersonaBundleRemoteVersion();
     }
 
     /**
@@ -5697,6 +5714,27 @@ function dashboardHtml(): string {
      * at most one action. In risky states the only button is the safe one —
      * a conflict never offers Share, and Get always backs local edits up.
      */
+    function personaSyncExplain(status) {
+      switch (status.state) {
+        case "local-only":
+          return "Only on this device. Upload to share it";
+        case "remote-only":
+          return "Only on remote — you can download it to this device";
+        case "edited":
+          return "Upload to update the remote version";
+        case "behind":
+          return "Download it to update this device";
+        case "conflict":
+          return "Local and remote both changed. Download remote to update this device";
+        case "current":
+          return "This device matches remote version";
+        case "unknown":
+          return "Couldn't check status. Try refresh";
+        default:
+          return "";
+      }
+    }
+
     function personaVersionBlockHtml(label, value, extraClass, title) {
       return (
         '<div class="persona-version-block' +
@@ -5713,6 +5751,7 @@ function dashboardHtml(): string {
 
     function personaCardHtml(personaId, withActions) {
       const status = personaSyncStatus(personaId);
+      const explain = personaSyncExplain(status);
       // Current first, then Remote — the same reading order as the version
       // card on My Personas, so both screens compare in one direction.
       const versions = [];
@@ -5759,24 +5798,24 @@ function dashboardHtml(): string {
         action =
           '<button type="button" class="btn-inline-action persona-remote-sync-btn" data-remote-sync="' +
           esc(personaId) +
-          '" title="Download the organization\\u2019s latest version to this device">GET LATEST</button>';
+          '" title="Download the remote organization version to this device">GET FROM REMOTE</button>';
       } else if (withActions && status.action === "get-backup") {
         action =
           '<button type="button" class="btn-inline-action persona-remote-sync-btn" data-remote-sync="' +
           esc(personaId) +
-          '" title="Your local changes are backed up before anything is overwritten">GET V' +
-          esc(status.org) +
-          " · BACK UP LOCAL</button>";
+          '" title="Your local changes are backed up before the remote version overwrites this device">GET FROM REMOTE · BACK UP LOCAL</button>';
       } else if (withActions && status.action === "share") {
         action =
           '<button type="button" class="btn-inline-action persona-remote-sync-btn" data-remote-upload="' +
           esc(personaId) +
           '" title="' +
           (status.state === "local-only"
-            ? "Publish this Persona to your organization"
-            : "Publish this device\\u2019s updated Persona version") +
+            ? "Upload this Persona from this device to remote"
+            : "Replace the remote organization version with this device\\u2019s copy") +
           '">' +
-          (status.state === "local-only" ? "PUBLISH" : "UPDATE") +
+          (status.state === "local-only"
+            ? "PUBLISH TO REMOTE"
+            : "UPDATE REMOTE") +
           "</button>";
       }
       return (
@@ -5792,6 +5831,9 @@ function dashboardHtml(): string {
             "</span>"
           : "") +
         "</div>" +
+        (explain
+          ? '<p class="persona-sync-explain">' + esc(explain) + "</p>"
+          : "") +
         '<div class="persona-version-row">' +
         versions.join("") +
         "</div>" +
@@ -6172,12 +6214,19 @@ function dashboardHtml(): string {
         personaItemHtml("skill", e.name));
 
       const bundleName = listing.persona || personaState.persona;
+      const remoteVer = personaBundleVersionText();
       const bundleHead = bundleName
-        ? '<p class="persona-bundle-card-head">' +
+        ? '<div class="persona-bundle-card-head">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"></path></svg>' +
+          '<div class="persona-bundle-card-titles">' +
           '<span class="persona-bundle-card-name">' +
           esc(bundleName) +
-          "</span></p>"
+          "</span>" +
+          '<span class="persona-bundle-remote-ver" id="persona-bundle-remote-ver"' +
+          (remoteVer ? "" : " hidden") +
+          ">" +
+          esc(remoteVer) +
+          "</span></div></div>"
         : "";
 
       personaRegistryBody.innerHTML =
@@ -7577,7 +7626,7 @@ function dashboardHtml(): string {
               : personaEditor.value
           );
         }
-        showToast(e.message || "Get latest failed", "error");
+        showToast(e.message || "Get from remote failed", "error");
       } finally {
         try {
           await loadRemotePersonas();
