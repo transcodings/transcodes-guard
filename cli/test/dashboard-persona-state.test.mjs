@@ -27,10 +27,25 @@ test("the CSRF guard stays wired at the request entry point", () => {
   assert.match(source, /if \(!hasJsonContentType\(req\)\)/);
 });
 
+test("Guide has no Mux player or step timestamp seek buttons", () => {
+  assert.doesNotMatch(source, /@mux\/mux-player/);
+  assert.doesNotMatch(source, /mux-player/);
+  assert.doesNotMatch(source, /GUIDELINE_MUX_PLAYBACK_ID/);
+  assert.doesNotMatch(source, /guide-mux-player/);
+  assert.doesNotMatch(source, /Watch intro video/i);
+  assert.doesNotMatch(source, /guide-step-time/);
+  assert.doesNotMatch(source, /data-seek=/);
+  assert.doesNotMatch(source, /seekGuideVideo/);
+  assert.match(
+    source,
+    /Set up Transcodes from this panel — no terminal required/,
+  );
+});
+
 test("Guide footer links to the Transcodes tutorial channel", () => {
   assert.match(
     source,
-    /More tutorials: <a href="https:\/\/www\.youtube\.com\/@hellotranscodes"/,
+    /Channel: <a href="https:\/\/www\.youtube\.com\/@hellotranscodes"/,
   );
   assert.match(
     source,
@@ -38,7 +53,7 @@ test("Guide footer links to the Transcodes tutorial channel", () => {
   );
   assert.match(
     source,
-    /More tutorials:[\s\S]*Questions or trouble setting up\?[\s\S]*Full documentation:/,
+    /Channel:[\s\S]*Questions or trouble setting up\?[\s\S]*Full documentation:/,
   );
 });
 
@@ -252,6 +267,26 @@ test("skill files and folders can be created from the dropdown", () => {
   assert.match(source, /already exists/);
 });
 
+test("skill files and folders can be deleted from the dropdown", () => {
+  assert.match(source, /class="persona-file-remove"/);
+  assert.match(
+    source,
+    /\.persona-file-remove svg,[\s\S]{0,40}?\.persona-file-add svg \{[\s\S]{0,40}?width: 15px;/,
+  );
+  assert.match(source, /data-remove-' \+[\s\S]{0,40}?\(isDir \? "dir" : "file"\)/);
+  assert.match(source, /\[data-remove-file\]/);
+  assert.match(source, /\[data-remove-dir\]/);
+  assert.match(source, /PERSONA_FILE_TRASH_ICON/);
+  assert.match(source, /m14\.74 9-\.346 9m-4\.788 0L9\.26 9/);
+  assert.match(source, /async function deleteSkillPathFromMenu/);
+  assert.match(source, /"\/api\/persona\/delete-skill-path"/);
+  assert.match(source, /url === '\/api\/persona\/delete-skill-path'/);
+  assert.match(personaSource, /export async function deleteSkillPath/);
+  assert.match(personaSource, /SKILL\.md is required and cannot be deleted/);
+  // The mandatory Skill file has no trash control.
+  assert.match(source, /if \(file === "SKILL\.md"\) return item;/);
+});
+
 test("Persona group explanations live in accessible info tooltips", () => {
   assert.match(source, /class="persona-group-help"/);
   assert.match(source, /data-tooltip="/);
@@ -312,6 +347,10 @@ test("Persona sync is gated on being signed in", () => {
   assert.match(source, /id="rbac-signin"/);
   assert.match(source, /id="rbac-signed-in"/);
   assert.match(source, /function renderRbacAuthGate/);
+  assert.match(source, /function authViewState/);
+  assert.match(source, /let sessionReady = false/);
+  assert.match(source, /class="panel-loading">Loading/);
+  assert.match(source, /authViewState\(\) === "loading"/);
   assert.doesNotMatch(source, /id="rbac-token-warning"/);
   assert.doesNotMatch(
     source,
@@ -331,7 +370,7 @@ test("Persona sync is gated on being signed in", () => {
   );
   assert.match(
     source,
-    /\[data-remote-sync\], \[data-remote-upload\][\s\S]*?button\.disabled =\s*!signedIn \|\| personaState\.busy \|\| personaState\.remoteLoading;/,
+    /\[data-remote-sync\], \[data-remote-upload\], \[data-remote-rollback\][\s\S]*?button\.disabled =\s*!signedIn \|\| personaState\.busy \|\| personaState\.remoteLoading;/,
   );
 });
 
@@ -417,8 +456,15 @@ test("dashboard fills the viewport and keeps version at sidebar bottom", () => {
   );
   assert.match(
     source,
-    /<div class="sidebar-version">[\s\S]*?Ver \$\{CLI_VERSION\}[\s\S]*?transcodes version/,
+    /<div class="sidebar-version">[\s\S]*?Ver \$\{CLI_VERSION\}[\s\S]*?id="cli-version-cmd">transcodes version/,
   );
+  assert.match(source, /url === '\/api\/cli-version'/);
+  assert.match(source, /function refreshCliVersionHint\(\)/);
+  assert.match(
+    source,
+    /\.card > #panel-rbac \{[\s\S]{0,80}?width: 100%;[\s\S]{0,160}?overflow-y: auto;/,
+  );
+  assert.match(source, /cmd\.textContent = "Require Update"/);
   assert.match(
     source,
     /data-tab="rbac"[\s\S]*?Permission[\s\S]*?<span class="tab-beta">Beta<\/span>/,
@@ -508,7 +554,8 @@ test("Organization view renders one unified Persona list", () => {
     source,
     /function appPersonasUrl\(organizationId\)[\s\S]*?\/access\?section=personas/,
   );
-  assert.match(source, /function personaCardHtml\(personaId, withActions\)/);
+  assert.match(source, /function personaSyncRowHtml\(personaId, withActions\)/);
+  assert.match(source, /function personaSyncGroupsHtml\(ids, signedIn\)/);
   // Organization order first, then local-only Personas appended once.
   assert.match(
     source,
@@ -520,50 +567,69 @@ test("Organization view renders one unified Persona list", () => {
   assert.match(source, /const content = isOpen \? personaEditor\.value : "";/);
 });
 
-test("each card shows both versions, a status badge, and updater metadata", () => {
+test("Organization list groups by what needs attention", () => {
   assert.match(source, /remote\.updated_by_name \|\| remote\.updated_by_email/);
   assert.match(source, /formatPersonaRelativeTime\(remote\.updated_at\)/);
-  // Version comparison reads as two labeled blocks, followed by one compact
-  // metadata chip for who published the Remote version and when.
   assert.match(source, /class="persona-remote-title">Organization</);
   assert.match(
     source,
-    /"Current Version",\s*status\.local === null \? "—" : String\(status\.local\)/,
+    /\.persona-sync-group-title \{[\s\S]{0,160}?font-size: var\(--text-lg\);/,
   );
-  assert.match(source, /"Remote Version",\s*String\(status\.org\)/);
+  assert.match(source, /persona-sync-actions-card/);
+  assert.doesNotMatch(source, /persona-sync-actions-card" open>/);
+  assert.match(source, /What each action does/);
+  assert.match(source, /ICON_BOLT\.replace\(/);
+  assert.match(source, /m3\.75 13\.5 10\.5-11\.25L12 10\.5h8\.25/);
   assert.match(
     source,
-    /\.persona-version-row \{[\s\S]{0,180}?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/,
+    /\.persona-sync-actions-help \{[\s\S]{0,200}?text-align: left;/,
   );
+  assert.match(source, /class="persona-sync-actions-help"/);
+  assert.match(source, /<strong>Download<\/strong> — Get your team's latest version/);
+  assert.match(source, /<strong>Download · backup<\/strong> — Get your team's latest version/);
+  assert.match(source, /<strong>Upload<\/strong> — Make your current local work/);
+  assert.match(source, /<strong>Publish<\/strong> — Share this with your team/);
+  assert.match(source, /<strong>Roll Back<\/strong> — Undo your changes/);
+  // Action first: rows that need Get/Publish, then a collapsed Up to date list.
+  assert.match(source, /NEEDS ATTENTION \(/);
+  // Count 0 still shows the heading. No empty-state copy under it.
   assert.match(
     source,
-    /\.persona-version-block \{[\s\S]{0,180}?display: flex;[\s\S]{0,120}?justify-content: space-between/,
+    /NEEDS ATTENTION \(' \+[\s\S]*?attention\.length[\s\S]*?if \(attention\.length\)/,
   );
-  assert.doesNotMatch(source, /persona-version-arrow/);
-  assert.match(source, /class="persona-update-chip"/);
-  assert.match(source, /Updated by /);
-  // Current comes before Remote — the same order as the version card on
-  // My Personas, so both screens read in one direction.
+  assert.doesNotMatch(source, /Nothing needs attention/);
+  assert.doesNotMatch(source, /No Personas need attention/);
+  assert.match(source, /UP TO DATE \(/);
+  assert.match(source, /id="persona-sync-current-toggle"/);
+  assert.match(source, /personaState\.currentExpanded/);
+  assert.match(source, /function personaSyncHeadHtml/);
+  assert.match(source, /class="persona-sync-row-ver">Remote</);
+  assert.match(source, /class="persona-sync-row-ver">Local</);
   assert.match(
     source,
-    /"Current Version",[\s\S]*?personaVersionBlockHtml\(\s*"Remote Version"/,
+    /\.persona-sync-row-ver \{[\s\S]{0,200}?text-align: center;/,
   );
-  assert.doesNotMatch(source, /persona-update-chip svg/);
-  assert.match(source, /class="persona-sync-state" data-state="/);
-  assert.match(source, /function personaSyncExplain\(status\)/);
+  assert.doesNotMatch(source, /persona-sync-row-arrow/);
+  assert.doesNotMatch(source, /This device → Remote/);
   assert.match(
     source,
-    /case "local-only":\s*return "On this device only — not on remote yet\. Upload it"/,
+    /status\.local === null \? "—" : String\(status\.local\)/,
   );
-  assert.match(
-    source,
-    /case "remote-only":\s*return "Only on remote — you can download it to this device"/,
-  );
-  assert.match(
-    source,
-    /case "edited":\s*return "Changed on this device\. Upload to update remote"/,
-  );
-  assert.match(source, /class="persona-sync-explain"/);
+  assert.match(source, /status\.org === null \? "—" : String\(status\.org\)/);
+  assert.doesNotMatch(source, /class="persona-update-chip"/);
+  assert.doesNotMatch(source, /function personaCardHtml/);
+  assert.doesNotMatch(source, /class="persona-version-row"/);
+  assert.match(source, /function personaSyncReason\(status\)/);
+  assert.match(source, /class="persona-sync-row-status">Status</);
+  assert.match(source, /class="persona-sync-row-updated">Updated</);
+  assert.match(source, /describeRemotePersona\(status\.remote\)/);
+  assert.match(source, /case "local-only":\s*return "Not published"/);
+  assert.match(source, /case "remote-only":\s*return "Remote only"/);
+  assert.match(source, /case "edited":\s*return "Edited"/);
+  assert.match(source, /case "behind":\s*return "Remote newer"/);
+  // Apostrophes inside the outer HTML template literal become real quotes
+  // in the browser script and break every click handler.
+  assert.doesNotMatch(source, /Couldn\\'t/);
 });
 
 test("the status classifier maps every state to exactly one safe action", () => {
@@ -577,19 +643,26 @@ test("the status classifier maps every state to exactly one safe action", () => 
   assert.match(source, /state: "conflict",\s*label: "CONFLICT"/);
   assert.match(source, /state: "current",\s*label: "LATEST"/);
   assert.match(source, /state: "local-only",\s*label: ""/);
-  assert.match(
-    source,
-    /status\.label\s*\?\s*'<span class="persona-sync-state"/,
-  );
   assert.doesNotMatch(source, /class="persona-local-version-grid"/);
   assert.doesNotMatch(source, /UNVERSIONED/);
   assert.doesNotMatch(source, /class="persona-local-sync-state"/);
   assert.match(source, /id="persona-bundle-remote-ver"/);
-  // A conflict never offers UPDATE REMOTE — the only button downloads with a backup.
+  // A conflict never offers Update — the only button downloads with a backup.
   assert.match(source, /action: "get-backup"/);
-  assert.match(source, /GET FROM REMOTE · BACK UP LOCAL<\/button>/);
-  assert.match(source, />GET FROM REMOTE<\/button>/);
-  assert.match(source, /status\.state === "local-only"\s*\?\s*"PUBLISH TO REMOTE"\s*:\s*"UPDATE REMOTE"/);
+  assert.match(source, />Download · backup<\/button>/);
+  assert.match(source, />Download<\/button>/);
+  assert.match(
+    source,
+    /status\.state === "local-only" \? "Publish" : "Upload"/,
+  );
+  assert.match(source, /data-remote-rollback="/);
+  assert.match(source, />Roll Back<\/button>/);
+  assert.match(
+    source,
+    /\.persona-sync-row-action \{[\s\S]{0,80}?flex-direction: column;/,
+  );
+  assert.match(source, /rollback: true/);
+  assert.match(source, /Discard local edits on /);
   // Sharing still includes unsaved Personal editor text after the confirm.
   assert.match(
     source,
@@ -777,6 +850,33 @@ test("sync state writes are locked, atomic, and cleared with Persona deletion", 
     syncSource,
     /bundleContentHash\(detail\.files\)/,
   );
+});
+
+test("signed-in Profile and header show the organization plan badge", () => {
+  assert.match(
+    source,
+    /path: '\/membership\/customer\/status\/organization'/,
+  );
+  assert.match(source, /query: \{ organization_id: config\.organizationId \}/);
+  assert.match(source, /function normalizePlanName\(name: string\): PlanName/);
+  assert.match(source, /plan\?: PlanName;/);
+  assert.match(source, /id="profile-row-plan"/);
+  assert.match(source, /function planBadgeHtml\(plan\)/);
+  assert.match(source, /class="plan-badge plan-badge--'/);
+  assert.match(source, /\.plan-badge--free \{/);
+  assert.match(source, /\.plan-badge--paid \{/);
+  assert.match(source, /planBadgeHtml\(am\.plan\)/);
+  assert.match(source, /setProfilePlanRow\(am\.plan\)/);
+  assert.match(
+    source,
+    /headerProfileNameEl\.textContent = am\.email \|\| "Signed in"/,
+  );
+  assert.match(
+    source,
+    /am\.organizationName \|\| am\.organizationId \|\| activeTok\.organizationId/,
+  );
+  assert.match(source, /profileWorkspaceEl\.textContent = am\.name \|\| ""/);
+  assert.doesNotMatch(source, /\[am\.organizationName, am\.projectName\]/);
 });
 
 test("remote refresh ignores stale responses and reports local hash failures", () => {
