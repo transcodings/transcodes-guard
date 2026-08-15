@@ -49,6 +49,7 @@ import {
   defaultPersonaRoot,
   deletePersona,
   deletePersonaFile,
+  deleteSkillPath,
   deployPersona,
   listPersona,
   listPersonaIds,
@@ -74,7 +75,7 @@ import {
 } from './persona-sync.js';
 import { PWA_SERVICE_WORKER } from './pwa.js';
 import { fetchRbacSnapshot, loadRbacConfig } from './rbac-api.js';
-import { CLI_VERSION } from './version.js';
+import { CLI_VERSION, getCliVersionStatus } from './version.js';
 
 export const DEFAULT_DASHBOARD_PORT = 3847;
 export const DASHBOARD_HOST = '127.0.0.1';
@@ -86,9 +87,6 @@ const HOST = DASHBOARD_HOST;
 const PORT_ATTEMPTS = DASHBOARD_PORT_ATTEMPTS;
 /** Value of `X-Transcodes-Dashboard` on /health — used by ensure/stop. */
 const DASHBOARD_HEALTH_MARKER = 'transcodes-dashboard';
-/** Temporary Mux playback id for the Guide onboarding video. */
-const GUIDELINE_MUX_PLAYBACK_ID = 'ETcWgVp84mIFIIAYYyZrjZ4DQRddp1flBOwGm6smmOs';
-
 /** PWA icon bytes (same 512×512 PNG as the header logo). */
 const PWA_ICON_PNG = Buffer.from(
   LOGO_DATA_URI.replace(/^data:image\/png;base64,/, ''),
@@ -119,6 +117,9 @@ type TokenEntry = {
   active: boolean;
 };
 
+const PLAN_NAMES = ['free', 'standard', 'enterprise'] as const;
+type PlanName = (typeof PLAN_NAMES)[number];
+
 type ActiveMemberInfo = {
   memberId?: string;
   projectId?: string;
@@ -129,6 +130,8 @@ type ActiveMemberInfo = {
   role?: string;
   organizationName?: string;
   projectName?: string;
+  /** Organization billing plan from membership status. */
+  plan?: PlanName;
 };
 
 function payloadRecord(data: unknown): Record<string, unknown> | null {
@@ -171,6 +174,41 @@ async function fetchWorkspaceNames(
     ...(organizationName ? { organizationName } : {}),
     ...(projectName ? { projectName } : {}),
   };
+}
+
+function normalizePlanName(name: string): PlanName {
+  const lower = name.toLowerCase().trim();
+  if (lower === 'free' || lower === 'standard' || lower === 'enterprise') {
+    return lower;
+  }
+  if (lower === 'pro' || lower === 'business') return 'enterprise';
+  return 'free';
+}
+
+async function fetchOrganizationPlan(
+  config: StepupConfig,
+): Promise<PlanName | undefined> {
+  const env = await request(config, {
+    method: 'GET',
+    path: '/membership/customer/status/organization',
+    query: { organization_id: config.organizationId },
+  });
+  if (!env.ok) return undefined;
+  const rec = payloadRecord(env.data);
+  if (!rec) return undefined;
+  const meta = rec.metadata;
+  const metaName =
+    meta && typeof meta === 'object' && !Array.isArray(meta)
+      ? (meta as Record<string, unknown>).name
+      : undefined;
+  const raw =
+    typeof metaName === 'string' && metaName.trim()
+      ? metaName
+      : typeof rec.name === 'string'
+        ? rec.name
+        : '';
+  if (!raw.trim()) return undefined;
+  return normalizePlanName(raw);
 }
 
 type StatusPayload = {
@@ -231,14 +269,16 @@ async function buildActiveMemberInfo(): Promise<ActiveMemberInfo | null> {
 
   try {
     const config = loadStepupConfig();
-    const [profile, workspace] = await Promise.all([
+    const [profile, workspace, plan] = await Promise.all([
       fetchMemberProfile(config),
       fetchWorkspaceNames(config),
+      fetchOrganizationPlan(config),
     ]);
     return {
       ...base,
       ...(profile ?? {}),
       ...workspace,
+      ...(plan ? { plan } : {}),
     };
   } catch {
     // Profile fetch is best-effort — JWT claims still populate the header.
@@ -326,6 +366,8 @@ const ICON_PERMISSION =
   '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" /></svg>';
 const ICON_PERSONA =
   '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" /></svg>';
+const ICON_BOLT =
+  '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg>';
 
 function dashboardHtml(): string {
   return `<!DOCTYPE html>
@@ -848,6 +890,12 @@ function dashboardHtml(): string {
       line-height: 1.45;
       word-break: break-word;
     }
+    .header-profile-meta-line {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
     .header-profile-meta-line + .header-profile-meta-line { margin-top: 2px; }
     .header-profile-meta code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -905,10 +953,36 @@ function dashboardHtml(): string {
       word-break: break-all;
     }
     .profile-identity-sub {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
       margin-top: 2px;
       font-size: var(--text-xs);
       color: var(--muted);
       line-height: 1.4;
+    }
+    .plan-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid;
+      font-size: var(--text-3xs);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      line-height: 1.3;
+      white-space: nowrap;
+    }
+    .plan-badge--free {
+      color: #b45309;
+      background: rgba(255, 152, 0, 0.1);
+      border-color: #f59e0b;
+    }
+    .plan-badge--paid {
+      color: #166534;
+      background: rgba(76, 175, 80, 0.1);
+      border-color: #16a34a;
     }
     .profile-fields { padding: 4px 20px; }
     .profile-field {
@@ -1187,7 +1261,6 @@ function dashboardHtml(): string {
       margin: 0 0 4px;
     }
     .section-title-row .section-title { margin: 0; }
-    .section-title-row .guide-video-toggle { flex-shrink: 0; }
     .section-sub {
       font-size: var(--text-base);
       color: var(--muted);
@@ -1363,6 +1436,17 @@ function dashboardHtml(): string {
     .btn-danger:hover:not(:disabled) { background: #a52f26; }
     .btn-danger:disabled { opacity: 0.55; cursor: default; }
     .rbac-signin { margin: 0; }
+    .panel-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 240px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
     .guard-toggle-card {
       display: flex;
       align-items: center;
@@ -1594,6 +1678,27 @@ function dashboardHtml(): string {
       line-height: 1.6;
     }
     .persona-remote-description { max-width: 660px; }
+    .persona-sync-actions-card {
+      margin: 0 0 18px;
+    }
+    .persona-sync-actions-card .persona-agent-callout-body {
+      padding: 0 16px 16px 50px;
+      text-align: left;
+    }
+    .persona-sync-actions-help {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: var(--text-2xs);
+      line-height: 1.55;
+      text-align: left;
+    }
+    .persona-sync-actions-help li + li { margin-top: 6px; }
+    .persona-sync-actions-help strong {
+      color: var(--ink);
+      font-weight: 700;
+    }
     .persona-remote-notice {
       margin: 0 0 14px;
     }
@@ -1712,35 +1817,69 @@ function dashboardHtml(): string {
       flex: 0 0 auto;
     }
     .persona-remote-list {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-    .persona-remote-item {
       display: flex;
-      min-height: 142px;
-      min-width: 0;
-      padding: 18px;
-      border: 1px solid #E5E7EB;
-      border-radius: 14px;
-      background: #fff;
-      box-shadow: 0 1px 2px rgba(24, 24, 35, 0.025);
       flex-direction: column;
-      transition:
-        border-color 140ms ease,
-        box-shadow 140ms ease;
+      gap: 28px;
     }
-    .persona-remote-item:hover {
-      border-color: #dcdce6;
-      box-shadow: 0 5px 16px rgba(24, 24, 35, 0.045);
-    }
-    .persona-remote-item-head {
+    .persona-sync-group-head {
       display: flex;
-      align-items: flex-start;
+      align-items: baseline;
       justify-content: space-between;
-      gap: 12px;
+      gap: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
     }
-    .persona-remote-name {
+    .persona-sync-group-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: var(--text-lg);
+      font-weight: 720;
+      letter-spacing: 0.01em;
+      line-height: 1.3;
+    }
+    .persona-sync-current-toggle {
+      padding: 0;
+      border: none;
+      background: none;
+      color: var(--highlight);
+      font-size: 12px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .persona-sync-current-toggle:hover { text-decoration: underline; }
+    .persona-sync-current-summary {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .persona-sync-current-summary[hidden],
+    .persona-sync-rows[hidden] { display: none !important; }
+    .persona-sync-row,
+    .persona-sync-head {
+      display: grid;
+      grid-template-columns: minmax(140px, 1.1fr) 64px 64px minmax(100px, 0.55fr) minmax(150px, 1fr) minmax(92px, max-content);
+      align-items: center;
+      gap: 10px 16px;
+      min-width: 0;
+      padding: 12px 0;
+      border-bottom: 1px solid #eeeef2;
+    }
+    .persona-sync-head {
+      padding-top: 4px;
+      padding-bottom: 8px;
+    }
+    .persona-sync-head .persona-sync-row-name,
+    .persona-sync-head .persona-sync-row-ver,
+    .persona-sync-head .persona-sync-row-status,
+    .persona-sync-head .persona-sync-row-updated {
+      color: #8a8a94;
+      font-size: 11px;
+      font-weight: 720;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .persona-sync-row-name {
       margin: 0;
       overflow: hidden;
       color: var(--ink);
@@ -1750,12 +1889,61 @@ function dashboardHtml(): string {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .persona-sync-explain {
-      margin: 8px 0 0;
+    .persona-sync-row-ver {
+      margin: 0;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 720;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.01em;
+      text-align: center;
+    }
+    .persona-sync-row-status {
+      margin: 0;
       color: var(--muted);
       font-size: 12px;
-      line-height: 1.45;
-      font-weight: 400;
+      font-weight: 650;
+      line-height: 1.35;
+      text-align: center;
+    }
+    .persona-sync-row-updated {
+      margin: 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.35;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .persona-sync-row[data-state="edited"] .persona-sync-row-status,
+    .persona-sync-row[data-state="local-only"] .persona-sync-row-status {
+      color: #2d4fc7;
+    }
+    .persona-sync-row[data-state="behind"] .persona-sync-row-status {
+      color: #9a5b13;
+    }
+    .persona-sync-row[data-state="conflict"] .persona-sync-row-status {
+      color: #c0392f;
+    }
+    .persona-sync-row-action {
+      display: flex;
+      flex-direction: column;
+      justify-self: end;
+      align-items: stretch;
+      gap: 6px;
+      min-width: 92px;
+      min-height: 28px;
+    }
+    .persona-sync-row-action .btn-inline-action {
+      width: 100%;
+      justify-content: center;
+    }
+    .persona-sync-row[data-state="current"] .persona-sync-row-name,
+    .persona-sync-row[data-state="current"] .persona-sync-row-ver {
+      color: var(--muted);
+      font-weight: 600;
     }
     .persona-remote-meta {
       margin: 11px 0 14px;
@@ -1763,96 +1951,6 @@ function dashboardHtml(): string {
       color: var(--muted);
       font-size: 11px;
       line-height: 1.5;
-    }
-    .persona-remote-meta strong {
-      color: var(--ink);
-      font-weight: 750;
-    }
-    .persona-remote-actions {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 8px;
-      margin-top: 14px;
-    }
-    .persona-remote-actions:empty { display: none; }
-    .persona-remote-sync-btn {
-      width: 100%;
-      justify-content: center;
-    }
-    .persona-version-row {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      align-items: center;
-      gap: 8px;
-      margin-top: 17px;
-    }
-    .persona-version-block {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      min-width: 0;
-      padding: 12px 14px;
-      border-radius: 10px;
-      background: #f7f7f9;
-    }
-    .persona-version-block.is-remote { background: #f1f0fb; }
-    .persona-version-label {
-      color: #7a7a86;
-      font-size: 12px;
-      font-weight: 720;
-      letter-spacing: 0.04em;
-      line-height: 1.2;
-      text-transform: uppercase;
-    }
-    .persona-version-value {
-      color: var(--ink);
-      font-size: 16px;
-      font-weight: 760;
-      line-height: 1.2;
-      letter-spacing: 0.02em;
-    }
-    .persona-update-chip {
-      display: inline-flex;
-      width: max-content;
-      max-width: 100%;
-      align-items: center;
-      margin-top: 10px;
-      color: #858592;
-      white-space: nowrap;
-    }
-    .persona-update-chip span {
-      overflow: hidden;
-      font-size: 10px;
-      line-height: 1.35;
-      text-overflow: ellipsis;
-    }
-    .persona-sync-state {
-      flex: 0 0 auto;
-      padding: 4px 9px;
-      border-radius: 999px;
-      background: #f4f4f6;
-      color: var(--muted);
-      font-size: 9px;
-      font-weight: 720;
-      letter-spacing: 0.01em;
-      white-space: nowrap;
-    }
-    .persona-sync-state[data-state="behind"] {
-      background: #fdf3e7;
-      color: #9a5b13;
-    }
-    .persona-sync-state[data-state="edited"] {
-      background: #eef2fd;
-      color: #2d4fc7;
-    }
-    .persona-sync-state[data-state="conflict"] {
-      background: #fdecea;
-      color: #c0392f;
-    }
-    .persona-sync-state[data-state="current"] {
-      background: var(--action-soft);
-      color: var(--action);
     }
     .persona-remote-empty {
       grid-column: 1 / -1;
@@ -2369,7 +2467,7 @@ function dashboardHtml(): string {
       font-size: 12px;
       font-weight: 700;
     }
-    .persona-file-group svg { width: 15px; height: 15px; flex: 0 0 auto; }
+    .persona-file-group > svg { width: 15px; height: 15px; flex: 0 0 auto; }
     .persona-file-item {
       display: block;
       width: 100%;
@@ -2407,7 +2505,42 @@ function dashboardHtml(): string {
       cursor: pointer;
     }
     .persona-file-add:hover { background: #ececf2; color: var(--accent); }
-    .persona-file-add svg { width: 13px; height: 13px; }
+    .persona-file-row {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      width: 100%;
+      min-width: 0;
+    }
+    .persona-file-row .persona-file-item {
+      flex: 1 1 0;
+      min-width: 0;
+      width: auto;
+    }
+    .persona-file-remove {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      min-width: 20px;
+      flex: 0 0 20px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .persona-file-remove:hover {
+      background: rgba(192, 57, 47, 0.12);
+      color: #c0392f;
+    }
+    .persona-file-remove svg,
+    .persona-file-add svg {
+      width: 15px;
+      height: 15px;
+      flex: 0 0 auto;
+    }
     .persona-file-new {
       display: flex;
       align-items: center;
@@ -3021,62 +3154,6 @@ function dashboardHtml(): string {
       line-height: 1.5;
       margin: 0;
     }
-    .guide-video-wrap {
-      margin: 0;
-    }
-    .guide-video-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid rgba(17, 24, 39, 0.35);
-      border-radius: 999px;
-      padding: 6px 12px;
-      font-size: var(--text-xs);
-      font-weight: 600;
-      color: var(--accent);
-      background: var(--accent-soft);
-      cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-    }
-    .guide-video-toggle:hover {
-      background: #E5E7EB;
-      border-color: rgba(17, 24, 39, 0.5);
-    }
-    /* Hide = secondary once the video is already open */
-    .guide-video-toggle[aria-expanded="true"] {
-      color: var(--ink);
-      border-color: #16161a;
-      background: #fff;
-    }
-    .guide-video-toggle[aria-expanded="true"]:hover {
-      background: #f4f4f6;
-      border-color: #16161a;
-    }
-    .guide-video {
-      margin: 0 0 22px;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid var(--line);
-      background: #000;
-      aspect-ratio: 16 / 9;
-      box-shadow: 0 8px 28px rgba(22, 22, 26, 0.08);
-    }
-    .guide-video[hidden] { display: none !important; }
-    .guide-video mux-player {
-      width: 100%;
-      height: 100%;
-      display: block;
-      --media-accent-color: #111827;
-      --controls-backdrop-color: transparent;
-      --media-control-background: transparent;
-      --media-control-hover-background: rgb(0 0 0 / 25%);
-    }
-    /* Letterbox only — do not touch video or controls backdrop in normal view */
-    .guide-video mux-player:fullscreen,
-    .guide-video mux-player:-webkit-full-screen {
-      --media-background-color: #f4f4f6;
-      background: #f4f4f6;
-    }
     .guide-steps {
       margin: 0;
       padding: 0;
@@ -3190,19 +3267,6 @@ function dashboardHtml(): string {
       gap: 8px;
     }
     .guide-step-summary .guide-step-title { margin: 0; }
-    .guide-step-time {
-      border: none;
-      background: none;
-      padding: 0;
-      margin: 0;
-      font-size: var(--text-xs);
-      font-weight: 700;
-      color: var(--highlight);
-      cursor: pointer;
-      font-variant-numeric: tabular-nums;
-      line-height: 1.2;
-    }
-    .guide-step-time:hover { text-decoration: underline; }
     .guide-step-desc {
       font-size: var(--text-sm);
       color: var(--muted);
@@ -3663,6 +3727,21 @@ function dashboardHtml(): string {
         padding: 0;
         overflow: hidden;
       }
+      .card > #panel-rbac {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 30px 36px 40px;
+        overflow-y: auto;
+      }
+      #panel-rbac .panel-page-head,
+      #panel-rbac .rbac-signin,
+      #panel-rbac .rbac-signed-in {
+        width: 100%;
+        max-width: 1160px;
+        margin-left: auto;
+        margin-right: auto;
+      }
 
       /* Persona adds a file/library column inside the main content column. */
       #panel-persona .persona-registry {
@@ -3724,6 +3803,7 @@ function dashboardHtml(): string {
       }
       #panel-persona .persona-remote-head,
       #panel-persona .persona-remote-notice,
+      #panel-persona .persona-sync-actions-card,
       #panel-persona .persona-remote-list {
         width: 100%;
         max-width: 1160px;
@@ -3854,7 +3934,6 @@ function dashboardHtml(): string {
     }
 
   </style>
-  <script type="module" src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
   <script type="module">
     import { basicSetup, EditorView } from "https://esm.sh/codemirror@6";
     import { markdown } from "https://esm.sh/@codemirror/lang-markdown@6";
@@ -3926,7 +4005,7 @@ function dashboardHtml(): string {
         </div>
       </div>
       <div class="header-profile" id="header-session">
-        <div class="header-profile-info" id="header-signed-out">
+        <div class="header-profile-info" id="header-signed-out" hidden>
           <div class="header-profile-name">Please Sign In</div>
         </div>
         <button type="button" class="header-profile-btn" id="header-profile-btn" hidden aria-label="Open Profile">
@@ -3936,7 +4015,7 @@ function dashboardHtml(): string {
           </div>
           <svg class="header-profile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
         </button>
-        <div class="header-profile-actions" id="header-login-actions">
+        <div class="header-profile-actions" id="header-login-actions" hidden>
           <div class="header-action-row">
             <button type="button" class="btn-session-login" id="header-login-btn" aria-label="Sign in with Transcodes">
               Login
@@ -3972,7 +4051,7 @@ function dashboardHtml(): string {
       </button>
       <div class="sidebar-version">
         <span>Ver ${CLI_VERSION}</span>
-        <code class="cli-cmd">transcodes version</code>
+        <code class="cli-cmd" id="cli-version-cmd">transcodes version</code>
       </div>
     </div>
 
@@ -3987,24 +4066,7 @@ function dashboardHtml(): string {
             <svg class="guide-topic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </summary>
           <div class="guide-topic-body">
-            <div class="section-title-row guide-topic-toolbar">
-              <p class="section-sub">Set up Transcodes from this panel — no terminal required. New here? Start with the video.</p>
-              <button type="button" class="guide-video-toggle" id="guide-video-toggle" aria-expanded="false" aria-controls="guide-video">
-                Watch intro video
-              </button>
-            </div>
-      <div class="guide-video-wrap">
-        <div class="guide-video" id="guide-video" hidden>
-          <mux-player
-            id="guide-mux-player"
-            playback-id="${GUIDELINE_MUX_PLAYBACK_ID}"
-            stream-type="on-demand"
-            accent-color="#111827"
-            primary-color="#ffffff"
-            metadata-video-title="Transcodes getting started"
-          ></mux-player>
-        </div>
-      </div>
+            <p class="section-sub">Set up Transcodes from this panel — no terminal required</p>
       <p class="section-title section-title--spaced">Steps</p>
       <p class="guide-prefix-note">Start your message with <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — use <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex).</p>
       <div class="guide-groups">
@@ -4016,7 +4078,6 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">0</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Define AI Agent Persona</span>
-                    <button type="button" class="guide-step-time" data-seek="25" aria-label="Jump to video at 0:25">0:25</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -4032,7 +4093,6 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">1</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">After signing in, add biometrics or passkeys</span>
-                    <button type="button" class="guide-step-time" data-seek="220" aria-label="Jump to video at 3:40">3:40</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -4047,7 +4107,6 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">2</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Set permissions in the Transcodes app</span>
-                    <button type="button" class="guide-step-time" data-seek="260" aria-label="Jump to video at 4:20">4:20</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -4062,7 +4121,6 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">3</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">(Demo) Open your AI app and try a security check</span>
-                    <button type="button" class="guide-step-time" data-seek="290" aria-label="Jump to video at 4:50">4:50</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -4088,7 +4146,6 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">4</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Ask the AI to do something</span>
-                    <button type="button" class="guide-step-time" data-seek="355" aria-label="Jump to video at 5:55">5:55</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -4109,7 +4166,6 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">5</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Get notifications on channels</span>
-                    <button type="button" class="guide-step-time" data-seek="396" aria-label="Jump to video at 6:36">6:36</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -4124,7 +4180,6 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">6</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">View activity histories / security log</span>
-                    <button type="button" class="guide-step-time" data-seek="420" aria-label="Jump to video at 7:00">7:00</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -4148,7 +4203,7 @@ function dashboardHtml(): string {
         </section>
       </div>
       <div class="guide-footer">
-        <p class="guide-footer-line">More tutorials: <a href="https://www.youtube.com/@hellotranscodes" target="_blank" rel="noopener noreferrer">https://www.youtube.com/@hellotranscodes</a></p>
+        <p class="guide-footer-line">Channel: <a href="https://www.youtube.com/@hellotranscodes" target="_blank" rel="noopener noreferrer">https://www.youtube.com/@hellotranscodes</a></p>
         <p class="guide-footer-line">Questions or trouble setting up? <a href="https://www.transcodes.io/booking" target="_blank" rel="noopener noreferrer">https://www.transcodes.io/booking</a></p>
         <p class="guide-footer-line">Full documentation: <a href="https://www.transcodes.io/docs" target="_blank" rel="noopener noreferrer">https://www.transcodes.io/docs</a></p>
       </div>
@@ -4251,7 +4306,7 @@ function dashboardHtml(): string {
         <h2 class="panel-page-title">Profile</h2>
         <p class="panel-page-description">Manage this account and usage history on this device.</p>
       </div>
-      <div id="profile-empty" class="profile-empty" hidden></div>
+      <div id="profile-empty" class="profile-empty"><p class="panel-loading">Loading</p></div>
       <div id="profile-card" class="profile-card" hidden>
         <div class="profile-identity">
           <div class="profile-avatar" id="profile-avatar" aria-hidden="true"></div>
@@ -4275,6 +4330,10 @@ function dashboardHtml(): string {
           <div class="profile-field" id="profile-row-org-name" hidden>
             <span class="k">Organization</span>
             <span class="v" id="profile-org-name"></span>
+          </div>
+          <div class="profile-field" id="profile-row-plan" hidden>
+            <span class="k">Plan</span>
+            <span class="v" id="profile-plan"></span>
           </div>
           <div class="profile-field" id="profile-row-org-id" hidden>
             <span class="k">Organization ID</span>
@@ -4398,7 +4457,7 @@ function dashboardHtml(): string {
           <div class="persona-remote-head">
             <div>
               <h2 class="persona-remote-title">Organization</h2>
-              <p class="persona-remote-description" id="persona-remote-description">Compare this device with your organization&rsquo;s latest version.</p>
+              <p class="persona-remote-description" id="persona-remote-description">Download or publish only the Personas that are out of date</p>
             </div>
             <div class="persona-remote-head-actions">
               <a class="btn-inline-action" href="${APP_ORG_URL}" data-app-tab="personas" target="_blank" rel="noopener noreferrer">View Personas</a>
@@ -4410,6 +4469,25 @@ function dashboardHtml(): string {
               </button>
             </div>
           </div>
+          <details class="persona-agent-callout persona-agent-callout--workspace persona-sync-actions-card">
+            <summary class="persona-agent-callout-summary">
+              ${ICON_BOLT.replace(
+                '<svg ',
+                '<svg class="persona-agent-callout-icon" ',
+              )}
+              <p class="persona-agent-callout-title">What each action does</p>
+              <svg class="persona-agent-callout-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="persona-agent-callout-body">
+              <ul class="persona-sync-actions-help">
+                <li><strong>Download</strong> — Get your team's latest version. We save your work first before changing it</li>
+                <li><strong>Download · backup</strong> — Get your team's latest version. We save your changes first so nothing is lost</li>
+                <li><strong>Upload</strong> — Make your current local work the team's latest version</li>
+                <li><strong>Publish</strong> — Share this with your team for the very first time</li>
+                <li><strong>Roll Back</strong> — Undo your changes and go back to the latest version you had. We save your work first</li>
+              </ul>
+            </div>
+          </details>
           <p class="persona-remote-notice" id="persona-remote-notice" role="status" aria-live="polite"></p>
           <div class="persona-remote-list" id="persona-remote-list"></div>
         </section>
@@ -4424,7 +4502,7 @@ function dashboardHtml(): string {
         </div>
         <p class="panel-page-description">Decide what your AI can do and when it needs your approval.</p>
       </div>
-      <div id="rbac-signin" class="rbac-signin"></div>
+      <div id="rbac-signin" class="rbac-signin"><p class="panel-loading">Loading</p></div>
       <div id="rbac-signed-in" class="rbac-signed-in" hidden>
       <div class="guard-toggle-card">
         <div>
@@ -4629,6 +4707,7 @@ function dashboardHtml(): string {
     )};
 
     let lastStatus = { guardEnabled: false, tokens: [], activeMember: null };
+    let sessionReady = false;
     let actionConfirmResolve = null;
     let actionConfirmReturnFocus = null;
     let deployConfirmResolve = null;
@@ -4718,6 +4797,15 @@ function dashboardHtml(): string {
 
     function hasSavedTokens(s) {
       return Array.isArray(s.tokens) && s.tokens.length > 0;
+    }
+
+    function authViewState() {
+      if (!sessionReady) return "loading";
+      return hasSavedTokens(lastStatus) ? "signed-in" : "signed-out";
+    }
+
+    function panelLoadingHtml() {
+      return '<p class="panel-loading">Loading</p>';
     }
 
     // Path /guide | /persona?tab=my | /persona?tab=team | /permission | /profile
@@ -4911,6 +4999,12 @@ function dashboardHtml(): string {
     }
 
     function updateSessionHeader(s) {
+      if (!sessionReady) {
+        headerSignedOutEl.hidden = true;
+        headerLoginActionsEl.hidden = true;
+        headerProfileBtn.hidden = true;
+        return;
+      }
       const signedIn = hasSavedTokens(s);
       headerSignedOutEl.hidden = !!signedIn;
       headerLoginActionsEl.hidden = !!signedIn;
@@ -4921,17 +5015,13 @@ function dashboardHtml(): string {
         const activeTok =
           (s.tokens || []).find((t) => t.active) || (s.tokens || [])[0] || {};
         headerProfileNameEl.textContent = am.email || "Signed in";
-
-        const workspace = [
-          am.organizationName || am.organizationId || activeTok.organizationId,
-          am.projectName || am.projectId || activeTok.projectId,
-        ]
-          .filter(Boolean)
-          .map((part) => esc(part))
-          .join(" · ");
-        headerProfileMetaEl.innerHTML = workspace
-          ? '<div class="header-profile-meta-line">' + workspace + "</div>"
-          : '<div class="header-profile-meta-line">Signed in on this computer</div>';
+        const organization =
+          am.organizationName || am.organizationId || activeTok.organizationId;
+        headerProfileMetaEl.innerHTML =
+          '<div class="header-profile-meta-line">' +
+          (organization ? esc(organization) : "Signed in on this computer") +
+          planBadgeHtml(am.plan) +
+          "</div>";
       }
 
       updateAppDeepLinks(s);
@@ -5010,56 +5100,6 @@ function dashboardHtml(): string {
         headerLogoutBtn.disabled = false;
       }
     }
-
-    const guideVideoToggle = document.getElementById("guide-video-toggle");
-    const guideVideo = document.getElementById("guide-video");
-    const guideMuxPlayer = document.getElementById("guide-mux-player");
-
-    function setGuideVideoOpen(open) {
-      if (!guideVideoToggle || !guideVideo) return;
-      guideVideoToggle.setAttribute("aria-expanded", String(open));
-      guideVideo.hidden = !open;
-      guideVideoToggle.textContent = open
-        ? "Hide Intro Video"
-        : "Watch Intro Video";
-    }
-
-    function seekGuideVideo(seconds) {
-      if (!guideVideo || !guideMuxPlayer) return;
-      setGuideVideoOpen(true);
-      guideVideo.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      const apply = () => {
-        try {
-          guideMuxPlayer.currentTime = seconds;
-          const playResult = guideMuxPlayer.play && guideMuxPlayer.play();
-          if (playResult && typeof playResult.catch === "function") {
-            playResult.catch(() => {});
-          }
-        } catch (_) {}
-      };
-      apply();
-      guideMuxPlayer.addEventListener("loadedmetadata", apply, { once: true });
-      // Mux may still be booting — retry shortly so the seek sticks.
-      setTimeout(apply, 250);
-      setTimeout(apply, 800);
-    }
-
-    if (guideVideoToggle && guideVideo) {
-      guideVideoToggle.addEventListener("click", () => {
-        const open = guideVideoToggle.getAttribute("aria-expanded") === "true";
-        setGuideVideoOpen(!open);
-      });
-    }
-
-    document.querySelectorAll(".guide-step-time").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const seconds = Number(btn.getAttribute("data-seek"));
-        if (!Number.isFinite(seconds)) return;
-        seekGuideVideo(seconds);
-      });
-    });
 
     document.querySelectorAll(".card > .tabs .tab[data-tab]").forEach((tab) => {
       tab.addEventListener("click", () => {
@@ -5441,6 +5481,7 @@ function dashboardHtml(): string {
       localHashErrors: {},
       remoteLoading: false,
       remoteLoadSequence: 0,
+      currentExpanded: false,
     };
 
     function syncPersonaEditState() {
@@ -5521,7 +5562,9 @@ function dashboardHtml(): string {
       personaRemoteRefreshBtn.disabled =
         !signedIn || personaState.busy || personaState.remoteLoading;
       personaRemoteView
-        .querySelectorAll("[data-remote-sync], [data-remote-upload]")
+        .querySelectorAll(
+          "[data-remote-sync], [data-remote-upload], [data-remote-rollback]"
+        )
         .forEach((button) => {
           button.disabled =
             !signedIn || personaState.busy || personaState.remoteLoading;
@@ -5710,102 +5753,47 @@ function dashboardHtml(): string {
     }
 
     /**
-     * One card per Persona: name, where each copy stands, a status badge, and
-     * at most one action. In risky states the only button is the safe one —
-     * a conflict never offers Share, and Get always backs local edits up.
+     * Short reason for the attention list. The version arrow already shows
+     * direction (this device → remote); this line only names the situation.
      */
-    function personaSyncExplain(status) {
+    function personaSyncReason(status) {
       switch (status.state) {
         case "local-only":
-          return "Only on this device. Upload to share it";
+          return "Not published";
         case "remote-only":
-          return "Only on remote — you can download it to this device";
+          return "Remote only";
         case "edited":
-          return "Upload to update the remote version";
+          return "Edited";
         case "behind":
-          return "Download it to update this device";
+          return "Remote newer";
         case "conflict":
-          return "Local and remote both changed. Download remote to update this device";
+          return "Conflict";
         case "current":
-          return "This device matches remote version";
+          return "Up to date";
         case "unknown":
-          return "Couldn't check status. Try refresh";
+          return "Could not check";
         default:
           return "";
       }
     }
 
-    function personaVersionBlockHtml(label, value, extraClass, title) {
-      return (
-        '<div class="persona-version-block' +
-        (extraClass ? " " + extraClass : "") +
-        '"' +
-        (title ? ' title="' + esc(title) + '"' : "") +
-        '><span class="persona-version-label">' +
-        esc(label) +
-        '</span><strong class="persona-version-value">' +
-        esc(value) +
-        "</strong></div>"
-      );
-    }
-
-    function personaCardHtml(personaId, withActions) {
-      const status = personaSyncStatus(personaId);
-      const explain = personaSyncExplain(status);
-      // Current first, then Remote — the same reading order as the version
-      // card on My Personas, so both screens compare in one direction.
-      const versions = [];
-      versions.push(
-        personaVersionBlockHtml(
-          "Current Version",
-          status.local === null ? "—" : String(status.local),
-          "",
-          "The version this device is on (last downloaded or shared here)"
-        )
-      );
-      if (status.org !== null) {
-        versions.push(
-          personaVersionBlockHtml(
-            "Remote Version",
-            String(status.org),
-            "is-remote",
-            "The latest version shared in your organization"
-          )
-        );
-      } else {
-        versions.push(
-          personaVersionBlockHtml(
-            "Remote Version",
-            "—",
-            "is-remote",
-            "This Persona has not been published to your organization"
-          )
+    function personaSyncActionHtml(personaId, status) {
+      if (status.action === "get") {
+        return (
+          '<button type="button" class="btn-inline-action persona-remote-sync-btn" data-remote-sync="' +
+          esc(personaId) +
+          '" title="Download the remote organization version to this device">Download</button>'
         );
       }
-      const updatedBy =
-        status.remote && status.remote.updated_by_email
-          ? status.remote.updated_by_email
-          : "";
-      const updateChip = status.remote
-        ? '<div class="persona-update-chip" title="' +
-          esc(updatedBy || "Who published the Remote version, and when") +
-          '"><span>Updated by ' +
-          esc(describeRemotePersona(status.remote)) +
-          "</span></div>"
-        : "";
-      let action = "";
-      if (withActions && status.action === "get") {
-        action =
+      if (status.action === "get-backup") {
+        return (
           '<button type="button" class="btn-inline-action persona-remote-sync-btn" data-remote-sync="' +
           esc(personaId) +
-          '" title="Download the remote organization version to this device">GET FROM REMOTE</button>';
-      } else if (withActions && status.action === "get-backup") {
-        action =
-          '<button type="button" class="btn-inline-action persona-remote-sync-btn" data-remote-sync="' +
-          esc(personaId) +
-          '" title="Your local changes are backed up before the remote version overwrites this device">GET FROM REMOTE · BACK UP LOCAL</button>';
-      } else if (withActions && status.action === "share") {
-        action =
+          '" title="Your local changes are backed up before the remote version overwrites this device">Download · backup</button>'
+        );
+      }
+      if (status.action === "share") {
+        const upload =
           '<button type="button" class="btn-inline-action persona-remote-sync-btn" data-remote-upload="' +
           esc(personaId) +
           '" title="' +
@@ -5813,35 +5801,148 @@ function dashboardHtml(): string {
             ? "Upload this Persona from this device to remote"
             : "Replace the remote organization version with this device\\u2019s copy") +
           '">' +
-          (status.state === "local-only"
-            ? "PUBLISH TO REMOTE"
-            : "UPDATE REMOTE") +
+          (status.state === "local-only" ? "Publish" : "Upload") +
           "</button>";
+        if (status.state !== "edited") return upload;
+        return (
+          upload +
+          '<button type="button" class="btn-inline-action persona-remote-sync-btn" data-remote-rollback="' +
+          esc(personaId) +
+          '" title="Discard local edits and restore the remote version">Roll Back</button>'
+        );
       }
+      return "";
+    }
+
+    function personaSyncHeadHtml() {
       return (
-        '<article class="persona-remote-item">' +
-        '<div class="persona-remote-item-head"><p class="persona-remote-name">' +
+        '<div class="persona-sync-head" role="row">' +
+        '<p class="persona-sync-row-name">Persona</p>' +
+        '<p class="persona-sync-row-ver">Remote</p>' +
+        '<p class="persona-sync-row-ver">Local</p>' +
+        '<p class="persona-sync-row-status">Status</p>' +
+        '<p class="persona-sync-row-updated">Updated</p>' +
+        '<div class="persona-sync-row-action"></div></div>'
+      );
+    }
+
+    function personaSyncRowHtml(personaId, withActions) {
+      const status = personaSyncStatus(personaId);
+      const local = status.local === null ? "—" : String(status.local);
+      const remote = status.org === null ? "—" : String(status.org);
+      const action = withActions ? personaSyncActionHtml(personaId, status) : "";
+      const updated = status.remote
+        ? describeRemotePersona(status.remote)
+        : "—";
+      return (
+        '<div class="persona-sync-row" data-state="' +
+        esc(status.state) +
+        '">' +
+        '<p class="persona-sync-row-name">' +
         esc(personaId) +
         "</p>" +
-        (status.label
-          ? '<span class="persona-sync-state" data-state="' +
-            esc(status.state) +
-            '">' +
-            esc(status.label) +
-            "</span>"
-          : "") +
-        "</div>" +
-        (explain
-          ? '<p class="persona-sync-explain">' + esc(explain) + "</p>"
-          : "") +
-        '<div class="persona-version-row">' +
-        versions.join("") +
-        "</div>" +
-        updateChip +
-        '<div class="persona-remote-actions">' +
+        '<p class="persona-sync-row-ver">' +
+        esc(remote) +
+        "</p>" +
+        '<p class="persona-sync-row-ver">' +
+        esc(local) +
+        "</p>" +
+        '<p class="persona-sync-row-status">' +
+        esc(personaSyncReason(status)) +
+        "</p>" +
+        '<p class="persona-sync-row-updated">' +
+        esc(updated) +
+        "</p>" +
+        '<div class="persona-sync-row-action">' +
         action +
-        "</div></article>"
+        "</div></div>"
       );
+    }
+
+    function personaSyncGroupsHtml(ids, signedIn) {
+      const attention = [];
+      const current = [];
+      ids.forEach((personaId) => {
+        if (personaSyncStatus(personaId).state === "current") {
+          current.push(personaId);
+        } else {
+          attention.push(personaId);
+        }
+      });
+      let html =
+        '<section class="persona-sync-group">' +
+        '<div class="persona-sync-group-head"><h3 class="persona-sync-group-title">NEEDS ATTENTION (' +
+        attention.length +
+        ")</h3></div>";
+      if (attention.length) {
+        html +=
+          '<div class="persona-sync-rows">' +
+          personaSyncHeadHtml() +
+          attention
+            .map((personaId) => personaSyncRowHtml(personaId, signedIn))
+            .join("") +
+          "</div>";
+      }
+      html += "</section>";
+      if (current.length) {
+        const expanded = !!personaState.currentExpanded;
+        html +=
+          '<section class="persona-sync-group is-current">' +
+          '<div class="persona-sync-group-head"><h3 class="persona-sync-group-title">UP TO DATE (' +
+          current.length +
+          ')</h3><button type="button" class="persona-sync-current-toggle" id="persona-sync-current-toggle" aria-expanded="' +
+          (expanded ? "true" : "false") +
+          '">' +
+          (expanded ? "Collapse" : "Expand") +
+          "</button></div>" +
+          '<p class="persona-sync-current-summary"' +
+          (expanded ? " hidden" : "") +
+          ">" +
+          current.map((personaId) => esc(personaId)).join(" · ") +
+          "</p>" +
+          '<div class="persona-sync-rows" id="persona-sync-current-rows"' +
+          (expanded ? "" : " hidden") +
+          ">" +
+          personaSyncHeadHtml() +
+          current
+            .map((personaId) => personaSyncRowHtml(personaId, false))
+            .join("") +
+          "</div></section>";
+      }
+      return html;
+    }
+
+    function bindRemotePersonaActions() {
+      personaRemoteView
+        .querySelectorAll("[data-remote-sync]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            pullPersona(button.getAttribute("data-remote-sync"));
+          });
+        });
+      personaRemoteView
+        .querySelectorAll("[data-remote-upload]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            pushPersona(button.getAttribute("data-remote-upload"));
+          });
+        });
+      personaRemoteView
+        .querySelectorAll("[data-remote-rollback]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            pullPersona(button.getAttribute("data-remote-rollback"), {
+              rollback: true,
+            });
+          });
+        });
+      const toggle = document.getElementById("persona-sync-current-toggle");
+      if (toggle) {
+        toggle.addEventListener("click", () => {
+          personaState.currentExpanded = !personaState.currentExpanded;
+          renderRemotePersonas();
+        });
+      }
     }
 
     function signInPitchCardHtml(opts) {
@@ -5958,14 +6059,6 @@ function dashboardHtml(): string {
       });
     }
 
-    if (profileEmptyEl) {
-      profileEmptyEl.innerHTML = profileSignInCardHtml();
-    }
-    const rbacSignInMount = document.getElementById("rbac-signin");
-    if (rbacSignInMount) {
-      rbacSignInMount.innerHTML = permissionSignInCardHtml();
-    }
-
     function renderRemotePersonas() {
       const localPersonas =
         personaState.listing && personaState.listing.personas
@@ -5981,6 +6074,12 @@ function dashboardHtml(): string {
       const ids = remoteIds.concat(
         localPersonas.filter((persona) => remoteIds.indexOf(persona) === -1)
       );
+
+      if (authViewState() === "loading") {
+        personaRemoteList.innerHTML = panelLoadingHtml();
+        personaRemoteList.hidden = false;
+        return;
+      }
 
       if (!signedIn) {
         // Signed-out is not an error — it is the moment a solo user first
@@ -6000,7 +6099,7 @@ function dashboardHtml(): string {
 
       if (personaRemoteDescription) {
         personaRemoteDescription.textContent =
-          "Compare this device with your organization\u2019s latest version.";
+          "Download or publish only the Personas that are out of date";
       }
       personaRemoteList.hidden = false;
       personaRemoteNotice.removeAttribute("data-tone");
@@ -6008,29 +6107,16 @@ function dashboardHtml(): string {
       personaRemoteList.innerHTML =
         ids.length === 0
           ? '<p class="persona-remote-empty">No Personas yet — create one in My Personas, or wait for a teammate to publish one.</p>'
-          : ids.map((personaId) => personaCardHtml(personaId, signedIn)).join("");
+          : personaSyncGroupsHtml(ids, signedIn);
 
-      personaRemoteView
-        .querySelectorAll("[data-remote-sync]")
-        .forEach((button) => {
-          button.addEventListener("click", () => {
-            pullPersona(button.getAttribute("data-remote-sync"));
-          });
-        });
-      personaRemoteView
-        .querySelectorAll("[data-remote-upload]")
-        .forEach((button) => {
-          button.addEventListener("click", () => {
-            pushPersona(button.getAttribute("data-remote-upload"));
-          });
-        });
+      bindRemotePersonaActions();
       renderPersonaSyncButtons();
     }
 
     async function loadRemotePersonas() {
       const requestId = ++personaState.remoteLoadSequence;
       renderPersonaSyncButtons();
-      if (!hasSavedTokens(lastStatus)) {
+      if (authViewState() !== "signed-in") {
         personaState.remotePersonas = [];
         personaState.syncedRevisions = {};
         personaState.localHashes = {};
@@ -6082,12 +6168,14 @@ function dashboardHtml(): string {
         personaRemoteList.innerHTML = localPersonas
           .map(
             (personaId) =>
-              '<article class="persona-remote-item">' +
-              '<div class="persona-remote-item-head"><p class="persona-remote-name">' +
+              '<div class="persona-sync-row" data-state="unknown">' +
+              '<p class="persona-sync-row-name">' +
               esc(personaId) +
-              '</p><span class="persona-sync-state" data-state="unknown">Status unavailable</span></div>' +
-              '<p class="persona-remote-meta">Could not compare this device with the organization. Refresh to try again.</p>' +
-              "</article>"
+              '</p><p class="persona-sync-row-ver">—</p>' +
+              '<p class="persona-sync-row-ver">—</p>' +
+              '<p class="persona-sync-row-status">Unavailable</p>' +
+              '<p class="persona-sync-row-updated">—</p>' +
+              '<div class="persona-sync-row-action"></div></div>'
           )
           .join("");
       } finally {
@@ -6470,6 +6558,24 @@ function dashboardHtml(): string {
       entry.dirs.sort();
     }
 
+    function removeSkillPathFromListing(targetPath, isDir) {
+      const entry = currentSkillEntry();
+      if (!entry) return;
+      if (Array.isArray(entry.files)) {
+        entry.files = entry.files.filter((file) =>
+          isDir
+            ? file !== targetPath && file.indexOf(targetPath + "/") !== 0
+            : file !== targetPath
+        );
+      }
+      if (isDir && Array.isArray(entry.dirs)) {
+        entry.dirs = entry.dirs.filter(
+          (dir) =>
+            dir !== targetPath && dir.indexOf(targetPath + "/") !== 0
+        );
+      }
+    }
+
     // Pending "new file" / "new folder" input inside the file menu.
     let personaFileDraft = null;
 
@@ -6480,8 +6586,28 @@ function dashboardHtml(): string {
       personaFileBtn.setAttribute("aria-expanded", "false");
     }
 
-    function personaFileMenuItemHtml(file, label, nested) {
+    const PERSONA_FILE_TRASH_ICON =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"></path></svg>';
+
+    function personaFileRemoveHtml(target, isDir) {
+      const label = isDir ? target + "/" : target;
       return (
+        '<button type="button" class="persona-file-remove" data-remove-' +
+        (isDir ? "dir" : "file") +
+        '="' +
+        esc(target) +
+        '" title="Delete ' +
+        esc(label) +
+        '" aria-label="Delete ' +
+        esc(label) +
+        '">' +
+        PERSONA_FILE_TRASH_ICON +
+        "</button>"
+      );
+    }
+
+    function personaFileMenuItemHtml(file, label, nested) {
+      const item =
         '<button type="button" class="persona-file-item' +
         (nested ? " nested" : "") +
         (file === personaState.file ? " active" : "") +
@@ -6491,7 +6617,13 @@ function dashboardHtml(): string {
         esc(file) +
         '">' +
         esc(label) +
-        "</button>"
+        "</button>";
+      if (file === "SKILL.md") return item;
+      return (
+        '<div class="persona-file-row">' +
+        item +
+        personaFileRemoveHtml(file, false) +
+        "</div>"
       );
     }
 
@@ -6561,6 +6693,7 @@ function dashboardHtml(): string {
           '/" aria-label="New file in ' +
           esc(folder) +
           '/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>' +
+          personaFileRemoveHtml(folder, true) +
           "</div>" +
           (personaFileDraft &&
           personaFileDraft.type === "file" &&
@@ -6603,6 +6736,18 @@ function dashboardHtml(): string {
           };
           renderPersonaFilePicker();
           focusPersonaFileDraftInput();
+        });
+      });
+      personaFileMenu.querySelectorAll("[data-remove-file]").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          deleteSkillPathFromMenu(button.getAttribute("data-remove-file"), false);
+        });
+      });
+      personaFileMenu.querySelectorAll("[data-remove-dir]").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          deleteSkillPathFromMenu(button.getAttribute("data-remove-dir"), true);
         });
       });
       const newFolderBtn = personaFileMenu.querySelector(
@@ -6651,6 +6796,56 @@ function dashboardHtml(): string {
     function focusPersonaFileDraftInput() {
       const input = personaFileMenu.querySelector("#persona-file-new-input");
       if (input) input.focus();
+    }
+
+    function keepPersonaFileMenuOpen() {
+      if (!personaFileMenu || !personaFileBtn) return;
+      personaFileMenu.hidden = false;
+      personaFileBtn.setAttribute("aria-expanded", "true");
+    }
+
+    async function deleteSkillPathFromMenu(targetPath, isDir) {
+      if (!targetPath || targetPath === "SKILL.md") return;
+      const label = isDir ? targetPath + "/" : targetPath;
+      const ok = await confirmAction({
+        title: isDir ? "Delete folder?" : "Delete file?",
+        description:
+          "“" + label + "” will be permanently deleted from this Skill",
+        warning: "This action cannot be undone",
+        confirmLabel: "Delete",
+        danger: true,
+      });
+      if (!ok) {
+        keepPersonaFileMenuOpen();
+        return;
+      }
+      try {
+        await personaFetch("/api/persona/delete-skill-path", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            root: personaRootInput.value.trim() || personaState.root,
+            persona: personaState.persona,
+            name: personaState.name,
+            path: targetPath,
+          }),
+        });
+        removeSkillPathFromListing(targetPath, isDir);
+        const openFile = personaState.file;
+        const lostOpen = isDir
+          ? openFile === targetPath ||
+            openFile.indexOf(targetPath + "/") === 0
+          : openFile === targetPath;
+        if (lostOpen) {
+          personaState.file = "SKILL.md";
+          await loadPersonaFile();
+        }
+        renderPersonaFilePicker();
+        keepPersonaFileMenuOpen();
+      } catch (e) {
+        showToast(e.message || "Could not delete", "error");
+        keepPersonaFileMenuOpen();
+      }
     }
 
     async function submitPersonaFileDraft(value) {
@@ -7513,10 +7708,15 @@ function dashboardHtml(): string {
       // Pull overwrites files, so it gets the same gate as Share — unless the
       // caller already asked (the share-conflict dialog is itself a confirm).
       const skipConfirm = options && options.skipConfirm;
+      const rollback = options && options.rollback;
       const ok =
         skipConfirm ||
         window.confirm(
-          "Get your organization's latest “" + persona + "” onto this device?\\n\\nLocal files whose contents differ will be overwritten — they are backed up first, including anything unsaved in the editor. Local files the organization copy does not have are kept."
+          rollback
+            ? "Discard local edits on “" +
+              persona +
+              "” and restore the remote version?\\n\\nLocal changes are backed up first."
+            : "Get your organization's latest “" + persona + "” onto this device?\\n\\nLocal files whose contents differ will be overwritten — they are backed up first, including anything unsaved in the editor. Local files the organization copy does not have are kept."
         );
       if (!ok) return;
 
@@ -7657,10 +7857,32 @@ function dashboardHtml(): string {
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     }
 
+    function planBadgeHtml(plan) {
+      if (!plan) return "";
+      const label = String(plan).charAt(0).toUpperCase() + String(plan).slice(1);
+      const kind = plan === "free" ? "free" : "paid";
+      return '<span class="plan-badge plan-badge--' + kind + '">' + esc(label) + "</span>";
+    }
+
     function renderSessionCard(s) {
+      const state = authViewState();
+      if (state === "loading") {
+        profileEmptyEl.innerHTML = panelLoadingHtml();
+        profileEmptyEl.hidden = false;
+        profileCardEl.hidden = true;
+        updateSessionHeader(s);
+        return;
+      }
+      if (state === "signed-out") {
+        profileEmptyEl.innerHTML = profileSignInCardHtml();
+        profileEmptyEl.hidden = false;
+        profileCardEl.hidden = true;
+        updateSessionHeader(s);
+        return;
+      }
       const signedIn = hasSavedTokens(s);
-      profileEmptyEl.hidden = !!signedIn;
-      profileCardEl.hidden = !signedIn;
+      profileEmptyEl.hidden = true;
+      profileCardEl.hidden = false;
 
       if (signedIn) {
         const am = s.activeMember || {};
@@ -7669,17 +7891,29 @@ function dashboardHtml(): string {
         const email = am.email || "Signed in";
         profileEmailEl.textContent = email;
         profileAvatarEl.textContent = email.charAt(0);
-        profileWorkspaceEl.textContent =
-          [am.organizationName, am.projectName].filter(Boolean).join(" · ") ||
-          "Signed in on this computer";
+        profileWorkspaceEl.textContent = am.name || "";
 
         setProfileRow("org-name", am.organizationName);
         setProfileRow("org-id", am.organizationId || activeTok.organizationId);
+        setProfilePlanRow(am.plan);
         setProfileRow("project-name", am.projectName);
         setProfileRow("project-id", am.projectId || activeTok.projectId);
       }
 
       updateSessionHeader(s);
+    }
+
+    function setProfilePlanRow(plan) {
+      const row = document.getElementById("profile-row-plan");
+      const valueEl = document.getElementById("profile-plan");
+      if (!row || !valueEl) return;
+      if (plan) {
+        valueEl.innerHTML = planBadgeHtml(plan);
+        row.hidden = false;
+      } else {
+        valueEl.textContent = "";
+        row.hidden = true;
+      }
     }
 
     // Rows without a value are removed rather than rendered as a placeholder.
@@ -7702,10 +7936,11 @@ function dashboardHtml(): string {
         const res = await fetch("/api/status");
         if (!res.ok) throw new Error("Could not refresh status");
         lastStatus = await res.json();
+        sessionReady = true;
         const signedIn = hasSavedTokens(lastStatus);
         renderSessionCard(lastStatus);
         renderGuardStatus(lastStatus);
-        renderRbacAuthGate(signedIn);
+        renderRbacAuthGate();
         if (
           signedIn &&
           !wasSignedIn &&
@@ -7717,6 +7952,10 @@ function dashboardHtml(): string {
         // without either flow having to remember to update them.
         void renderPersonaSyncState();
       } catch (e) {
+        sessionReady = true;
+        renderSessionCard(lastStatus);
+        renderRbacAuthGate();
+        void renderPersonaSyncState();
         showToast(e.message || "Could not refresh status", "error");
       }
     }
@@ -7724,11 +7963,25 @@ function dashboardHtml(): string {
     document.querySelectorAll("[data-console-open]").forEach((btn) => {
       btn.addEventListener("click", () => { openConsole(); });
     });
-    function renderRbacAuthGate(signedIn) {
+    function renderRbacAuthGate() {
       const rbacSignInEl = document.getElementById("rbac-signin");
       const rbacSignedInEl = document.getElementById("rbac-signed-in");
-      if (rbacSignInEl) rbacSignInEl.hidden = !!signedIn;
-      if (rbacSignedInEl) rbacSignedInEl.hidden = !signedIn;
+      const state = authViewState();
+      if (!rbacSignInEl || !rbacSignedInEl) return;
+      if (state === "loading") {
+        rbacSignInEl.innerHTML = panelLoadingHtml();
+        rbacSignInEl.hidden = false;
+        rbacSignedInEl.hidden = true;
+        return;
+      }
+      if (state === "signed-out") {
+        rbacSignInEl.innerHTML = permissionSignInCardHtml();
+        rbacSignInEl.hidden = false;
+        rbacSignedInEl.hidden = true;
+        return;
+      }
+      rbacSignInEl.hidden = true;
+      rbacSignedInEl.hidden = false;
     }
 
     headerLoginBtn.addEventListener("click", () => { openLogin(); });
@@ -7883,9 +8136,8 @@ function dashboardHtml(): string {
     }
 
     async function loadRbac() {
-      const signedIn = hasSavedTokens(lastStatus);
-      renderRbacAuthGate(signedIn);
-      if (!signedIn) return;
+      renderRbacAuthGate();
+      if (authViewState() !== "signed-in") return;
       try {
         const res = await fetch("/api/rbac");
         const data = await res.json();
@@ -7913,8 +8165,26 @@ function dashboardHtml(): string {
       replaceUrl: true,
       personaView: initialRoute.personaView,
     });
-    renderRbacAuthGate(hasSavedTokens(lastStatus));
+    renderRbacAuthGate();
+    renderSessionCard(lastStatus);
     refresh();
+    void refreshCliVersionHint();
+
+    async function refreshCliVersionHint() {
+      try {
+        const res = await fetch("/api/cli-version");
+        if (!res.ok) return;
+        const data = await res.json();
+        const cmd = document.getElementById("cli-version-cmd");
+        if (!cmd || !data.updateAvailable) return;
+        cmd.textContent = "Require Update";
+        if (data.latest) {
+          cmd.title = "A newer CLI is on npm (" + data.latest + ")";
+        }
+      } catch {
+        // Keep "transcodes version" — npm was unreachable.
+      }
+    }
   </script>
 </body>
 </html>`;
@@ -8369,6 +8639,27 @@ async function handlePersonaRoute(params: {
       return;
     }
 
+    if (method === 'POST' && url === '/api/persona/delete-skill-path') {
+      const body = await readJsonBody(req);
+      if (typeof body.persona !== 'string' || !body.persona.trim()) {
+        throw new Error('Select a Persona first.');
+      }
+      if (typeof body.path !== 'string' || !body.path.trim()) {
+        throw new Error('File or folder path is required.');
+      }
+      const removed = await deleteSkillPath({
+        root:
+          typeof body.root === 'string' && body.root.trim()
+            ? body.root
+            : undefined,
+        persona: body.persona,
+        name: typeof body.name === 'string' ? body.name : '',
+        path: body.path,
+      });
+      sendJson(res, 200, { ok: true, removed });
+      return;
+    }
+
     if (method === 'POST' && url === '/api/persona/delete') {
       const body = await readJsonBody(req);
       const kind = parsePersonaKind(body.kind);
@@ -8525,6 +8816,11 @@ function listen(port: number): Promise<ReturnType<typeof createServer>> {
 
         if (method === 'GET' && url === '/api/status') {
           sendJson(res, 200, await buildStatus());
+          return;
+        }
+
+        if (method === 'GET' && url === '/api/cli-version') {
+          sendJson(res, 200, await getCliVersionStatus());
           return;
         }
 

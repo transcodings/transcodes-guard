@@ -897,6 +897,47 @@ export async function createSkillFolder(params: {
 }
 
 /**
+ * Remove one file or folder inside a Skill. SKILL.md is required and
+ * cannot be deleted this way — delete the Skill itself instead.
+ */
+export async function deleteSkillPath(params: {
+  root?: string;
+  persona: string;
+  name?: string;
+  /** Skill-root-relative file or folder path, e.g. `scripts/run.py`. */
+  path: string;
+}): Promise<{ name: string; path: string; kind: 'file' | 'dir' }> {
+  const { root } = await resolvePersonaRoot(params.root);
+  await ensurePersonaStorage();
+  const persona = assertPersonaId(params.persona);
+  if (!(await isDirectory(personaDir(persona)))) {
+    throw new Error(`Persona "${persona}" does not exist.`);
+  }
+  const name = assertPersonaName('skill', params.name ?? '');
+  if (!params.path.trim()) {
+    throw new Error('File or folder path is required.');
+  }
+  const relative = assertSkillFilePath(params.path);
+  if (relative === SKILL_FILE_NAME) {
+    throw new Error('SKILL.md is required and cannot be deleted.');
+  }
+  const absolutePath = resolveInsidePersona(
+    persona,
+    path.posix.join('skills', name, relative),
+  );
+  let kind: 'file' | 'dir';
+  try {
+    const info = await stat(absolutePath);
+    kind = info.isDirectory() ? 'dir' : 'file';
+  } catch {
+    throw new Error(`"${relative}" does not exist.`);
+  }
+  await rm(absolutePath, { recursive: true, force: true });
+  await writeLastRoot(root);
+  return { name, path: relative, kind };
+}
+
+/**
  * Remove a persona entry from `.transcodes/`.
  * Skills delete the whole `<name>/` folder; rules/agents delete the `.md` file.
  */
