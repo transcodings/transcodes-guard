@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [0.71.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.70.1...transcodes-guard-v0.71.0) (2026-08-16)
+
+
+### Features
+
+* **cli:** list Skill companions and preview Persona markdown ([e3942fb](https://github.com/transcodings/transcodes-guard/commit/e3942fb064f3d1e14bfd6fb3ea32c1ac70eff2b4))
+* **cli:** Organization sync help, skill delete, drop Mux ([4a7a466](https://github.com/transcodings/transcodes-guard/commit/4a7a466b0fd99b8e686202c3f3b7d7cde63be339))
+
 ## [0.70.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.70.0...transcodes-guard-v0.70.1) (2026-08-13)
 
 
