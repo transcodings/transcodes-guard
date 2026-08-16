@@ -181,20 +181,33 @@ focused descriptions and globs. -->
 
 function skillTemplate(name: string, include: SkillOptionalDir[] = []): string {
   // agentskills.io/skill-creation/using-scripts: companions only get used when
-  // SKILL.md mentions them. Point at the directories only — which files exist,
-  // what language they use, and when to run them is up to the author.
+  // a Step tells the agent to run or read them. Scaffold points at the
+  // directory; persona save fills the index. The agent replaces these Step
+  // placeholders with the real command when it writes the workflow.
   const scriptsSection = include.includes('scripts')
     ? `
 # Available scripts
-- \`scripts/\` — <each script: what it does and when to run it>
+- \`scripts/\` — <each script: what it does; the run command belongs in the Step that uses it>
 `
     : '';
   const referencesSection = include.includes('references')
     ? `
 # References
-- \`references/\` — <each document: what it covers and when to read it>
+- \`references/\` — <each document: what it covers; the read instruction belongs in the Step that needs it>
 `
     : '';
+  // Placeholder paths stay generic on purpose: a real companion path here would
+  // count as an existing mention and suppress its index bullet on save.
+  const stepsCompanionHints = [
+    include.includes('references')
+      ? '   <If a document defines the convention: Read `references/<doc>.md` before deciding — do not guess it.>'
+      : '',
+    include.includes('scripts')
+      ? '   <If a script does this step, put its exact command here: Run `<interpreter> scripts/<script>` — do not hand-write the result.>'
+      : '',
+  ].filter(Boolean);
+  const stepsHintBlock =
+    stepsCompanionHints.length > 0 ? `\n${stepsCompanionHints.join('\n')}` : '';
   return `---
 name: ${name}
 description: <What this Skill does and when to use it — include phrases the user actually says>
@@ -206,7 +219,7 @@ description: <What this Skill does and when to use it — include phrases the us
 
 # Steps
 1. <Inspect or validate the starting state>
-2. <Perform the workflow in a deterministic order>
+2. <Perform the workflow in a deterministic order>${stepsHintBlock}
 3. <Verify the result and handle expected failure cases>
 
 # Gotchas
@@ -217,10 +230,15 @@ ${scriptsSection}${referencesSection}
 **Done when** — <observable completion criteria>
 
 <!-- Aim for 500–2,000 tokens and keep SKILL.md under 500 lines. Templates and
-concrete examples belong here. Move long reference docs to references/ and
-executable helpers to scripts/, list scripts under "# Available scripts", and
-tell the agent when to read or run each file (e.g. "Read
-references/REFERENCE.md when ..."). If this exceeds 3,000 tokens or contains
+concrete examples belong here. Move long reference docs to references/*.md
+(Markdown only). Write tables as GFM tables and diagrams as mermaid fences
+— do not screenshot them as PNG/PDF. Put executable helpers in scripts/.
+"# Available scripts" and "# References" are only an index: every companion
+must also appear inside the Step that uses it, written as the literal command
+or read instruction (e.g. "Run \`node scripts/generate-dto.js <Feature>\`" or
+"Read \`references/REFERENCE.md\` before designing"), and close the shortcut
+("Do not hand-write it"). A companion mentioned only in the index gets read as
+optional background and skipped. If this exceeds 3,000 tokens or contains
 distinct workflows, split it into smaller Skills. -->
 `;
 }
@@ -229,8 +247,9 @@ function skillReferenceTemplate(name: string): string {
   return `# ${name} — reference
 
 <!-- Detailed reference material for the ${name} Skill. This file is loaded
-on demand, not with SKILL.md — keep it focused, and tell the agent in
-SKILL.md when to read it (e.g. "Read references/REFERENCE.md when ..."). -->
+on demand, not with SKILL.md — keep it focused, and put the read instruction
+inside the SKILL.md Step that needs it (e.g. "Read references/REFERENCE.md
+before designing the contract"), not only under "# References". -->
 `;
 }
 
@@ -283,8 +302,10 @@ function skillScriptFile(
       content: `#!/usr/bin/env python3
 """Helper script for the ${name} Skill.
 
-Rename this file after what it does (e.g. extract.py), keep it listed under
-"# Available scripts" in SKILL.md, and tell the agent when to run it.
+Rename this file after what it does (e.g. extract.py). In SKILL.md, put the
+literal command inside the Step that uses it ("Run python3 scripts/extract.py
+<input>. Do not hand-write it.") — listing it only under "# Available scripts"
+gets it treated as optional background and skipped.
 
 Agents run scripts non-interactively: accept input via flags and arguments,
 never prompt. Print result data to stdout and diagnostics to stderr, and
@@ -333,8 +354,10 @@ if __name__ == "__main__":
       content: `#!/usr/bin/env node
 // Helper script for the ${name} Skill.
 //
-// Rename this file after what it does (e.g. extract.js), keep it listed under
-// "# Available scripts" in SKILL.md, and tell the agent when to run it.
+// Rename this file after what it does (e.g. extract.js). In SKILL.md, put the
+// literal command inside the Step that uses it ("Run node scripts/extract.js
+// <input>. Do not hand-write it.") — listing it only under "# Available
+// scripts" gets it treated as optional background and skipped.
 //
 // Agents run scripts non-interactively: accept input via flags and arguments,
 // never prompt. Print result data to stdout and diagnostics to stderr, and
@@ -369,8 +392,10 @@ console.log(JSON.stringify({ ok: true, input: args[0] }));
     content: `#!/usr/bin/env bash
 # Helper script for the ${name} Skill.
 #
-# Rename this file after what it does (e.g. extract.sh), keep it listed under
-# "# Available scripts" in SKILL.md, and tell the agent when to run it.
+# Rename this file after what it does (e.g. extract.sh). In SKILL.md, put the
+# literal command inside the Step that uses it ("Run bash scripts/extract.sh
+# <input>. Do not hand-write it.") — listing it only under "# Available
+# scripts" gets it treated as optional background and skipped.
 #
 # Agents run scripts non-interactively: accept input via flags and arguments,
 # never prompt. Print result data to stdout and diagnostics to stderr, and

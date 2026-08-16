@@ -180,6 +180,33 @@ test("token statistics show the full selected file name", () => {
   );
 });
 
+test("Persona text files open as a rendered preview, not raw source", () => {
+  assert.match(source, /id="persona-md-preview"/);
+  assert.match(source, /id="persona-edit-btn"/);
+  assert.match(source, /id="persona-cancel-btn"/);
+  assert.doesNotMatch(source, /id="persona-view-toggle"/);
+  assert.match(source, /function canPersonaPreview/);
+  assert.match(source, /function setPersonaEditorView/);
+  assert.match(source, /function renderPersonaMarkdownPreview/);
+  assert.match(source, /personaMdPreview\.classList\.toggle\("is-code"/);
+  assert.match(source, /esm\.sh\/marked@15/);
+  assert.match(source, /esm\.sh\/dompurify@3/);
+  assert.match(source, /setPersonaEditorView\("source"\)/);
+  assert.match(source, /personaSaveBtn\.disabled = personaState\.busy;/);
+  assert.doesNotMatch(source, /personaSaveBtn\.disabled = personaState\.busy \|\| !dirty/);
+  assert.match(
+    source,
+    /#panel-persona \.persona-md-preview \{[\s\S]{0,120}?flex: 1;[\s\S]{0,80}?min-height: 0;/,
+  );
+  assert.match(source, /\.persona-md-preview table \{/);
+  assert.match(source, /\.persona-md-preview img \{/);
+  assert.match(source, /function rewritePersonaPreviewImages/);
+  assert.match(source, /\/api\/persona\/asset/);
+  assert.match(source, /function renderPersonaMermaidDiagrams/);
+  assert.match(source, /esm\.sh\/mermaid@11/);
+  assert.match(source, /pre code\.language-mermaid/);
+});
+
 test("skill bundles enumerate every file and sync them all", () => {
   assert.match(personaSource, /async function listSkillTree/);
   assert.match(personaSource, /files: tree\.files,\s*dirs: tree\.dirs,/);

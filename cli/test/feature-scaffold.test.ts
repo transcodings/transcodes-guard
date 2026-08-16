@@ -182,6 +182,29 @@ test('SKILL.md points at companion directories without assuming a language', () 
   assert.doesNotMatch(plain.content, /^# References$/m);
 });
 
+test('Steps prompt for the companion command, not just the index', () => {
+  const both = createFeatureScaffold({
+    feature: 'skill',
+    name: 'pdf-processing',
+    include: ['scripts', 'references'],
+  });
+  const steps = both.content.slice(
+    both.content.indexOf('# Steps'),
+    both.content.indexOf('# Gotchas'),
+  );
+  assert.match(steps, /Read `references\/<doc>\.md`/);
+  assert.match(steps, /Run `<interpreter> scripts\/<script>`/);
+  assert.match(steps, /do not hand-write the result/);
+
+  // Nothing companion-related leaks into a SKILL.md-only scaffold.
+  const plain = createFeatureScaffold({ feature: 'skill', name: 'plain' });
+  const plainSteps = plain.content.slice(
+    plain.content.indexOf('# Steps'),
+    plain.content.indexOf('# Gotchas'),
+  );
+  assert.doesNotMatch(plainSteps, /scripts\/|references\//);
+});
+
 test('--full plus a language keeps the other directories intact', () => {
   const skill = createFeatureScaffold({
     feature: 'skill',
@@ -257,6 +280,14 @@ test('skill file paths stay inside the skill folder', () => {
   assert.throws(() => assertSkillFilePath('scripts/../../escape.md'));
   assert.throws(() => assertSkillFilePath('.hidden'));
   assert.throws(() => assertSkillFilePath('/etc/passwd'));
+  assert.equal(
+    assertSkillFilePath('references/REFERENCE.md'),
+    'references/REFERENCE.md',
+  );
+  assert.equal(
+    assertSkillFilePath('references/guide.pdf'),
+    'references/guide.pdf',
+  );
 });
 
 test('legacy Instruction attribution is replaced without duplication', () => {
