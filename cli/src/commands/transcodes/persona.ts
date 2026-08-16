@@ -73,6 +73,15 @@ export type PersonaListing = {
   skills: PersonaEntry[];
 };
 
+const PERSONA_IMAGE_TYPES: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+};
+
 export type PersonaFile = {
   kind: PersonaKind;
   name: string;
@@ -171,6 +180,218 @@ export function assertSkillFilePath(file: string): string {
     }
   }
   return normalized;
+}
+
+/** Creating or saving under references/ is Markdown-only. Delete and read are not. */
+function assertSkillReferenceWritePath(file: string): void {
+  const last = file.split('/').pop() ?? '';
+  if (
+    file.startsWith('references/') &&
+    /\.[a-z0-9]+$/i.test(last) &&
+    !/\.md$/i.test(last)
+  ) {
+    throw new Error(
+      'Reference files must be Markdown (.md). Put PDFs and images in assets/ if the workflow needs the original file.',
+    );
+  }
+}
+
+const SCRIPT_SECTION = '# Available scripts';
+const REFERENCE_SECTION = '# References';
+
+// Hints the CLI has written into these sections over time. Older wording stays
+// listed so an existing SKILL.md still reconciles (and gets upgraded) instead
+// of collecting duplicate bullets.
+const LEGACY_SCRIPT_HINTS = ['run this when the workflow needs this helper'];
+const LEGACY_REFERENCE_HINTS = [
+  'read this when you need the detailed reference',
+];
+
+/** Best-effort interpreter for the run command shown in the bullet. */
+function scriptRunCommand(file: string): string {
+  const ext = /\.([a-z0-9]+)$/i.exec(file)?.[1]?.toLowerCase();
+  if (ext === 'py') return `python3 ${file}`;
+  if (ext === 'js' || ext === 'mjs' || ext === 'cjs') return `node ${file}`;
+  if (ext === 'ts' || ext === 'mts') return `npx tsx ${file}`;
+  if (ext === 'sh' || ext === 'bash') return `bash ${file}`;
+  return file;
+}
+
+// A companion only gets used when a Step tells the agent to use it, so the
+// bullet names the command and closes the "I'll just do it myself" shortcut.
+function scriptHint(file: string): string {
+  return `run \`${scriptRunCommand(file)}\` from the Step that needs it; do not hand-write that work`;
+}
+
+function referenceHint(_file: string): string {
+  return 'read this from the Step that needs it; do not guess what it contains';
+}
+
+function isMentionableCompanion(file: string): boolean {
+  if (file.endsWith('/.gitkeep') || file === '.gitkeep') return false;
+  return file.startsWith('scripts/') || file.startsWith('references/');
+}
+
+function alreadyMentionsCompanion(content: string, filePath: string): boolean {
+  const visible = content.replace(/<!--[\s\S]*?-->/g, '');
+  const escapedPath = filePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return (
+    visible.includes(`\`${filePath}\``) ||
+    new RegExp(
+      `(^|[^a-zA-Z0-9._/-])${escapedPath}($|[^a-zA-Z0-9._/-])`,
+      'm',
+    ).test(visible)
+  );
+}
+
+/**
+ * List each companion under `# Available scripts` or `# References`.
+ * Do not rewrite `# Steps` — the agent writes the run/read command into
+ * the numbered step that uses the file.
+ */
+export function mentionSkillCompanions(
+  skillMd: string,
+  companionPaths: string[],
+): string {
+  const unique = [...new Set(companionPaths.filter(isMentionableCompanion))];
+  let next = skillMd.replace(/\r\n/g, '\n');
+  next = ensureCompanionSection({
+    content: next,
+    heading: SCRIPT_SECTION,
+    paths: unique.filter((file) => file.startsWith('scripts/')),
+    hintFor: scriptHint,
+    legacyHints: LEGACY_SCRIPT_HINTS,
+    dirPrefix: 'scripts/',
+  });
+  next = ensureCompanionSection({
+    content: next,
+    heading: REFERENCE_SECTION,
+    paths: unique.filter((file) => file.startsWith('references/')),
+    hintFor: referenceHint,
+    legacyHints: LEGACY_REFERENCE_HINTS,
+    dirPrefix: 'references/',
+  });
+  return next;
+}
+
+const COMPANION_BULLET = /^- `([^`\n]+)` — ([^\n]*)\n?/gm;
+
+function ensureCompanionSection({
+  content,
+  heading,
+  paths,
+  hintFor,
+  legacyHints,
+  dirPrefix,
+}: {
+  content: string;
+  heading: string;
+  paths: string[];
+  hintFor: (file: string) => string;
+  legacyHints: string[];
+  dirPrefix: string;
+}): string {
+  const section = findHeadingSection(content, heading);
+  const isGenerated = (file: string, text: string) =>
+    text.trim() === hintFor(file) || legacyHints.includes(text.trim());
+  if (section) {
+    const placeholder = new RegExp(`^- \`${dirPrefix}\` —[^\\n]*\\n?`, 'm');
+    const actualPaths = new Set(paths);
+    let body = section.body.replace(
+      COMPANION_BULLET,
+      (line, file: string, text: string) => {
+        if (!isGenerated(file, text)) return line;
+        if (!actualPaths.has(file)) return '';
+        // Rewrite so an older hint picks up the current wording.
+        return `- \`${file}\` — ${hintFor(file)}\n`;
+      },
+    );
+    if (paths.length > 0) body = body.replace(placeholder, '');
+
+    const reconciled = `${content.slice(0, section.bodyStart)}${body}${content.slice(section.end)}`;
+    const missing = paths.filter(
+      (file) => !alreadyMentionsCompanion(reconciled, file),
+    );
+    const bullets = missing.map((file) => `- \`${file}\` — ${hintFor(file)}`);
+    const trimmedBody = body.replace(/\s+$/, '');
+    if (!trimmedBody && bullets.length === 0) {
+      const before = content.slice(0, section.headingStart).replace(/\n+$/, '');
+      const after = content.slice(section.end).replace(/^\n+/, '');
+      return [before, after].filter(Boolean).join('\n\n');
+    }
+
+    const joined = [trimmedBody, ...bullets].filter(Boolean).join('\n');
+    return `${content.slice(0, section.bodyStart)}${joined}\n\n${content.slice(section.end)}`;
+  }
+
+  const missing = paths.filter(
+    (file) => !alreadyMentionsCompanion(content, file),
+  );
+  if (missing.length === 0) return content;
+  const bullets = missing.map((file) => `- \`${file}\` — ${hintFor(file)}`);
+  return insertSectionBeforeOutput(
+    content,
+    `${heading}\n${bullets.join('\n')}\n`,
+  );
+}
+
+function findHeadingSection(
+  content: string,
+  heading: string,
+): {
+  headingStart: number;
+  bodyStart: number;
+  body: string;
+  end: number;
+} | null {
+  const match = content.match(new RegExp(`^${heading}\\s*$`, 'm'));
+  if (!match || match.index === undefined) return null;
+  const bodyStart = match.index + match[0].length;
+  const after = content.slice(bodyStart).replace(/^\n/, '');
+  const afterStart = content.length - after.length;
+  const nextHeading = after.search(/^# /m);
+  const end = nextHeading === -1 ? content.length : afterStart + nextHeading;
+  return {
+    headingStart: match.index,
+    bodyStart: afterStart,
+    body: content.slice(afterStart, end),
+    end,
+  };
+}
+
+function insertSectionBeforeOutput(content: string, block: string): string {
+  const trimmed = content.replace(/\s+$/, '');
+  const output = trimmed.search(/^# Output\s*$/m);
+  if (output !== -1) {
+    return `${trimmed.slice(0, output)}${block}\n${trimmed.slice(output)}`;
+  }
+  const comment = trimmed.search(/^<!--/m);
+  if (comment !== -1) {
+    return `${trimmed.slice(0, comment)}${block}\n${trimmed.slice(comment)}`;
+  }
+  return `${trimmed}\n\n${block}`;
+}
+
+async function syncSkillCompanionMentions(
+  persona: string,
+  skillName: string,
+): Promise<void> {
+  const bundleRoot = personaDir(persona);
+  const skillMdPath = path.join(
+    bundleRoot,
+    'skills',
+    skillName,
+    SKILL_FILE_NAME,
+  );
+  const current = await readFile(skillMdPath, 'utf8');
+  const tree = await listSkillTree(bundleRoot, skillName);
+  const next = mentionSkillCompanions(current, tree.files);
+  if (next === current) return;
+  await writeFile(
+    skillMdPath,
+    next.endsWith('\n') ? next : `${next}\n`,
+    'utf8',
+  );
 }
 
 export function assertPersonaId(name: string): string {
@@ -724,6 +945,36 @@ function stripLegacyTargetsFrontmatter(content: string): string {
   return cleaned === fm ? content : cleaned + body;
 }
 
+export async function readPersonaAsset(params: {
+  root?: string;
+  persona: string;
+  name?: string;
+  file: string;
+}): Promise<{ file: string; contentType: string; bytes: Buffer }> {
+  await resolvePersonaRoot(params.root);
+  await ensurePersonaStorage();
+  const persona = assertPersonaId(params.persona);
+  const name = assertPersonaName('skill', params.name ?? '');
+  const file = assertSkillFilePath(params.file);
+  if (file === SKILL_FILE_NAME) {
+    throw new Error('SKILL.md is not an image asset.');
+  }
+  const ext = file.split('.').pop()?.toLowerCase() ?? '';
+  const contentType = PERSONA_IMAGE_TYPES[ext];
+  if (!contentType) {
+    throw new Error(`"${file}" is not a supported image.`);
+  }
+  const absolutePath = resolveInsidePersona(
+    persona,
+    path.posix.join('skills', name, file),
+  );
+  try {
+    return { file, contentType, bytes: await readFile(absolutePath) };
+  } catch {
+    throw new Error(`"${file}" does not exist.`);
+  }
+}
+
 const LEGACY_APPLIED_RULES_SKILLS_OUTPUT_LINES = new Set([
   '- If any Rules or Skills were applied, you MUST include a list of the names of the Rules and Skills in the response.',
   '- End each response with exactly one short line: `Applied: Rules <names> · Skills <names>`. Include names only, omit empty categories, and omit the entire line when no Rule or Skill was applied.',
@@ -812,14 +1063,41 @@ export async function savePersonaFile(params: {
     params.kind === 'skill'
       ? assertSkillFilePath(params.file ?? '')
       : undefined;
+  if (skillFile) assertSkillReferenceWritePath(skillFile);
 
   // Companion Skill files are written verbatim: scripts and reference docs
-  // must not get frontmatter name-sync or Markdown sanitizing.
+  // must not get frontmatter name-sync or Markdown sanitizing. After the
+  // write, SKILL.md is patched so the new path is listed for the next agent.
   if (skillFile && skillFile !== SKILL_FILE_NAME) {
     const bundlePath = path.posix.join('skills', name, skillFile);
     const absolutePath = resolveInsidePersona(persona, bundlePath);
+    const skillMdPath = resolveInsidePersona(
+      persona,
+      path.posix.join('skills', name, SKILL_FILE_NAME),
+    );
+    if (!(await isFile(skillMdPath))) {
+      throw new Error(
+        `Skill "${name}" has no ${SKILL_FILE_NAME}. Save ${SKILL_FILE_NAME} before adding "${skillFile}".`,
+      );
+    }
+    const existed = await isFile(absolutePath);
+    const previous = existed ? await readFile(absolutePath) : undefined;
     await mkdir(path.dirname(absolutePath), { recursive: true });
     await writeFile(absolutePath, params.content, 'utf-8');
+    try {
+      await syncSkillCompanionMentions(persona, name);
+    } catch (error) {
+      try {
+        if (previous) await writeFile(absolutePath, previous);
+        else await rm(absolutePath, { force: true });
+      } catch (rollbackError) {
+        throw new AggregateError(
+          [error, rollbackError],
+          `Failed to update ${SKILL_FILE_NAME} and roll back "${skillFile}".`,
+        );
+      }
+      throw error;
+    }
     await writeLastRoot(root);
     return {
       kind: params.kind,
@@ -846,7 +1124,12 @@ export async function savePersonaFile(params: {
   const sanitized = sanitizePersonaContent(params.kind, params.content);
   const synchronized =
     params.kind === 'skill' ? synchronizeSkillName(sanitized, name) : sanitized;
-  const content = `${synchronized.replace(/\s+$/, '')}\n`;
+  let content = `${synchronized.replace(/\s+$/, '')}\n`;
+  if (params.kind === 'skill') {
+    const tree = await listSkillTree(personaDir(persona), name);
+    content = mentionSkillCompanions(content, tree.files);
+    if (!content.endsWith('\n')) content += '\n';
+  }
   await mkdir(path.dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, content, 'utf-8');
   await writeLastRoot(root);
@@ -921,6 +1204,15 @@ export async function deleteSkillPath(params: {
   if (relative === SKILL_FILE_NAME) {
     throw new Error('SKILL.md is required and cannot be deleted.');
   }
+  const skillMdPath = resolveInsidePersona(
+    persona,
+    path.posix.join('skills', name, SKILL_FILE_NAME),
+  );
+  if (!(await isFile(skillMdPath))) {
+    throw new Error(
+      `Skill "${name}" has no ${SKILL_FILE_NAME}; refusing to modify an incomplete Skill.`,
+    );
+  }
   const absolutePath = resolveInsidePersona(
     persona,
     path.posix.join('skills', name, relative),
@@ -932,7 +1224,27 @@ export async function deleteSkillPath(params: {
   } catch {
     throw new Error(`"${relative}" does not exist.`);
   }
-  await rm(absolutePath, { recursive: true, force: true });
+  const currentSkill = await readFile(skillMdPath, 'utf8');
+  const tree = await listSkillTree(personaDir(persona), name);
+  const remainingFiles = tree.files.filter(
+    (file) => file !== relative && !file.startsWith(`${relative}/`),
+  );
+  const nextSkill = mentionSkillCompanions(currentSkill, remainingFiles);
+  if (nextSkill !== currentSkill) {
+    await writeFile(
+      skillMdPath,
+      nextSkill.endsWith('\n') ? nextSkill : `${nextSkill}\n`,
+      'utf8',
+    );
+  }
+  try {
+    await rm(absolutePath, { recursive: true, force: true });
+  } catch (error) {
+    if (nextSkill !== currentSkill) {
+      await writeFile(skillMdPath, currentSkill, 'utf8');
+    }
+    throw error;
+  }
   await writeLastRoot(root);
   return { name, path: relative, kind };
 }

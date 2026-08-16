@@ -56,6 +56,7 @@ import {
   type PersonaKind,
   pickProjectFolder,
   readLastRoot,
+  readPersonaAsset,
   readPersonaFile,
   resolvePersonaRoot,
   revealPersonaFolder,
@@ -961,28 +962,6 @@ function dashboardHtml(): string {
       font-size: var(--text-xs);
       color: var(--muted);
       line-height: 1.4;
-    }
-    .plan-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border-radius: 6px;
-      border: 1px solid;
-      font-size: var(--text-3xs);
-      font-weight: 700;
-      letter-spacing: 0.01em;
-      line-height: 1.3;
-      white-space: nowrap;
-    }
-    .plan-badge--free {
-      color: #b45309;
-      background: rgba(255, 152, 0, 0.1);
-      border-color: #f59e0b;
-    }
-    .plan-badge--paid {
-      color: #166534;
-      background: rgba(76, 175, 80, 0.1);
-      border-color: #16a34a;
     }
     .profile-fields { padding: 4px 20px; }
     .profile-field {
@@ -1900,7 +1879,7 @@ function dashboardHtml(): string {
     }
     .persona-sync-row-status {
       margin: 0;
-      color: var(--muted);
+      color: var(--ink);
       font-size: 12px;
       font-weight: 650;
       line-height: 1.35;
@@ -1916,16 +1895,6 @@ function dashboardHtml(): string {
       text-align: center;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-    .persona-sync-row[data-state="edited"] .persona-sync-row-status,
-    .persona-sync-row[data-state="local-only"] .persona-sync-row-status {
-      color: #2d4fc7;
-    }
-    .persona-sync-row[data-state="behind"] .persona-sync-row-status {
-      color: #9a5b13;
-    }
-    .persona-sync-row[data-state="conflict"] .persona-sync-row-status {
-      color: #c0392f;
     }
     .persona-sync-row-action {
       display: flex;
@@ -2622,6 +2591,156 @@ function dashboardHtml(): string {
     .persona-content-status {
       font-weight: 650;
     }
+    .persona-md-preview {
+      display: none;
+      flex: 1;
+      min-height: 400px;
+      overflow: auto;
+      padding: 28px 32px 56px;
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+    .persona-code-editor.is-preview .persona-md-preview { display: block; }
+    .persona-code-editor.is-preview .persona-code-editor-host,
+    .persona-code-editor.is-preview .persona-editor { display: none !important; }
+    .persona-md-preview > :first-child { margin-top: 0; }
+    .persona-md-preview > :last-child { margin-bottom: 0; }
+    .persona-md-preview h1,
+    .persona-md-preview h2,
+    .persona-md-preview h3,
+    .persona-md-preview h4 {
+      margin: 1.4em 0 0.45em;
+      color: var(--ink);
+      font-weight: 750;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+    }
+    .persona-md-preview h1 { font-size: 28px; }
+    .persona-md-preview h2 {
+      font-size: 22px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #ececf1;
+    }
+    .persona-md-preview h3 { font-size: 18px; }
+    .persona-md-preview h4 { font-size: 16px; }
+    .persona-md-preview p { margin: 0 0 0.9em; }
+    .persona-md-preview ul,
+    .persona-md-preview ol {
+      margin: 0 0 0.9em;
+      padding-left: 1.35em;
+    }
+    .persona-md-preview li { margin: 0.2em 0; }
+    .persona-md-preview li::marker { color: #8b8b96; }
+    .persona-md-preview strong { font-weight: 750; }
+    .persona-md-preview em { color: #3f3f48; }
+    .persona-md-preview hr {
+      margin: 1.6em 0;
+      border: none;
+      border-top: 1px solid #ececf1;
+    }
+    .persona-md-preview blockquote {
+      margin: 0 0 0.9em;
+      padding: 2px 0 2px 14px;
+      border-left: 3px solid #cfcadf;
+      color: #4a4a52;
+    }
+    .persona-md-preview a { color: var(--highlight); }
+    .persona-md-preview code {
+      padding: 0.12em 0.38em;
+      border-radius: 6px;
+      background: #f3f2fb;
+      color: #3d3878;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.86em;
+    }
+    .persona-md-preview pre {
+      margin: 0 0 1em;
+      padding: 14px 16px;
+      overflow: auto;
+      border: 1px solid #ececf1;
+      border-radius: 12px;
+      background: #f8f8fb;
+    }
+    .persona-md-preview pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .persona-md-preview table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 1.2em;
+      font-size: 14px;
+    }
+    .persona-md-preview th,
+    .persona-md-preview td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #ececf1;
+      text-align: left;
+      vertical-align: top;
+    }
+    .persona-md-preview thead th {
+      background: #f6efe8;
+      font-weight: 750;
+    }
+    .persona-md-preview tbody td:first-child { font-weight: 750; }
+    .persona-md-mermaid {
+      margin: 0 0 1.2em;
+      overflow-x: auto;
+    }
+    .persona-md-mermaid svg { display: block; max-width: 100%; height: auto; }
+    .persona-md-preview img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 0 0 1.2em;
+      border: 1px solid #ececf1;
+      border-radius: 12px;
+      background: #fff;
+    }
+    .persona-md-preview.is-code {
+      padding: 22px 24px 40px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    .persona-md-preview.is-code pre {
+      margin: 0;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+    }
+    .persona-md-preview.is-code pre code {
+      font-size: inherit;
+    }
+    .persona-md-frontmatter {
+      margin: 0 0 1.4em;
+      padding: 12px 14px;
+      border: 1px solid #ececf1;
+      border-radius: 12px;
+      background: #fafafc;
+    }
+    .persona-md-frontmatter dl {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 6px 14px;
+      margin: 0;
+    }
+    .persona-md-frontmatter dt {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .persona-md-frontmatter dd {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+    }
     .persona-editor {
       display: block;
       width: 100%;
@@ -2701,6 +2820,13 @@ function dashboardHtml(): string {
       border-left-color: var(--accent);
     }
     .persona-actions { margin-top: 16px; }
+    .persona-actions .btn-edit {
+      background: var(--accent);
+      color: #fff;
+    }
+    .persona-actions .btn-edit:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
     .persona-actions .btn-danger {
       color: #c0392f;
       background: transparent;
@@ -3871,6 +3997,10 @@ function dashboardHtml(): string {
         flex-direction: column;
         min-height: 0;
       }
+      #panel-persona .persona-md-preview {
+        flex: 1;
+        min-height: 0;
+      }
       #panel-persona .persona-code-editor-host {
         flex: 1;
         min-height: 0;
@@ -4331,10 +4461,6 @@ function dashboardHtml(): string {
             <span class="k">Organization</span>
             <span class="v" id="profile-org-name"></span>
           </div>
-          <div class="profile-field" id="profile-row-plan" hidden>
-            <span class="k">Plan</span>
-            <span class="v" id="profile-plan"></span>
-          </div>
           <div class="profile-field" id="profile-row-org-id" hidden>
             <span class="k">Organization ID</span>
             <span class="v" id="profile-org-id"></span>
@@ -4434,13 +4560,16 @@ function dashboardHtml(): string {
                 <span class="persona-content-status" id="persona-content-status"></span>
               </div>
             </div>
-            <div class="persona-code-editor" id="persona-code-editor">
+            <div class="persona-code-editor is-preview" id="persona-code-editor">
+              <article class="persona-md-preview" id="persona-md-preview" aria-label="Markdown preview"></article>
               <div class="persona-code-editor-host" id="persona-code-editor-host"></div>
               <textarea id="persona-editor" class="persona-editor" spellcheck="false" placeholder="Loading…"></textarea>
             </div>
 
             <div class="actions persona-actions">
-              <button type="button" class="btn-save" id="persona-save-btn" disabled>Save</button>
+              <button type="button" class="btn-edit" id="persona-edit-btn">Edit</button>
+              <button type="button" class="btn-save" id="persona-save-btn" disabled hidden>Save</button>
+              <button type="button" class="btn-secondary" id="persona-cancel-btn" hidden>Cancel</button>
               <button type="button" class="btn-danger" id="persona-delete-btn" hidden>Delete</button>
             </div>
           </div>
@@ -5020,7 +5149,6 @@ function dashboardHtml(): string {
         headerProfileMetaEl.innerHTML =
           '<div class="header-profile-meta-line">' +
           (organization ? esc(organization) : "Signed in on this computer") +
-          planBadgeHtml(am.plan) +
           "</div>";
       }
 
@@ -5337,7 +5465,10 @@ function dashboardHtml(): string {
     const personaContentCount = document.getElementById("persona-content-count");
     const personaContentStatus = document.getElementById("persona-content-status");
     const personaEditor = document.getElementById("persona-editor");
+    const personaMdPreview = document.getElementById("persona-md-preview");
+    const personaEditBtn = document.getElementById("persona-edit-btn");
     const personaSaveBtn = document.getElementById("persona-save-btn");
+    const personaCancelBtn = document.getElementById("persona-cancel-btn");
     const personaDeleteBtn = document.getElementById("persona-delete-btn");
     const personaFilePicker = document.getElementById("persona-file-picker");
     const personaFileBtn = document.getElementById("persona-file-btn");
@@ -5439,6 +5570,14 @@ function dashboardHtml(): string {
       );
     }
 
+    function canPersonaPreview() {
+      return !isCreatingPersonaEntry();
+    }
+
+    function isPersonaEditing() {
+      return personaState.editorView === "source" && canPersonaPreview();
+    }
+
     function syncPersonaDeleteButton() {
       if (!personaDeleteBtn) return;
       const existing =
@@ -5451,8 +5590,10 @@ function dashboardHtml(): string {
           : personaEntries(personaState.kind).some(
               (entry) => entry.name === personaState.name
             );
-      personaDeleteBtn.hidden = !existing || isCreatingPersonaEntry();
+      const editing = isPersonaEditing();
+      personaDeleteBtn.hidden = !existing || isCreatingPersonaEntry() || editing;
       personaDeleteBtn.textContent = "Delete";
+      if (personaCancelBtn) personaCancelBtn.hidden = !editing;
     }
 
     const personaState = {
@@ -5463,6 +5604,7 @@ function dashboardHtml(): string {
       // Skill-root-relative path of the file open in the editor. Only
       // meaningful while kind === "skill"; SKILL.md is the mandatory default.
       file: "SKILL.md",
+      editorView: "preview",
       listing: null,
       loaded: false,
       initializing: false,
@@ -5485,8 +5627,7 @@ function dashboardHtml(): string {
     };
 
     function syncPersonaEditState() {
-      const dirty = personaEditor.value !== personaState.savedContent;
-      personaSaveBtn.disabled = personaState.busy || !dirty;
+      personaSaveBtn.disabled = personaState.busy;
     }
 
     function personaEntries(kind) {
@@ -5538,6 +5679,8 @@ function dashboardHtml(): string {
     function personaBusy(busy) {
       personaState.busy = busy;
       [
+        personaEditBtn,
+        personaCancelBtn,
         personaDeleteBtn,
         personaChangeBtn,
         personaOpenBtn,
@@ -6955,6 +7098,164 @@ function dashboardHtml(): string {
       });
     }
 
+    function isPersonaMarkdownFile() {
+      return /\\.md$/i.test(currentPersonaFileLabel());
+    }
+
+    function escapePersonaHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function splitPersonaFrontmatter(text) {
+      const source = String(text || "");
+      const match = source.match(/^---\\r?\\n([\\s\\S]*?)\\r?\\n---(?:\\r?\\n|$)/);
+      if (!match) return { fields: [], body: source };
+      const fields = match[1].split(/\\r?\\n/).flatMap((line) => {
+        const idx = line.indexOf(":");
+        if (idx === -1) return [];
+        const key = line.slice(0, idx).trim();
+        const value = line.slice(idx + 1).trim();
+        return key ? [{ key, value }] : [];
+      });
+      return { fields, body: source.slice(match[0].length) };
+    }
+
+    let personaMarkdownToHtml = null;
+    let personaMermaid = null;
+    async function ensurePersonaMarkdownRenderer() {
+      if (personaMarkdownToHtml) return personaMarkdownToHtml;
+      const [{ marked }, purifyMod] = await Promise.all([
+        import("https://esm.sh/marked@15.0.12"),
+        import("https://esm.sh/dompurify@3.2.6"),
+      ]);
+      const DOMPurify = purifyMod.default || window.DOMPurify;
+      personaMarkdownToHtml = (src) =>
+        DOMPurify.sanitize(marked.parse(src, { gfm: true }));
+      return personaMarkdownToHtml;
+    }
+
+    async function ensurePersonaMermaid() {
+      if (personaMermaid) return personaMermaid;
+      const mermaidMod = await import("https://esm.sh/mermaid@11.6.0");
+      const mermaid = mermaidMod.default || mermaidMod;
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "neutral",
+        securityLevel: "strict",
+      });
+      personaMermaid = mermaid;
+      return personaMermaid;
+    }
+
+    async function renderPersonaMermaidDiagrams() {
+      if (!personaMdPreview) return;
+      const blocks = personaMdPreview.querySelectorAll("pre code.language-mermaid");
+      if (!blocks.length) return;
+      let mermaid;
+      try {
+        mermaid = await ensurePersonaMermaid();
+      } catch {
+        return;
+      }
+      for (let i = 0; i < blocks.length; i += 1) {
+        const block = blocks[i];
+        const pre = block.closest("pre");
+        const code = block.textContent || "";
+        const host = document.createElement("div");
+        host.className = "persona-md-mermaid";
+        try {
+          const rendered = await mermaid.render(
+            "persona-mermaid-" + i + "-" + Date.now(),
+            code,
+          );
+          host.innerHTML = rendered.svg;
+        } catch {
+          host.innerHTML =
+            "<pre><code>" + escapePersonaHtml(code) + "</code></pre>";
+        }
+        if (pre) pre.replaceWith(host);
+      }
+    }
+
+    async function renderPersonaMarkdownPreview() {
+      if (!personaMdPreview) return;
+      const source = personaEditor.value || "";
+      personaMdPreview.classList.toggle("is-code", !isPersonaMarkdownFile());
+      if (!isPersonaMarkdownFile()) {
+        personaMdPreview.innerHTML =
+          "<pre><code>" + escapePersonaHtml(source) + "</code></pre>";
+        return;
+      }
+      const { fields, body } = splitPersonaFrontmatter(source);
+      const frontmatterHtml = fields.length
+        ? '<div class="persona-md-frontmatter"><dl>' +
+          fields
+            .map(
+              (field) =>
+                "<dt>" +
+                escapePersonaHtml(field.key) +
+                "</dt><dd>" +
+                escapePersonaHtml(field.value) +
+                "</dd>",
+            )
+            .join("") +
+          "</dl></div>"
+        : "";
+      try {
+        const toHtml = await ensurePersonaMarkdownRenderer();
+        personaMdPreview.innerHTML = frontmatterHtml + toHtml(body);
+        rewritePersonaPreviewImages();
+        await renderPersonaMermaidDiagrams();
+      } catch {
+        personaMdPreview.innerHTML =
+          frontmatterHtml +
+          "<pre><code>" +
+          escapePersonaHtml(body) +
+          "</code></pre>";
+      }
+    }
+
+    function rewritePersonaPreviewImages() {
+      if (!personaMdPreview) return;
+      const images = personaMdPreview.querySelectorAll("img");
+      images.forEach((img) => {
+        const src = img.getAttribute("src") || "";
+        if (!src || /^(https?:|data:|blob:|\\/api\\/)/i.test(src)) return;
+        const file = src.replace(/^\\.\\//, "").replace(/^\\/+/, "");
+        if (!file) return;
+        img.src =
+          "/api/persona/asset?root=" +
+          encodeURIComponent(personaRootInput.value.trim() || personaState.root) +
+          "&persona=" +
+          encodeURIComponent(personaState.persona) +
+          "&name=" +
+          encodeURIComponent(personaState.name || "") +
+          "&file=" +
+          encodeURIComponent(file);
+      });
+    }
+
+    function setPersonaEditorView(view) {
+      const previewable = canPersonaPreview();
+      const next = previewable && view === "preview" ? "preview" : "source";
+      personaState.editorView = next;
+      if (personaEditBtn) {
+        personaEditBtn.hidden = !previewable || next === "source";
+        personaEditBtn.disabled = personaState.busy;
+      }
+      if (personaSaveBtn) {
+        personaSaveBtn.hidden = previewable && next === "preview";
+      }
+      const editorShell = document.getElementById("persona-code-editor");
+      if (editorShell) editorShell.classList.toggle("is-preview", next === "preview");
+      if (next === "preview") renderPersonaMarkdownPreview();
+      syncPersonaDeleteButton();
+    }
+
     function setPersonaEditorContent(content, saved = true) {
       personaEditor.value = content || "";
       if (window.personaCodeEditor) {
@@ -6963,6 +7264,7 @@ function dashboardHtml(): string {
       if (saved) personaState.savedContent = personaEditor.value;
       updatePersonaContentStats();
       renderPersonaFilePicker();
+      setPersonaEditorView(canPersonaPreview() ? "preview" : "source");
       syncPersonaEditState();
     }
 
@@ -7352,9 +7654,16 @@ function dashboardHtml(): string {
     personaNewName.addEventListener("input", () => {
       clearPersonaSaveError();
     });
+    if (personaEditBtn) {
+      personaEditBtn.addEventListener("click", () => {
+        setPersonaEditorView("source");
+        focusPersonaEditor();
+      });
+    }
     personaEditor.addEventListener("input", () => {
       updatePersonaContentStats();
       syncPersonaEditState();
+      if (personaState.editorView === "preview") renderPersonaMarkdownPreview();
       if (isCreatingPersonaEntry()) clearPersonaSaveError();
     });
     window.addEventListener("beforeunload", (event) => {
@@ -7837,6 +8146,13 @@ function dashboardHtml(): string {
     }
 
     personaSaveBtn.addEventListener("click", () => savePersona());
+    if (personaCancelBtn) {
+      personaCancelBtn.addEventListener("click", async () => {
+        if (personaCancelBtn.hidden) return;
+        if (!(await confirmDiscardPersonaChanges("leave edit mode"))) return;
+        setPersonaEditorContent(personaState.savedContent, true);
+      });
+    }
     personaDeleteBtn.addEventListener("click", () => {
       if (personaDeleteBtn.hidden) return;
       deletePersonaEntry(personaState.kind, personaState.name);
@@ -7855,13 +8171,6 @@ function dashboardHtml(): string {
     function esc(s) {
       return String(s).replace(/[&<>"]/g, (c) =>
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-    }
-
-    function planBadgeHtml(plan) {
-      if (!plan) return "";
-      const label = String(plan).charAt(0).toUpperCase() + String(plan).slice(1);
-      const kind = plan === "free" ? "free" : "paid";
-      return '<span class="plan-badge plan-badge--' + kind + '">' + esc(label) + "</span>";
     }
 
     function renderSessionCard(s) {
@@ -7895,25 +8204,11 @@ function dashboardHtml(): string {
 
         setProfileRow("org-name", am.organizationName);
         setProfileRow("org-id", am.organizationId || activeTok.organizationId);
-        setProfilePlanRow(am.plan);
         setProfileRow("project-name", am.projectName);
         setProfileRow("project-id", am.projectId || activeTok.projectId);
       }
 
       updateSessionHeader(s);
-    }
-
-    function setProfilePlanRow(plan) {
-      const row = document.getElementById("profile-row-plan");
-      const valueEl = document.getElementById("profile-plan");
-      if (!row || !valueEl) return;
-      if (plan) {
-        valueEl.innerHTML = planBadgeHtml(plan);
-        row.hidden = false;
-      } else {
-        valueEl.textContent = "";
-        row.hidden = true;
-      }
     }
 
     // Rows without a value are removed rather than rendered as a placeholder.
@@ -8280,6 +8575,26 @@ async function handlePersonaRoute(params: {
         ok: true,
         ...(await listPersona(root)),
       });
+      return;
+    }
+
+    if (method === 'GET' && url === '/api/persona/asset') {
+      const persona = query.get('persona');
+      if (!persona?.trim()) {
+        throw new Error('Select a Persona first.');
+      }
+      const asset = await readPersonaAsset({
+        root: query.get('root') ?? undefined,
+        persona,
+        name: query.get('name') ?? '',
+        file: query.get('file') ?? '',
+      });
+      res.writeHead(200, {
+        'Content-Type': asset.contentType,
+        'Cache-Control': 'no-store',
+        Connection: 'close',
+      });
+      res.end(asset.bytes);
       return;
     }
 
