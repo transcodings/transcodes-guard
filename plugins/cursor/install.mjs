@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Cursor IDE plugin installer.
  *
@@ -29,6 +30,7 @@
  *   node plugins/cursor/install.mjs --local  # <cwd>/.cursor/plugins/transcodes-guard + project hooks
  */
 
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -38,8 +40,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PLACEHOLDER = '${CURSOR_PLUGIN_ROOT}';
+// ponytail: cover the latest release and pre-release blob; add older hashes
+// only if an older upgrade path is still supported.
+const PLUGIN_OWNED_LEGACY_COMMAND_SHA256 = new Set([
+  '65970291ad012cd1f79b2a040e14994a5e9c6d7144f2768f431949a56ee578a8',
+  'bdfb3d4ac0236e7ad352058d98e5ca536fe752d888bb30b081570b565966d84e',
+]);
 
-const filesToCopy = ['.cursor-plugin', '.cursor', 'dist', 'mcp.json'];
+const filesToCopy = ['.cursor-plugin', '.cursor', 'dist', 'skills', 'mcp.json'];
 /**
  * Every committed config that bakes plugin-root paths at install time.
  *
@@ -408,12 +416,17 @@ function registerCursorConfig(pluginDir, cursorHome) {
   );
   mergeHooksConfig(hooksOut, renderedHooks);
 
-  const commandsSrc = path.join(pluginDir, '.cursor/commands');
-  if (fs.existsSync(commandsSrc)) {
-    const commandsOut = path.join(cursorHome, 'commands');
-    fs.mkdirSync(commandsOut, { recursive: true });
-    fs.cpSync(commandsSrc, commandsOut, { recursive: true, force: true });
-    console.log(`- Wrote ${commandsOut}/ (slash commands)`);
+  const legacyCommand = path.join(cursorHome, 'commands/transcodes.md');
+  if (fs.existsSync(legacyCommand)) {
+    const digest = createHash('sha256')
+      .update(fs.readFileSync(legacyCommand))
+      .digest('hex');
+    if (PLUGIN_OWNED_LEGACY_COMMAND_SHA256.has(digest)) {
+      fs.rmSync(legacyCommand);
+      console.log(`- Removed legacy ${legacyCommand}`);
+    } else {
+      console.warn(`- Kept non-plugin file at ${legacyCommand}`);
+    }
   }
 
   const mcpOut = path.join(cursorHome, 'mcp.json');

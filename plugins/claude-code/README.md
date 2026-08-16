@@ -48,17 +48,16 @@ Without a token, the hook still **denies** danger commands but cannot start a st
 | `UserPromptSubmit` hook | Caches the current prompt locally so the next gated tool call can send a short, current-turn `tasks` summary. Silent and fail-open. |
 | `Stop` hook | No-op — drains stdin and exits silently. Step-up status is backend SSOT, so there is nothing local to reap or remind about; agents recover via the PreToolUse deny + `tc_poll_stepup_session_wait`. |
 
-## Slash command: `/transcodes`
+## Skill: `/transcodes-guard:transcodes`
 
-A single "front door" for managing the gate's own rules. Type `/transcodes` followed by a plain-language request and the agent routes it to the right guard workflow, asking for any missing detail:
+A single front door for Persona, gate, Admin API, and SDK workflows. Invoke the canonical plugin Skill name below; `/transcodes` is also available when it does not conflict with another Skill:
 
 ```
-/transcodes gate the google calendar delete tool behind step-up
-/transcodes list the current rules
-/transcodes is "git push --force" blocked?
+/transcodes-guard:transcodes optimize my support Persona
+/transcodes-guard:transcodes gate the google calendar delete tool behind step-up
 ```
 
-Menu it routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check whether something is blocked (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`). Discovered automatically from the plugin's `commands/` directory (also available as the MCP prompt `/mcp__transcodes-guard__transcodes`).
+Claude Code discovers it from `skills/transcodes/SKILL.md` and may also activate it from a matching natural-language request. The MCP prompt remains available as `/mcp__transcodes-guard__transcodes`.
 
 ## Transports
 

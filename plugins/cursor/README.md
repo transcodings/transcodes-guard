@@ -89,17 +89,16 @@ The two gate hooks (`beforeShellExecution` / `beforeMCPExecution`) are declared 
 
 The MCP server itself (registered as `transcodes-guard` in `mcp.json`) exposes the same tools as the other plugins: **diagnostic / simulation** (`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), **step-up lifecycle** (`create_stepup_session`, `poll_stepup_session_wait`), and **Transcodes admin** (member / organization / RBAC / membership / passcode / auth-device / audit / project management).
 
-## Slash command: `/transcodes`
+## Skill: `/transcodes`
 
-A single "front door" for managing the gate's own rules. Type `/transcodes` followed by a plain-language request and the agent routes it to the right guard workflow, asking for any missing detail:
+A single front door for Persona, gate, Admin API, and SDK workflows. Invoke it or make a matching natural-language request:
 
 ```
+/transcodes optimize my support Persona
 /transcodes gate the google calendar delete tool behind step-up
-/transcodes list the current rules
-/transcodes is "git push --force" blocked?
 ```
 
-It lives in the plugin's `.cursor/commands/` directory, which `plugin.json` declares (`"commands": "./.cursor/commands/"`); `install.mjs` copies it into `~/.cursor/commands/`. It shows up when you type `/` in the Agent input. It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
+Cursor discovers it from the installed plugin's `skills/transcodes/SKILL.md`; `install.mjs` copies that Skill and removes the matching plugin-owned legacy `~/.cursor/commands/transcodes.md` file without touching a user-authored file at that path.
 
 ## For AI agents
 

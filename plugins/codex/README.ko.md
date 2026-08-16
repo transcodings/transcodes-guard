@@ -54,17 +54,16 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 
 ## `$` 멘션: `$transcodes`
 
-게이트 룰을 관리하는 단일 "정문"입니다. Codex는 번들 스킬을 **`$` 멘션**( `/` 아님)으로 노출하므로, `$transcodes` 뒤에 평문 요청을 붙이면 에이전트가 맞는 guard 워크플로로 라우팅하고, 빠진 정보는 사용자에게 묻습니다:
+Persona, 게이트, Admin API, SDK 워크플로의 단일 진입점입니다. Codex는 번들 스킬을 **`$` 멘션**(`/` 아님)으로 노출하며, 직접 호출하거나 설명과 일치하는 자연어로 요청할 수 있습니다:
 
 ```
+$transcodes support Persona를 최적화해줘
 $transcodes gate the google calendar delete tool behind step-up
-$transcodes list the current rules
-$transcodes is "git push --force" blocked?
 ```
 
 스킬은 플러그인 `skills/` 디렉터리에 있고 `.codex-plugin/plugin.json`(`"skills": "./skills/"`)에 선언되어 있어 `codex plugin add`만 하면 자동 로드됩니다 — 수동 복사 불필요.
 
-라우팅 대상: MCP 도구 게이트(`add_tool_rule`), Bash 명령 차단(`add_user_pattern`), 룰 변경(`update_*`), 룰 목록, 차단 여부 확인(`simulate_*`), 스텝업 상태 조회, 프론트엔드 Transcodes SDK 연동(`get_integration_guide`).
+Persona 생성·편집·Diet, 게이트 룰과 스텝업 상태 관리, Admin API 사용, Transcodes SDK 연동을 처리합니다.
 
 ## AI 에이전트를 위한 안내
 

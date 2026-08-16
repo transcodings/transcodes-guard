@@ -87,6 +87,17 @@ CLI 설정은 `agy` 안에서 `/config` 또는 `/permissions`. 공식 문서: [C
 
 hook matcher는 `run_command|mcp_.*|call_mcp_tool`이므로 셸 실행(`run_command`) **및** MCP 도구 호출(`mcp_*`)을 게이트합니다. `call_mcp_tool` arm은 Antigravity가 범용 래퍼로 dispatch하는 lazy-loaded MCP 호출을 잡아냅니다 — 어댑터가 `args.ToolName`에서 실제 tool 이름을 언래핑해 tool-rule이 여전히 매칭되도록 합니다. 파일 편집 도구(`write_to_file`, `replace_file_content`, `multi_replace_file_content`)는 게이트되지 **않습니다**. 범위를 넓히려면 `hooks.json`의 matcher 정규식을 확장하고 `packages/core/src/patterns/`에 해당 tool-rule을 등록하세요.
 
+## 스킬: `/transcodes`
+
+Persona, 게이트, Admin API, SDK 워크플로의 단일 진입점입니다. 직접 호출하거나 설명과 일치하는 자연어로 요청할 수 있습니다:
+
+```
+/transcodes support Persona를 최적화해줘
+/transcodes google calendar delete 도구에 step-up을 걸어줘
+```
+
+설치기는 플러그인의 `skills/` 디렉터리를 복사하며, Antigravity는 `skills/transcodes/SKILL.md`를 직접 호출 또는 description 기반 활성화에 사용합니다.
+
 ## AI 에이전트를 위한 안내
 
 오픈 소스: [transcodes-guard](https://github.com/transcodings/transcodes-guard)

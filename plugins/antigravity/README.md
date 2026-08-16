@@ -89,15 +89,14 @@ The hook matcher is `run_command|mcp_.*|call_mcp_tool`, so it gates shell execut
 
 ## Slash command: `/transcodes`
 
-A single "front door" for managing the gate's own rules. Type `/transcodes` followed by a plain-language request and the agent routes it to the right guard workflow, asking for any missing detail:
+A single front door for Persona, gate, Admin API, and SDK workflows. Invoke it or make a matching natural-language request:
 
 ```
+/transcodes optimize my support Persona
 /transcodes gate the google calendar delete tool behind step-up
-/transcodes list the current rules
-/transcodes is "git push --force" blocked?
 ```
 
-The installer copies the plugin's `skills/` directory into place; Antigravity auto-converts `skills/transcodes/SKILL.md` into the `/transcodes` slash command in the TUI. It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
+The installer copies the plugin's `skills/` directory into place; Antigravity discovers `skills/transcodes/SKILL.md` for direct or description-based activation.
 
 ## For AI agents
 

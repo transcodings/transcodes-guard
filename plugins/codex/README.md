@@ -54,17 +54,16 @@ Without a token, the hook still **denies** danger commands but cannot start a st
 
 ## `$`-mention: `$transcodes`
 
-A single "front door" for managing the gate's own rules. Codex surfaces bundled skills as **`$`-mentions** (not `/`), so invoke it as `$transcodes` followed by a plain-language request; the agent routes it to the right guard workflow, asking for any missing detail:
+A single front door for Persona, gate, Admin API, and SDK workflows. Codex surfaces bundled skills as **`$`-mentions** (not `/`); invoke it or make a matching natural-language request:
 
 ```
+$transcodes optimize my support Persona
 $transcodes gate the google calendar delete tool behind step-up
-$transcodes list the current rules
-$transcodes is "git push --force" blocked?
 ```
 
 The skill ships in the plugin's `skills/` directory and is declared in `.codex-plugin/plugin.json` (`"skills": "./skills/"`), so `codex plugin add` loads it automatically — no manual copy.
 
-It routes to: gate an MCP tool (`add_tool_rule`), block a Bash command (`add_user_pattern`), change a rule (`update_*`), list rules, check blocking (`simulate_*`), inspect step-up state, or integrate/install the Transcodes SDK into a frontend (`get_integration_guide`).
+It can create, edit, or Diet a Persona; manage gate rules and step-up state; use the Admin API; or integrate the Transcodes SDK.
 
 ## For AI agents
 

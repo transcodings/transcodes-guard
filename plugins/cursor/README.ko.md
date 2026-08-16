@@ -89,17 +89,16 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 
 MCP 서버 자체(`mcp.json`에 `transcodes-guard`로 등록)는 다른 플러그인과 동일한 도구를 제공합니다: **진단 / 시뮬레이션**(`inspect_stepup_state`, `simulate_hook_invocation`, `simulate_command`), **스텝업 수명주기**(`create_stepup_session`, `poll_stepup_session_wait`), **Transcodes 관리**(멤버 / 조직 / RBAC / 멤버십 / passcode / auth-device / 감사 / 프로젝트 관리).
 
-## 슬래시 명령: `/transcodes`
+## 스킬: `/transcodes`
 
-게이트 룰을 관리하는 단일 "정문"입니다. `/transcodes` 뒤에 평문 요청을 붙이면 에이전트가 맞는 guard 워크플로로 라우팅하고, 빠진 정보는 사용자에게 묻습니다:
+Persona, 게이트, Admin API, SDK 워크플로의 단일 진입점입니다. 직접 호출하거나 설명과 일치하는 자연어로 요청할 수 있습니다:
 
 ```
+/transcodes support Persona를 최적화해줘
 /transcodes gate the google calendar delete tool behind step-up
-/transcodes list the current rules
-/transcodes is "git push --force" blocked?
 ```
 
-`install.mjs`가 `.cursor/commands/`를 `~/.cursor/commands/`로 복사합니다. Agent 입력창에서 `/`를 입력하면 나타납니다. 라우팅 대상: MCP 도구 게이트(`add_tool_rule`), Bash 명령 차단(`add_user_pattern`), 룰 변경(`update_*`), 룰 목록, 차단 여부 확인(`simulate_*`), 스텝업 상태 조회, 프론트엔드 Transcodes SDK 연동(`get_integration_guide`).
+Cursor는 설치된 플러그인의 `skills/transcodes/SKILL.md`에서 스킬을 발견합니다. `install.mjs`는 이 스킬을 복사하고, 플러그인이 만든 것으로 확인된 이전 `~/.cursor/commands/transcodes.md`만 제거하며 같은 경로의 사용자 파일은 건드리지 않습니다.
 
 ## AI 에이전트를 위한 안내
 
