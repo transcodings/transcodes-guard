@@ -18,6 +18,7 @@ import {
   type PersonaKind,
   readPersonaFile,
   resolvePersonaRoot,
+  savePersonaBatch,
   savePersonaFile,
 } from './persona.js';
 import {
@@ -271,6 +272,45 @@ async function readSaveContent(parsed: ParsedArgs): Promise<string> {
   return Buffer.concat(chunks).toString('utf8');
 }
 
+async function readBatchChanges(batchFile: string) {
+  const manifest: unknown = JSON.parse(await readFile(batchFile, 'utf8'));
+  if (
+    !manifest ||
+    typeof manifest !== 'object' ||
+    !Array.isArray((manifest as { changes?: unknown }).changes)
+  ) {
+    throw new Error('Batch file must contain a changes array.');
+  }
+
+  return Promise.all(
+    (manifest as { changes: unknown[] }).changes.map(async (value, index) => {
+      if (!value || typeof value !== 'object') {
+        throw new Error(`Batch change ${index + 1} must be an object.`);
+      }
+      const entry = value as Record<string, unknown>;
+      const bundlePath =
+        typeof entry.path === 'string' ? entry.path.trim() : '';
+      const contentFile =
+        typeof entry.contentFile === 'string' ? entry.contentFile.trim() : '';
+      const deleting = entry.delete === true;
+      if (!bundlePath) {
+        throw new Error(`Batch change ${index + 1} requires path.`);
+      }
+      if (Object.hasOwn(entry, 'delete') && !deleting) {
+        throw new Error(`Batch change ${index + 1} delete must be true.`);
+      }
+      if (deleting === Boolean(contentFile)) {
+        throw new Error(
+          `Batch change ${index + 1} requires exactly one of contentFile or delete: true.`,
+        );
+      }
+      return deleting
+        ? ({ bundlePath, delete: true } as const)
+        : ({ bundlePath, bytes: await readFile(contentFile) } as const);
+    }),
+  );
+}
+
 export async function cmdPersona(args: string[]): Promise<void> {
   const [operation, ...rest] = args;
   if (!operation || operation === 'help' || operation === '--help') {
@@ -281,6 +321,7 @@ export async function cmdPersona(args: string[]): Promise<void> {
   transcodes persona create NAME
   transcodes persona read --persona NAME --kind agent|rule|skill [--name NAME] [--file SKILL_FILE]
   transcodes persona save --persona NAME --kind agent|rule|skill [--name NAME] [--file SKILL_FILE] (--stdin | --content-file PATH)
+  transcodes persona save --persona NAME --batch-file MANIFEST.json
       --file targets a companion file inside a skill folder (e.g. scripts/extract.py,
       references/billing-api.md); omit it to read/save the skill's SKILL.md.
   transcodes persona delete NAME
@@ -332,6 +373,25 @@ export async function cmdPersona(args: string[]): Promise<void> {
       return;
     }
     case 'save': {
+      const batchFile = optionalFlag(parsed, 'batch-file');
+      if (batchFile) {
+        const unsupported = [...parsed.flags.keys()].find(
+          (flag) => !['batch-file', 'root', 'persona'].includes(flag),
+        );
+        if (parsed.stdin || unsupported || parsed.positionals.length > 0) {
+          throw new Error(
+            '--batch-file cannot be combined with other save flags.',
+          );
+        }
+        printJson(
+          await savePersonaBatch({
+            root: optionalFlag(parsed, 'root'),
+            persona: requiredFlag(parsed, 'persona'),
+            changes: await readBatchChanges(batchFile),
+          }),
+        );
+        return;
+      }
       const kind = personaKind(parsed);
       const content = await readSaveContent(parsed);
       printJson(
@@ -357,13 +417,26 @@ export async function cmdPersona(args: string[]): Promise<void> {
     case 'delete-file': {
       const root = optionalFlag(parsed, 'root');
       const persona = requiredFlag(parsed, 'persona');
+      const kind = personaKind(parsed);
+      const unsupported = [...parsed.flags.keys()].find(
+        (flag) => !['root', 'persona', 'kind', 'name'].includes(flag),
+      );
+      if (unsupported || parsed.stdin || parsed.positionals.length > 0) {
+        throw new Error(
+          'Skill companion deletion requires persona save --batch-file; delete-file removes a whole agent, rule, or Skill.',
+        );
+      }
+      const name = optionalFlag(parsed, 'name');
+      if (kind === 'agent' && name) {
+        throw new Error('--name does not apply to --kind agent.');
+      }
       await checkedPersonaListing(root, persona);
       printJson(
         await deletePersonaFile({
           root,
           persona,
-          kind: personaKind(parsed),
-          name: optionalFlag(parsed, 'name'),
+          kind,
+          name,
         }),
       );
       return;

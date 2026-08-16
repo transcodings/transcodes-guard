@@ -9,6 +9,7 @@
 import { execFile, spawn } from 'node:child_process';
 import {
   cp,
+  lstat,
   mkdir,
   mkdtemp,
   readdir,
@@ -834,6 +835,58 @@ function resolveInsidePersona(persona: string, relativePath: string): string {
   return target;
 }
 
+async function assertNoSymlinkSegments(
+  root: string,
+  relativePath: string,
+): Promise<void> {
+  let current = root;
+  for (const segment of ['', ...relativePath.split('/')]) {
+    if (segment) current = path.join(current, segment);
+    try {
+      if ((await lstat(current)).isSymbolicLink()) {
+        throw new Error(`Refusing to follow symbolic link: ${current}`);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+      throw error;
+    }
+  }
+}
+
+function assertPersonaBundlePath(
+  bundlePath: string,
+  deleting: boolean,
+): string {
+  if (!bundlePath || bundlePath.includes('\\')) {
+    throw new Error(`Invalid Persona bundle path "${bundlePath}".`);
+  }
+  const parts = bundlePath.split('/');
+  if (
+    parts.length === 2 &&
+    parts[0] === PERSONA_INSTRUCTION_DIR_NAME &&
+    parts[1] === RULESYNC_OVERVIEW_FILE_NAME
+  ) {
+    return bundlePath;
+  }
+  if (parts.length === 2 && parts[0] === 'rules' && parts[1]?.endsWith('.md')) {
+    assertPersonaName('rule', parts[1]);
+    return bundlePath;
+  }
+  if (parts[0] === 'skills' && parts.length >= 2) {
+    assertPersonaName('skill', parts[1] ?? '');
+    if (parts.length === 2 && deleting) return bundlePath;
+    if (parts.length >= 3) {
+      const skillFile = assertSkillFilePath(parts.slice(2).join('/'));
+      if (deleting && skillFile === SKILL_FILE_NAME) {
+        throw new Error('SKILL.md is required and cannot be deleted.');
+      }
+      if (!deleting) assertSkillReferenceWritePath(skillFile);
+      return bundlePath;
+    }
+  }
+  throw new Error(`Invalid Persona bundle path "${bundlePath}".`);
+}
+
 export async function listPersonaIds(): Promise<string[]> {
   const names = await readdirSafe(personasRoot());
   const personas: string[] = [];
@@ -1207,16 +1260,18 @@ export async function writePersonaBundleFile(
 export async function replacePersonaBundleFiles(
   personaInput: string,
   files: Array<{ bundlePath: string; bytes: Buffer }>,
+  deletePaths: string[] = [],
 ): Promise<void> {
   await ensurePersonaStorage();
   const persona = assertPersonaId(personaInput);
   const bundleRoot = personaDir(persona);
   const transactionRoot = await mkdtemp(
-    path.join(personasRoot(), '.persona-pull-'),
+    path.join(personasRoot(), '.persona-transaction-'),
   );
   const stagedRoot = path.join(transactionRoot, 'next');
   const previousRoot = path.join(transactionRoot, 'previous');
   let movedPrevious = false;
+  let preserveTransaction = false;
 
   try {
     if (await isDirectory(bundleRoot)) {
@@ -1229,6 +1284,7 @@ export async function replacePersonaBundleFiles(
       // Validate against the real Persona root, then independently re-anchor
       // the same relative path inside staging.
       resolveInsidePersona(persona, file.bundlePath);
+      await assertNoSymlinkSegments(bundleRoot, file.bundlePath);
       const stagedPath = path.resolve(stagedRoot, file.bundlePath);
       const rel = path.relative(stagedRoot, stagedPath);
       if (rel.startsWith('..') || path.isAbsolute(rel)) {
@@ -1236,8 +1292,27 @@ export async function replacePersonaBundleFiles(
           `Refusing to stage a path outside Persona "${persona}": ${file.bundlePath}`,
         );
       }
+      await assertNoSymlinkSegments(stagedRoot, file.bundlePath);
       await mkdir(path.dirname(stagedPath), { recursive: true });
       await writeFile(stagedPath, file.bytes);
+    }
+
+    for (const bundlePath of deletePaths) {
+      const absolutePath = resolveInsidePersona(persona, bundlePath);
+      await assertNoSymlinkSegments(bundleRoot, bundlePath);
+      try {
+        await lstat(absolutePath);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          throw new Error(`"${bundlePath}" does not exist.`);
+        }
+        throw error;
+      }
+      await assertNoSymlinkSegments(stagedRoot, bundlePath);
+      await rm(path.resolve(stagedRoot, bundlePath), {
+        recursive: true,
+        force: false,
+      });
     }
 
     if (await isDirectory(bundleRoot)) {
@@ -1249,14 +1324,113 @@ export async function replacePersonaBundleFiles(
       await rename(stagedRoot, bundleRoot);
     } catch (error) {
       if (movedPrevious) {
-        await rename(previousRoot, bundleRoot);
-        movedPrevious = false;
+        try {
+          await rename(previousRoot, bundleRoot);
+          movedPrevious = false;
+        } catch (rollbackError) {
+          preserveTransaction = true;
+          throw new AggregateError(
+            [error, rollbackError],
+            `Persona swap and rollback failed; backup preserved at ${previousRoot}.`,
+          );
+        }
       }
       throw error;
     }
   } finally {
-    await rm(transactionRoot, { recursive: true, force: true }).catch(() => {});
+    if (!preserveTransaction) {
+      await rm(transactionRoot, { recursive: true, force: true }).catch(
+        () => {},
+      );
+    }
   }
+}
+
+export async function savePersonaBatch(params: {
+  root?: string;
+  persona: string;
+  changes: Array<
+    | { bundlePath: string; bytes: Buffer; delete?: false }
+    | { bundlePath: string; delete: true }
+  >;
+}): Promise<{ persona: string; saved: string[]; deleted: string[] }> {
+  const { root } = await resolvePersonaRoot(params.root);
+  const persona = assertPersonaId(params.persona);
+  if (!(await isDirectory(personaDir(persona)))) {
+    throw new Error(`Persona "${persona}" does not exist.`);
+  }
+  if (params.changes.length === 0) {
+    throw new Error('Batch must contain at least one change.');
+  }
+
+  const seen = new Set<string>();
+  const files: Array<{ bundlePath: string; bytes: Buffer }> = [];
+  const deletePaths: string[] = [];
+  for (const change of params.changes) {
+    const bundlePath = assertPersonaBundlePath(
+      change.bundlePath,
+      change.delete === true,
+    );
+    const conflict = [...seen].find(
+      (other) =>
+        other === bundlePath ||
+        other.startsWith(`${bundlePath}/`) ||
+        bundlePath.startsWith(`${other}/`),
+    );
+    if (conflict) {
+      throw new Error(
+        `Conflicting Persona bundle paths "${conflict}" and "${bundlePath}".`,
+      );
+    }
+    seen.add(bundlePath);
+    if (change.delete === true) deletePaths.push(bundlePath);
+    else files.push({ bundlePath, bytes: change.bytes });
+  }
+
+  const written = new Set(files.map((file) => file.bundlePath));
+  for (const bundlePath of seen) {
+    const parts = bundlePath.split('/');
+    if (parts[0] !== 'skills' || parts.length < 3) continue;
+    const skillFile = parts.slice(2).join('/');
+    if (skillFile === SKILL_FILE_NAME) continue;
+    const skillMdBundlePath = path.posix.join(
+      'skills',
+      parts[1] ?? '',
+      SKILL_FILE_NAME,
+    );
+    await assertNoSymlinkSegments(personaDir(persona), skillMdBundlePath);
+    if (
+      !(await isFile(resolveInsidePersona(persona, skillMdBundlePath))) &&
+      !written.has(skillMdBundlePath)
+    ) {
+      throw new Error(
+        `Skill "${parts[1]}" has no ${SKILL_FILE_NAME}. Include it in the batch before changing companions.`,
+      );
+    }
+    const indexedCompanion =
+      skillFile === 'scripts' ||
+      skillFile.startsWith('scripts/') ||
+      skillFile === 'references' ||
+      skillFile.startsWith('references/');
+    const addedOrDeleted =
+      deletePaths.includes(bundlePath) ||
+      !(await isFile(resolveInsidePersona(persona, bundlePath)));
+    // ponytail: the approved parent file owns semantic indexing; the CLI only
+    // enforces that index-changing batches include it atomically.
+    if (indexedCompanion && addedOrDeleted && !written.has(skillMdBundlePath)) {
+      throw new Error(
+        `Include the updated ${skillMdBundlePath} when adding or deleting indexed companions.`,
+      );
+    }
+  }
+
+  await replacePersonaBundleFiles(persona, files, deletePaths);
+  await writeLastRoot(root);
+  return {
+    persona,
+    saved: files.map((file) => file.bundlePath),
+    deleted: deletePaths,
+  };
 }
 
 export async function readPersonaFile(params: {

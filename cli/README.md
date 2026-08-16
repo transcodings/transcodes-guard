@@ -54,11 +54,14 @@ transcodes persona create developer
 transcodes persona read --persona developer --kind agent
 transcodes persona save --persona developer --kind agent --content-file /tmp/instruction.md
 transcodes persona save --persona developer --kind rule --name security --content-file /tmp/security.md
+transcodes persona save --persona developer --batch-file /tmp/diet.json
 transcodes persona deploy --persona developer --project "/path/to/project" --targets claude,cursor --yes
 transcodes persona deploy --persona developer --global --yes
 ```
 
 Run `transcodes persona help` for the complete command list.
+Batch manifests use a `changes` array whose entries contain `path` plus either
+`contentFile` or `delete: true`; the whole batch is atomic.
 `persona save` stores Markdown as provided. The `/transcodes` agent workflow
 must follow its authoring and token rules before saving, but the CLI
 intentionally does not validate or block the content.
