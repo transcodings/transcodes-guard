@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.73.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.72.0...transcodes-guard-v0.73.0) (2026-08-17)
+
+
+### Features
+
+* **membership:** describe full-headcount billing from the 3rd member ([9572910](https://github.com/transcodings/transcodes-guard/commit/9572910042f3096b80e2d3aa8110c31944c45350))
+
 ## [0.72.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.71.0...transcodes-guard-v0.72.0) (2026-08-17)
 
 
