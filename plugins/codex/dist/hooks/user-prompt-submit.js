@@ -2,7 +2,7 @@
 import {
   capturePrompt,
   codexAdapter
-} from "../chunk-3UBPOE6X.js";
+} from "../chunk-AB5VYTHQ.js";
 
 // hooks/user-prompt-submit.ts
 import { readFileSync } from "fs";
