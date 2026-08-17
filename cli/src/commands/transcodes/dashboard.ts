@@ -2122,6 +2122,10 @@ function dashboardHtml(): string {
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
+    .persona-library-title {
+      letter-spacing: 0;
+      text-transform: none;
+    }
     .persona-group-add {
       margin-left: auto;
       display: inline-flex;
@@ -4500,10 +4504,10 @@ function dashboardHtml(): string {
           <p class="persona-root-help">Set a project folder path, then use <strong>Apply</strong> to apply the selected Persona to the project folder</p>
           </div>
           <aside class="persona-library-panel" aria-label="Local Persona files">
-          <p class="persona-group-label">Select Persona</p>
+          <p class="persona-group-label persona-library-title">My Personas</p>
           <p class="persona-bundle-help">Only Personas on this device are listed here</p>
           <div class="persona-bundle-row">
-            <select id="persona-bundle-select" class="label-input persona-bundle-select" aria-label="Select Persona"></select>
+            <select id="persona-bundle-select" class="label-input persona-bundle-select" aria-label="My Personas"></select>
             <button type="button" class="persona-group-add" id="persona-bundle-new-btn" aria-label="Add Persona" title="Add Persona">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             </button>

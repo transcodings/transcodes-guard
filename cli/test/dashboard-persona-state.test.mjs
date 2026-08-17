@@ -411,6 +411,7 @@ test("Persona exposes My Personas and Organization from a sidebar accordion", ()
   assert.match(source, /id="persona-remote-list"/);
   assert.match(source, /data-remote-sync="/);
   assert.match(source, /id="persona-local-tab" aria-current="page">My Personas</);
+  assert.match(source, /class="persona-group-label persona-library-title">My Personas</);
   assert.match(source, /id="persona-remote-tab">Organization</);
   assert.match(
     source,
