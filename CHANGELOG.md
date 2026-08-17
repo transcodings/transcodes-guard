@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.72.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.71.0...transcodes-guard-v0.72.0) (2026-08-17)
+
+
+### Features
+
+* **cli:** rename My Personas and update seat billing copy ([abc58fe](https://github.com/transcodings/transcodes-guard/commit/abc58fef385c5d14e6979648632a256c19af228c))
+
 ## [0.71.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.70.1...transcodes-guard-v0.71.0) (2026-08-16)
 
 
