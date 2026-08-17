@@ -42,7 +42,7 @@ export const membershipToolDefinitions: readonly GuardToolDefinition[] = [
       'Returns the resource limits per plan tier. ' +
       'Product features are unlimited on every plan. ' +
       'The first 2 accepted organization members are free. ' +
-      'From the 3rd member, billing is per member at price_per_seat (Standard: $9 / member / month; 3 members = $9). ' +
+      'From the 3rd member, every member is billed at price_per_seat (Standard: $9 / member / month; 3 members = $27). ' +
       'A card is required before inviting a teammate. ' +
       'Use this to build pricing comparison UI or explain seat billing.',
     summary: 'Resource limits enforced per plan tier.',
