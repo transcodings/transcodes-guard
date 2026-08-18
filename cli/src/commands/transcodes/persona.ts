@@ -73,6 +73,15 @@ export type PersonaListing = {
   skills: PersonaEntry[];
 };
 
+/** Per-file cap for dashboard create/save. */
+export const MAX_PERSONA_FILE_BYTES = 5 * 1024 * 1024;
+
+export function assertPersonaFileSize(bytes: number): void {
+  if (bytes > MAX_PERSONA_FILE_BYTES) {
+    throw new Error('Files larger than 5 MB cannot be added.');
+  }
+}
+
 const PERSONA_IMAGE_TYPES: Record<string, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',
@@ -1064,6 +1073,7 @@ export async function savePersonaFile(params: {
       ? assertSkillFilePath(params.file ?? '')
       : undefined;
   if (skillFile) assertSkillReferenceWritePath(skillFile);
+  assertPersonaFileSize(Buffer.byteLength(params.content, 'utf-8'));
 
   // Companion Skill files are written verbatim: scripts and reference docs
   // must not get frontmatter name-sync or Markdown sanitizing. After the

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import "../chunk-AB5VYTHQ.js";
+import "../chunk-235OECXY.js";
 
 // hooks/stop.ts
 async function main() {
