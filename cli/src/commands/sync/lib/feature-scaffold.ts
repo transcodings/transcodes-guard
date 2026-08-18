@@ -65,6 +65,12 @@ export function coerceSkillName(name: string): string {
 export const APPLIED_RULES_SKILLS_OUTPUT_LINE =
   '- When any Rule or Skill is applied, you MUST end the response with exactly one attribution line in this format: `Applied: Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none>`. Use the exact Rule and Skill names, include every applied item, and never replace names with generic descriptions. Omit this line only when no Rule or Skill was applied.';
 
+/** Non-negotiable MCP lines every Persona instruction carries, without bullets. */
+export const TRANSCODES_MCP_MUST_LINES = [
+  'When Transcodes MCP is installed, use Transcodes MCP tools for every operation they support.',
+  'Never bypass an available Transcodes MCP tool or its permission and step-up flow by using Bash, shell, raw HTTP, or another indirect execution path. If authorization is required, complete that flow instead of rerouting the action.',
+] as const;
+
 const FEATURE_KEYWORDS = new Map<string, ScaffoldFeature>([
   ['rule', 'rule'],
   ['rules', 'rule'],
@@ -140,8 +146,7 @@ description: <One-line summary of this agent's overall role>
 - <Team tone or collaboration rule>
 
 # MUST / IMPORTANT
-- When Transcodes MCP is installed, use Transcodes MCP tools for every operation they support.
-- Never bypass an available Transcodes MCP tool or its permission and step-up flow by using Bash, shell, raw HTTP, or another indirect execution path. If authorization is required, complete that flow instead of rerouting the action.
+${TRANSCODES_MCP_MUST_LINES.map((line) => `- ${line}`).join('\n')}
 
 # Output
 - <Default language, length, and level of detail>
