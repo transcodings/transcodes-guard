@@ -53,6 +53,7 @@ import {
   deployPersona,
   listPersona,
   listPersonaIds,
+  MAX_PERSONA_FILE_BYTES,
   type PersonaKind,
   pickProjectFolder,
   readLastRoot,
@@ -306,8 +307,8 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
-/** Max JSON body the dashboard accepts — persona markdown stays well under it. */
-const MAX_BODY_BYTES = 2 * 1024 * 1024;
+/** Fits one 5 MB file as JSON plus path metadata. */
+const MAX_BODY_BYTES = 8 * 1024 * 1024;
 
 function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
@@ -1660,6 +1661,7 @@ function dashboardHtml(): string {
     .persona-sync-actions-card {
       margin: 0 0 18px;
     }
+    .persona-sync-actions-card[hidden] { display: none !important; }
     .persona-sync-actions-card .persona-agent-callout-body {
       padding: 0 16px 16px 50px;
       text-align: left;
@@ -2327,6 +2329,41 @@ function dashboardHtml(): string {
       margin: 0 0 18px;
       padding: 0;
     }
+    .persona-agent-callout--toolbar {
+      position: relative;
+      overflow: visible;
+      margin: 0 0 0 auto;
+      flex: 0 0 auto;
+    }
+    .persona-agent-callout--toolbar .persona-agent-callout-summary {
+      padding: 7px 12px;
+      gap: 8px;
+    }
+    .persona-agent-callout--toolbar .persona-agent-callout-icon {
+      width: 16px;
+      height: 16px;
+    }
+    .persona-agent-callout--toolbar .persona-agent-callout-title {
+      margin: 0;
+      font-size: var(--text-2xs);
+      white-space: nowrap;
+    }
+    .persona-agent-callout--toolbar .persona-agent-callout-chevron {
+      width: 14px;
+      height: 14px;
+    }
+    .persona-agent-callout--toolbar .persona-agent-callout-body {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 35;
+      width: min(440px, calc(100vw - 48px));
+      padding: 12px 14px;
+      border: 1px solid rgba(91, 84, 230, 0.28);
+      border-radius: 14px;
+      background: var(--highlight-soft);
+      box-shadow: 0 12px 32px rgba(24, 24, 35, 0.14);
+    }
     .persona-agent-callout-summary {
       display: flex;
       align-items: center;
@@ -2384,6 +2421,14 @@ function dashboardHtml(): string {
       margin: 0 2px 10px;
     }
     .persona-file-picker[hidden] { display: none !important; }
+    .persona-file-picker.is-open { z-index: 40; }
+    .persona-file-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 39;
+      background: transparent;
+    }
+    .persona-file-backdrop[hidden] { display: none !important; }
     .persona-file-btn {
       display: inline-flex;
       align-items: center;
@@ -2582,11 +2627,21 @@ function dashboardHtml(): string {
       justify-content: space-between;
       gap: 6px 12px;
     }
+    .persona-content-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
     .persona-content-file {
       color: var(--accent);
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-weight: 700;
       overflow-wrap: anywhere;
+    }
+    .persona-content-heading .persona-content-file {
+      flex: 1;
+      min-width: 0;
     }
     .persona-content-count {
       color: var(--ink);
@@ -3497,7 +3552,9 @@ function dashboardHtml(): string {
       min-width: 0;
     }
     .guide-topic-title {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-size: var(--text-base);
       font-weight: 750;
       line-height: 1.35;
@@ -3797,6 +3854,12 @@ function dashboardHtml(): string {
         border-right: 1px solid var(--line);
         border-radius: 0;
         background: #F9FAFB;
+      }
+      .card > .tabs > .sidebar-divider {
+        height: 1px;
+        margin: 8px 4px;
+        background: var(--line);
+        flex-shrink: 0;
       }
       .card > .tabs > .tab,
       .card > .tabs > .persona-nav-group > .tab {
@@ -4174,14 +4237,14 @@ function dashboardHtml(): string {
           <button type="button" class="persona-nav-item" id="persona-remote-tab">Organization</button>
         </div>
       </div>
-      <button type="button" class="tab" data-tab="rbac">
-        ${ICON_PERMISSION.replace('<svg ', '<svg class="tab-icon" ')}
-        Permission
-        <span class="tab-beta">Beta</span>
-      </button>
       <button type="button" class="tab" data-tab="tokens">
         ${ICON_PROFILE.replace('<svg ', '<svg class="tab-icon" ')}
         Profile
+      </button>
+      <div class="sidebar-divider" aria-hidden="true"></div>
+      <button type="button" class="tab" data-tab="rbac">
+        ${ICON_PERMISSION.replace('<svg ', '<svg class="tab-icon" ')}
+        Permission
       </button>
       <div class="sidebar-version">
         <span>Ver ${CLI_VERSION}</span>
@@ -4200,7 +4263,7 @@ function dashboardHtml(): string {
             <svg class="guide-topic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </summary>
           <div class="guide-topic-body">
-            <p class="section-sub">Set up Transcodes from this panel — no terminal required</p>
+            <p class="section-sub">Create, refine, and apply a Persona to your AI apps</p>
       <p class="section-title section-title--spaced">Steps</p>
       <p class="guide-prefix-note">Start your message with <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — use <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex).</p>
       <div class="guide-groups">
@@ -4209,29 +4272,14 @@ function dashboardHtml(): string {
             <li>
               <details class="guide-step guide-step--accordion">
                 <summary class="guide-step-summary">
-                  <span class="guide-step-num">0</span>
-                  <span class="guide-step-heading">
-                    <span class="guide-step-title">Define AI Agent Persona</span>
-                  </span>
-                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                </summary>
-                <div class="guide-step-body">
-                  <p class="guide-step-desc">Just like giving a new hire an onboarding team manual (company, job descriptions, team rule, tech specs), providing your AI with a strict persona—an employee profile combining <code class="cli-cmd">instruction</code>, <code class="cli-cmd">rules</code>, and <code class="cli-cmd">skills</code>—will drastically improve its output. It reduces wasted tokens, improves the quality and consistency of the output you want, and reduces hallucinations.</p> <br />
-                  <p class="guide-step-desc">Quickest path: ask your AI agent with <code class="cli-cmd">/transcodes create a persona</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes create a persona</code> in ChatGPT (Codex). To apply an existing Persona, type <code class="cli-cmd">/transcodes apply a persona</code> or <code class="cli-cmd">$transcodes apply a persona</code>. If you do not specify a project path, it uses This device (Global) by default so the Persona is available in every project and session for the selected apps. Or open the <button type="button" class="guide-console-link" data-open-tab="persona">Persona</button> tab to create, review, and apply manually.</p>
-                </div>
-              </details>
-            </li>
-            <li>
-              <details class="guide-step guide-step--accordion">
-                <summary class="guide-step-summary">
                   <span class="guide-step-num">1</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">After signing in, add biometrics or passkeys</span>
+                    <span class="guide-step-title">Create a Persona</span>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">After signing in, open the <strong>Profile</strong> tab and click <button type="button" class="guide-console-link" data-console-open>Console</button> (or run <code class="cli-cmd">transcodes console</code>), then add biometrics or passkeys — used when Transcodes asks for an extra security check</p>
+                  <p class="guide-step-desc">Ask your AI with <code class="cli-cmd">/transcodes create a persona</code> or <code class="cli-cmd">$transcodes create a persona</code>. Describe the role, team, policies, and workflows you want the AI to follow. You can also create one manually in the <button type="button" class="guide-console-link" data-open-tab="persona">Persona</button> tab.</p>
                 </div>
               </details>
             </li>
@@ -4240,12 +4288,12 @@ function dashboardHtml(): string {
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">2</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">Set permissions in the Transcodes app</span>
+                    <span class="guide-step-title">Review and refine it</span>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">Decide who can do what — resources, actions, and roles — in the <a href="${APP_ORG_URL}" data-app-tab="permissions" target="_blank" rel="noopener noreferrer">Transcodes app</a>. You can review those permissions (view only) in this panel's <strong>Permission</strong> tab</p>
+                  <p class="guide-step-desc">Review the Persona's <strong>Instruction</strong>, <strong>Rules</strong>, and <strong>Skills</strong>. Keep its role clear, its policies focused, and each workflow in a separate Skill file. Ask your AI to update it, or edit the files in the <button type="button" class="guide-console-link" data-open-tab="persona">Persona</button> tab.</p>
                 </div>
               </details>
             </li>
@@ -4254,23 +4302,12 @@ function dashboardHtml(): string {
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">3</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">(Demo) Open your AI app and try a security check</span>
+                    <span class="guide-step-title">Apply it to your AI apps</span>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">Open Claude, Cursor, Antigravity, or ChatGPT. If the app is already open, restart it so your latest sign-in is picked up.</p>
-                  <p class="guide-step-desc">Ask the AI to run a protected action — you should be asked to confirm with a passkey or biometrics</p>
-                  <div class="guide-help-examples">
-                    <div class="guide-cmd-row">
-                      <span class="guide-cmd-hosts">Claude · Cursor · Antigravity</span>
-                      <code class="cli-cmd">/transcodes open step-up authentication for testing</code>
-                    </div>
-                    <div class="guide-cmd-row">
-                      <span class="guide-cmd-hosts">ChatGPT (Codex)</span>
-                      <code class="cli-cmd">$transcodes open step-up authentication for testing</code>
-                    </div>
-                  </div>
+                  <p class="guide-step-desc">Ask your AI with <code class="cli-cmd">/transcodes apply a persona</code> or <code class="cli-cmd">$transcodes apply a persona</code>, then choose the project and AI apps. Without a project path, the Persona is applied to <strong>This device (Global)</strong> for use across projects and new sessions.</p>
                 </div>
               </details>
             </li>
@@ -4279,57 +4316,12 @@ function dashboardHtml(): string {
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">4</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">Ask the AI to do something</span>
+                    <span class="guide-step-title">Sync and share with your team</span>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">When you ask the AI to act, Transcodes checks your permissions: <strong>blocked</strong>, <strong>allowed</strong>, or <strong>needs extra confirmation</strong> (passkey / biometrics).</p>
-                  <ul class="guide-classify-list">
-                    <li><span class="guide-classify-prompt">"Create a Google Calendar event"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">google:create</code></li>
-                    <li><span class="guide-classify-prompt">"Change James's role in Transcodes"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">transcodes:update</code></li>
-                    <li><span class="guide-classify-prompt">"Delete files on my computer"</span> <span class="guide-classify-arrow">→</span> <code class="cli-cmd">system:delete</code></li>
-                  </ul>
-                  <p class="guide-classify-note">If there's no matching resource, Transcodes uses <code class="cli-cmd">system</code> — e.g. without a <code>google</code> resource, that calendar request becomes <code class="cli-cmd">system:create</code>.</p>
-                </div>
-              </details>
-            </li>
-            <li>
-              <details class="guide-step guide-step--accordion">
-                <summary class="guide-step-summary">
-                  <span class="guide-step-num">5</span>
-                  <span class="guide-step-heading">
-                    <span class="guide-step-title">Get notifications on channels</span>
-                  </span>
-                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                </summary>
-                <div class="guide-step-body">
-                  <p class="guide-step-desc">If you want to get notifications, open <a href="${APP_ORG_URL}/settings" data-app-tab="webhooks" target="_blank" rel="noopener noreferrer">Transcodes Settings</a>, connect channels. (More channels coming soon.)</p>
-                </div>
-              </details>
-            </li>
-            <li>
-              <details class="guide-step guide-step--accordion">
-                <summary class="guide-step-summary">
-                  <span class="guide-step-num">6</span>
-                  <span class="guide-step-heading">
-                    <span class="guide-step-title">View activity histories / security log</span>
-                  </span>
-                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                </summary>
-                <div class="guide-step-body">
-                  <p class="guide-step-desc">Ask the AI for an activity histories / security log report — Transcodes applies your permissions and shows what happened</p>
-                  <p class="guide-step-desc">Every action is recorded: blocked, allowed, or confirmed with an extra security check.</p>
-                  <div class="guide-help-examples">
-                    <div class="guide-cmd-row">
-                      <span class="guide-cmd-hosts">Claude · Cursor · Antigravity</span>
-                      <code class="cli-cmd">/transcodes show audit logs report</code>
-                    </div>
-                    <div class="guide-cmd-row">
-                      <span class="guide-cmd-hosts">ChatGPT (Codex)</span>
-                      <code class="cli-cmd">$transcodes show audit logs report</code>
-                    </div>
-                  </div>
+                  <p class="guide-step-desc">When your team needs the same Persona version, sign in and open <button type="button" class="guide-console-link" data-open-tab="persona" data-persona-view="remote">Organization</button> to deploy it. Or ask your AI with <code class="cli-cmd">/transcodes upload this persona to my organization</code> or <code class="cli-cmd">$transcodes upload this persona to my organization</code>. Teammates can then sync the latest version from Organization or ask their AI to download it.</p>
                 </div>
               </details>
             </li>
@@ -4380,7 +4372,28 @@ function dashboardHtml(): string {
         <details class="guide-topic" name="guide-topic">
           <summary class="guide-topic-summary">
             <span class="guide-topic-heading">
-              <span class="guide-topic-title">Permission</span>
+              <span class="guide-topic-title">Profile</span>
+              <span class="guide-topic-subtitle">Manage this device's sign-in and methods for confirming risky actions</span>
+            </span>
+            <svg class="guide-topic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="guide-topic-body">
+            <div class="guide-help-body">
+              <p class="guide-help-line"><strong>Profile</strong> shows the Transcodes account, organization, and project currently connected to this computer.</p>
+              <p class="guide-help-line">Use <code class="cli-cmd">transcodes login</code> to sign in and <code class="cli-cmd">transcodes logout</code> to remove the local session. To switch organizations, log out and sign in again.</p>
+              <p class="guide-help-line">Register a passkey, hardware security key, or OTP in <strong>Console</strong> so you can confirm risky actions when Transcodes asks for an extra security check.</p>
+            </div>
+            <div class="guide-topic-actions">
+              <button type="button" class="btn-inline-action" data-open-tab="tokens">Open Profile</button>
+              <button type="button" class="btn-inline-action" data-console-open>Open Console</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="guide-topic" name="guide-topic">
+          <summary class="guide-topic-summary">
+            <span class="guide-topic-heading">
+              <span class="guide-topic-title">Permission <span class="tab-beta">Upcoming</span></span>
               <span class="guide-topic-subtitle">Understand resources, actions, access levels, and extra confirmation</span>
             </span>
             <svg class="guide-topic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -4408,27 +4421,6 @@ function dashboardHtml(): string {
             <div class="guide-topic-actions">
               <button type="button" class="btn-inline-action" data-open-tab="rbac">Open Permission</button>
               <a class="btn-inline-action" href="${APP_ORG_URL}" data-app-tab="permissions" target="_blank" rel="noopener noreferrer">Edit Access Policy</a>
-            </div>
-          </div>
-        </details>
-
-        <details class="guide-topic" name="guide-topic">
-          <summary class="guide-topic-summary">
-            <span class="guide-topic-heading">
-              <span class="guide-topic-title">Profile</span>
-              <span class="guide-topic-subtitle">Manage this device's sign-in and methods for confirming risky actions</span>
-            </span>
-            <svg class="guide-topic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </summary>
-          <div class="guide-topic-body">
-            <div class="guide-help-body">
-              <p class="guide-help-line"><strong>Profile</strong> shows the Transcodes account, organization, and project currently connected to this computer.</p>
-              <p class="guide-help-line">Use <code class="cli-cmd">transcodes login</code> to sign in and <code class="cli-cmd">transcodes logout</code> to remove the local session. To switch organizations, log out and sign in again.</p>
-              <p class="guide-help-line">Register a passkey, hardware security key, or OTP in <strong>Console</strong> so you can confirm risky actions when Transcodes asks for an extra security check.</p>
-            </div>
-            <div class="guide-topic-actions">
-              <button type="button" class="btn-inline-action" data-open-tab="tokens">Open Profile</button>
-              <button type="button" class="btn-inline-action" data-console-open>Open Console</button>
             </div>
           </div>
         </details>
@@ -4525,19 +4517,6 @@ function dashboardHtml(): string {
           </aside>
           <div class="persona-workspace">
           <div class="persona-editor-panel">
-            <details class="persona-agent-callout persona-agent-callout--workspace">
-              <summary class="persona-agent-callout-summary">
-                ${ICON_PERSONA.replace(
-                  '<svg ',
-                  '<svg class="persona-agent-callout-icon" ',
-                )}
-                <p class="persona-agent-callout-title">Create Personas with Your AI</p>
-                <svg class="persona-agent-callout-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-              </summary>
-              <div class="persona-agent-callout-body">
-                <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. When applying without a project path, the Persona is applied globally on this device.</p>
-              </div>
-            </details>
             <div class="persona-picker" id="persona-picker" hidden>
               <input type="text" id="persona-new-name" class="label-input persona-new-name" placeholder="Please type a new rule title" spellcheck="false" autocapitalize="off" autocomplete="off" hidden />
             </div>
@@ -4555,10 +4534,26 @@ function dashboardHtml(): string {
                 <svg class="persona-file-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
               </button>
               <span class="persona-file-count" id="persona-file-count"></span>
+              <div class="persona-file-backdrop" id="persona-file-backdrop" hidden></div>
               <div class="persona-file-menu" id="persona-file-menu" role="listbox" aria-label="Skill files" hidden></div>
             </div>
             <div class="persona-content-stats" id="persona-content-stats" aria-live="polite">
+              <div class="persona-content-heading">
               <span class="persona-content-file" id="persona-content-file">agents.md</span>
+              <details class="persona-agent-callout persona-agent-callout--workspace persona-agent-callout--toolbar">
+                <summary class="persona-agent-callout-summary">
+                  ${ICON_PERSONA.replace(
+                    '<svg ',
+                    '<svg class="persona-agent-callout-icon" ',
+                  )}
+                  <p class="persona-agent-callout-title">Create Personas with Your AI</p>
+                  <svg class="persona-agent-callout-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="persona-agent-callout-body">
+                  <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. When applying without a project path, the Persona is applied globally on this device.</p>
+                </div>
+              </details>
+              </div>
               <div class="persona-content-metrics">
                 <span class="persona-content-count" id="persona-content-count">≈ 0 tokens · 0 words</span>
                 <span class="persona-content-status" id="persona-content-status"></span>
@@ -4602,13 +4597,13 @@ function dashboardHtml(): string {
               </button>
             </div>
           </div>
-          <details class="persona-agent-callout persona-agent-callout--workspace persona-sync-actions-card">
+          <details class="persona-agent-callout persona-agent-callout--workspace persona-sync-actions-card" id="persona-sync-actions-card" hidden>
             <summary class="persona-agent-callout-summary">
               ${ICON_BOLT.replace(
                 '<svg ',
                 '<svg class="persona-agent-callout-icon" ',
               )}
-              <p class="persona-agent-callout-title">What each action does</p>
+              <p class="persona-agent-callout-title">What Each Action Does</p>
               <svg class="persona-agent-callout-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </summary>
             <div class="persona-agent-callout-body">
@@ -4631,7 +4626,7 @@ function dashboardHtml(): string {
       <div class="panel-page-head">
         <div class="panel-page-title-row">
           <h2 class="panel-page-title">Permission</h2>
-          <span class="tab-beta">Beta</span>
+          <span class="tab-beta">Upcoming</span>
         </div>
         <p class="panel-page-description">Decide what your AI can do and when it needs your approval.</p>
       </div>
@@ -5251,7 +5246,10 @@ function dashboardHtml(): string {
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        openTab(btn.getAttribute("data-open-tab"));
+        const personaView = btn.getAttribute("data-persona-view");
+        openTab(btn.getAttribute("data-open-tab"), {
+          ...(personaView ? { personaView } : {}),
+        });
       });
     });
     window.addEventListener("popstate", () => {
@@ -5449,6 +5447,9 @@ function dashboardHtml(): string {
     const personaRemoteDescription = document.getElementById("persona-remote-description");
     const personaRemoteNotice = document.getElementById("persona-remote-notice");
     const personaRemoteList = document.getElementById("persona-remote-list");
+    const personaSyncActionsCard = document.getElementById(
+      "persona-sync-actions-card"
+    );
     const personaSyncWarning = document.getElementById("persona-sync-warning");
     const personaTargetInputs = Array.from(
       document.querySelectorAll('input[name="persona-target"]')
@@ -5479,6 +5480,7 @@ function dashboardHtml(): string {
     const personaFileCurrent = document.getElementById("persona-file-current");
     const personaFileCount = document.getElementById("persona-file-count");
     const personaFileMenu = document.getElementById("persona-file-menu");
+    const personaFileBackdrop = document.getElementById("persona-file-backdrop");
     const personaLogWrap = document.getElementById("persona-log-wrap");
     const personaLog = document.getElementById("persona-log");
     const personaLogClose = document.getElementById("persona-log-close");
@@ -6099,6 +6101,12 @@ function dashboardHtml(): string {
         '<p class="signin-pitch-feature-title">' + title + "</p>" +
         '<p class="signin-pitch-feature-desc">' + desc + "</p>" +
         "</div>";
+      const cta = opts.hideCta
+        ? ""
+        : '<div class="signin-pitch-cta">' +
+          '<button type="button" class="btn-session-login signin-pitch-btn" data-open-login>Login</button>' +
+          '<p class="signin-pitch-hint">Sign-in opens in your browser \u2014 it takes about 30 seconds.</p>' +
+          "</div>";
       return (
         '<div class="signin-pitch-card">' +
         '<div class="signin-pitch-head">' +
@@ -6109,10 +6117,7 @@ function dashboardHtml(): string {
         '<div class="signin-pitch-features">' +
         opts.features.map((item) => feature(item.icon, item.title, item.desc)).join("") +
         "</div>" +
-        '<div class="signin-pitch-cta">' +
-        '<button type="button" class="btn-session-login signin-pitch-btn" data-open-login>Login</button>' +
-        '<p class="signin-pitch-hint">Sign-in opens in your browser \u2014 it takes about 30 seconds.</p>' +
-        "</div>" +
+        cta +
         "</div>"
       );
     }
@@ -6134,7 +6139,7 @@ function dashboardHtml(): string {
     function personaSignInCardHtml() {
       return signInPitchCardHtml({
         icon: signInPitchIcons.sparkles,
-        title: "Sign in to use organization persona sharing",
+        title: "Sign in to sync your Personas",
         sub: "Set up a Persona once, publish it, and every teammate runs the exact same version \u2014 no more copy-pasting configs between machines or setups drifting apart.",
         features: [
           {
@@ -6145,7 +6150,7 @@ function dashboardHtml(): string {
           {
             icon: signInPitchIcons.up,
             title: "Publish yours",
-            desc: "Push Personas from this device so the whole organization works from one version.",
+            desc: "Push Personas from this device so everyone works from one version.",
           },
           {
             icon: signInPitchIcons.clock,
@@ -6184,8 +6189,9 @@ function dashboardHtml(): string {
     function permissionSignInCardHtml() {
       return signInPitchCardHtml({
         icon: signInPitchIcons.shield,
-        title: "Sign in to control what your AI can do",
-        sub: "Set limits, confirm risky work with your fingerprint, and keep a record of every decision.",
+        title: "Set AI limits. Require human approval. Keep records",
+        sub: "Control what your AI can do \u2014 coming soon",
+        hideCta: true,
         features: [
           {
             icon: signInPitchIcons.lock,
@@ -6212,6 +6218,7 @@ function dashboardHtml(): string {
           ? personaState.listing.personas
           : [];
       const signedIn = hasSavedTokens(lastStatus);
+      if (personaSyncActionsCard) personaSyncActionsCard.hidden = !signedIn;
 
       // Union of both sides, organization order first so shared Personas
       // keep a stable position, then local-only ones.
@@ -6234,7 +6241,7 @@ function dashboardHtml(): string {
         // in red.
         if (personaRemoteDescription) {
           personaRemoteDescription.textContent =
-            "Share Personas with your organization — everyone runs the same version of the setup you built once.";
+            "Set up once. Every device and every teammate runs the same versions of Persona";
         }
         personaRemoteNotice.textContent = "";
         personaRemoteNotice.removeAttribute("data-tone");
@@ -6730,6 +6737,8 @@ function dashboardHtml(): string {
       if (!personaFileMenu || !personaFileBtn) return;
       personaFileDraft = null;
       personaFileMenu.hidden = true;
+      if (personaFileBackdrop) personaFileBackdrop.hidden = true;
+      if (personaFilePicker) personaFilePicker.classList.remove("is-open");
       personaFileBtn.setAttribute("aria-expanded", "false");
     }
 
@@ -6948,7 +6957,21 @@ function dashboardHtml(): string {
     function keepPersonaFileMenuOpen() {
       if (!personaFileMenu || !personaFileBtn) return;
       personaFileMenu.hidden = false;
+      if (personaFileBackdrop) personaFileBackdrop.hidden = false;
+      if (personaFilePicker) personaFilePicker.classList.add("is-open");
       personaFileBtn.setAttribute("aria-expanded", "true");
+    }
+
+    function isInsidePersonaFileMenu(event) {
+      const path =
+        typeof event.composedPath === "function" ? event.composedPath() : [];
+      const nodes = path.length
+        ? path
+        : [event.target, event.target && event.target.parentElement];
+      return (
+        nodes.indexOf(personaFileBtn) !== -1 ||
+        nodes.indexOf(personaFileMenu) !== -1
+      );
     }
 
     async function deleteSkillPathFromMenu(targetPath, isDir) {
@@ -7088,15 +7111,24 @@ function dashboardHtml(): string {
           closePersonaFileMenu();
         } else {
           renderPersonaFilePicker();
-          personaFileMenu.hidden = false;
-          personaFileBtn.setAttribute("aria-expanded", "true");
+          keepPersonaFileMenuOpen();
         }
       });
-      document.addEventListener("click", (event) => {
-        if (personaFileMenu.hidden) return;
-        if (personaFilePicker.contains(event.target)) return;
-        closePersonaFileMenu();
-      });
+      if (personaFileBackdrop) {
+        personaFileBackdrop.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          closePersonaFileMenu();
+        });
+      }
+      document.addEventListener(
+        "pointerdown",
+        (event) => {
+          if (personaFileMenu.hidden) return;
+          if (isInsidePersonaFileMenu(event)) return;
+          closePersonaFileMenu();
+        },
+        true,
+      );
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") closePersonaFileMenu();
       });
@@ -8265,22 +8297,10 @@ function dashboardHtml(): string {
     function renderRbacAuthGate() {
       const rbacSignInEl = document.getElementById("rbac-signin");
       const rbacSignedInEl = document.getElementById("rbac-signed-in");
-      const state = authViewState();
       if (!rbacSignInEl || !rbacSignedInEl) return;
-      if (state === "loading") {
-        rbacSignInEl.innerHTML = panelLoadingHtml();
-        rbacSignInEl.hidden = false;
-        rbacSignedInEl.hidden = true;
-        return;
-      }
-      if (state === "signed-out") {
-        rbacSignInEl.innerHTML = permissionSignInCardHtml();
-        rbacSignInEl.hidden = false;
-        rbacSignedInEl.hidden = true;
-        return;
-      }
-      rbacSignInEl.hidden = true;
-      rbacSignedInEl.hidden = false;
+      rbacSignInEl.innerHTML = permissionSignInCardHtml();
+      rbacSignInEl.hidden = false;
+      rbacSignedInEl.hidden = true;
     }
 
     headerLoginBtn.addEventListener("click", () => { openLogin(); });
@@ -8911,13 +8931,17 @@ async function handlePersonaRoute(params: {
         typeof body.root === 'string' && body.root.trim()
           ? body.root
           : undefined;
+      const content = typeof body.content === 'string' ? body.content : '';
+      if (Buffer.byteLength(content, 'utf8') > MAX_PERSONA_FILE_BYTES) {
+        throw new HttpError(413, 'Files larger than 5 MB cannot be added.');
+      }
       const saved = await savePersonaFile({
         root,
         persona,
         kind,
         name: typeof body.name === 'string' ? body.name : '',
         file: typeof body.file === 'string' ? body.file : undefined,
-        content: typeof body.content === 'string' ? body.content : '',
+        content,
       });
 
       if (url === '/api/persona/save') {

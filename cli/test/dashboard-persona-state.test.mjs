@@ -38,8 +38,23 @@ test("Guide has no Mux player or step timestamp seek buttons", () => {
   assert.doesNotMatch(source, /seekGuideVideo/);
   assert.match(
     source,
-    /Set up Transcodes from this panel — no terminal required/,
+    /Create, refine, and apply a Persona to your AI apps/,
   );
+});
+
+test("Getting Started focuses on a four-step Persona workflow", () => {
+  assert.match(
+    source,
+    /guide-step-num">1[\s\S]*?Create a Persona[\s\S]*?guide-step-num">2[\s\S]*?Review and refine it[\s\S]*?guide-step-num">3[\s\S]*?Apply it to your AI apps[\s\S]*?guide-step-num">4[\s\S]*?Sync and share with your team/,
+  );
+  assert.match(
+    source,
+    /data-persona-view="remote">Organization[\s\S]*?upload this persona to my organization/,
+  );
+  assert.doesNotMatch(source, /Set permissions in the Transcodes app/);
+  assert.doesNotMatch(source, /try a security check/);
+  assert.doesNotMatch(source, /Get notifications on channels/);
+  assert.doesNotMatch(source, /View activity histories \/ security log/);
 });
 
 test("Guide footer links to the Transcodes tutorial channel", () => {
@@ -79,7 +94,7 @@ test("Persona Save state is button-only, without a status banner", () => {
 test("Persona AI agent callout is a collapsible accordion", () => {
   assert.match(
     source,
-    /<details class="persona-agent-callout persona-agent-callout--workspace">/,
+    /<details class="persona-agent-callout persona-agent-callout--workspace persona-agent-callout--toolbar">/,
   );
   assert.doesNotMatch(
     source,
@@ -94,7 +109,7 @@ test("Persona AI agent callout is a collapsible accordion", () => {
   assert.match(source, /Create Personas with Your AI/);
   assert.match(
     source,
-    /ICON_PERSONA\.replace\(\s*'<svg ',\s*'<svg class="persona-agent-callout-icon" '\s*\)/,
+    /ICON_PERSONA\.replace\(\s*'<svg ',\s*'<svg class="persona-agent-callout-icon" ',?\s*\)/,
   );
   assert.match(source, /M9\.813 15\.904/);
   assert.doesNotMatch(source, /m12 3-1\.2 3\.4/);
@@ -141,7 +156,9 @@ test("Skills expose their bundle files in a dropdown above the editor", () => {
   assert.match(source, /id="persona-file-picker"/);
   assert.match(source, /id="persona-file-btn"/);
   assert.match(source, /id="persona-file-count"/);
+  assert.match(source, /id="persona-file-backdrop"/);
   assert.match(source, /id="persona-file-menu"/);
+  assert.match(source, /addEventListener\(\s*"pointerdown"/);
   assert.match(source, /function renderPersonaFilePicker/);
   assert.match(source, /async function openSkillFile/);
   // Every skill-file request carries the skill-root-relative path.
@@ -157,10 +174,8 @@ test("Skills expose their bundle files in a dropdown above the editor", () => {
 
 test("token statistics show the full selected file name", () => {
   assert.match(source, /id="persona-content-file">agents\.md</);
-  assert.match(
-    source,
-    /id="persona-content-file">agents\.md<\/span>\s*<div class="persona-content-metrics">/,
-  );
+  assert.match(source, /class="persona-content-heading"/);
+  assert.match(source, /class="persona-content-metrics"/);
   assert.match(source, /function currentPersonaFileLabel/);
   assert.match(
     source,
@@ -292,6 +307,8 @@ test("skill files and folders can be created from the dropdown", () => {
   assert.match(personaSource, /dirs\?: string\[\]/);
   // Duplicate names are rejected client-side instead of overwriting.
   assert.match(source, /already exists/);
+  assert.match(source, /Files larger than 5 MB cannot be added/);
+  assert.match(personaSource, /MAX_PERSONA_FILE_BYTES = 5 \* 1024 \* 1024/);
 });
 
 test("skill files and folders can be deleted from the dropdown", () => {
@@ -360,20 +377,33 @@ test("Persona sync is gated on being signed in", () => {
     source,
     /personaRemoteList\.innerHTML = personaSignInCardHtml\(\);\s*personaRemoteList\.hidden = false;/,
   );
-  assert.match(source, /Sign in to use organization persona sharing/);
+  assert.match(source, /Sign in to sync your Personas/);
+  assert.match(
+    source,
+    /Set up once\. Every device and every teammate runs the same versions of Persona/,
+  );
   assert.match(source, /Get the latest/);
   assert.match(source, /Publish yours/);
+  assert.match(
+    source,
+    /Push Personas from this device so everyone works from one version/,
+  );
   assert.match(source, /Stay in sync/);
   assert.match(source, /Sign in to manage your account/);
   assert.match(source, /Your account/);
   assert.match(source, /This device/);
-  assert.match(source, /Sign in to control what your AI can do/);
+  assert.match(source, /Set AI limits\. Require human approval\. Keep records/);
+  assert.match(source, /Control what your AI can do/);
   assert.match(source, /Set limits/);
   assert.match(source, /Confirm with your finger/);
   assert.match(source, /Keep a record/);
   assert.match(source, /id="rbac-signin"/);
   assert.match(source, /id="rbac-signed-in"/);
   assert.match(source, /function renderRbacAuthGate/);
+  assert.match(source, /hideCta: true/);
+  assert.match(source, /rbacSignInEl\.innerHTML = permissionSignInCardHtml\(\)/);
+  assert.match(source, /rbacSignedInEl\.hidden = true/);
+  assert.doesNotMatch(source, /rbacSignedInEl\.hidden = false/);
   assert.match(source, /function authViewState/);
   assert.match(source, /let sessionReady = false/);
   assert.match(source, /class="panel-loading">Loading/);
@@ -495,11 +525,19 @@ test("dashboard fills the viewport and keeps version at sidebar bottom", () => {
   assert.match(source, /cmd\.textContent = "Require Update"/);
   assert.match(
     source,
-    /data-tab="rbac"[\s\S]*?Permission[\s\S]*?<span class="tab-beta">Beta<\/span>/,
+    /data-tab="tokens"[\s\S]*?Profile[\s\S]*?sidebar-divider[\s\S]*?data-tab="rbac"[\s\S]*?Permission/,
+  );
+  assert.doesNotMatch(
+    source,
+    /data-tab="rbac"[\s\S]{0,200}?<span class="tab-beta">/,
   );
   assert.match(
     source,
-    /panel-page-title">Permission<\/h2>[\s\S]{0,80}?<span class="tab-beta">Beta<\/span>/,
+    /panel-page-title">Permission<\/h2>[\s\S]{0,80}?<span class="tab-beta">Upcoming<\/span>/,
+  );
+  assert.match(
+    source,
+    /guide-topic-title">Getting Started[\s\S]*?guide-topic-title">Persona[\s\S]*?guide-topic-title">Profile[\s\S]*?guide-topic-title">Permission <span class="tab-beta">Upcoming<\/span>/,
   );
   assert.doesNotMatch(
     source,
@@ -605,7 +643,10 @@ test("Organization list groups by what needs attention", () => {
   );
   assert.match(source, /persona-sync-actions-card/);
   assert.doesNotMatch(source, /persona-sync-actions-card" open>/);
-  assert.match(source, /What each action does/);
+  assert.match(source, /What Each Action Does/);
+  assert.doesNotMatch(source, /What each action does/);
+  assert.match(source, /id="persona-sync-actions-card"/);
+  assert.match(source, /personaSyncActionsCard\.hidden = !signedIn/);
   assert.match(source, /ICON_BOLT\.replace\(/);
   assert.match(source, /m3\.75 13\.5 10\.5-11\.25L12 10\.5h8\.25/);
   assert.match(
