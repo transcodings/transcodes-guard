@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.74.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.73.0...transcodes-guard-v0.74.0) (2026-08-18)
+
+
+### Features
+
+* **cli:** focus dashboard on Persona setup and sharing ([a020383](https://github.com/transcodings/transcodes-guard/commit/a020383354f23968c5eae7d5fd1bb2d7426d9499))
+
 ## [0.73.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.72.0...transcodes-guard-v0.73.0) (2026-08-17)
 
 
