@@ -75,6 +75,10 @@ import {
   pushPersonaSync,
   readPersonaSyncRevisions,
 } from './persona-sync.js';
+import {
+  findPersonaTemplate,
+  personaTemplateSummaries,
+} from './persona-templates.js';
 import { PWA_SERVICE_WORKER } from './pwa.js';
 import { fetchRbacSnapshot, loadRbacConfig } from './rbac-api.js';
 import { CLI_VERSION, getCliVersionStatus } from './version.js';
@@ -370,6 +374,58 @@ const ICON_PERSONA =
   '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" /></svg>';
 const ICON_BOLT =
   '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg>';
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"]/g,
+    (char) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char] ?? char,
+  );
+}
+
+/** The Templates grid is static, so it is rendered once with the page. */
+function personaTemplateCardsHtml(): string {
+  return personaTemplateSummaries()
+    .map((template) => {
+      const id = escapeHtml(template.id);
+      const contents = [...template.rules, ...template.skills];
+      const counts = [
+        `${template.rules.length} ${template.rules.length === 1 ? 'Rule' : 'Rules'}`,
+        `${template.skills.length} ${template.skills.length === 1 ? 'Skill' : 'Skills'}`,
+      ];
+      const contentsHtml = contents.length
+        ? `<p class="persona-template-files">${contents
+            .map((name) => `<code>${escapeHtml(name)}</code>`)
+            .join('')}</p>`
+        : '<p class="persona-template-files persona-template-files--empty">Instruction only — nothing else to trim away</p>';
+      return `
+            <article class="persona-template-card" data-template-card="${id}">
+              <div class="persona-template-card-head">
+                <h3 class="persona-template-card-title">${escapeHtml(template.title)}</h3>
+                <div class="persona-template-tags">${counts
+                  .map(
+                    (count) =>
+                      `<span class="persona-template-tag">${escapeHtml(count)}</span>`,
+                  )
+                  .join('')}</div>
+              </div>
+              <p class="persona-template-card-summary">${escapeHtml(template.summary)}</p>
+              ${contentsHtml}
+              <div class="persona-template-card-foot">
+                <button type="button" class="btn-action persona-template-btn" data-template-open="${id}">Create Persona</button>
+              </div>
+              <form class="persona-template-form" data-template-form="${id}" hidden>
+                <label class="persona-template-form-label" for="persona-template-name-${id}">Persona name</label>
+                <input type="text" class="label-input persona-template-name" id="persona-template-name-${id}" value="${escapeHtml(template.suggestedName)}" placeholder="persona-name" spellcheck="false" autocapitalize="off" autocomplete="off" />
+                <div class="persona-template-form-actions">
+                  <button type="button" class="btn-inline-action persona-template-cancel-btn" data-template-cancel="${id}">Cancel</button>
+                  <button type="submit" class="btn-action persona-template-btn">Create Persona</button>
+                </div>
+              </form>
+            </article>`;
+    })
+    .join('');
+}
 
 function dashboardHtml(): string {
   return `<!DOCTYPE html>
@@ -1200,7 +1256,7 @@ function dashboardHtml(): string {
     }
     .persona-nav-submenu {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 4px;
       padding: 4px 2px 0;
     }
@@ -1511,6 +1567,7 @@ function dashboardHtml(): string {
       background: var(--card);
     }
     .persona-local-view[hidden],
+    .persona-templates-view[hidden],
     .persona-remote-view[hidden] {
       display: none !important;
     }
@@ -1626,9 +1683,135 @@ function dashboardHtml(): string {
       line-height: 1.45;
     }
     .persona-sync-warning[hidden] { display: none !important; }
-    .persona-remote-view {
+    .persona-remote-view,
+    .persona-templates-view {
       min-width: 0;
       padding: 26px 28px 32px;
+    }
+    .persona-templates-head {
+      margin-bottom: 22px;
+    }
+    .persona-agent-callout--workspace.persona-templates-help {
+      margin: 20px 0 18px;
+    }
+    .persona-templates-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .persona-template-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+      padding: 20px 22px 18px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+    }
+    .persona-template-card-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .persona-template-card-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: var(--text-sm);
+      font-weight: 720;
+      line-height: 1.35;
+    }
+    .persona-template-tags {
+      display: flex;
+      flex: 0 0 auto;
+      gap: 4px;
+    }
+    .persona-template-tag {
+      padding: 3px 7px;
+      border-radius: 6px;
+      background: var(--accent-soft);
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .persona-template-card-summary {
+      margin: 0;
+      color: var(--muted);
+      font-size: var(--text-2xs);
+      line-height: 1.6;
+    }
+    .persona-template-files {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin: 0;
+    }
+    .persona-template-files code {
+      padding: 3px 7px;
+      border-radius: 6px;
+      background: #f4f4f6;
+      color: #5a5a64;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+    }
+    .persona-template-files--empty {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .persona-template-card-foot {
+      margin-top: auto;
+      padding-top: 6px;
+    }
+    .persona-template-btn {
+      flex: 1;
+      width: 100%;
+      padding: 11px 18px;
+      border: none;
+      border-radius: 10px;
+      font-size: var(--text-2xs);
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease, opacity 0.15s ease;
+    }
+    .persona-template-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .persona-template-card-foot[hidden],
+    .persona-template-form[hidden] { display: none !important; }
+    .persona-template-form {
+      margin-top: auto;
+      padding-top: 6px;
+    }
+    .persona-template-form-label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .persona-template-form .persona-template-name {
+      margin-top: 6px;
+      padding: 9px 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: var(--text-2xs);
+      border-radius: 10px;
+    }
+    .persona-template-form-actions {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .persona-template-cancel-btn {
+      flex: 0 0 auto;
+      justify-content: center;
+      padding: 11px 16px;
+    }
+    /* The shell never narrows past 1100px, so two columns is the floor. */
+    @media (max-width: 1400px) {
+      .persona-templates-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
     .persona-remote-head {
       display: flex;
@@ -3985,7 +4168,8 @@ function dashboardHtml(): string {
         background: #fff;
         overflow: hidden;
       }
-      #panel-persona .persona-remote-view {
+      #panel-persona .persona-remote-view,
+      #panel-persona .persona-templates-view {
         flex: 1;
         width: 100%;
         max-width: none;
@@ -3997,7 +4181,9 @@ function dashboardHtml(): string {
       #panel-persona .persona-remote-head,
       #panel-persona .persona-remote-notice,
       #panel-persona .persona-sync-actions-card,
-      #panel-persona .persona-remote-list {
+      #panel-persona .persona-remote-list,
+      #panel-persona .persona-templates-head,
+      #panel-persona .persona-templates-grid {
         width: 100%;
         max-width: 1160px;
         margin-left: auto;
@@ -4233,6 +4419,7 @@ function dashboardHtml(): string {
           <svg class="persona-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </button>
         <div class="persona-nav-submenu" id="persona-nav-submenu" hidden>
+          <button type="button" class="persona-nav-item" id="persona-templates-tab">Templates</button>
           <button type="button" class="persona-nav-item active" id="persona-local-tab" aria-current="page">My Personas</button>
           <button type="button" class="persona-nav-item" id="persona-remote-tab">Organization</button>
         </div>
@@ -4274,7 +4461,7 @@ function dashboardHtml(): string {
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">1</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">Create a Persona</span>
+                    <span class="guide-step-title">Create a Persona with your AI agent</span>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -4288,7 +4475,21 @@ function dashboardHtml(): string {
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">2</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">Review and refine it</span>
+                    <span class="guide-step-title">Or create a Persona from a preset template</span>
+                  </span>
+                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="guide-step-body">
+                  <p class="guide-step-desc">Open <button type="button" class="guide-console-link" data-open-tab="persona" data-persona-view="templates">Templates</button> and pick one of the six presets — Minimum, Landing Page Publisher, Fullstack Developer, UI/UX Designer, Marketer, or Researcher. Press <strong>Create</strong>, name the Persona, and you get a complete Instruction, Rules, and Skills structure to build on.</p>
+                </div>
+              </details>
+            </li>
+            <li>
+              <details class="guide-step guide-step--accordion">
+                <summary class="guide-step-summary">
+                  <span class="guide-step-num">3</span>
+                  <span class="guide-step-heading">
+                    <span class="guide-step-title">Review and edit it</span>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -4300,7 +4501,7 @@ function dashboardHtml(): string {
             <li>
               <details class="guide-step guide-step--accordion">
                 <summary class="guide-step-summary">
-                  <span class="guide-step-num">3</span>
+                  <span class="guide-step-num">4</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Apply it to your AI apps</span>
                   </span>
@@ -4314,7 +4515,7 @@ function dashboardHtml(): string {
             <li>
               <details class="guide-step guide-step--accordion">
                 <summary class="guide-step-summary">
-                  <span class="guide-step-num">4</span>
+                  <span class="guide-step-num">5</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Sync and share with your team</span>
                   </span>
@@ -4581,6 +4782,27 @@ function dashboardHtml(): string {
           <pre class="persona-log" id="persona-log"></pre>
           </div>
         </div>
+        <section class="persona-templates-view" id="persona-templates-view" hidden>
+          <div class="persona-templates-head">
+            <h2 class="persona-remote-title">Templates</h2>
+            <details class="persona-agent-callout persona-agent-callout--workspace persona-templates-help">
+              <summary class="persona-agent-callout-summary">
+                ${ICON_PERSONA.replace(
+                  '<svg ',
+                  '<svg class="persona-agent-callout-icon" ',
+                )}
+                <p class="persona-agent-callout-title">How to use these templates</p>
+                <svg class="persona-agent-callout-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </summary>
+              <div class="persona-agent-callout-body">
+                <p class="persona-agent-callout-copy"><strong>1. Create a Persona.</strong> Choose one of the six templates, click <strong>Create Persona</strong>, and enter a name. The template creates a complete starting structure with an Instruction, Rules, and Skills.</p>
+                <p class="persona-agent-callout-copy"><strong>2. Customize it for your project.</strong> Open the new Persona in <strong>My Personas</strong> and edit its role, project context, standards, policies, and workflows yourself.</p>
+                <p class="persona-agent-callout-copy"><strong>3. Or ask your AI agent to customize it.</strong> Tell your agent what the project does and what should change — for example, <code class="cli-cmd">/transcodes update this persona for my project</code>. Your agent can review and edit the Instruction, Rules, and Skills for you.</p>
+              </div>
+            </details>
+          </div>
+          <div class="persona-templates-grid">${personaTemplateCardsHtml()}</div>
+        </section>
         <section class="persona-remote-view" id="persona-remote-view" hidden>
           <div class="persona-remote-head">
             <div>
@@ -4955,6 +5177,7 @@ function dashboardHtml(): string {
     };
     const PERSONA_TEAM_TABS = { team: true, organization: true, remote: true };
     const PERSONA_MY_TABS = { my: true, personal: true, local: true };
+    const PERSONA_TEMPLATE_TABS = { templates: true, template: true };
     const personaNavToggle = document.getElementById("persona-nav-toggle");
     const personaNavSubmenu = document.getElementById("persona-nav-submenu");
 
@@ -4976,6 +5199,7 @@ function dashboardHtml(): string {
     function personaViewFromParam(value) {
       const key = String(value || "").toLowerCase();
       if (PERSONA_TEAM_TABS[key]) return "remote";
+      if (PERSONA_TEMPLATE_TABS[key]) return "templates";
       if (PERSONA_MY_TABS[key]) return "local";
       return "";
     }
@@ -4994,7 +5218,7 @@ function dashboardHtml(): string {
       if (page === "persona" || page === "personas") {
         return { tab: "persona", personaView };
       }
-      if (tabParam === "my" || tabParam === "team") {
+      if (tabParam === "my" || tabParam === "team" || tabParam === "templates") {
         return { tab: "persona", personaView };
       }
       if (page && TAB_URL_TO_INTERNAL[page]) {
@@ -5017,7 +5241,11 @@ function dashboardHtml(): string {
       if (internalName === "persona") {
         url.searchParams.set(
           "tab",
-          personaView === "remote" ? "team" : "my"
+          personaView === "remote"
+            ? "team"
+            : personaView === "templates"
+              ? "templates"
+              : "my"
         );
       } else {
         url.searchParams.delete("tab");
@@ -5439,8 +5667,10 @@ function dashboardHtml(): string {
     const personaDeployBtn = document.getElementById("persona-deploy-btn");
     const personaDeployError = document.getElementById("persona-deploy-error");
     const personaLocalTab = document.getElementById("persona-local-tab");
+    const personaTemplatesTab = document.getElementById("persona-templates-tab");
     const personaRemoteTab = document.getElementById("persona-remote-tab");
     const personaLocalView = document.getElementById("persona-local-view");
+    const personaTemplatesView = document.getElementById("persona-templates-view");
     const personaRemoteView = document.getElementById("persona-remote-view");
     const personaLocalRemoteStatus = document.getElementById("persona-local-remote-status");
     const personaRemoteRefreshBtn = document.getElementById("persona-remote-refresh-btn");
@@ -6346,20 +6576,23 @@ function dashboardHtml(): string {
 
     function setPersonaView(view, opts) {
       const options = opts || {};
-      const remote = view === "remote";
-      personaState.view = remote ? "remote" : "local";
-      personaLocalView.hidden = remote;
-      personaRemoteView.hidden = !remote;
-      personaLocalTab.classList.toggle("active", !remote);
-      personaRemoteTab.classList.toggle("active", remote);
-      if (remote) {
-        personaLocalTab.removeAttribute("aria-current");
-        personaRemoteTab.setAttribute("aria-current", "page");
-      } else {
-        personaLocalTab.setAttribute("aria-current", "page");
-        personaRemoteTab.removeAttribute("aria-current");
-      }
-      if (remote) void loadRemotePersonas();
+      const next =
+        view === "remote" || view === "templates" ? view : "local";
+      personaState.view = next;
+      const tabs = [
+        [personaLocalTab, personaLocalView, "local"],
+        [personaTemplatesTab, personaTemplatesView, "templates"],
+        [personaRemoteTab, personaRemoteView, "remote"],
+      ];
+      tabs.forEach(([tab, panel, name]) => {
+        const on = name === next;
+        panel.hidden = !on;
+        tab.classList.toggle("active", on);
+        if (on) tab.setAttribute("aria-current", "page");
+        else tab.removeAttribute("aria-current");
+      });
+      if (next === "templates") resetPersonaTemplateForms();
+      if (next === "remote") void loadRemotePersonas();
       if (!options.skipUrl) {
         syncRouteUrl("persona", personaState.view, !!options.replaceUrl);
       }
@@ -7652,10 +7885,97 @@ function dashboardHtml(): string {
       }
     }
 
+    // Queried on demand so setPersonaView can call this during boot routing,
+    // before the persona element consts further down have initialized.
+    function personaTemplateCards() {
+      return Array.from(document.querySelectorAll("[data-template-card]"));
+    }
+
+    function resetPersonaTemplateForms() {
+      personaTemplateCards().forEach((card) => {
+        card.querySelector("[data-template-form]").hidden = true;
+        card.querySelector(".persona-template-card-foot").hidden = false;
+      });
+    }
+
+    function openPersonaTemplateForm(card) {
+      resetPersonaTemplateForms();
+      card.querySelector(".persona-template-card-foot").hidden = true;
+      const form = card.querySelector("[data-template-form]");
+      form.hidden = false;
+      const input = form.querySelector(".persona-template-name");
+      input.focus();
+      input.select();
+    }
+
+    function personaTemplatesBusy(busy) {
+      personaTemplateCards().forEach((card) => {
+        card.querySelectorAll("button, input").forEach((control) => {
+          control.disabled = busy;
+        });
+      });
+    }
+
+    async function createPersonaFromTemplate(template, name) {
+      const persona = (name || "").trim();
+      if (!persona) {
+        showToast("Enter a Persona name.", "error");
+        return;
+      }
+      if (!(await confirmDiscardPersonaChanges("the new Persona"))) return;
+      personaTemplatesBusy(true);
+      personaBusy(true);
+      try {
+        const data = await personaFetch("/api/persona/create-from-template", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            root: personaRootInput.value.trim() || personaState.root,
+            persona,
+            template,
+          }),
+        });
+        selectPersonaKind("agent");
+        applyPersonaListing(data, "Created Persona “" + data.persona + "”");
+        renderPersonaRegistry();
+        await loadPersonaFile();
+        await renderPersonaSyncState();
+        // Land in the editor so the new bundle can be reviewed right away.
+        setPersonaView("local");
+      } catch (e) {
+        showToast(e.message || "Could not create Persona", "error");
+      } finally {
+        personaBusy(false);
+        personaTemplatesBusy(false);
+      }
+    }
+
+    personaTemplateCards().forEach((card) => {
+      const template = card.getAttribute("data-template-card");
+      const form = card.querySelector("[data-template-form]");
+      const input = form.querySelector(".persona-template-name");
+      card
+        .querySelector("[data-template-open]")
+        .addEventListener("click", () => openPersonaTemplateForm(card));
+      card
+        .querySelector("[data-template-cancel]")
+        .addEventListener("click", () => resetPersonaTemplateForms());
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") resetPersonaTemplateForms();
+      });
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        void createPersonaFromTemplate(template, input.value);
+      });
+    });
+
     personaBundleNewBtn.addEventListener("click", () => showNewPersona(true));
     personaBundleCancelBtn.addEventListener("click", () => showNewPersona(false));
     personaBundleCreateBtn.addEventListener("click", createPersonaBundle);
     personaLocalTab.addEventListener("click", () => setPersonaView("local"));
+    personaTemplatesTab.addEventListener("click", () =>
+      setPersonaView("templates")
+    );
     personaRemoteTab.addEventListener("click", () => setPersonaView("remote"));
     personaRemoteRefreshBtn.addEventListener("click", () => {
       void loadRemotePersonas();
@@ -8579,6 +8899,61 @@ async function handlePersonaRoute(params: {
           : undefined;
       sendJson(res, 200, {
         ok: true,
+        ...(await listPersona(root, persona)),
+      });
+      return;
+    }
+
+    if (method === 'POST' && url === '/api/persona/create-from-template') {
+      const body = await readJsonBody(req);
+      if (typeof body.persona !== 'string' || !body.persona.trim()) {
+        throw new Error('Persona name is required.');
+      }
+      if (typeof body.template !== 'string' || !body.template.trim()) {
+        throw new Error('Template is required.');
+      }
+      const template = findPersonaTemplate(body.template);
+      if (!template) {
+        throw new Error(`Unknown template "${body.template}".`);
+      }
+      const root =
+        typeof body.root === 'string' && body.root.trim()
+          ? body.root
+          : undefined;
+      const persona = await createPersona(body.persona);
+      // A half-written bundle is worse than none: drop it and report the cause.
+      try {
+        await savePersonaFile({
+          root,
+          persona,
+          kind: 'agent',
+          content: template.instruction,
+        });
+        for (const entry of template.rules) {
+          await savePersonaFile({
+            root,
+            persona,
+            kind: 'rule',
+            name: entry.name,
+            content: entry.content,
+          });
+        }
+        for (const entry of template.skills) {
+          await savePersonaFile({
+            root,
+            persona,
+            kind: 'skill',
+            name: entry.name,
+            content: entry.content,
+          });
+        }
+      } catch (error) {
+        await deletePersona(persona).catch(() => {});
+        throw error;
+      }
+      sendJson(res, 200, {
+        ok: true,
+        template: template.id,
         ...(await listPersona(root, persona)),
       });
       return;

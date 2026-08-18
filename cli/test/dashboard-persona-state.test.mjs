@@ -42,10 +42,15 @@ test("Guide has no Mux player or step timestamp seek buttons", () => {
   );
 });
 
-test("Getting Started focuses on a four-step Persona workflow", () => {
+test("Getting Started focuses on a five-step Persona workflow", () => {
   assert.match(
     source,
-    /guide-step-num">1[\s\S]*?Create a Persona[\s\S]*?guide-step-num">2[\s\S]*?Review and refine it[\s\S]*?guide-step-num">3[\s\S]*?Apply it to your AI apps[\s\S]*?guide-step-num">4[\s\S]*?Sync and share with your team/,
+    /guide-step-num">1[\s\S]*?Create a Persona with your AI agent[\s\S]*?guide-step-num">2[\s\S]*?Or create a Persona from a preset template[\s\S]*?guide-step-num">3[\s\S]*?Review and edit it[\s\S]*?guide-step-num">4[\s\S]*?Apply it to your AI apps[\s\S]*?guide-step-num">5[\s\S]*?Sync and share with your team/,
+  );
+  // The template step has to reach the Templates view, not just the tab.
+  assert.match(
+    source,
+    /data-persona-view="templates">Templates<[\s\S]{0,400}?six presets/,
   );
   assert.match(
     source,
@@ -453,16 +458,74 @@ test("Persona exposes My Personas and Organization from a sidebar accordion", ()
   assert.doesNotMatch(source, /id="persona-sync-card"/);
 });
 
-test("dashboard pages use path URLs, with Persona subviews as ?tab=my|team", () => {
+test("Persona submenu offers Templates above My Personas", () => {
+  assert.match(
+    source,
+    /id="persona-templates-tab">Templates<[\s\S]{0,200}?id="persona-local-tab" aria-current="page">My Personas<[\s\S]{0,200}?id="persona-remote-tab">Organization</,
+  );
+  assert.match(source, /id="persona-templates-view"/);
+  assert.match(
+    source,
+    /class="persona-remote-title">Templates<[\s\S]*?persona-templates-help[\s\S]*?How to use these templates[\s\S]*?1\. Create a Persona\.[\s\S]*?2\. Customize it for your project\.[\s\S]*?3\. Or ask your AI agent to customize it\./,
+  );
+  assert.match(
+    source,
+    /<details class="persona-agent-callout persona-agent-callout--workspace persona-templates-help">/,
+  );
+  assert.match(source, /class="persona-templates-grid">\$\{personaTemplateCardsHtml\(\)\}/);
+  // Three sibling views means the tab switch has to drive all three panels.
+  assert.match(
+    source,
+    /\[personaLocalTab, personaLocalView, "local"\],\s*\[personaTemplatesTab, personaTemplatesView, "templates"\],\s*\[personaRemoteTab, personaRemoteView, "remote"\],/,
+  );
+  assert.match(
+    source,
+    /personaTemplatesTab\.addEventListener\("click", \(\) =>\s*setPersonaView\("templates"\)/,
+  );
+  assert.match(source, /PERSONA_TEMPLATE_TABS\[key\]\) return "templates"/);
+});
+
+test("Templates cards create a Persona from the server-side catalog", () => {
+  assert.match(source, /function personaTemplateCardsHtml\(\)/);
+  assert.match(source, /personaTemplateSummaries\(\)/);
+  assert.match(source, /data-template-card="\$\{id\}"/);
+  assert.match(source, /data-template-open="\$\{id\}"/);
+  assert.match(source, /data-template-cancel="\$\{id\}"/);
+  assert.match(source, /data-template-form="\$\{id\}"/);
+  assert.match(
+    source,
+    /createPersonaFromTemplate\(template, name\)[\s\S]{0,700}?"\/api\/persona\/create-from-template"/,
+  );
+  // A named Persona is required before the request goes out.
+  assert.match(
+    source,
+    /const persona = \(name \|\| ""\)\.trim\(\);\s*if \(!persona\) \{\s*showToast\("Enter a Persona name\.", "error"\);/,
+  );
+  // Creating from a card lands the user in the editor with the new bundle open.
+  assert.match(
+    source,
+    /await renderPersonaSyncState\(\);[\s\S]{0,140}?setPersonaView\("local"\);/,
+  );
+  // A failed Rule or Skill write must not leave half a bundle behind.
+  assert.match(
+    source,
+    /url === '\/api\/persona\/create-from-template'[\s\S]{0,1600}?await deletePersona\(persona\)\.catch\(\(\) => \{\}\);/,
+  );
+});
+
+test("dashboard pages use path URLs, with Persona subviews as ?tab=my|templates|team", () => {
   assert.match(source, /function routeFromUrl/);
   assert.match(source, /function pathForRoute/);
   assert.match(source, /url\.pathname = pathForRoute/);
-  assert.match(source, /url\.searchParams\.set\(\s*"tab",\s*personaView === "remote" \? "team" : "my"\s*\)/);
+  assert.match(
+    source,
+    /url\.searchParams\.set\(\s*"tab",\s*personaView === "remote"\s*\? "team"\s*: personaView === "templates"\s*\? "templates"\s*: "my"\s*\)/,
+  );
   assert.match(source, /guideline: "\/guide"/);
   assert.match(source, /persona: "\/persona"/);
   assert.match(source, /tokens: "\/profile"/);
   assert.match(source, /rbac: "\/permission"/);
-  assert.match(source, /"team" : "my"/);
+  assert.match(source, /\? "team"/);
   assert.match(source, /function isDashboardPagePath/);
   assert.match(source, /isDashboardPagePath\(url\)/);
   assert.match(
@@ -599,11 +662,11 @@ test("Organization view renders one unified Persona list", () => {
   // every Persona meet on one card.
   assert.match(
     source,
-    /#panel-persona \.persona-remote-view \{[\s\S]{0,220}?width: 100%;[\s\S]{0,180}?padding: 30px 36px 40px;/,
+    /#panel-persona \.persona-remote-view,[\s\S]{0,80}?\{[\s\S]{0,220}?width: 100%;[\s\S]{0,180}?padding: 30px 36px 40px;/,
   );
   assert.match(
     source,
-    /#panel-persona \.persona-remote-list \{[\s\S]{0,80}?max-width: 1160px;/,
+    /#panel-persona \.persona-remote-list,[\s\S]{0,140}?\{[\s\S]{0,80}?max-width: 1160px;/,
   );
   assert.doesNotMatch(source, /id="persona-remote-local"/);
   assert.doesNotMatch(source, /class="persona-remote-title">Local Personas</);
