@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.76.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.76.0...transcodes-guard-v0.76.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* **cli:** make the chained install one-liner always work ([2e20d84](https://github.com/transcodings/transcodes-guard/commit/2e20d84ee21d5aba5e6c2d9a62912561a1671218))
+
 ## [0.76.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.75.0...transcodes-guard-v0.76.0) (2026-08-19)
 
 
