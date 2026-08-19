@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [0.75.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.74.0...transcodes-guard-v0.75.0) (2026-08-19)
+
+
+### Features
+
+* **cli:** add Persona templates to the dashboard ([d7472b3](https://github.com/transcodings/transcodes-guard/commit/d7472b3d7cddd18885df8103633dddc51acc581a))
+* **cli:** simplify install picker and skip Persona create confirm ([3c50a4f](https://github.com/transcodings/transcodes-guard/commit/3c50a4f5bd80ea1e541d4ae6b462058c7f4cf2c7))
+
 ## [0.74.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.73.0...transcodes-guard-v0.74.0) (2026-08-18)
 
 
