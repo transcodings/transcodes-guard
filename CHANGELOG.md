@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.76.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.75.0...transcodes-guard-v0.76.0) (2026-08-19)
+
+
+### Features
+
+* **cli:** release 0.17.0 persona-only MVP ([361b10b](https://github.com/transcodings/transcodes-guard/commit/361b10b5b4fbdc86f2d0048d4747bedf14943672))
+
 ## [0.75.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.74.0...transcodes-guard-v0.75.0) (2026-08-19)
 
 
