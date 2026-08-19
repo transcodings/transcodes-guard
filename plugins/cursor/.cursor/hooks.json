@@ -1,6 +1,8 @@
 {
+  "//": "MVP persona only — gate hooks commented out. To restore, copy _disabled into hooks.",
   "version": 1,
-  "hooks": {
+  "hooks": {},
+  "_disabled": {
     "beforeShellExecution": [
       {
         "type": "command",

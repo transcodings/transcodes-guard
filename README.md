@@ -49,8 +49,9 @@ What `transcodes install` does:
 
 1. **Prerequisites** — checks for **Node.js LTS (>= 20)** and installs it if missing.
 2. **Pick platforms** — arrow-key checklist for Claude Code / ChatGPT (Codex) / Cursor / Antigravity.
-   - `↑`/`↓` move · `space` select · `enter` confirm to install/update · `Next Step →` continue · `q` exit
-   - Detected hosts show `[Detected]`. Selecting them marks `→ Install/Update` and updates in place.
+   - `↑`/`↓` move · `space` select · `s` skip this step · `q` exit
+   - `enter` installs the selected hosts. With 0 selected, `enter` skips the step (same as `s`). Run `transcodes install` later to come back.
+   - Detected hosts show `[Detected]`. Selected rows show `→ Install/Update`; unselected rows show `→ Skip`.
    - For each selected host it ensures the host CLI (`claude` / `codex` / `cursor-agent` / `agy`) — installing the vendor one-liner when needed — then installs the plugin (Claude/Codex via native host CLIs; Cursor/Antigravity via a temporary repo clone).
 3. **Token setup** — three choices:
    - **Yes** — paste a Member Access Token (MAT) + label (saved to `~/.transcodes/config.json`)
