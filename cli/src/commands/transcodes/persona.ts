@@ -861,6 +861,12 @@ function assertPersonaBundlePath(
     throw new Error(`Invalid Persona bundle path "${bundlePath}".`);
   }
   const parts = bundlePath.split('/');
+  // An empty segment means a leading, doubled, or trailing slash. Without this
+  // a trailing slash would reach assertSkillFilePath as '', take its SKILL.md
+  // fallback, and return the raw path -- which resolves to the Skill directory.
+  if (parts.some((part) => !part)) {
+    throw new Error(`Invalid Persona bundle path "${bundlePath}".`);
+  }
   if (
     parts.length === 2 &&
     parts[0] === PERSONA_INSTRUCTION_DIR_NAME &&
@@ -873,7 +879,15 @@ function assertPersonaBundlePath(
     return bundlePath;
   }
   if (parts[0] === 'skills' && parts.length >= 2) {
-    assertPersonaName('skill', parts[1] ?? '');
+    const skill = parts[1] ?? '';
+    // A Skill directory is named for the Skill itself, and assertPersonaName
+    // strips a `.md` suffix. Approving the raw segment would create a
+    // `pdf.md` directory that every other command resolves to `pdf`.
+    if (assertPersonaName('skill', skill) !== skill) {
+      throw new Error(
+        `Invalid Persona bundle path "${bundlePath}". Use "skills/${assertPersonaName('skill', skill)}/" for this Skill.`,
+      );
+    }
     if (parts.length === 2 && deleting) return bundlePath;
     if (parts.length >= 3) {
       const skillFile = assertSkillFilePath(parts.slice(2).join('/'));

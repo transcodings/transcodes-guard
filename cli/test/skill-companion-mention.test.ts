@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -409,4 +409,89 @@ test('batch saves atomically and preserves Skill invariants', async (t) => {
     /batch-file/,
   );
   assert.match(await readFile(skillMd, 'utf8'), /^name: pdf$/m);
+});
+
+test('batch rejects bundle paths that resolve somewhere else', async (t) => {
+  const originalHome = process.env.HOME;
+  const home = await mkdtemp(path.join(os.tmpdir(), 'persona-batch-path-'));
+  process.env.HOME = home;
+  t.after(async () => {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
+    await rm(home, { recursive: true, force: true });
+  });
+
+  await createPersona('path-test');
+  await savePersonaFile({
+    persona: 'path-test',
+    kind: 'skill',
+    name: 'pdf',
+    content: BASE,
+  });
+  const skillRoot = path.join(home, '.transcodes/personas/path-test/skills/pdf');
+
+  // A trailing slash used to reach assertSkillFilePath as '', take its SKILL.md
+  // fallback, and return the raw path -- which resolves to the Skill directory
+  // itself: EISDIR when the Skill exists, a plain file named `pdf` when it does
+  // not. Either way the approved batch never matches what lands on disk.
+  await assert.rejects(
+    savePersonaBatch({
+      persona: 'path-test',
+      changes: [{ bundlePath: 'skills/pdf/', bytes: Buffer.from('x\n') }],
+    }),
+    /Invalid Persona bundle path/,
+  );
+  assert.ok((await stat(skillRoot)).isDirectory());
+
+  await assert.rejects(
+    savePersonaBatch({
+      persona: 'path-test',
+      changes: [{ bundlePath: 'skills/nope/', bytes: Buffer.from('x\n') }],
+    }),
+    /Invalid Persona bundle path/,
+  );
+  await assert.rejects(
+    stat(path.join(home, '.transcodes/personas/path-test/skills/nope')),
+  );
+
+  // assertPersonaName strips a `.md` suffix, so 'skills/pdf.md/SKILL.md' used to
+  // validate as the skill `pdf` yet write to a `pdf.md` directory no other
+  // command can address -- deployed but unreadable and undeletable.
+  await assert.rejects(
+    savePersonaBatch({
+      persona: 'path-test',
+      changes: [{ bundlePath: 'skills/pdf.md/SKILL.md', bytes: Buffer.from(BASE) }],
+    }),
+    /Use "skills\/pdf\/" for this Skill/,
+  );
+  await assert.rejects(
+    stat(path.join(home, '.transcodes/personas/path-test/skills/pdf.md')),
+  );
+
+  // rules/<name>.md is how a rule bundle path is built, so `rules/foo.md.md`
+  // is the canonical spelling for a rule named `foo.md` -- not a mismatch.
+  await savePersonaBatch({
+    persona: 'path-test',
+    changes: [{ bundlePath: 'rules/foo.md.md', bytes: Buffer.from('x\n') }],
+  });
+  assert.equal(
+    await readFile(
+      path.join(home, '.transcodes/personas/path-test/rules/foo.md.md'),
+      'utf8',
+    ),
+    'x\n',
+  );
+
+  // The spellings the manifest is meant to use still work.
+  await savePersonaBatch({
+    persona: 'path-test',
+    changes: [{ bundlePath: 'rules/foo.md', bytes: Buffer.from('ok\n') }],
+  });
+  assert.equal(
+    await readFile(
+      path.join(home, '.transcodes/personas/path-test/rules/foo.md'),
+      'utf8',
+    ),
+    'ok\n',
+  );
 });
