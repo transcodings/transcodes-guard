@@ -18,7 +18,7 @@
 
 ## 소개
 
-`transcodes-guard`는 AI 코딩 에이전트가 실행하려는 위험한 셸 명령(그리고 보호 대상 MCP tool 호출)을 *실행 직전에* 가로채, Transcodes 백엔드에 대해 Transcodes Step-up MFA(WebAuthn) 인증을 강제하는 호스트 hook + MCP 서버 게이트입니다. 인증을 통과한 명령만 실행됩니다.
+`transcodes-guard`는 AI 코딩 에이전트가 실행하려는 위험한 셸 명령(그리고 보호 대상 MCP tool 호출)을 _실행 직전에_ 가로채, Transcodes 백엔드에 대해 Transcodes Step-up MFA(WebAuthn) 인증을 강제하는 호스트 hook + MCP 서버 게이트입니다. 인증을 통과한 명령만 실행됩니다.
 
 하나의 git 저장소에 하나의 공유 코어(npm workspaces)를 두고, 네 개의 호스트 플러그인(Claude Code, Codex, Cursor, Antigravity)을 각 호스트의 네이티브 방식으로 설치합니다. **Claude Code, Codex, Antigravity는 정식 지원 호스트이고, Cursor는 아직 베타 버전**입니다(크래시·버그 발생 가능). 플러그인은 npm으로 배포되지 않으며, `transcodes` CLI만 npm으로 배포됩니다. 저장소, 제품, 플러그인 모두 `transcodes-guard`라는 이름을 씁니다.
 
@@ -49,8 +49,8 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercont
 
 1. **사전 요구사항** — **Node.js LTS(>= 20)** 가 있는지 확인하고, 없으면 설치합니다.
 2. **플랫폼 선택** — Claude Code / ChatGPT (Codex) / Cursor / Antigravity를 화살표 체크리스트로 고릅니다.
-   - `↑`/`↓` 이동 · `space` 선택 · `a` 전체/해제 · `enter` 선택분 설치 · `Next Step →` 다음 · `q` 종료
-   - 이미 설치된 호스트는 `[Installed ✓]`로 표시됩니다. 다시 선택하면 in-place 업데이트입니다.
+   - `↑`/`↓` 이동 · `space` 선택 · `enter` confirm to install/ update · `Next Step →` 다음 · `q` exit
+   - 감지된 호스트는 `[Detected]`로 표시됩니다. 선택하면 `→ Install/Update`가 붙고 in-place 업데이트입니다.
    - 선택한 각 호스트에 대해 호스트 CLI(`claude` / `codex` / `cursor-agent` / `agy`)를 확인하고, 없으면 공식 원라이너로 설치한 뒤 플러그인을 설치합니다(Claude·Codex는 네이티브 CLI, Cursor·Antigravity는 임시 저장소 클론).
 3. **토큰 설정** — 세 가지 선택지:
    - **Yes** — Member Access Token(MAT) + label을 붙여넣어 저장(`~/.transcodes/config.json`)
@@ -126,7 +126,9 @@ claude plugin install transcodes-guard@bigstrider --scope user
 
 ```json
 {
-  "extraKnownMarketplaces": [{ "source": "github", "repo": "transcodings/transcodes-guard" }],
+  "extraKnownMarketplaces": [
+    { "source": "github", "repo": "transcodings/transcodes-guard" }
+  ],
   "enabledPlugins": ["transcodes-guard@bigstrider"]
 }
 ```
@@ -193,7 +195,6 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 
 > **선택 — Team Marketplace:** Teams/Enterprise 관리자는 `https://github.com/transcodings/transcodes-guard`를 팀 마켓플레이스로 import해 Required/Optional로 배포할 수 있습니다. Marketplace만으로는 user-level hook이 항상 등록되지 않을 수 있으므로, 안정적인 게이트 연동을 위해 위 `install.mjs` one-liner를 함께 실행하세요.
 
-
 ## 주요 기능
 
 ### Step-up auth
@@ -205,7 +206,7 @@ git clone https://github.com/transcodings/transcodes-guard.git /tmp/tg-install &
 3. 사용자가 브라우저에서 WebAuthn을 완료하면 → 에이전트가 MCP tool `poll_stepup_session_wait`(서버 측 long-poll)로 확인합니다.
 4. 검증 레코드가 생기면, **같은 명령을 다시 실행**하면 hook을 통과합니다. 단발성(single-shot)이라, 다음 danger 명령은 다시 인증을 요구합니다.
 
-**비대칭 fail 정책**(보안의 핵심): danger 매치 *이전* 단계(stdin 파싱, 분류, 패턴 로드)에서는 FAIL-OPEN — 크래시가 안전한 명령을 막는 일은 없습니다. danger 매치 *이후*에는 FAIL-SAFE — 크래시가 위험한 명령을 조용히 허용하는 일은 없습니다. 차단은 fail-safe입니다.
+**비대칭 fail 정책**(보안의 핵심): danger 매치 _이전_ 단계(stdin 파싱, 분류, 패턴 로드)에서는 FAIL-OPEN — 크래시가 안전한 명령을 막는 일은 없습니다. danger 매치 *이후*에는 FAIL-SAFE — 크래시가 위험한 명령을 조용히 허용하는 일은 없습니다. 차단은 fail-safe입니다.
 
 진단용 MCP tools:
 

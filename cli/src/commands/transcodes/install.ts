@@ -862,12 +862,13 @@ function installedAppsHint(): string {
   return t('platformInstalledApps', { list: names.join(', ') });
 }
 
-/** Numbered menu — host apps already on the device get ● + [Installed ✓]. */
+/** Numbered menu — host apps already on the device get [Detected]. */
 function renderMenu(): void {
   log('');
   log(t('platformTitle'));
   log(t('platformHint1'));
   log(t('platformHint2'));
+  log('');
   log(installedAppsHint());
   log('');
   PLATFORMS.forEach((p, i) => {
@@ -919,7 +920,7 @@ function supportsArrowSelect(): boolean {
 }
 
 /**
- * Arrow-key checkbox selector. ↑/↓ move, space toggles, `a` toggles all,
+ * Arrow-key checkbox selector. ↑/↓ move, space toggles,
  * Enter confirms (installs checked, or proceeds when on "Next Step"),
  * q / Ctrl-C quits. Redraws in place via readline cursor control.
  *
@@ -937,15 +938,18 @@ function arrowSelect(checked: Set<PlatformId>): Promise<MenuChoice> {
       lines.push(t('platformTitle'));
       lines.push(t('platformHint1'));
       lines.push(t('platformHint2'));
+      lines.push('');
       lines.push(installedAppsHint());
       lines.push('');
       PLATFORMS.forEach((p, i) => {
         const pointer = cursor === i ? '❯' : ' ';
         const onDevice = isHostAppInstalled(p.id);
-        // ● = selected for plugin install; [Installed ✓] = host app on device.
-        const box = checked.has(p.id) ? '●' : '◯';
-        const mark = onDevice ? `   ${t('installed')}` : '';
-        lines.push(`${pointer} ${box} ${p.label}${mark}`);
+        const selected = checked.has(p.id);
+        // ◉ … [Detected] → Install/Update when selected; [Detected] = host on device.
+        const box = selected ? '◉' : '◯';
+        const mark = onDevice ? `  ${t('installed')}` : '';
+        const action = selected ? `  → ${t('selectedInstall')}` : '';
+        lines.push(`${pointer} ${box} ${p.label}${mark}${action}`);
       });
       const nextPointer = cursor === PLATFORMS.length ? '❯' : ' ';
       lines.push(`${nextPointer}   ${t('nextStep')}`);
@@ -986,9 +990,6 @@ function arrowSelect(checked: Set<PlatformId>): Promise<MenuChoice> {
           if (checked.has(id)) checked.delete(id);
           else checked.add(id);
         }
-      } else if (key === 'a') {
-        if (PLATFORMS.every((p) => checked.has(p.id))) checked.clear();
-        else for (const p of PLATFORMS) checked.add(p.id);
       } else if (key === '\x1b[A' || key === 'k') {
         cursor = (cursor - 1 + rowCount) % rowCount;
       } else if (key === '\x1b[B' || key === 'j') {
