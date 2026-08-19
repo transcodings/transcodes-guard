@@ -22,15 +22,20 @@ const MESSAGES = {
     platformHint2: '(For Claude, Transcodes supports Cowork and Claude Code)',
     platformInstalledApps: 'Currently installed applications: {list}',
     platformInstalledNone: 'No applications are installed yet.',
-    nextStep: 'Next Step →',
-    platformKeys:
-      '↑/↓ move · space select · enter confirm to install/update · q exit',
+    installSelected: 'Install Selected Packages →',
+    skipThisStep: 'Skip This Step →',
+    platformKeys: '↑/↓ move · space select · s skip this step · q exit',
+    platformSelectedCount: '{n} selected · press Enter to install',
+    platformSelectedNone: '0 selected · press Enter to skip this step',
+    platformSkipped:
+      'Skipped. Run `transcodes install` anytime to set this up.',
     platformNumberedHint:
-      'Enter numbers to install (e.g. 1,2), "all" or Enter to install all.',
+      'Enter numbers to install (e.g. 1,2). Enter or "s" skips this step. "all" installs all.',
     platformNumberedNext:
-      'Type {n} (or "next") for Next Step, "exit"/"q" to quit.',
+      'Type {n} (or "skip") to skip this step, "exit"/"q" to quit.',
     installed: '[Detected]',
     selectedInstall: 'Install/Update',
+    selectedSkip: 'Skip',
     nothingSelected: 'Nothing selected.',
     noPlatforms: 'No platforms selected — nothing to install.',
     installing: 'Installing: {list}',
@@ -96,15 +101,20 @@ const MESSAGES = {
     platformHint2: '(For Claude, Transcodes supports Cowork and Claude Code)',
     platformInstalledApps: '현재 설치되어 있는 어플리케이션: {list}',
     platformInstalledNone: '아직 설치된 Application이 없습니다.',
-    nextStep: '다음 단계 →',
-    platformKeys:
-      '↑/↓ 이동 · space 선택 · enter confirm to install/update · q exit',
+    installSelected: '선택한 패키지 설치 →',
+    skipThisStep: '이 단계 건너뛰기 →',
+    platformKeys: '↑/↓ 이동 · space 선택 · s 이 단계 건너뛰기 · q 종료',
+    platformSelectedCount: '{n}개 선택 · Enter로 설치',
+    platformSelectedNone: '0개 선택 · Enter로 이 단계 건너뛰기',
+    platformSkipped:
+      '건너뛰었습니다. 나중에 `transcodes install`로 다시 설정할 수 있습니다.',
     platformNumberedHint:
-      '설치할 번호를 입력하세요 (예: 1,2). "all" 또는 Enter면 전체 설치.',
+      '설치할 번호를 입력하세요 (예: 1,2). Enter 또는 "s"는 이 단계 건너뛰기. "all"은 전체 설치.',
     platformNumberedNext:
-      '{n} (또는 "next")는 다음 단계, "exit"/"q"는 종료입니다.',
+      '{n} (또는 "skip")는 이 단계 건너뛰기, "exit"/"q"는 종료입니다.',
     installed: '[Detected]',
     selectedInstall: 'Install/Update',
+    selectedSkip: 'Skip',
     nothingSelected: '선택된 항목이 없습니다.',
     noPlatforms: '선택된 플랫폼이 없어 설치를 건너뜁니다.',
     installing: '설치 중: {list}',

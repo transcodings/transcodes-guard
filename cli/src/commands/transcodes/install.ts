@@ -837,7 +837,7 @@ function isPluginInstalled(id: PlatformId): boolean {
 
 type MenuChoice =
   | { kind: 'install'; ids: PlatformId[] }
-  | { kind: 'next' }
+  | { kind: 'skip' }
   | { kind: 'cancel' };
 
 /** Short names for the "currently installed" summary line. */
@@ -877,7 +877,7 @@ function renderMenu(): void {
     const mark = onDevice ? `   ${t('installed')}` : '';
     log(`  ${i + 1}. ${dot} ${p.label}${mark}`);
   });
-  log(`  ${PLATFORMS.length + 1}. ${t('nextStep')}`);
+  log(`  ${PLATFORMS.length + 1}. ${t('skipThisStep')}`);
   log('');
   log(t('platformNumberedHint'));
   log(t('platformNumberedNext', { n: String(PLATFORMS.length + 1) }));
@@ -888,10 +888,15 @@ async function promptMenu(): Promise<MenuChoice> {
   for (;;) {
     const answer = (await promptLine('> ')).trim().toLowerCase();
     if (answer === 'exit' || answer === 'q') return { kind: 'cancel' };
-    if (answer === 'next' || answer === 'n' || answer === nextNum) {
-      return { kind: 'next' };
+    if (
+      answer === '' ||
+      answer === 's' ||
+      answer === 'skip' ||
+      answer === nextNum
+    ) {
+      return { kind: 'skip' };
     }
-    if (answer === '' || answer === 'all' || answer === 'a') {
+    if (answer === 'all' || answer === 'a') {
       return { kind: 'install', ids: PLATFORMS.map((p) => p.id) };
     }
 
@@ -902,7 +907,7 @@ async function promptMenu(): Promise<MenuChoice> {
       const num = Number(token);
       if (!Number.isInteger(num) || num < 1 || num > PLATFORMS.length) {
         log(
-          `  Invalid choice "${token}". Use 1–${PLATFORMS.length}, ${nextNum} (Next Step), all, or exit.`,
+          `  Invalid choice "${token}". Use 1–${PLATFORMS.length}, ${nextNum} (Skip This Step), all, or exit.`,
         );
         invalid = true;
         break;
@@ -920,15 +925,15 @@ function supportsArrowSelect(): boolean {
 }
 
 /**
- * Arrow-key checkbox selector. ↑/↓ move, space toggles,
- * Enter confirms (installs checked, or proceeds when on "Next Step"),
- * q / Ctrl-C quits. Redraws in place via readline cursor control.
- *
- * Callers pass the initial `checked` set (defaults to empty / none selected).
+ * Arrow-key checkbox selector. ↑/↓ move, space toggles, s skips the
+ * platform step, q / Ctrl-C quits. Enter with 0 selected skips; Enter
+ * with hosts selected installs them. The final action row reflects the same
+ * result: install selected packages, or skip when none are selected.
+ * Redraws in place via readline cursor control.
  */
 function arrowSelect(checked: Set<PlatformId>): Promise<MenuChoice> {
   return new Promise((resolve) => {
-    const rowCount = PLATFORMS.length + 1; // platforms + "Next Step"
+    const rowCount = PLATFORMS.length + 1; // platforms + confirmation action
     let cursor = 0;
     let rendered = 0;
     const { stdin, stdout } = process;
@@ -941,18 +946,33 @@ function arrowSelect(checked: Set<PlatformId>): Promise<MenuChoice> {
       lines.push('');
       lines.push(installedAppsHint());
       lines.push('');
+      const labelWidth = Math.max(...PLATFORMS.map((p) => p.label.length));
+      const detectedMark = t('installed');
       PLATFORMS.forEach((p, i) => {
         const pointer = cursor === i ? '❯' : ' ';
         const onDevice = isHostAppInstalled(p.id);
         const selected = checked.has(p.id);
-        // ◉ … [Detected] → Install/Update when selected; [Detected] = host on device.
         const box = selected ? '◉' : '◯';
-        const mark = onDevice ? `  ${t('installed')}` : '';
-        const action = selected ? `  → ${t('selectedInstall')}` : '';
-        lines.push(`${pointer} ${box} ${p.label}${mark}${action}`);
+        const mark = onDevice ? detectedMark : ' '.repeat(detectedMark.length);
+        const action = selected ? t('selectedInstall') : t('selectedSkip');
+        lines.push(
+          `${pointer} ${box} ${p.label.padEnd(labelWidth)}  ${mark}  → ${action}`,
+        );
       });
+      const selectedCount = PLATFORMS.filter((p) => checked.has(p.id)).length;
+      lines.push('');
+      lines.push(
+        selectedCount === 0
+          ? t('platformSelectedNone')
+          : t('platformSelectedCount', { n: String(selectedCount) }),
+      );
       const nextPointer = cursor === PLATFORMS.length ? '❯' : ' ';
-      lines.push(`${nextPointer}   ${t('nextStep')}`);
+      lines.push('');
+      lines.push(
+        `${nextPointer}   ${
+          selectedCount === 0 ? t('skipThisStep') : t('installSelected')
+        }`,
+      );
       lines.push('');
       lines.push(t('platformKeys'));
       rendered = redrawBlock(stdout, lines, rendered);
@@ -972,15 +992,18 @@ function arrowSelect(checked: Set<PlatformId>): Promise<MenuChoice> {
         resolve({ kind: 'cancel' });
         return;
       }
+      if (key === 's' || key === 'S') {
+        cleanup();
+        resolve({ kind: 'skip' });
+        return;
+      }
       if (key === '\r' || key === '\n') {
         cleanup();
-        if (cursor === PLATFORMS.length) {
-          resolve({ kind: 'next' });
+        const ids = PLATFORMS.filter((p) => checked.has(p.id)).map((p) => p.id);
+        if (ids.length === 0) {
+          resolve({ kind: 'skip' });
         } else {
-          resolve({
-            kind: 'install',
-            ids: PLATFORMS.filter((p) => checked.has(p.id)).map((p) => p.id),
-          });
+          resolve({ kind: 'install', ids });
         }
         return;
       }
@@ -1275,9 +1298,9 @@ export async function cmdInstall(args: string[]): Promise<void> {
       log('  transcodes install claude codex cursor antigravity');
       process.exit(1);
     }
-    // Select → install → clear → same menu (host apps on device stay marked),
-    // repeating until the user picks Next Step. Arrow-key checkbox when the
-    // terminal supports raw mode, else a numbered-input fallback.
+    // Select once, then install the selection or skip the platform step.
+    // Arrow-key checkbox when the terminal supports raw mode, else numbered
+    // fallback.
     const useArrows = supportsArrowSelect();
     // Pre-select host apps already on this machine (CLI and/or desktop app).
     const checked = new Set<PlatformId>(
@@ -1298,18 +1321,14 @@ export async function cmdInstall(args: string[]): Promise<void> {
         log(t('cancelHint'));
         process.exit(0);
       }
-      if (choice.kind === 'next') {
+      if (choice.kind === 'skip') {
         clearScreen();
+        log(t('platformSkipped'));
+        log('');
         break;
       }
-      if (choice.ids.length === 0) {
-        log(`  ${t('nothingSelected')}`);
-        continue;
-      }
-      // Remember the selection so the next round re-checks the same boxes.
-      checked.clear();
-      for (const id of choice.ids) checked.add(id);
       await runInstalls(choice.ids);
+      break;
     }
   } else {
     if (selection.length === 0) {

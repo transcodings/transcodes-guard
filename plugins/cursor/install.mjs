@@ -5,8 +5,9 @@
  * Replaces the plugin directory with the committed bundle (dist/, configs),
  * moves it into place, then rewrites ${CURSOR_PLUGIN_ROOT} at the final install
  * path (rename-before-rewrite — staging paths are never baked in), and registers
- * user-level ~/.cursor/hooks.json and mcp.json (merge-aware — only transcodes-guard
- * are upserted; other user hooks / MCP servers are preserved).
+ * user-level ~/.cursor/mcp.json (upsert transcodes-guard only). Gate hooks
+ * are disabled for the persona-only MVP — stale transcodes-guard entries
+ * are stripped from ~/.cursor/hooks.json on install.
  *
  * Re-run for in-place updates — stale files from a prior partial copy are removed
  * automatically. Use a /tmp clone for the one-liner; do not run from a source tree
@@ -318,32 +319,44 @@ function isTranscodesGuardHook(entry) {
   return cmd.includes('/transcodes-guard/') || TRANSCODES_HOOK_SCRIPT.test(cmd);
 }
 
-function mergeHooksConfig(existingPath, renderedHooksJson) {
-  const incoming = JSON.parse(renderedHooksJson);
-  if (!incoming.hooks || typeof incoming.hooks !== 'object') {
-    throw new Error('Rendered hooks.json is missing hooks — check plugins/cursor/.cursor/hooks.json.');
+function stripTranscodesGuardHooks(existingPath) {
+  if (!fs.existsSync(existingPath)) {
+    console.log(
+      `- Gate hooks not registered (persona-only MVP) — no ${existingPath}`,
+    );
+    return;
   }
 
-  let existing = { version: 1, hooks: {} };
-  if (fs.existsSync(existingPath)) {
-    existing = JSON.parse(fs.readFileSync(existingPath, 'utf8'));
-    if (!existing.hooks || typeof existing.hooks !== 'object') {
-      existing.hooks = {};
-    }
+  const existing = JSON.parse(fs.readFileSync(existingPath, 'utf8'));
+  if (!existing.hooks || typeof existing.hooks !== 'object') {
+    console.log(`- Gate hooks not registered (persona-only MVP)`);
+    return;
   }
 
-  existing.version = incoming.version ?? existing.version ?? 1;
-
-  for (const [event, incomingEntries] of Object.entries(incoming.hooks)) {
-    if (!Array.isArray(incomingEntries)) continue;
-    const kept = (Array.isArray(existing.hooks[event]) ? existing.hooks[event] : []).filter(
+  let removed = 0;
+  for (const event of Object.keys(existing.hooks)) {
+    if (!Array.isArray(existing.hooks[event])) continue;
+    const kept = existing.hooks[event].filter(
       (entry) => !isTranscodesGuardHook(entry),
     );
-    existing.hooks[event] = [...kept, ...incomingEntries];
+    removed += existing.hooks[event].length - kept.length;
+    if (kept.length === 0) delete existing.hooks[event];
+    else existing.hooks[event] = kept;
   }
 
-  fs.writeFileSync(existingPath, `${JSON.stringify(existing, null, 2)}\n`, 'utf8');
-  console.log(`- Merged ${existingPath} (transcodes-guard hooks upserted; other hooks preserved)`);
+  if (removed === 0) {
+    console.log(`- Gate hooks not registered (persona-only MVP)`);
+    return;
+  }
+
+  fs.writeFileSync(
+    existingPath,
+    `${JSON.stringify(existing, null, 2)}\n`,
+    'utf8',
+  );
+  console.log(
+    `- Removed ${removed} transcodes-guard hook(s) from ${existingPath} (persona-only MVP; other hooks kept)`,
+  );
 }
 
 function mergeMcpConfig(existingPath, renderedMcpJson) {
@@ -375,12 +388,7 @@ function mergeMcpConfig(existingPath, renderedMcpJson) {
 function registerCursorConfig(pluginDir, cursorHome) {
   fs.mkdirSync(cursorHome, { recursive: true });
 
-  const hooksOut = path.join(cursorHome, 'hooks.json');
-  const renderedHooks = renderTemplate(
-    path.join(pluginDir, '.cursor/hooks.json'),
-    pluginDir,
-  );
-  mergeHooksConfig(hooksOut, renderedHooks);
+  stripTranscodesGuardHooks(path.join(cursorHome, 'hooks.json'));
 
   const commandsSrc = path.join(pluginDir, '.cursor/commands');
   if (fs.existsSync(commandsSrc)) {

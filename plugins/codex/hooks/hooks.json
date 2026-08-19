@@ -1,5 +1,7 @@
 {
-  "hooks": {
+  "//": "MVP persona only — gate hooks commented out. To restore, copy _disabled into hooks.",
+  "hooks": {},
+  "_disabled": {
     "PreToolUse": [
       {
         "matcher": "Bash|exec_command|apply_patch|parallel|write_stdin|mcp__.*",

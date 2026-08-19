@@ -49,8 +49,9 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercont
 
 1. **사전 요구사항** — **Node.js LTS(>= 20)** 가 있는지 확인하고, 없으면 설치합니다.
 2. **플랫폼 선택** — Claude Code / ChatGPT (Codex) / Cursor / Antigravity를 화살표 체크리스트로 고릅니다.
-   - `↑`/`↓` 이동 · `space` 선택 · `enter` confirm to install/ update · `Next Step →` 다음 · `q` exit
-   - 감지된 호스트는 `[Detected]`로 표시됩니다. 선택하면 `→ Install/Update`가 붙고 in-place 업데이트입니다.
+   - `↑`/`↓` 이동 · `space` 선택 · `s` 이 단계 건너뛰기 · `q` 종료
+   - `enter`는 선택한 호스트를 설치합니다. 0개면 `enter`도 단계 스킵입니다(`s`와 같음). 나중에 `transcodes install`로 다시 오면 됩니다.
+   - 감지된 호스트는 `[Detected]`로 표시됩니다. 선택 행은 `→ Install/Update`, 미선택은 `→ Skip`입니다.
    - 선택한 각 호스트에 대해 호스트 CLI(`claude` / `codex` / `cursor-agent` / `agy`)를 확인하고, 없으면 공식 원라이너로 설치한 뒤 플러그인을 설치합니다(Claude·Codex는 네이티브 CLI, Cursor·Antigravity는 임시 저장소 클론).
 3. **토큰 설정** — 세 가지 선택지:
    - **Yes** — Member Access Token(MAT) + label을 붙여넣어 저장(`~/.transcodes/config.json`)
