@@ -329,7 +329,7 @@ function stripTranscodesGuardHooks(existingPath) {
 
   const existing = JSON.parse(fs.readFileSync(existingPath, 'utf8'));
   if (!existing.hooks || typeof existing.hooks !== 'object') {
-    console.log(`- Gate hooks not registered (persona-only MVP)`);
+    console.log('- Gate hooks not registered (persona-only MVP)');
     return;
   }
 
@@ -345,7 +345,7 @@ function stripTranscodesGuardHooks(existingPath) {
   }
 
   if (removed === 0) {
-    console.log(`- Gate hooks not registered (persona-only MVP)`);
+    console.log('- Gate hooks not registered (persona-only MVP)');
     return;
   }
 
