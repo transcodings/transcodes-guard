@@ -51,11 +51,19 @@ const PLUGIN_NAME = 'transcodes-guard';
 const STALE_IMPORT_SOURCES = new Set(['claude-code']);
 
 const PLACEHOLDER = '__PLUGIN_DIR__';
-/** Every committed config that bakes plugin-root paths at install time. */
-const PLACEHOLDER_CONFIGS = ['hooks.json', 'mcp_config.json'];
+/**
+ * Every committed config that bakes plugin-root paths at install time.
+ *
+ * `hooks.json` used to be here. The gate hooks are parked in
+ * `hooks.archive.json` and the live file ships empty, so it no longer carries a
+ * plugin path to bake.
+ */
+const PLACEHOLDER_CONFIGS = ['mcp_config.json'];
 const STAGING_DIR_PATTERN = /\.transcodes-guard-install-/;
 /** Bundled artifacts — not install-time placeholder configs. */
 const PLACEHOLDER_SCAN_SKIP_DIRS = new Set(['dist', 'node_modules']);
+/** Parked configs kept for reference — never read by Antigravity, never baked. */
+const ARCHIVE_CONFIG_SUFFIX = '.archive.json';
 
 function toPosix(dir) {
   return dir.split(path.sep).join('/');
@@ -75,6 +83,7 @@ function collectJsonFilesRecursive(dir, rootDir, out = []) {
       continue;
     }
     if (!entry.endsWith('.json')) continue;
+    if (entry.endsWith(ARCHIVE_CONFIG_SUFFIX)) continue;
     out.push({ rel: toPosixRel(rootDir, entryPath), abs: entryPath });
   }
   return out;

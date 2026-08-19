@@ -7,6 +7,9 @@
  *   - Claude Code / Codex: their native host CLIs (`claude` / `codex`).
  *   - Cursor / Antigravity: a temp `git clone` + the committed `install.mjs`.
  *
+ * Running the built file itself (`node /path/to/cli/dist/index.js install`)
+ * uses that checkout instead of cloning GitHub.
+ *
  * Before each plugin install it ensures the host CLI is on PATH (installs it
  * if missing). Node.js LTS (>= 20) is checked first.
  *
@@ -32,8 +35,16 @@ const REPO_SLUG = 'transcodings/transcodes-guard';
 const REPO_GIT_URL = 'https://github.com/transcodings/transcodes-guard.git';
 const MARKETPLACE = 'bigstrider';
 const PLUGIN_NAME = 'transcodes-guard';
+/** Marker file that proves a path is this monorepo, not a random folder. */
+const LOCAL_REPO_MARKER = 'plugins/cursor/install.mjs';
 /** Matches package engines + host plugin requirements. */
 const MIN_NODE_MAJOR = 20;
+
+type PluginSource = {
+  dir: string;
+  /** Temp git clone — delete after install. A local checkout is kept. */
+  ephemeral: boolean;
+};
 
 type PlatformId = 'claude' | 'codex' | 'cursor' | 'antigravity';
 
@@ -1096,19 +1107,60 @@ function arrowChoose(
   });
 }
 
+/** Walk up from the running CLI file. `cli/dist/index.js` → repo root. */
+function checkoutFromRunningCli(): string | null {
+  const starts: string[] = [];
+  const argv = process.argv[1];
+  if (argv) {
+    try {
+      starts.push(fs.realpathSync(argv));
+    } catch {
+      starts.push(argv);
+    }
+  }
+  for (const start of starts) {
+    let dir = path.dirname(start);
+    for (let i = 0; i < 8; i += 1) {
+      if (fs.existsSync(path.join(dir, LOCAL_REPO_MARKER))) return dir;
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  }
+  return null;
+}
+
+async function resolvePluginSource(
+  platforms: readonly PlatformId[],
+): Promise<PluginSource | null> {
+  const local = checkoutFromRunningCli();
+  if (local) {
+    log(`  Using local checkout ${local}`);
+    return { dir: local, ephemeral: false };
+  }
+
+  const needsClone = platforms.some(
+    (id) => PLATFORMS.find((p) => p.id === id)?.installerRel,
+  );
+  if (!needsClone) return null;
+
+  const cloned = await cloneRepoIfNeeded();
+  return cloned ? { dir: cloned, ephemeral: true } : null;
+}
+
 /** Ensure host CLI + install plugin for each selected platform, then summarize. */
 async function runInstalls(ids: readonly PlatformId[]): Promise<void> {
-  const clonedRepoDir = await cloneRepoIfNeeded(ids);
+  const source = await resolvePluginSource(ids);
   const results = new Map<PlatformId, boolean>();
   try {
     for (const id of ids) {
       const label = PLATFORMS.find((p) => p.id === id)?.label ?? id;
       log(`\n── ${label} ──`);
-      results.set(id, await installPlatform(id, clonedRepoDir));
+      results.set(id, await installPlatform(id, source));
     }
   } finally {
-    if (clonedRepoDir) {
-      fs.rmSync(clonedRepoDir, { recursive: true, force: true });
+    if (source?.ephemeral) {
+      fs.rmSync(source.dir, { recursive: true, force: true });
     }
   }
 
@@ -1122,13 +1174,15 @@ async function runInstalls(ids: readonly PlatformId[]): Promise<void> {
 /** Install one host plugin. Ensures host CLI first. */
 async function installPlatform(
   id: PlatformId,
-  clonedRepoDir: string | null,
+  source: PluginSource | null,
 ): Promise<boolean> {
   if (!(await ensureHostCli(id))) return false;
 
+  const marketplace = source && !source.ephemeral ? source.dir : REPO_SLUG;
+
   if (id === 'claude') {
     return runAll([
-      { cmd: 'claude', args: ['plugin', 'marketplace', 'add', REPO_SLUG] },
+      { cmd: 'claude', args: ['plugin', 'marketplace', 'add', marketplace] },
       {
         cmd: 'claude',
         args: [
@@ -1144,7 +1198,7 @@ async function installPlatform(
 
   if (id === 'codex') {
     return runAll([
-      { cmd: 'codex', args: ['plugin', 'marketplace', 'add', REPO_SLUG] },
+      { cmd: 'codex', args: ['plugin', 'marketplace', 'add', marketplace] },
       {
         cmd: 'codex',
         args: ['plugin', 'add', `${PLUGIN_NAME}@${MARKETPLACE}`],
@@ -1152,13 +1206,13 @@ async function installPlatform(
     ]);
   }
 
-  // cursor / antigravity — run the committed installer from the repo clone.
+  // cursor / antigravity — run the committed installer from the repo.
   const platform = PLATFORMS.find((p) => p.id === id);
-  if (!clonedRepoDir || !platform?.installerRel) {
+  if (!source || !platform?.installerRel) {
     log(`  Skipped ${platform?.label ?? id} — repo clone unavailable.`);
     return false;
   }
-  const installer = path.join(clonedRepoDir, platform.installerRel);
+  const installer = path.join(source.dir, platform.installerRel);
   if (!fs.existsSync(installer)) {
     log(`  Skipped ${platform.label} — installer missing at ${installer}.`);
     return false;
@@ -1167,14 +1221,7 @@ async function installPlatform(
 }
 
 /** Clone the repo to a temp dir when a filesystem-installer host is selected. */
-async function cloneRepoIfNeeded(
-  platforms: readonly PlatformId[],
-): Promise<string | null> {
-  const needsClone = platforms.some(
-    (id) => PLATFORMS.find((p) => p.id === id)?.installerRel,
-  );
-  if (!needsClone) return null;
-
+async function cloneRepoIfNeeded(): Promise<string | null> {
   if (!(await ensureGit())) {
     log('\n`git` is required to install Cursor / Antigravity plugins.');
     return null;
@@ -1523,17 +1570,17 @@ export async function cmdUpdate(args: string[]): Promise<void> {
       );
       // Re-run the same install path (Cursor/Antigravity install.mjs and
       // Claude/Codex marketplace install are idempotent / in-place updates).
-      const clonedRepoDir = await cloneRepoIfNeeded(targets);
+      const source = await resolvePluginSource(targets);
       try {
         for (const id of targets) {
           const label = PLATFORMS.find((p) => p.id === id)?.label ?? id;
           log(`\n── ${label} ──`);
-          const ok = await installPlatform(id, clonedRepoDir);
+          const ok = await installPlatform(id, source);
           results.push({ name: label, ok });
         }
       } finally {
-        if (clonedRepoDir) {
-          fs.rmSync(clonedRepoDir, { recursive: true, force: true });
+        if (source?.ephemeral) {
+          fs.rmSync(source.dir, { recursive: true, force: true });
         }
       }
     }
