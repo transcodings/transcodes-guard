@@ -872,7 +872,7 @@ function assertPersonaBundlePath(
     parts[0] === PERSONA_INSTRUCTION_DIR_NAME &&
     parts[1]?.toLowerCase() === RULESYNC_OVERVIEW_FILE_NAME.toLowerCase()
   ) {
-    return bundlePath;
+    return `${PERSONA_INSTRUCTION_DIR_NAME}/${RULESYNC_OVERVIEW_FILE_NAME}`;
   }
   if (parts.length === 2 && parts[0] === 'rules' && parts[1]?.endsWith('.md')) {
     assertPersonaName('rule', parts[1]);
@@ -1406,9 +1406,12 @@ export async function savePersonaBatch(params: {
         parts[0] === 'skills' &&
         parts.length >= 3 &&
         parts.slice(2).join('/') !== SKILL_FILE_NAME;
-      if (!isCompanion && !bytes.includes(0)) {
+      if (!isCompanion) {
+        if (bytes.includes(0)) {
+          throw new Error('Non-companion files must be plain text.');
+        }
         const kind =
-          parts[0] === 'instruction'
+          parts[0] === PERSONA_INSTRUCTION_DIR_NAME
             ? 'agent'
             : parts[0] === 'rules'
               ? 'rule'
