@@ -2,11 +2,18 @@
 #
 # Transcodes CLI bootstrap installer — macOS / Linux.
 #
-#   curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash
-#
-# Then run guided setup (plugins + token dashboard):
-#
 #   curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh | bash && transcodes install
+#
+# That chained form must always work. The second command runs in the *calling*
+# shell, which never sees PATH changes made in here — so when Node comes from
+# nvm, npm's global bin is a directory the caller has never had on PATH and a
+# bare `transcodes` would die with "command not found". `link_cli` therefore
+# installs a launcher into a directory the caller already searches, with an
+# absolute Node path baked in (a plain symlink is not enough: the package's
+# `#!/usr/bin/env node` shebang would need `node` on the caller's PATH too).
+#
+# `| bash -s -- install` is also supported and runs the guided setup in this
+# script's own shell.
 #
 # Ensures Node.js >= 20 and Git exist (installing via nvm/brew/apt when needed),
 # then installs `@bigstrider/transcodes-cli` globally so the `transcodes`
@@ -19,8 +26,16 @@
 set -euo pipefail
 
 PKG="@bigstrider/transcodes-cli"
+INSTALL_SH_URL="https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/cli/install.sh"
 MIN_NODE_MAJOR=20
 NVM_VERSION="v0.40.3"
+# PATH as inherited from the calling shell. Anything this script prepends (nvm)
+# is invisible to that shell, so this is what decides whether a chained
+# `transcodes install` can work.
+CALLER_PATH="${PATH}"
+# Marks launchers we wrote, so re-runs can overwrite ours without warning.
+SHIM_MARKER="# transcodes-cli-launcher"
+SHIM_PATH=""
 
 # --- tiny output helpers -----------------------------------------------------
 if [ -t 1 ]; then
@@ -34,6 +49,14 @@ warn() { printf '  ! %s\n' "$*" >&2; }
 die()  { printf '\nInstall failed: %s\n' "$*" >&2; exit 1; }
 
 have() { command -v "$1" >/dev/null 2>&1; }
+
+# Is $1 a directory the calling shell already searches?
+caller_path_has() {
+  case ":${CALLER_PATH}:" in
+    *":$1:"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 node_major() {
   have node || { echo 0; return; }
@@ -139,22 +162,167 @@ install_cli() {
   fi
 }
 
-# --- 4. verify PATH ----------------------------------------------------------
+# --- 4. make `transcodes` reachable from the calling shell --------------------
+
+# Follow symlinks to the package's real entry file. macOS has no `readlink -f`.
+resolve_target() {
+  local target="$1" link dir depth=0
+  while [ -L "$target" ] && [ "$depth" -lt 20 ]; do
+    link="$(readlink "$target")"
+    case "$link" in
+      /*) target="$link" ;;
+      *)
+        dir="$(cd -P "$(dirname "$target")" 2>/dev/null && pwd)" || return 1
+        target="${dir}/${link}"
+        ;;
+    esac
+    depth=$((depth + 1))
+  done
+  # Collapse any `..` left by relative npm bin links.
+  dir="$(cd -P "$(dirname "$target")" 2>/dev/null && pwd)" || return 1
+  printf '%s\n' "${dir}/$(basename "$target")"
+}
+
+# Directories the caller's shell already searches, best first. Only these can
+# make a chained `transcodes install` work.
+shim_dir() {
+  local d
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    caller_path_has "$d" || continue
+    case "$d" in
+      # System-owned (SIP-protected on macOS); never write here.
+      /bin | /sbin | /usr/bin | /usr/sbin) continue ;;
+      # Version-scoped, so a launcher here vanishes on the next node upgrade.
+      "${NVM_DIR:-$HOME/.nvm}"/*) continue ;;
+    esac
+    [ -d "$d" ] || mkdir -p "$d" 2>/dev/null || continue
+    [ -w "$d" ] || continue
+    printf '%s\n' "$d"
+    return 0
+  done <<EOF
+/opt/homebrew/bin
+/usr/local/bin
+${HOME}/.local/bin
+${HOME}/bin
+$(printf '%s' "$CALLER_PATH" | tr ':' '\n')
+EOF
+  return 1
+}
+
+link_cli() {
+  local npm_bin entry node_bin node_dir dir dest
+  npm_bin="$(command -v transcodes)" || return 1
+
+  # Already on the caller's PATH (e.g. Homebrew Node) — nothing to do.
+  if caller_path_has "$(dirname "$npm_bin")"; then
+    return 0
+  fi
+
+  step "Linking transcodes onto your PATH"
+  entry="$(resolve_target "$npm_bin")" || { warn "could not resolve the installed CLI path"; return 1; }
+  # Deliberately *not* resolved: `/opt/homebrew/bin/node` survives a
+  # `brew upgrade node`, while the Cellar path it points at does not.
+  node_bin="$(command -v node)"
+  node_dir="$(dirname "$node_bin")"
+
+  if ! dir="$(shim_dir)"; then
+    warn "no writable directory on your PATH — falling back to manual instructions."
+    return 1
+  fi
+  dest="${dir}/transcodes"
+
+  if [ -e "$dest" ] && ! grep -qF "$SHIM_MARKER" "$dest" 2>/dev/null; then
+    warn "replacing an older transcodes at ${dest}"
+  fi
+
+  # The launcher hardcodes Node because the caller's shell may have no node at
+  # all, and prepends Node's bin dir so the CLI can shell out to npm/npx/git.
+  cat > "$dest" <<EOF
+#!/bin/sh
+${SHIM_MARKER} — written by the transcodes installer. Safe to delete.
+REINSTALL="curl -fsSL ${INSTALL_SH_URL} | bash"
+
+NODE="${node_bin}"
+if [ ! -x "\$NODE" ]; then
+  # Node moved (version upgrade / nvm cleanup) — look for any usable one.
+  NODE="\$(command -v node 2>/dev/null || true)"
+fi
+if [ -z "\$NODE" ]; then
+  for candidate in "${NVM_DIR:-$HOME/.nvm}"/versions/node/*/bin/node; do
+    [ -x "\$candidate" ] && NODE="\$candidate"
+  done
+fi
+if [ -z "\$NODE" ]; then
+  echo "transcodes: Node.js not found. Reinstall with:" >&2
+  echo "  \$REINSTALL" >&2
+  exit 127
+fi
+if [ ! -f "${entry}" ]; then
+  echo "transcodes: the CLI is no longer installed at" >&2
+  echo "  ${entry}" >&2
+  echo "Reinstall with:  \$REINSTALL" >&2
+  exit 127
+fi
+
+# Exported so the CLI can shell out to npm/npx/git during setup.
+PATH="${node_dir}:\$PATH"
+export PATH
+exec "\$NODE" "${entry}" "\$@"
+EOF
+  chmod 755 "$dest" || { warn "could not make ${dest} executable"; return 1; }
+
+  SHIM_PATH="$dest"
+  say "  ✓ ${dest}"
+  return 0
+}
+
+# Can the shell that invoked this script run `transcodes`?
+caller_can_run() {
+  local bin
+  bin="$(command -v transcodes 2>/dev/null)" || return 1
+  caller_path_has "$(dirname "$bin")" && return 0
+  [ -n "$SHIM_PATH" ] && [ -x "$SHIM_PATH" ] && return 0
+  return 1
+}
+
+# --- 5. verify PATH ----------------------------------------------------------
 verify() {
   step "Verifying"
   hash -r 2>/dev/null || true
-  if have transcodes; then
-    say "  ✓ transcodes $(transcodes version 2>/dev/null || echo '')"
-    say ""
-    say "${BOLD}Done.${RESET} Next:"
-    say "  ${DIM}transcodes install${RESET}   set up the guard plugin + your token"
-    say "  ${DIM}transcodes${RESET}           open the local dashboard"
-  else
+
+  if ! have transcodes; then
     prefix="$(npm prefix -g 2>/dev/null || echo '')"
     say "  ! transcodes was installed but is not on your PATH yet."
     [ -n "$prefix" ] && say "    Add this to your shell profile:  export PATH=\"${prefix}/bin:\$PATH\""
     say "    Then open a new terminal and run:  transcodes install"
+    return 0
   fi
+
+  bin_dir="$(dirname "$(command -v transcodes)")"
+  say "  ✓ transcodes $(transcodes version 2>/dev/null || echo '')"
+
+  # Guided setup runs next in this same shell, so PATH advice is irrelevant.
+  [ "${1:-0}" -eq 1 ] && return 0
+  say ""
+
+  # Only reachable if `link_cli` could not find a writable directory on the
+  # caller's PATH, so a chained `transcodes install` would fail here.
+  if ! caller_can_run; then
+    say "${BOLD}Installed, but your current terminal cannot see it yet.${RESET}"
+    say "  ${DIM}${bin_dir}${RESET} is not on this shell's PATH."
+    say ""
+    say "  Run the setup with:"
+    say "    ${DIM}${bin_dir}/transcodes install${RESET}"
+    say ""
+    say "  To keep it for good, add this to your shell profile:"
+    say "    ${DIM}export PATH=\"${bin_dir}:\$PATH\"${RESET}"
+    return 0
+  fi
+
+  say "${BOLD}Done.${RESET} Next:"
+  say "  ${DIM}transcodes install${RESET}   set up the guard plugin + your token"
+  say "  ${DIM}transcodes${RESET}           open the local dashboard"
 }
 
 run_guided_install() {
@@ -166,12 +334,24 @@ run_guided_install() {
   die "transcodes is not on PATH — open a new terminal and run: transcodes install"
 }
 
+usage() {
+  say "Usage: install.sh [install]"
+  say ""
+  say "  (no args)   install Node/Git if needed, then the transcodes CLI"
+  say "  install     also run the guided setup in this shell"
+  say ""
+  say "Piped forms (both work):"
+  say "  curl -fsSL ${INSTALL_SH_URL} | bash && transcodes install"
+  say "  curl -fsSL ${INSTALL_SH_URL} | bash -s -- install"
+}
+
 main() {
   local run_install=0
   local -a passthrough=()
   for arg in "$@"; do
     case "$arg" in
       install|--install) run_install=1 ;;
+      -h|--help) usage; return 0 ;;
       *) passthrough+=("$arg") ;;
     esac
   done
@@ -180,7 +360,8 @@ main() {
   ensure_node
   ensure_git
   install_cli
-  verify
+  link_cli || true
+  verify "$run_install"
   if [ "$run_install" -eq 1 ]; then
     run_guided_install "${passthrough[@]}"
   fi
