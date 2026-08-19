@@ -19,17 +19,18 @@ const MESSAGES = {
     chooseKeys: '↑/↓ move · enter select',
     platformTitle: 'Please select platforms that you want to install:',
     platformHint1: 'Installing a plugin enables both its CLI and desktop app.',
-    platformHint2: '(Transcodes supports Claude Cowork, Claude Code Only)',
+    platformHint2: '(For Claude, Transcodes supports Cowork and Claude Code)',
     platformInstalledApps: 'Currently installed applications: {list}',
     platformInstalledNone: 'No applications are installed yet.',
     nextStep: 'Next Step →',
     platformKeys:
-      '↑/↓ move · space select · a all/none · enter confirm · q quit/exit',
+      '↑/↓ move · space select · enter confirm to install/update · q exit',
     platformNumberedHint:
       'Enter numbers to install (e.g. 1,2), "all" or Enter to install all.',
     platformNumberedNext:
       'Type {n} (or "next") for Next Step, "exit"/"q" to quit.',
-    installed: '[Installed ✓]',
+    installed: '[Detected]',
+    selectedInstall: 'Install/Update',
     nothingSelected: 'Nothing selected.',
     noPlatforms: 'No platforms selected — nothing to install.',
     installing: 'Installing: {list}',
@@ -92,16 +93,18 @@ const MESSAGES = {
     chooseKeys: '↑/↓ 이동 · enter 선택',
     platformTitle: '설치할 플랫폼을 선택하세요:',
     platformHint1: '플러그인 설치 시 CLI·데스크톱 앱에 모두 적용됩니다.',
-    platformHint2: '(Transcodes는 Claude Cowork의 Claude Code만 지원합니다)',
+    platformHint2: '(For Claude, Transcodes supports Cowork and Claude Code)',
     platformInstalledApps: '현재 설치되어 있는 어플리케이션: {list}',
     platformInstalledNone: '아직 설치된 Application이 없습니다.',
     nextStep: '다음 단계 →',
-    platformKeys: '↑/↓ 이동 · space 선택 · a 전체 · enter 확인 · q 종료',
+    platformKeys:
+      '↑/↓ 이동 · space 선택 · enter confirm to install/update · q exit',
     platformNumberedHint:
       '설치할 번호를 입력하세요 (예: 1,2). "all" 또는 Enter면 전체 설치.',
     platformNumberedNext:
       '{n} (또는 "next")는 다음 단계, "exit"/"q"는 종료입니다.',
-    installed: '[설치됨 ✓]',
+    installed: '[Detected]',
+    selectedInstall: 'Install/Update',
     nothingSelected: '선택된 항목이 없습니다.',
     noPlatforms: '선택된 플랫폼이 없어 설치를 건너뜁니다.',
     installing: '설치 중: {list}',
