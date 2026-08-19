@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.77.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.76.1...transcodes-guard-v0.77.0) (2026-08-19)
+
+
+### Features
+
+* **cli:** 0.17.2 stable launcher, uninstall, park gate hooks ([a264e7b](https://github.com/transcodings/transcodes-guard/commit/a264e7ba51807b73cb86009dbdd99b3c42ec5bc1))
+
 ## [0.76.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.76.0...transcodes-guard-v0.76.1) (2026-08-19)
 
 
