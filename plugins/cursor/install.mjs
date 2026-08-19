@@ -43,6 +43,7 @@ const PLACEHOLDER = '${CURSOR_PLUGIN_ROOT}';
 // ponytail: cover the latest release and pre-release blob; add older hashes
 // only if an older upgrade path is still supported.
 const PLUGIN_OWNED_LEGACY_COMMAND_SHA256 = new Set([
+  'cde2cd3620b1b8c2a049e97102e52a417c2b405355c01b97c2111b9e6b8a742c',
   '65970291ad012cd1f79b2a040e14994a5e9c6d7144f2768f431949a56ee578a8',
   'bdfb3d4ac0236e7ad352058d98e5ca536fe752d888bb30b081570b565966d84e',
 ]);

@@ -373,8 +373,8 @@ export async function cmdPersona(args: string[]): Promise<void> {
       return;
     }
     case 'save': {
-      const batchFile = optionalFlag(parsed, 'batch-file');
-      if (batchFile) {
+      if (parsed.flags.has('batch-file')) {
+        const batchFile = requiredFlag(parsed, 'batch-file');
         const unsupported = [...parsed.flags.keys()].find(
           (flag) => !['batch-file', 'root', 'persona'].includes(flag),
         );

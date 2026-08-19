@@ -870,7 +870,7 @@ function assertPersonaBundlePath(
   if (
     parts.length === 2 &&
     parts[0] === PERSONA_INSTRUCTION_DIR_NAME &&
-    parts[1] === RULESYNC_OVERVIEW_FILE_NAME
+    parts[1]?.toLowerCase() === RULESYNC_OVERVIEW_FILE_NAME.toLowerCase()
   ) {
     return bundlePath;
   }
@@ -1397,8 +1397,31 @@ export async function savePersonaBatch(params: {
       );
     }
     seen.add(bundlePath);
-    if (change.delete === true) deletePaths.push(bundlePath);
-    else files.push({ bundlePath, bytes: change.bytes });
+    if (change.delete === true) {
+      deletePaths.push(bundlePath);
+    } else {
+      let bytes = change.bytes;
+      const parts = bundlePath.split('/');
+      const isCompanion =
+        parts[0] === 'skills' &&
+        parts.length >= 3 &&
+        parts.slice(2).join('/') !== SKILL_FILE_NAME;
+      if (!isCompanion && !bytes.includes(0)) {
+        const kind =
+          parts[0] === 'instruction'
+            ? 'agent'
+            : parts[0] === 'rules'
+              ? 'rule'
+              : 'skill';
+        let name = parts[1] ?? '';
+        if (kind === 'rule') name = name.replace(/\.md$/i, '');
+        let sanitized = sanitizePersonaContent(kind, bytes.toString('utf-8'));
+        if (kind === 'skill') sanitized = synchronizeSkillName(sanitized, name);
+        const text = `${sanitized.replace(/\s+$/, '')}\n`;
+        bytes = Buffer.from(text, 'utf-8');
+      }
+      files.push({ bundlePath, bytes });
+    }
   }
 
   const written = new Set(files.map((file) => file.bundlePath));

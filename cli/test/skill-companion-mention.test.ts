@@ -403,7 +403,7 @@ test('batch saves atomically and preserves Skill invariants', async (t) => {
       'skill',
       '--name',
       'pdf',
-      '--path',
+      '--file',
       'scripts/extract.js',
     ]),
     /batch-file/,
