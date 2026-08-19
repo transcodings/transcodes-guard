@@ -875,8 +875,8 @@ function assertPersonaBundlePath(
     return `${PERSONA_INSTRUCTION_DIR_NAME}/${RULESYNC_OVERVIEW_FILE_NAME}`;
   }
   if (parts.length === 2 && parts[0] === 'rules' && parts[1]?.endsWith('.md')) {
-    assertPersonaName('rule', parts[1]);
-    return bundlePath;
+    const ruleName = assertPersonaName('rule', parts[1]);
+    return `rules/${ruleName}.md`;
   }
   if (parts[0] === 'skills' && parts.length >= 2) {
     const skill = parts[1] ?? '';
