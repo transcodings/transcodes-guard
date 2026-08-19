@@ -895,7 +895,7 @@ function assertPersonaBundlePath(
         throw new Error('SKILL.md is required and cannot be deleted.');
       }
       if (!deleting) assertSkillReferenceWritePath(skillFile);
-      return bundlePath;
+      return `skills/${parts[1]}/${skillFile}`;
     }
   }
   throw new Error(`Invalid Persona bundle path "${bundlePath}".`);
