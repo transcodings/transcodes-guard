@@ -76,6 +76,17 @@ transcodes update
 
 Useful flags: `--cli-only`, `--plugins-only`, `--all` (update every platform even if not detected), or list platforms: `transcodes update claude cursor`.
 
+### Uninstall — `transcodes uninstall`
+
+Undo the install: host plugins, their hook / MCP / slash-command registrations, and `~/.transcodes` (sign-in, dashboard state, Personas). The CLI itself stays so you can run `transcodes install` again.
+
+```bash
+transcodes uninstall --dry-run   # see the plan first
+transcodes uninstall             # confirm, then remove
+```
+
+Host config files are pruned entry by entry, so hand-written hooks, other MCP servers, and other plugins stay put. Project-level `.transcodes/` folders are never touched.
+
 ### Manual install
 
 Prefer to do each step by hand? Follow §1–§3 below. The guided installer above is optional.

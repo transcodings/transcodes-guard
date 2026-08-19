@@ -17,6 +17,11 @@ export const CLI_COMMAND_SPECS: readonly CliCommandSpec[] = [
       'Update Transcodes for your AI apps and this tool from npm (--cli-only / --plugins-only / --all)',
   },
   {
+    usage: 'transcodes uninstall',
+    description:
+      'Remove Transcodes plugins and local settings from this computer (--dry-run / -y)',
+  },
+  {
     usage: 'transcodes',
     description:
       'Open this control panel in the background (reuses a running server; default port 3847; --port N / --no-open)',

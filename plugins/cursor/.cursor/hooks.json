@@ -1,44 +1,4 @@
 {
-  "//": "MVP persona only — gate hooks commented out. To restore, copy _disabled into hooks.",
   "version": 1,
-  "hooks": {},
-  "_disabled": {
-    "beforeShellExecution": [
-      {
-        "type": "command",
-        "command": "node ${CURSOR_PLUGIN_ROOT}/dist/hooks/pre-tool-use.js",
-        "timeout": 30,
-        "failClosed": true
-      }
-    ],
-    "beforeMCPExecution": [
-      {
-        "type": "command",
-        "command": "node ${CURSOR_PLUGIN_ROOT}/dist/hooks/pre-tool-use.js",
-        "timeout": 30,
-        "failClosed": true
-      }
-    ],
-    "sessionStart": [
-      {
-        "type": "command",
-        "command": "node ${CURSOR_PLUGIN_ROOT}/dist/hooks/session-start.js",
-        "timeout": 10
-      }
-    ],
-    "beforeSubmitPrompt": [
-      {
-        "type": "command",
-        "command": "node ${CURSOR_PLUGIN_ROOT}/dist/hooks/before-submit-prompt.js",
-        "timeout": 10
-      }
-    ],
-    "stop": [
-      {
-        "type": "command",
-        "command": "node ${CURSOR_PLUGIN_ROOT}/dist/hooks/stop.js",
-        "timeout": 10
-      }
-    ]
-  }
+  "hooks": {}
 }

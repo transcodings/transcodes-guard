@@ -97,7 +97,7 @@ const WORKFLOW_MENU = [
   '     - After confirmation, run `transcodes persona push --persona <name>` or `transcodes persona pull --persona <name>`. Neither takes any other flag. Never use `cd`, pipes, heredocs, redirection, or command chaining.',
   '     - If push fails saying the Persona changed on the server, do not retry push. Run `transcodes persona pull --persona <name>` first, show the user what changed, and ask before pushing again — pushing blindly would discard a teammate\'s work.',
   '     - Report the resulting revision number, and after pull report which files changed. Sharing does not deploy: if the user wants the pulled Persona active in an app, follow APPLY OR DEPLOY above.',
-  '   - If `transcodes persona` is unavailable, tell the user to update/reinstall `@bigstrider/transcodes-cli`; do not bypass its path validation by writing directly.',
+  '   - If a bare `transcodes` is not found, retry the same command with the stable launcher — `$HOME/.transcodes/bin/transcodes` on macOS/Linux, or `%USERPROFILE%\\.transcodes\\bin\\transcodes.cmd` on Windows. Only if that file is also missing, tell the user to update/reinstall `@bigstrider/transcodes-cli`. Do not bypass its path validation by writing directly.',
   '',
   'MENU — Transcodes Admin API (transcodes-guard MCP server)',
   '5) Identity & session context (read-only)',

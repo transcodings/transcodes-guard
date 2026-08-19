@@ -295,7 +295,9 @@ export async function ensureDashboard(options: {
   process.stdout.write(
     `${t('dashboardOpened', { url: running.url })}\n` +
       `  ${t('dashboardHowToUse')}\n` +
-      `  ${t('dashboardStopHint')}\n`,
+      `  ${t('dashboardStopHint')}\n` +
+      '\n' +
+      `  ${t('dashboardOpenFallback')}\n`,
   );
 
   if (open) {

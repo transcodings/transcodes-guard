@@ -13,6 +13,7 @@
  *   transcodes console         Open auth settings for the signed-in member.
  *   transcodes install         Guided plugin setup, then open the dashboard.
  *   transcodes update          Update installed plugins and this CLI.
+ *   transcodes uninstall       Remove plugins and local settings.
  *   transcodes persona …       Create, edit, and deploy local Personas.
  *   transcodes sync …          Sync .transcodes rules/skills to AI tool configs.
  *   transcodes version         Print the installed CLI npm package version.
@@ -36,9 +37,11 @@ import {
   stopDashboard,
 } from './commands/transcodes/dashboard-lifecycle.js';
 import { cmdInstall, cmdUpdate } from './commands/transcodes/install.js';
+import { writeLauncher } from './commands/transcodes/launcher.js';
 import { cmdLogin } from './commands/transcodes/login.js';
 import { cmdPersona } from './commands/transcodes/persona-cli.js';
 import { cmdSync } from './commands/transcodes/sync.js';
+import { cmdUninstall } from './commands/transcodes/uninstall.js';
 import {
   CLI_PACKAGE_NAME,
   CLI_VERSION,
@@ -185,6 +188,9 @@ async function cmdStop(): Promise<void> {
 
 function main(): void {
   const [command, ...rest] = process.argv.slice(2);
+  // Keep the Dock-visible launcher fresh. Skip uninstall — it deletes
+  // ~/.transcodes and must not recreate the file on the way out.
+  if (command !== 'uninstall') writeLauncher();
 
   switch (command) {
     case 'install':
@@ -192,6 +198,11 @@ function main(): void {
       break;
     case 'update':
       void cmdUpdate(rest);
+      break;
+    case 'uninstall':
+      void cmdUninstall(rest).catch((error: unknown) => {
+        fail(error instanceof Error ? error.message : String(error));
+      });
       break;
     case 'login':
       void cmdLogin(rest).catch((error: unknown) => {

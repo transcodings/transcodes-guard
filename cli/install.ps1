@@ -280,6 +280,33 @@ function Install-Cli {
     } catch {}
     # Fallback to the default global bin location.
     if ($env:APPDATA) { Add-ToUserPath (Join-Path $env:APPDATA 'npm') }
+
+    # Stable launcher for AI hosts that do not inherit the user PATH.
+    try {
+        # The JS entry, not `Get-Command transcodes` — that resolves to npm's
+        # transcodes.cmd shim, and node cannot execute a batch file.
+        $entry = $null
+        $prefixOut = & npm prefix -g 2>$null
+        if ($null -ne $prefixOut) {
+            $candidate = Join-Path ([string]$prefixOut).Trim() 'node_modules\@bigstrider\transcodes-cli\dist\index.js'
+            if (Test-Path $candidate) { $entry = $candidate }
+        }
+        $node = (Get-Command node -ErrorAction SilentlyContinue).Source
+        if ($entry -and $node) {
+            $binDir = Join-Path $TranscodesHome 'bin'
+            New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+            $dest = Join-Path $binDir 'transcodes.cmd'
+            $nodeDir = Split-Path $node -Parent
+            @"
+@echo off
+rem transcodes-cli-launcher - written by the transcodes installer. Safe to delete.
+set "PATH=$nodeDir;%PATH%"
+"$node" "$entry" %*
+exit /b %errorlevel%
+"@ | Set-Content -Path $dest -Encoding ASCII
+            Write-Ok $dest
+        }
+    } catch {}
 }
 
 # ---------------------------------------------------------------------------

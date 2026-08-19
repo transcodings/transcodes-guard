@@ -76,6 +76,17 @@ transcodes update
 
 유용한 플래그: `--cli-only`, `--plugins-only`, `--all`(미감지 플랫폼까지 전부), 또는 플랫폼 지정: `transcodes update claude cursor`.
 
+### 제거 — `transcodes uninstall`
+
+설치를 되돌립니다. 호스트 플러그인, 등록된 hook·MCP·슬래시 커맨드, `~/.transcodes`(로그인, 대시보드 상태, Persona)를 지웁니다. CLI 자체는 남겨 두므로 바로 `transcodes install`을 다시 실행할 수 있습니다.
+
+```bash
+transcodes uninstall --dry-run   # 먼저 삭제 목록만 확인
+transcodes uninstall             # 확인 후 삭제
+```
+
+호스트 설정 파일은 항목 단위로만 제거하므로, 직접 추가한 hook이나 다른 MCP 서버·플러그인은 그대로 남습니다. 프로젝트 안의 `.transcodes/` 폴더는 건드리지 않습니다.
+
 ### 수동 설치
 
 단계별로 직접 하려면 아래 §1–§3을 따르세요. 위 대화형 설치는 선택 사항입니다.

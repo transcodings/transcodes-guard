@@ -210,11 +210,52 @@ EOF
   return 1
 }
 
+# Always write ~/.transcodes/bin/transcodes. AI hosts started from the Dock
+# do not inherit Homebrew/nvm PATH; the host skills fall back to this
+# absolute path when a bare `transcodes` is missing.
+write_home_launcher() {
+  local npm_bin entry node_bin node_dir dest
+  npm_bin="$(command -v transcodes)" || return 1
+  entry="$(resolve_target "$npm_bin")" || return 1
+  node_bin="$(command -v node)"
+  node_dir="$(dirname "$node_bin")"
+  dest="${HOME}/.transcodes/bin/transcodes"
+
+  mkdir -p "$(dirname "$dest")" 2>/dev/null || return 1
+  cat > "$dest" <<EOF
+#!/bin/sh
+${SHIM_MARKER} — written by the transcodes installer. Safe to delete.
+REINSTALL="curl -fsSL ${INSTALL_SH_URL} | bash"
+
+NODE="${node_bin}"
+if [ ! -x "\$NODE" ]; then
+  NODE="\$(command -v node 2>/dev/null || true)"
+fi
+if [ -z "\$NODE" ]; then
+  for candidate in "${NVM_DIR:-$HOME/.nvm}"/versions/node/*/bin/node; do
+    [ -x "\$candidate" ] && NODE="\$candidate"
+  done
+fi
+if [ -z "\$NODE" ] || [ ! -f "${entry}" ]; then
+  echo "transcodes: Node.js or the CLI is missing. Reinstall with:" >&2
+  echo "  \$REINSTALL" >&2
+  exit 127
+fi
+PATH="${node_dir}:\$PATH"
+export PATH
+exec "\$NODE" "${entry}" "\$@"
+EOF
+  chmod 755 "$dest" || return 1
+  say "  ✓ ${dest} (for AI apps)"
+}
+
 link_cli() {
   local npm_bin entry node_bin node_dir dir dest
   npm_bin="$(command -v transcodes)" || return 1
 
-  # Already on the caller's PATH (e.g. Homebrew Node) — nothing to do.
+  write_home_launcher || warn "could not write ~/.transcodes/bin/transcodes"
+
+  # Already on the caller's PATH (e.g. Homebrew Node) — PATH shim not needed.
   if caller_path_has "$(dirname "$npm_bin")"; then
     return 0
   fi

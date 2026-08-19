@@ -88,9 +88,27 @@ const MESSAGES = {
     dashboardHowToUse:
       'Please read how to use Transcodes in the CLI dashboard.',
     dashboardStopHint: 'Running in the background — stop with: transcodes stop',
+    dashboardOpenFallback:
+      'If the page did not open automatically, type `transcodes` in your terminal or PowerShell.',
     dashboardStopped: 'Transcodes dashboard stopped.',
     dashboardNotRunning: 'Transcodes dashboard is not running.',
     loginTokenSaved: 'Login complete. Your Transcodes access is ready.',
+    uninstallBanner:
+      'transcodes uninstall — remove Transcodes from this computer.',
+    uninstallPlanTitle: 'Will remove:',
+    uninstallGroupLocal: 'Local settings',
+    uninstallNothing:
+      'Nothing to remove — Transcodes is not installed on this computer.',
+    uninstallKeepNote:
+      'Untouched: the transcodes CLI, and .transcodes/ folders in your projects.',
+    uninstallConfirm: 'Remove these? Type "y" to continue: ',
+    uninstallAborted: 'Aborted — nothing was removed.',
+    uninstallDryRun:
+      'Dry run — nothing was removed. Re-run without --dry-run to apply.',
+    uninstallDone: 'Uninstall complete.',
+    uninstallLeftovers: 'Could not remove (delete these by hand):',
+    uninstallRestartNote:
+      'Restart your AI apps, then run `transcodes install` to set up again.',
   },
   ko: {
     installBanner: 'transcodes install — 플러그인과 대시보드를 설정합니다.',
@@ -164,10 +182,28 @@ const MESSAGES = {
     dashboardOpened: 'Transcodes 대시보드가 열렸습니다: {url}',
     dashboardHowToUse: 'CLI 대시보드에서 사용 방법을 읽어보시기 바랍니다.',
     dashboardStopHint: '백그라운드에서 실행 중 — 종료: transcodes stop',
+    dashboardOpenFallback:
+      '페이지가 자동으로 열리지 않았다면 터미널이나 PowerShell에서 `transcodes`를 입력해 보세요.',
     dashboardStopped: 'Transcodes 대시보드를 종료했습니다.',
     dashboardNotRunning: '실행 중인 Transcodes 대시보드가 없습니다.',
     loginTokenSaved:
       '로그인이 완료되었습니다. 이제 Transcodes를 사용할 수 있습니다.',
+    uninstallBanner:
+      'transcodes uninstall — 이 컴퓨터에서 Transcodes를 제거합니다.',
+    uninstallPlanTitle: '삭제할 항목:',
+    uninstallGroupLocal: '로컬 설정',
+    uninstallNothing:
+      '삭제할 항목이 없습니다 — 이 컴퓨터에 Transcodes가 설치되어 있지 않습니다.',
+    uninstallKeepNote:
+      '유지되는 항목: transcodes CLI, 그리고 프로젝트 안의 .transcodes/ 폴더.',
+    uninstallConfirm: '위 항목을 삭제할까요? 계속하려면 "y" 입력: ',
+    uninstallAborted: '취소했습니다 — 아무것도 삭제하지 않았습니다.',
+    uninstallDryRun:
+      '미리보기입니다 — 아무것도 삭제하지 않았습니다. 실제로 지우려면 --dry-run 없이 다시 실행하세요.',
+    uninstallDone: '제거가 완료되었습니다.',
+    uninstallLeftovers: '자동으로 삭제하지 못했습니다 (직접 지워주세요):',
+    uninstallRestartNote:
+      'AI 앱을 재시작한 뒤 `transcodes install`로 다시 설치하세요.',
   },
 } as const;
 
@@ -175,6 +211,15 @@ export type MessageKey = keyof (typeof MESSAGES)['en'];
 
 export function getLocale(): Locale {
   return current;
+}
+
+/**
+ * Applies a locale for this process only. Use instead of {@link setLocale}
+ * when persisting would fight the command itself — `uninstall` deletes
+ * `~/.transcodes/locale`, so writing it back would resurrect the file.
+ */
+export function useLocale(locale: Locale): void {
+  current = locale;
 }
 
 export function setLocale(locale: Locale): void {

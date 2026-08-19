@@ -32,6 +32,7 @@ Or: `npm install -g @bigstrider/transcodes-cli` (Node ≥ 20).
 | `transcodes console` | Opens auth settings (passkeys, TOTP) for the signed-in member. |
 | `transcodes install` | Guided plugin install, then open the dashboard (sign in there). |
 | `transcodes update` | Update installed plugins and this CLI. |
+| `transcodes uninstall` | Remove host plugins and local settings (`--dry-run` / `-y`). |
 | `transcodes persona` | Create, inspect, edit, and delete local Persona bundles. |
 | `transcodes version` | Prints the installed npm version. |
 | `transcodes sync init` | Create `.transcodes/` SoT (rules + skills) in the current project. |
