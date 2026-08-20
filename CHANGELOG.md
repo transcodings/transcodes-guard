@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.78.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.77.0...transcodes-guard-v0.78.0) (2026-08-20)
+
+
+### Features
+
+* **cli:** simplify Persona create guide and restore Mux chapters ([1a59558](https://github.com/transcodings/transcodes-guard/commit/1a59558b78e4441f25505bd546a5e4cb42a5ffef))
+
 ## [0.77.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.76.1...transcodes-guard-v0.77.0) (2026-08-19)
 
 
