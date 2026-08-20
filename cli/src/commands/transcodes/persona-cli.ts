@@ -50,7 +50,13 @@ const ALL_DEPLOY_TARGETS = [
   'antigravity-ide',
 ] as const;
 
-const BOOLEAN_FLAGS = new Set(['global', 'installed', 'yes', 'dry-run']);
+const BOOLEAN_FLAGS = new Set([
+  'global',
+  'installed',
+  'yes',
+  'dry-run',
+  'delete',
+]);
 
 type ParsedArgs = {
   positionals: string[];

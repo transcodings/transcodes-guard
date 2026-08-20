@@ -178,6 +178,16 @@ export function personaSyncGuidance(
         'Some files were never uploaded to storage. ' +
         `Run \`transcodes persona push --persona ${persona}\` again and let every upload finish.`
       );
+    case 'PERSONA_TAG_ALREADY_EXISTS':
+      return (
+        'That tag is already assigned to another revision of this Persona. ' +
+        `Run \`transcodes persona log --persona ${persona}\` to see existing tags, then pick a different tag or move it with \`transcodes persona tag --persona ${persona} --revision N --tag TAG\`.`
+      );
+    case 'PERSONA_REVISION_NOT_FOUND':
+      return (
+        'No revision matches that number or tag. ' +
+        `Run \`transcodes persona log --persona ${persona}\` to list available revisions and tags.`
+      );
     default:
       return undefined;
   }
