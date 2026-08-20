@@ -27,35 +27,80 @@ test("the CSRF guard stays wired at the request entry point", () => {
   assert.match(source, /if \(!hasJsonContentType\(req\)\)/);
 });
 
-test("Guide has no Mux player or step timestamp seek buttons", () => {
-  assert.doesNotMatch(source, /@mux\/mux-player/);
-  assert.doesNotMatch(source, /mux-player/);
-  assert.doesNotMatch(source, /GUIDELINE_MUX_PLAYBACK_ID/);
-  assert.doesNotMatch(source, /guide-mux-player/);
-  assert.doesNotMatch(source, /Watch intro video/i);
-  assert.doesNotMatch(source, /guide-step-time/);
-  assert.doesNotMatch(source, /data-seek=/);
-  assert.doesNotMatch(source, /seekGuideVideo/);
+test("Guide has a Mux player and step timestamp seek buttons", () => {
+  assert.match(source, /@mux\/mux-player/);
   assert.match(
     source,
-    /Create, refine, and apply a Persona to your AI apps/,
+    /jjIn7CoaEiUXDkrOsewUBB6yd6LsEWQbSvPmvoon01CM/,
+  );
+  assert.match(source, /id="guide-mux-player"/);
+  assert.match(source, /Watch intro video/);
+  assert.match(source, /function seekGuideVideo\(seconds\)/);
+  assert.match(
+    source,
+    /Create a Persona[\s\S]*?data-seek="0"[\s\S]*?Jump to video at 0:00/,
+  );
+  assert.match(
+    source,
+    /Review and edit it[\s\S]*?data-seek="40"[\s\S]*?Jump to video at 0:40/,
+  );
+  assert.match(
+    source,
+    /Apply it[\s\S]*?data-seek="60"[\s\S]*?Jump to video at 1:00/,
+  );
+  assert.match(
+    source,
+    /Back up and share[\s\S]*?data-seek="168"[\s\S]*?Jump to video at 2:48/,
+  );
+  assert.match(
+    source,
+    /Create, edit, apply, and share your Personas/,
   );
 });
 
-test("Getting Started focuses on a five-step Persona workflow", () => {
+test("Getting Started leads with the four numbered Persona steps", () => {
+  assert.match(source, /data-copy-cmd="create a persona using transcodes skill"/);
+  // The fallback is a numbered sequence inside one message, not separate commands.
   assert.match(
     source,
-    /guide-step-num">1[\s\S]*?Create a Persona with your AI agent[\s\S]*?guide-step-num">2[\s\S]*?Or create a Persona from a preset template[\s\S]*?guide-step-num">3[\s\S]*?Review and edit it[\s\S]*?guide-step-num">4[\s\S]*?Apply it to your AI apps[\s\S]*?guide-step-num">5[\s\S]*?Sync and share with your team/,
+    /If nothing happens:[\s\S]*?<ol class="guide-start-steps">[\s\S]*?Type <code class="cli-cmd">\/transcodes<\/code>[\s\S]*?Pick <strong>transcodes<\/strong> from the plugin list[\s\S]*?Keep typing in the same message: <code class="cli-cmd">create a persona using transcodes skill<\/code>[\s\S]*?<\/ol>/,
   );
-  // The template step has to reach the Templates view, not just the tab.
   assert.match(
     source,
-    /data-persona-view="templates">Templates<[\s\S]{0,400}?six presets/,
+    /ChatGPT: use <code class="cli-cmd">\$<\/code> instead of <code class="cli-cmd">\/<\/code>/,
+  );
+  // The steps are the headline value, not a troubleshooting fallback.
+  assert.doesNotMatch(source, /guide-stuck/);
+  assert.doesNotMatch(source, /If you get stuck/);
+  assert.match(
+    source,
+    /guide-step-num">1[\s\S]*?Create a Persona[\s\S]*?guide-step-num">2[\s\S]*?Review and edit it[\s\S]*?guide-step-num">3[\s\S]*?Apply it[\s\S]*?guide-step-num">4[\s\S]*?Back up and share/,
+  );
+  // Step 1 stays expanded on load; the rest are collapsed.
+  assert.equal(
+    source.match(/<details class="guide-step guide-step--accordion" open>/g)
+      ?.length,
+    1,
+  );
+  assert.match(
+    source,
+    /<details class="guide-step guide-step--accordion" open>\s*<summary class="guide-step-summary">\s*<span class="guide-step-num">1/,
+  );
+  assert.match(
+    source,
+    /Or start from a preset in <button type="button" class="guide-console-link" data-open-tab="persona" data-persona-view="templates">Templates<\/button>/,
+  );
+  assert.match(
+    source,
+    /If you pick a project folder → that project only[\s\S]*?If you don't → this whole computer/,
   );
   assert.match(
     source,
     /data-persona-view="remote">Organization[\s\S]*?upload this persona to my organization/,
   );
+  assert.doesNotMatch(source, /\$transcodes create a persona/);
+  assert.doesNotMatch(source, /\$transcodes apply a persona/);
+  assert.doesNotMatch(source, /Without a project path/);
   assert.doesNotMatch(source, /Set permissions in the Transcodes app/);
   assert.doesNotMatch(source, /try a security check/);
   assert.doesNotMatch(source, /Get notifications on channels/);
@@ -111,7 +156,7 @@ test("Persona AI agent callout is a collapsible accordion", () => {
     source,
     /\.persona-agent-callout--workspace\[open\] \.persona-agent-callout-chevron/,
   );
-  assert.match(source, /Create Personas with Your AI/);
+  assert.match(source, /Create\/Update Personas with AI/);
   assert.match(
     source,
     /ICON_PERSONA\.replace\(\s*'<svg ',\s*'<svg class="persona-agent-callout-icon" ',?\s*\)/,
@@ -126,7 +171,7 @@ test("Persona AI agent callout is a collapsible accordion", () => {
   assert.match(source, /upload this persona to my organization/);
   assert.match(
     source,
-    /When applying without a project path, the Persona is applied globally/,
+    /If you pick a project folder it applies there; if you don't, it applies to this whole computer/,
   );
 });
 
@@ -393,7 +438,7 @@ test("Persona sync is gated on being signed in", () => {
     source,
     /Push Personas from this device so everyone works from one version/,
   );
-  assert.match(source, /Stay in sync/);
+  assert.match(source, /Upload backup/);
   assert.match(source, /Sign in to manage your account/);
   assert.match(source, /Your account/);
   assert.match(source, /This device/);
@@ -466,7 +511,7 @@ test("Persona submenu offers Templates above My Personas", () => {
   assert.match(source, /id="persona-templates-view"/);
   assert.match(
     source,
-    /class="persona-remote-title">Templates<[\s\S]*?persona-templates-help[\s\S]*?How to use these templates[\s\S]*?1\. Create a Persona\.[\s\S]*?2\. Customize it for your project\.[\s\S]*?3\. Or ask your AI agent to customize it\./,
+    /class="persona-remote-title">Templates<[\s\S]*?persona-templates-help[\s\S]*?How To Use These Templates[\s\S]*?1\. Create a Persona\.[\s\S]*?2\. Customize it for your project\.[\s\S]*?3\. Or ask your AI agent to customize it\./,
   );
   assert.match(
     source,
@@ -625,9 +670,10 @@ test("dashboard fills the viewport and keeps version at sidebar bottom", () => {
   );
 });
 
-test("signed-out header uses a direct sign-in prompt", () => {
-  assert.match(source, /class="header-profile-name">Please Sign In</);
-  assert.doesNotMatch(source, /class="header-profile-name">Not signed in</);
+test("signed-out header shows only the login button", () => {
+  assert.doesNotMatch(source, /Please Sign In/);
+  assert.doesNotMatch(source, /id="header-signed-out"/);
+  assert.match(source, /id="header-login-btn"/);
 });
 
 test("Persona editor fills available height and keeps actions at the bottom", () => {
@@ -717,6 +763,8 @@ test("Organization list groups by what needs attention", () => {
     /\.persona-sync-actions-help \{[\s\S]{0,200}?text-align: left;/,
   );
   assert.match(source, /class="persona-sync-actions-help"/);
+  assert.match(source, /<strong>Remote<\/strong> — The version number in your organization/);
+  assert.match(source, /<strong>Local<\/strong> — The version number saved on this device/);
   assert.match(source, /<strong>Download<\/strong> — Get your team's latest version/);
   assert.match(source, /<strong>Download · backup<\/strong> — Get your team's latest version/);
   assert.match(source, /<strong>Upload<\/strong> — Make your current local work/);

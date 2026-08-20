@@ -43,7 +43,7 @@ const HOST_LABELS: Record<HostId, string> = {
   claude: 'Claude',
   codex: 'ChatGPT (Codex)',
   cursor: 'Cursor',
-  antigravity: 'Antigravity',
+  antigravity: 'Antigravity (Google)',
 };
 
 const HOST_IDS = Object.keys(HOST_LABELS) as HostId[];

@@ -73,7 +73,7 @@ const PLATFORMS: readonly Platform[] = [
   },
   {
     id: 'antigravity',
-    label: 'Antigravity',
+    label: 'Antigravity (Google)',
     installerRel: 'plugins/antigravity/install.mjs',
   },
 ];
@@ -861,7 +861,7 @@ function platformShortName(id: PlatformId): string {
     case 'cursor':
       return 'Cursor';
     case 'antigravity':
-      return 'Antigravity';
+      return 'Antigravity (Google)';
   }
 }
 
