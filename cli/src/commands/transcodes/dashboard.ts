@@ -1045,6 +1045,17 @@ function dashboardHtml(): string {
       border-bottom: 1px solid var(--line);
     }
     .profile-field:last-child { border-bottom: none; }
+    .plan-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 6px;
+      font-size: var(--text-xs);
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      margin-left: 6px;
+    }
+    .plan-badge--free { background: var(--bg-subtle); color: var(--text-muted); }
+    .plan-badge--paid { background: var(--color-brand); color: #fff; }
     .profile-field .k {
       flex-shrink: 0;
       font-size: var(--text-xs);
@@ -4842,6 +4853,10 @@ function dashboardHtml(): string {
             <span class="k">Organization ID</span>
             <span class="v" id="profile-org-id"></span>
           </div>
+          <div class="profile-field" id="profile-row-plan" hidden>
+            <span class="k">Plan</span>
+            <span class="v" id="profile-plan"></span>
+          </div>
           <div class="profile-field" id="profile-row-project-name" hidden>
             <span class="k">Project</span>
             <span class="v" id="profile-project-name"></span>
@@ -5554,6 +5569,13 @@ function dashboardHtml(): string {
       });
     }
 
+    function planBadgeHtml(plan) {
+      if (!plan) return "";
+      const label = String(plan).charAt(0).toUpperCase() + String(plan).slice(1);
+      const kind = plan === "free" ? "free" : "paid";
+      return '<span class="plan-badge plan-badge--' + kind + '">' + esc(label) + "</span>";
+    }
+
     function updateSessionHeader(s) {
       if (!sessionReady) {
         headerLoginActionsEl.hidden = true;
@@ -5576,6 +5598,7 @@ function dashboardHtml(): string {
         headerProfileMetaEl.innerHTML =
           '<div class="header-profile-meta-line">' +
           (organization ? esc(organization) : "Signed in on this computer") +
+          planBadgeHtml(am.plan) +
           "</div>";
       }
 
@@ -8834,11 +8857,25 @@ function dashboardHtml(): string {
 
         setProfileRow("org-name", am.organizationName);
         setProfileRow("org-id", am.organizationId || activeTok.organizationId);
+        setProfilePlanRow(am.plan);
         setProfileRow("project-name", am.projectName);
         setProfileRow("project-id", am.projectId || activeTok.projectId);
       }
 
       updateSessionHeader(s);
+    }
+
+    function setProfilePlanRow(plan) {
+      const row = document.getElementById("profile-row-plan");
+      const valueEl = document.getElementById("profile-plan");
+      if (!row || !valueEl) return;
+      if (plan) {
+        valueEl.innerHTML = planBadgeHtml(plan);
+        row.hidden = false;
+      } else {
+        valueEl.textContent = "";
+        row.hidden = true;
+      }
     }
 
     // Rows without a value are removed rather than rendered as a placeholder.
