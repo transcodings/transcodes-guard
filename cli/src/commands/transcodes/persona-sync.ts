@@ -27,12 +27,15 @@ import {
 import {
   commitPersona,
   fetchPersonaDetail,
+  fetchPersonaRevisionDetail,
+  fetchPersonaRevisions,
   loadPersonaConfig,
   PersonaApiError,
   type PersonaErrorCode,
   type PersonaPushFile,
   type PushPersonaResponse,
   pushPersona,
+  updatePersonaTag,
 } from './persona-api.js';
 
 /**
@@ -332,6 +335,7 @@ async function backupPersonaBundle(persona: string): Promise<string | null> {
  */
 export async function pushPersonaSync(
   personaInput: string,
+  tag?: string,
 ): Promise<PushSyncResult> {
   const persona = assertPersonaId(personaInput);
   const config = loadPersonaConfig();
@@ -409,7 +413,12 @@ export async function pushPersonaSync(
 
   let committed: { revision: number };
   try {
-    committed = await commitPersona(config, persona, approved.commit_token);
+    committed = await commitPersona(
+      config,
+      persona,
+      approved.commit_token,
+      tag,
+    );
   } catch (error) {
     throw withGuidance(persona, error);
   }
@@ -448,11 +457,14 @@ export async function pushPersonaSync(
  */
 export async function pullPersonaSync(
   personaInput: string,
+  ref?: string,
 ): Promise<PullSyncResult> {
   const persona = assertPersonaId(personaInput);
   const config = loadPersonaConfig();
 
-  const detail = await fetchPersonaDetail(config, persona);
+  const detail = ref
+    ? await fetchPersonaRevisionDetail(config, persona, ref)
+    : await fetchPersonaDetail(config, persona);
 
   const local = await collectLocalDigests(persona);
 
