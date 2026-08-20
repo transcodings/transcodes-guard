@@ -93,6 +93,9 @@ const HOST = DASHBOARD_HOST;
 const PORT_ATTEMPTS = DASHBOARD_PORT_ATTEMPTS;
 /** Value of `X-Transcodes-Dashboard` on /health — used by ensure/stop. */
 const DASHBOARD_HEALTH_MARKER = 'transcodes-dashboard';
+/** Mux playback id for the Guide onboarding video. */
+const GUIDELINE_MUX_PLAYBACK_ID =
+  'jjIn7CoaEiUXDkrOsewUBB6yd6LsEWQbSvPmvoon01CM';
 /** PWA icon bytes (same 512×512 PNG as the header logo). */
 const PWA_ICON_PNG = Buffer.from(
   LOGO_DATA_URI.replace(/^data:image\/png;base64,/, ''),
@@ -390,8 +393,12 @@ function personaTemplateCardsHtml(): string {
       const id = escapeHtml(template.id);
       const contents = [...template.rules, ...template.skills];
       const counts = [
-        `${template.rules.length} ${template.rules.length === 1 ? 'Rule' : 'Rules'}`,
-        `${template.skills.length} ${template.skills.length === 1 ? 'Skill' : 'Skills'}`,
+        `${template.rules.length} ${
+          template.rules.length === 1 ? 'Rule' : 'Rules'
+        }`,
+        `${template.skills.length} ${
+          template.skills.length === 1 ? 'Skill' : 'Skills'
+        }`,
       ];
       const contentsHtml = contents.length
         ? `<p class="persona-template-files">${contents
@@ -401,22 +408,30 @@ function personaTemplateCardsHtml(): string {
       return `
             <article class="persona-template-card" data-template-card="${id}">
               <div class="persona-template-card-head">
-                <h3 class="persona-template-card-title">${escapeHtml(template.title)}</h3>
+                <h3 class="persona-template-card-title">${escapeHtml(
+                  template.title,
+                )}</h3>
                 <div class="persona-template-tags">${counts
                   .map(
                     (count) =>
-                      `<span class="persona-template-tag">${escapeHtml(count)}</span>`,
+                      `<span class="persona-template-tag">${escapeHtml(
+                        count,
+                      )}</span>`,
                   )
                   .join('')}</div>
               </div>
-              <p class="persona-template-card-summary">${escapeHtml(template.summary)}</p>
+              <p class="persona-template-card-summary">${escapeHtml(
+                template.summary,
+              )}</p>
               ${contentsHtml}
               <div class="persona-template-card-foot">
                 <button type="button" class="btn-action persona-template-btn" data-template-open="${id}">Create Persona</button>
               </div>
               <form class="persona-template-form" data-template-form="${id}" hidden>
                 <label class="persona-template-form-label" for="persona-template-name-${id}">Persona name</label>
-                <input type="text" class="label-input persona-template-name" id="persona-template-name-${id}" value="${escapeHtml(template.suggestedName)}" placeholder="persona-name" spellcheck="false" autocapitalize="off" autocomplete="off" />
+                <input type="text" class="label-input persona-template-name" id="persona-template-name-${id}" value="${escapeHtml(
+                  template.suggestedName,
+                )}" placeholder="persona-name" spellcheck="false" autocapitalize="off" autocomplete="off" />
                 <div class="persona-template-form-actions">
                   <button type="button" class="btn-inline-action persona-template-cancel-btn" data-template-cancel="${id}">Cancel</button>
                   <button type="submit" class="btn-action persona-template-btn">Create Persona</button>
@@ -910,21 +925,21 @@ function dashboardHtml(): string {
     .header-profile {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
       gap: 16px;
       padding: 12px 14px;
       background: #fbfbfc;
       border: 1px solid var(--line);
       border-radius: 12px;
     }
-    .header-profile-info { min-width: 0; flex: 1; }
+    .header-profile-info { min-width: 0; }
     .header-profile-btn {
-      flex: 1;
+      flex: 0 1 auto;
       min-width: 0;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+      justify-content: flex-start;
+      gap: 6px;
       margin: 0;
       padding: 0;
       border: none;
@@ -1297,6 +1312,7 @@ function dashboardHtml(): string {
       margin: 0 0 4px;
     }
     .section-title-row .section-title { margin: 0; }
+    .section-title-row .guide-video-toggle { flex-shrink: 0; }
     .section-sub {
       font-size: var(--text-base);
       color: var(--muted);
@@ -3635,6 +3651,22 @@ function dashboardHtml(): string {
       gap: 8px;
     }
     .guide-step-summary .guide-step-title { margin: 0; }
+    .guide-step-time {
+      border: none;
+      background: none;
+      padding: 0;
+      margin: 0;
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--highlight);
+      cursor: pointer;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+      position: relative;
+      z-index: 2;
+      pointer-events: auto;
+    }
+    .guide-step-time:hover { text-decoration: underline; }
     .guide-step-desc {
       font-size: var(--text-sm);
       color: var(--muted);
@@ -3770,8 +3802,61 @@ function dashboardHtml(): string {
     .guide-topic-toolbar {
       margin-bottom: 14px;
     }
-    .guide-topic-toolbar .section-sub {
+    .guide-topic-toolbar .section-sub,
+    .guide-topic-toolbar .guide-prefix-note {
       margin: 0;
+    }
+    .guide-video-wrap { margin: 0; }
+    .guide-video-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(17, 24, 39, 0.35);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-soft);
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .guide-video-toggle:hover {
+      background: #E5E7EB;
+      border-color: rgba(17, 24, 39, 0.5);
+    }
+    .guide-video-toggle[aria-expanded="true"] {
+      color: var(--ink);
+      border-color: #16161a;
+      background: #fff;
+    }
+    .guide-video-toggle[aria-expanded="true"]:hover {
+      background: #f4f4f6;
+      border-color: #16161a;
+    }
+    .guide-video {
+      margin: 0 0 22px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #000;
+      aspect-ratio: 16 / 9;
+      box-shadow: 0 8px 28px rgba(22, 22, 26, 0.08);
+    }
+    .guide-video[hidden] { display: none !important; }
+    .guide-video mux-player {
+      width: 100%;
+      height: 100%;
+      display: block;
+      --media-accent-color: #111827;
+      --controls-backdrop-color: transparent;
+      --media-control-background: transparent;
+      --media-control-hover-background: rgb(0 0 0 / 25%);
+    }
+    .guide-video mux-player:fullscreen,
+    .guide-video mux-player:-webkit-full-screen {
+      --media-background-color: #f4f4f6;
+      background: #f4f4f6;
     }
     .guide-topic-actions {
       display: flex;
@@ -3828,6 +3913,71 @@ function dashboardHtml(): string {
       line-height: 1.6;
     }
     .guide-prefix-note code.cli-cmd { white-space: nowrap; }
+    .guide-start-cmd {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 0;
+    }
+    .guide-start-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .guide-start-copy:hover { background: #f4f4f6; }
+    .guide-start-copy svg {
+      width: 14px;
+      height: 14px;
+    }
+    .guide-start-alt {
+      margin: 10px 0 0;
+      font-size: var(--text-xs);
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .guide-start-note {
+      margin: 14px 0 0;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    .guide-start-steps {
+      margin: 8px 0 0;
+      padding: 0 0 0 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .guide-start-steps li {
+      font-size: var(--text-sm);
+      color: var(--ink);
+      line-height: 1.6;
+    }
+    .guide-fork {
+      margin: 8px 0 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .guide-fork li {
+      font-size: var(--text-sm);
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .guide-fork strong { color: var(--ink); }
     .guide-help-examples {
       margin: 10px 0 0;
       display: flex;
@@ -4018,7 +4168,8 @@ function dashboardHtml(): string {
         min-width: 0;
       }
       .header-profile {
-        width: min(360px, 38%);
+        width: auto;
+        max-width: min(360px, 38%);
         flex-shrink: 0;
         padding: 0 0 0 20px;
         border: none;
@@ -4363,6 +4514,7 @@ function dashboardHtml(): string {
       shell.classList.add("is-ready");
     });
   </script>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
 </head>
 <body>
   <div id="toast-host" class="toast-host" aria-live="polite" aria-relevant="additions"></div>
@@ -4387,10 +4539,7 @@ function dashboardHtml(): string {
           </button>
         </div>
       </div>
-      <div class="header-profile" id="header-session">
-        <div class="header-profile-info" id="header-signed-out" hidden>
-          <div class="header-profile-name">Please Sign In</div>
-        </div>
+      <div class="header-profile is-signed-out" id="header-session">
         <button type="button" class="header-profile-btn" id="header-profile-btn" hidden aria-label="Open Profile">
           <div class="header-profile-info">
             <div class="header-profile-name" id="header-profile-name"></div>
@@ -4445,28 +4594,60 @@ function dashboardHtml(): string {
           <summary class="guide-topic-summary">
             <span class="guide-topic-heading">
               <span class="guide-topic-title">Getting Started</span>
-              <span class="guide-topic-subtitle">Install, sign in, configure security, and try your first protected action</span>
+              <span class="guide-topic-subtitle">Create, edit, apply, and share your Personas</span>
             </span>
             <svg class="guide-topic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </summary>
           <div class="guide-topic-body">
-            <p class="section-sub">Create, refine, and apply a Persona to your AI apps</p>
-      <p class="section-title section-title--spaced">Steps</p>
-      <p class="guide-prefix-note">Start your message with <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — use <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex).</p>
+            <div class="section-title-row guide-topic-toolbar">
+              <p class="guide-prefix-note">Claude, Cursor, and Antigravity (Google) use <code class="cli-cmd">/</code>. ChatGPT uses <code class="cli-cmd">$</code>.</p>
+              <button type="button" class="guide-video-toggle" id="guide-video-toggle" aria-expanded="false" aria-controls="guide-video">
+                Watch intro video
+              </button>
+            </div>
+            <div class="guide-video-wrap">
+              <div class="guide-video" id="guide-video" hidden>
+                <mux-player
+                  id="guide-mux-player"
+                  playback-id="${GUIDELINE_MUX_PLAYBACK_ID}"
+                  stream-type="on-demand"
+                  preload="auto"
+                  accent-color="#111827"
+                  primary-color="#ffffff"
+                  metadata-video-title="Transcodes getting started"
+                ></mux-player>
+              </div>
+            </div>
       <div class="guide-groups">
         <section class="guide-group guide-group--panel">
           <ol class="guide-steps">
             <li>
-              <details class="guide-step guide-step--accordion">
+              <details class="guide-step guide-step--accordion" open>
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">1</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">Create a Persona with your AI agent</span>
+                    <span class="guide-step-title">Create a Persona</span>
+                    <button type="button" class="guide-step-time" data-seek="0" aria-label="Jump to video at 0:00">0:00</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">Ask your AI with <code class="cli-cmd">/transcodes create a persona</code> or <code class="cli-cmd">$transcodes create a persona</code>. Describe the role, team, policies, and workflows you want the AI to follow. You can also create one manually in the <button type="button" class="guide-console-link" data-open-tab="persona">Persona</button> tab.</p>
+                  <p class="guide-step-desc">Paste this into your AI and answer the questions. Your agent handles the rest.</p>
+                  <div class="guide-start-cmd">
+                    <code class="cli-cmd">create a persona using transcodes skill</code>
+                    <button type="button" class="guide-start-copy" data-copy-cmd="create a persona using transcodes skill">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3A2.25 2.25 0 0 0 8.25 4.5v.75m7.416-1.362A2.251 2.251 0 0 1 15.75 5.25v.75m-7.5 0h7.5m-7.5 0H6.75A2.25 2.25 0 0 0 4.5 7.5v10.5A2.25 2.25 0 0 0 6.75 20.25h10.5A2.25 2.25 0 0 0 19.5 18V7.5a2.25 2.25 0 0 0-2.25-2.25H15.75" /></svg>
+                      <span data-copy-label>Copy</span>
+                    </button>
+                  </div>
+                  <p class="guide-start-note">If nothing happens:</p>
+                  <ol class="guide-start-steps">
+                    <li>Type <code class="cli-cmd">/transcodes</code></li>
+                    <li>Pick <strong>transcodes</strong> from the plugin list</li>
+                    <li>Keep typing in the same message: <code class="cli-cmd">create a persona using transcodes skill</code></li>
+                  </ol>
+                  <p class="guide-start-alt">ChatGPT: use <code class="cli-cmd">$</code> instead of <code class="cli-cmd">/</code>.</p>
+                  <p class="guide-start-alt">Or start from a preset in <button type="button" class="guide-console-link" data-open-tab="persona" data-persona-view="templates">Templates</button>.</p>
                 </div>
               </details>
             </li>
@@ -4475,12 +4656,13 @@ function dashboardHtml(): string {
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">2</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">Or create a Persona from a preset template</span>
+                    <span class="guide-step-title">Review and edit it</span>
+                    <button type="button" class="guide-step-time" data-seek="40" aria-label="Jump to video at 0:40">0:40</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">Open <button type="button" class="guide-console-link" data-open-tab="persona" data-persona-view="templates">Templates</button> and pick one of the six presets — Minimum, Landing Page Publisher, Fullstack Developer, UI/UX Designer, Marketer, or Researcher. Press <strong>Create</strong>, name the Persona, and you get a complete Instruction, Rules, and Skills structure to build on.</p>
+                  <p class="guide-step-desc">When the Persona exists, review its <strong>Instruction</strong>, <strong>Rules</strong>, and <strong>Skills</strong> in the <button type="button" class="guide-console-link" data-open-tab="persona">Persona</button> tab. Or ask your AI with <code class="cli-cmd">/transcodes update this persona</code>.</p>
                 </div>
               </details>
             </li>
@@ -4489,12 +4671,17 @@ function dashboardHtml(): string {
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">3</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">Review and edit it</span>
+                    <span class="guide-step-title">Apply it</span>
+                    <button type="button" class="guide-step-time" data-seek="60" aria-label="Jump to video at 1:00">1:00</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">Review the Persona's <strong>Instruction</strong>, <strong>Rules</strong>, and <strong>Skills</strong>. Keep its role clear, its policies focused, and each workflow in a separate Skill file. Ask your AI to update it, or edit the files in the <button type="button" class="guide-console-link" data-open-tab="persona">Persona</button> tab.</p>
+                  <p class="guide-step-desc">When you want it in your AI apps, ask <code class="cli-cmd">/transcodes apply a persona</code>.</p>
+                  <ul class="guide-fork">
+                    <li>If you pick a project folder → that project only</li>
+                    <li>If you don't → this whole computer</li>
+                  </ul>
                 </div>
               </details>
             </li>
@@ -4503,26 +4690,17 @@ function dashboardHtml(): string {
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">4</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">Apply it to your AI apps</span>
+                    <span class="guide-step-title">Back up and share</span>
+                    <button type="button" class="guide-step-time" data-seek="168" aria-label="Jump to video at 2:48">2:48</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">Ask your AI with <code class="cli-cmd">/transcodes apply a persona</code> or <code class="cli-cmd">$transcodes apply a persona</code>, then choose the project and AI apps. Without a project path, the Persona is applied to <strong>This device (Global)</strong> for use across projects and new sessions.</p>
-                </div>
-              </details>
-            </li>
-            <li>
-              <details class="guide-step guide-step--accordion">
-                <summary class="guide-step-summary">
-                  <span class="guide-step-num">5</span>
-                  <span class="guide-step-heading">
-                    <span class="guide-step-title">Sync and share with your team</span>
-                  </span>
-                  <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                </summary>
-                <div class="guide-step-body">
-                  <p class="guide-step-desc">When your team needs the same Persona version, sign in and open <button type="button" class="guide-console-link" data-open-tab="persona" data-persona-view="remote">Organization</button> to deploy it. Or ask your AI with <code class="cli-cmd">/transcodes upload this persona to my organization</code> or <code class="cli-cmd">$transcodes upload this persona to my organization</code>. Teammates can then sync the latest version from Organization or ask their AI to download it.</p>
+                  <p class="guide-step-desc">Sign in and upload your Personas from <button type="button" class="guide-console-link" data-open-tab="persona" data-persona-view="remote">Organization</button>. Or ask your AI with <code class="cli-cmd">/transcodes upload this persona to my organization</code>.</p>
+                  <ul class="guide-fork">
+                    <li>Keeps a backup, so nothing is lost if this device is reset</li>
+                    <li>Lets your team work from the same Persona version</li>
+                  </ul>
                 </div>
               </details>
             </li>
@@ -4559,8 +4737,8 @@ function dashboardHtml(): string {
                 '<svg class="persona-agent-callout-icon" ',
               )}
               <div>
-                <p class="persona-agent-callout-title">Create Personas with Your AI</p>
-                <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. When applying without a project path, the Persona is applied globally on this device.</p>
+                <p class="persona-agent-callout-title">Create/Update Personas with AI</p>
+                <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. If you pick a project folder it applies there; if you don't, it applies to this whole computer.</p>
               </div>
             </div>
             <div class="guide-topic-actions">
@@ -4749,11 +4927,11 @@ function dashboardHtml(): string {
                     '<svg ',
                     '<svg class="persona-agent-callout-icon" ',
                   )}
-                  <p class="persona-agent-callout-title">Create Personas with Your AI</p>
+                  <p class="persona-agent-callout-title">Create/Update Personas with AI</p>
                   <svg class="persona-agent-callout-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="persona-agent-callout-body">
-                  <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. When applying without a project path, the Persona is applied globally on this device.</p>
+                  <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. If you pick a project folder it applies there; if you don't, it applies to this whole computer.</p>
                 </div>
               </details>
               </div>
@@ -4793,7 +4971,7 @@ function dashboardHtml(): string {
                   '<svg ',
                   '<svg class="persona-agent-callout-icon" ',
                 )}
-                <p class="persona-agent-callout-title">How to use these templates</p>
+                <p class="persona-agent-callout-title">How To Use These Templates</p>
                 <svg class="persona-agent-callout-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
               </summary>
               <div class="persona-agent-callout-body">
@@ -4832,6 +5010,8 @@ function dashboardHtml(): string {
             </summary>
             <div class="persona-agent-callout-body">
               <ul class="persona-sync-actions-help">
+                <li><strong>Remote</strong> — The version number in your organization. Dash(-) means it has not been published yet</li>
+                <li><strong>Local</strong> — The version number saved on this device. Dash(-) means this Persona is not on this computer yet</li>
                 <li><strong>Download</strong> — Get your team's latest version. We save your work first before changing it</li>
                 <li><strong>Download · backup</strong> — Get your team's latest version. We save your changes first so nothing is lost</li>
                 <li><strong>Upload</strong> — Make your current local work the team's latest version</li>
@@ -5022,12 +5202,30 @@ function dashboardHtml(): string {
       }, 4000);
     }
 
+    document.querySelectorAll("[data-copy-cmd]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const text = btn.getAttribute("data-copy-cmd");
+        if (!text) return;
+        const label = btn.querySelector("[data-copy-label]");
+        try {
+          await navigator.clipboard.writeText(text);
+          if (label) label.textContent = "Copied";
+          showToast("Copied", "success");
+          setTimeout(() => {
+            if (label) label.textContent = "Copy";
+          }, 2000);
+        } catch {
+          showToast("Could not copy", "error");
+        }
+      });
+    });
+
     const profileEmptyEl = document.getElementById("profile-empty");
     const profileCardEl = document.getElementById("profile-card");
     const profileEmailEl = document.getElementById("profile-email");
     const profileAvatarEl = document.getElementById("profile-avatar");
     const profileWorkspaceEl = document.getElementById("profile-workspace");
-    const headerSignedOutEl = document.getElementById("header-signed-out");
+    const headerSessionEl = document.getElementById("header-session");
     const headerProfileBtn = document.getElementById("header-profile-btn");
     const headerProfileNameEl = document.getElementById("header-profile-name");
     const headerProfileMetaEl = document.getElementById("header-profile-meta");
@@ -5358,15 +5556,15 @@ function dashboardHtml(): string {
 
     function updateSessionHeader(s) {
       if (!sessionReady) {
-        headerSignedOutEl.hidden = true;
         headerLoginActionsEl.hidden = true;
         headerProfileBtn.hidden = true;
+        headerSessionEl.classList.add("is-signed-out");
         return;
       }
       const signedIn = hasSavedTokens(s);
-      headerSignedOutEl.hidden = !!signedIn;
       headerLoginActionsEl.hidden = !!signedIn;
       headerProfileBtn.hidden = !signedIn;
+      headerSessionEl.classList.toggle("is-signed-out", !signedIn);
 
       if (signedIn) {
         const am = s.activeMember || {};
@@ -5457,6 +5655,80 @@ function dashboardHtml(): string {
         headerLogoutBtn.disabled = false;
       }
     }
+
+    const guideVideoToggle = document.getElementById("guide-video-toggle");
+    const guideVideo = document.getElementById("guide-video");
+    const guideMuxPlayer = document.getElementById("guide-mux-player");
+
+    function setGuideVideoOpen(open) {
+      if (!guideVideoToggle || !guideVideo) return;
+      guideVideoToggle.setAttribute("aria-expanded", String(open));
+      guideVideo.hidden = !open;
+      guideVideoToggle.textContent = open
+        ? "Hide intro video"
+        : "Watch intro video";
+    }
+
+    let guideSeekToken = 0;
+
+    function seekGuideVideo(seconds) {
+      if (!guideVideo || !guideMuxPlayer) return;
+      const wasHidden = guideVideo.hidden;
+      setGuideVideoOpen(true);
+      if (wasHidden) {
+        guideVideo.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      const player = guideMuxPlayer;
+      const token = ++guideSeekToken;
+      const apply = () => {
+        if (token !== guideSeekToken) return;
+        try {
+          player.currentTime = seconds;
+          if (player.paused) {
+            const playResult = player.play && player.play();
+            if (playResult && typeof playResult.catch === "function") {
+              playResult.catch(() => {});
+            }
+          }
+        } catch (_) {}
+      };
+      // readyState >= 1 means metadata is loaded and currentTime will stick.
+      if (typeof player.readyState === "number" && player.readyState >= 1) {
+        apply();
+        return;
+      }
+      const onReady = () => {
+        player.removeEventListener("loadedmetadata", onReady);
+        player.removeEventListener("canplay", onReady);
+        apply();
+      };
+      player.addEventListener("loadedmetadata", onReady, { once: true });
+      player.addEventListener("canplay", onReady, { once: true });
+      setTimeout(onReady, 500);
+    }
+
+    if (guideVideoToggle && guideVideo) {
+      guideVideoToggle.addEventListener("click", () => {
+        const open = guideVideoToggle.getAttribute("aria-expanded") === "true";
+        setGuideVideoOpen(!open);
+      });
+    }
+
+    // Capture before <summary> toggles the accordion. A bubbling click
+    // on a button inside <summary> is swallowed in some browsers.
+    document.addEventListener(
+      "click",
+      (e) => {
+        const btn = e.target.closest(".guide-step-time");
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const seconds = Number(btn.getAttribute("data-seek"));
+        if (!Number.isFinite(seconds)) return;
+        seekGuideVideo(seconds);
+      },
+      true,
+    );
 
     document.querySelectorAll(".card > .tabs .tab[data-tab]").forEach((tab) => {
       tab.addEventListener("click", () => {
@@ -6386,8 +6658,8 @@ function dashboardHtml(): string {
           },
           {
             icon: signInPitchIcons.clock,
-            title: "Stay in sync",
-            desc: "See who updated what and when, and grab the newer version the moment it lands.",
+            title: "Upload backup",
+            desc: "Upload a copy to your organization so your Personas stay safe if this device is lost or reset.",
           },
         ],
       });
