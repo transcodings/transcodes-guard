@@ -1,6 +1,21 @@
 # Changelog
 
 
+## [0.79.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.78.0...transcodes-guard-v0.79.0) (2026-08-20)
+
+
+### Features
+
+* **cli:** support persona revision history, pulling specific revisions/tags, and tag management ([6859aab](https://github.com/transcodings/transcodes-guard/commit/6859aab8019f5de7ab572710ae6342292c1512f8))
+* **cli:** support persona revision history, pulling specific revisions/tags, and tag management ([609df77](https://github.com/transcodings/transcodes-guard/commit/609df770e8ff591158c4a7141f45cc45208ae8c8))
+
+
+### Bug Fixes
+
+* **cli:** parse --delete as a boolean flag and add tag error guidance ([0cb3d03](https://github.com/transcodings/transcodes-guard/commit/0cb3d03e732230729362aa02cd7f9290686e76fb))
+* **dashboard:** restore plan badge rendering in profile and header ([8888031](https://github.com/transcodings/transcodes-guard/commit/888803126bf2f40267965e22e2ea2682a16057a3))
+* **deps:** bump plugin peerDependencies on @bigstrider/transcodes-cli to &gt;=0.19.0 &lt;0.20.0 ([d78622f](https://github.com/transcodings/transcodes-guard/commit/d78622fb51c1a02f251ec4cbb60a13ea1ad5d6a0))
+
 ## [0.78.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.77.0...transcodes-guard-v0.78.0) (2026-08-20)
 
 
