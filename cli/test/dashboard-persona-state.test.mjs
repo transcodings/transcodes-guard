@@ -27,11 +27,71 @@ test("the CSRF guard stays wired at the request entry point", () => {
   assert.match(source, /if \(!hasJsonContentType\(req\)\)/);
 });
 
+test("Knowledge Base is its own sidebar group backed by the reserved Skill", () => {
+  // The group is a view over skills/knowledge-base/references/, so the Skill
+  // itself must not also appear in the authored Skill list.
+  assert.match(
+    source,
+    /personaGroupHtml\("Knowledge Base", knowledgeItems, "knowledge"\)/,
+  );
+  assert.match(
+    source,
+    /listing\.skills \|\| \[\]\)\s*\n\s*\.filter\(\(e\) => e\.name !== KNOWLEDGE_BASE_SKILL\)/,
+  );
+  assert.match(source, /data-open-knowledge/);
+  assert.match(source, /data-delete-knowledge/);
+  assert.match(source, /'\/api\/persona\/create-reference'/);
+  // Deleting one document must not take the whole knowledge-base Skill with it.
+  assert.match(source, /name: KNOWLEDGE_BASE_SKILL,\s*\n\s*path: file,/);
+  assert.match(personaSource, /export const KNOWLEDGE_BASE_SKILL_NAME/);
+  assert.match(source, /id="persona-knowledge-title"/);
+  assert.match(source, /id="persona-knowledge-description"/);
+  assert.match(source, /Title <span aria-hidden="true">\*<\/span>/);
+  assert.match(source, /Description <span aria-hidden="true">\*<\/span> <span class="persona-knowledge-field-hint">— When should this knowledge be referenced\?<\/span>/);
+  assert.match(source, /personaKnowledgeTitle\.readOnly = knowledgeReadonly/);
+  assert.match(
+    source,
+    /personaKnowledgeDescription\.readOnly = knowledgeReadonly/,
+  );
+  // Publish/Apply/Pull must send the complete Markdown file, not only the
+  // body shown in the editor after frontmatter is split into form fields.
+  assert.match(
+    source,
+    /isOpen && isKnowledgeDocumentOpen\(\)[\s\S]{0,200}?buildKnowledgeDocument/,
+  );
+  assert.match(
+    source,
+    /content: isKnowledgeDocumentOpen\(\)[\s\S]{0,200}?buildKnowledgeDocument/,
+  );
+  // The Skill file picker ("1 file") is for Skill companions, not knowledge.
+  assert.match(
+    source,
+    /personaState\.name !== KNOWLEDGE_BASE_SKILL/,
+  );
+  // Deleting or losing the open knowledge document must not land on the
+  // generated SKILL.md the user cannot save.
+  assert.match(source, /function landAfterKnowledgeRemoval\(/);
+  assert.match(
+    source,
+    /if \(deletingOpenEntry\) landAfterKnowledgeRemoval\(\)/,
+  );
+  assert.match(
+    source,
+    /Save the new knowledge before publishing/,
+  );
+  // Title/description can include YAML-special characters; they must be quoted.
+  assert.match(source, /function yamlQuote\(/);
+  assert.match(
+    source,
+    /"---\\\\nname: " \+\s*yamlQuote\(title\)/,
+  );
+});
+
 test("Guide has a Mux player and step timestamp seek buttons", () => {
   assert.match(source, /@mux\/mux-player/);
   assert.match(
     source,
-    /jjIn7CoaEiUXDkrOsewUBB6yd6LsEWQbSvPmvoon01CM/,
+    /hr3Uc2DAAHJx8iIEAl024JFD01AVzcv8BfE8UOLIyZhbQ/,
   );
   assert.match(source, /id="guide-mux-player"/);
   assert.match(source, /Watch intro video/);
@@ -253,6 +313,11 @@ test("Persona text files open as a rendered preview, not raw source", () => {
   assert.match(source, /function canPersonaPreview/);
   assert.match(source, /function setPersonaEditorView/);
   assert.match(source, /function renderPersonaMarkdownPreview/);
+  assert.match(
+    source,
+    /if \(personaState\.creatingKnowledge \|\| isKnowledgeDocumentOpen\(\)\) \{\s*return true;/,
+  );
+  assert.match(source, /\.persona-md-preview \{[\s\S]{0,180}?overflow-wrap: break-word;/);
   assert.match(source, /personaMdPreview\.classList\.toggle\("is-code"/);
   assert.match(source, /esm\.sh\/marked@15/);
   assert.match(source, /esm\.sh\/dompurify@3/);
@@ -314,8 +379,9 @@ test("push reports whether the editor contents reached the disk", () => {
   // completed write would surface to the browser as "not saved".
   assert.match(
     source,
-    /const saved =\s*\n?\s*content\.trim\(\) !== '' && \(kind === 'agent' \|\| name\.trim\(\) !== ''\);/,
+    /const saved =\s*content\.trim\(\) !== '' &&\s*\(kind === 'agent' \|\| name\.trim\(\) !== ''\) &&\s*!writingKnowledgeIndex;/,
   );
+  assert.match(source, /writingKnowledgeIndex/);
   assert.match(source, /\.saved === true/);
 });
 
@@ -511,7 +577,7 @@ test("Persona submenu offers Templates above My Personas", () => {
   assert.match(source, /id="persona-templates-view"/);
   assert.match(
     source,
-    /class="persona-remote-title">Templates<[\s\S]*?persona-templates-help[\s\S]*?How To Use These Templates[\s\S]*?1\. Create a Persona\.[\s\S]*?2\. Customize it for your project\.[\s\S]*?3\. Or ask your AI agent to customize it\./,
+    /class="persona-remote-title">Templates<[\s\S]*?persona-templates-help[\s\S]*?How To Use These Templates[\s\S]*?1\. Create a Persona\.[\s\S]*?Knowledge Base[\s\S]*?2\. Customize it for your project\.[\s\S]*?3\. Or ask your AI agent to customize it\./,
   );
   assert.match(
     source,
@@ -532,6 +598,8 @@ test("Persona submenu offers Templates above My Personas", () => {
 
 test("Templates cards create a Persona from the server-side catalog", () => {
   assert.match(source, /function personaTemplateCardsHtml\(\)/);
+  assert.match(source, /'knowledge-base'/);
+  assert.match(source, /\$\{knowledgeDocs\.length\} Knowledge/);
   assert.match(source, /personaTemplateSummaries\(\)/);
   assert.match(source, /data-template-card="\$\{id\}"/);
   assert.match(source, /data-template-open="\$\{id\}"/);
@@ -554,7 +622,7 @@ test("Templates cards create a Persona from the server-side catalog", () => {
   // A failed Rule or Skill write must not leave half a bundle behind.
   assert.match(
     source,
-    /url === '\/api\/persona\/create-from-template'[\s\S]{0,1600}?await deletePersona\(persona\)\.catch\(\(\) => \{\}\);/,
+    /url === '\/api\/persona\/create-from-template'[\s\S]{0,2400}?await deletePersona\(persona\)\.catch\(\(\) => \{\}\);/,
   );
 });
 
@@ -739,7 +807,10 @@ test("Organization view renders one unified Persona list", () => {
   // Sharing a Persona other than the open one must not push editor text
   // that belongs to a different bundle.
   assert.match(source, /const isOpen = persona === personaState\.persona;/);
-  assert.match(source, /const content = isOpen \? personaEditor\.value : "";/);
+  assert.match(
+    source,
+    /const content =\s*isOpen && isKnowledgeDocumentOpen\(\)[\s\S]{0,400}?: isOpen && !isKnowledgeIndexOpen\(\)\s*\? personaEditor\.value\s*: "";/,
+  );
 });
 
 test("Organization list groups by what needs attention", () => {
@@ -846,7 +917,7 @@ test("the status classifier maps every state to exactly one safe action", () => 
   // Sharing still includes unsaved Personal editor text after the confirm.
   assert.match(
     source,
-    /const hasUnsavedChanges =\s*isOpen && personaEditor\.value !== personaState\.savedContent;/,
+    /const hasUnsavedChanges =\s*isOpen &&\s*\(personaEditor\.value !== personaState\.savedContent \|\|\s*knowledgeFieldsDirty\(\)\);/,
   );
   assert.match(source, /Your open editor changes will be saved and included/);
 });
@@ -934,7 +1005,7 @@ test("push clears the unsaved marker only when the route wrote the file", () => 
   );
   assert.match(
     source,
-    /if \(data\.saved\) \{\s*setPersonaEditorContent\(/,
+    /if \(data\.saved\) \{\s*setOpenPersonaFileContent\(/,
   );
 });
 
@@ -977,7 +1048,7 @@ test("unsaved Persona edits are guarded or preserved before navigation", () => {
   assert.match(source, /confirmDiscardPersonaChanges\("another Persona"\)/);
   assert.match(
     source,
-    /const preserve =[\s\S]{0,300}?content: personaEditor\.value/,
+    /const preserve =[\s\S]{0,500}?content: isKnowledgeDocumentOpen\(\)[\s\S]{0,250}?: personaEditor\.value/,
   );
   const pullRoute = source.slice(
     source.indexOf("url === '/api/persona/pull'"),

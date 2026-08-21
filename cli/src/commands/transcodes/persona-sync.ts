@@ -27,12 +27,15 @@ import {
 import {
   commitPersona,
   fetchPersonaDetail,
+  fetchPersonaRevisionDetail,
+  fetchPersonaRevisions,
   loadPersonaConfig,
   PersonaApiError,
   type PersonaErrorCode,
   type PersonaPushFile,
   type PushPersonaResponse,
   pushPersona,
+  updatePersonaTag,
 } from './persona-api.js';
 
 /**
@@ -174,6 +177,16 @@ export function personaSyncGuidance(
       return (
         'Some files were never uploaded to storage. ' +
         `Run \`transcodes persona push --persona ${persona}\` again and let every upload finish.`
+      );
+    case 'PERSONA_TAG_ALREADY_EXISTS':
+      return (
+        'That tag is already assigned to another revision of this Persona. ' +
+        `Run \`transcodes persona log --persona ${persona}\` to see existing tags, then pick a different tag or move it with \`transcodes persona tag --persona ${persona} --revision N --tag TAG\`.`
+      );
+    case 'PERSONA_REVISION_NOT_FOUND':
+      return (
+        'No revision matches that number or tag. ' +
+        `Run \`transcodes persona log --persona ${persona}\` to list available revisions and tags.`
       );
     default:
       return undefined;
@@ -332,6 +345,7 @@ async function backupPersonaBundle(persona: string): Promise<string | null> {
  */
 export async function pushPersonaSync(
   personaInput: string,
+  tag?: string,
 ): Promise<PushSyncResult> {
   const persona = assertPersonaId(personaInput);
   const config = loadPersonaConfig();
@@ -409,7 +423,12 @@ export async function pushPersonaSync(
 
   let committed: { revision: number };
   try {
-    committed = await commitPersona(config, persona, approved.commit_token);
+    committed = await commitPersona(
+      config,
+      persona,
+      approved.commit_token,
+      tag,
+    );
   } catch (error) {
     throw withGuidance(persona, error);
   }
@@ -448,11 +467,14 @@ export async function pushPersonaSync(
  */
 export async function pullPersonaSync(
   personaInput: string,
+  ref?: string,
 ): Promise<PullSyncResult> {
   const persona = assertPersonaId(personaInput);
   const config = loadPersonaConfig();
 
-  const detail = await fetchPersonaDetail(config, persona);
+  const detail = ref
+    ? await fetchPersonaRevisionDetail(config, persona, ref)
+    : await fetchPersonaDetail(config, persona);
 
   const local = await collectLocalDigests(persona);
 

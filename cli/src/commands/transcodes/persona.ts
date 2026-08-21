@@ -34,6 +34,7 @@ import {
   APPLIED_RULES_SKILLS_OUTPUT_LINE,
   createFeatureScaffold,
 } from '../sync/lib/feature-scaffold.js';
+import { parseFrontmatter } from '../sync/utils/frontmatter.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -56,6 +57,16 @@ export type PersonaEntry = {
   dirs?: string[];
 };
 
+/** One knowledge document inside the reserved knowledge-base Skill. */
+export type PersonaKnowledgeReference = {
+  /** Skill-root-relative path, e.g. `references/api-spec.md`. */
+  file: string;
+  /** Frontmatter `name`, falling back to the file name. */
+  name: string;
+  /** Frontmatter `description`; empty when the file does not declare one. */
+  description: string;
+};
+
 export type PersonaListing = {
   /** Project folder where generated app files are deployed. */
   root: string;
@@ -71,6 +82,15 @@ export type PersonaListing = {
   agent: { exists: boolean; relativePath: string };
   rules: PersonaEntry[];
   skills: PersonaEntry[];
+  /**
+   * The reserved knowledge-base Skill. Its references are the Persona's
+   * knowledge documents; the Skill itself is generated, not authored.
+   */
+  knowledge: {
+    exists: boolean;
+    skill: string;
+    references: PersonaKnowledgeReference[];
+  };
 };
 
 /** Per-file cap for dashboard create/save. */
@@ -110,10 +130,88 @@ export type PersonaDeployResult = {
   output: string;
 };
 
-const NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+/** Persona, Rule, Skill, and knowledge file stems: lowercase kebab-case. */
+const NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const NAME_RULE =
+  'lowercase kebab-case (letters, numbers, and single hyphens), e.g. billing-api';
+
+function normalizeKebabName(name: string): string {
+  const trimmed = name.trim().replace(/\.md$/i, '');
+  if (/[_]|[a-z][A-Z]|\./.test(trimmed)) {
+    throw new Error(`Invalid name "${name}". Use ${NAME_RULE}.`);
+  }
+  return trimmed.toLowerCase().replace(/\s+/g, '-');
+}
 const LAST_ROOT_FILE = 'dashboard-persona.json';
 const PERSONAS_DIR_NAME = 'personas';
 const PERSONA_INSTRUCTION_DIR_NAME = 'instruction';
+
+/**
+ * Reserved Skill every Persona ships with. It holds no workflow of its own —
+ * each file under its `references/` folder is one knowledge document, and its
+ * SKILL.md is a generated index the agent reads to decide what to open.
+ */
+export const KNOWLEDGE_BASE_SKILL_NAME = 'knowledge-base';
+const KNOWLEDGE_BASE_REFERENCE_DIR = 'references';
+export const KNOWLEDGE_BASE_STARTER_NAME = 'what-belongs-here';
+
+/** One Markdown knowledge document with required name / description frontmatter. */
+export function knowledgeReferenceDocument(params: {
+  title: string;
+  description: string;
+  facts: string[];
+}): string {
+  return `---
+name: ${JSON.stringify(params.title)}
+description: ${JSON.stringify(params.description)}
+---
+
+# Knowledge
+${params.facts.map((line) => `- ${line}`).join('\n')}
+`;
+}
+
+export const KNOWLEDGE_BASE_STARTER_CONTENT = knowledgeReferenceDocument({
+  title: 'What belongs in Knowledge Base',
+  description:
+    'Read this before adding a knowledge document, or when deciding whether a fact belongs here instead of a Rule or Skill.',
+  facts: [
+    'Put durable facts the agent must not guess: product names, URLs, token names, brand decisions, approved claims, API contracts.',
+    'Each entry needs a Title and a Description that answers “When should this knowledge be referenced?”',
+    'Write the fact as the answer itself, not as a reminder to look it up later.',
+    'Do not put Must/Never policy here — that belongs in a Rule.',
+    'Do not put a step-by-step workflow here — that belongs in a Skill.',
+    'New file names must be lowercase kebab-case.md — `billing-api.md`, not `BillingAPI.md` or `billing_api.md`.',
+  ],
+});
+
+const KNOWLEDGE_BASE_PREREQUISITE_KEBAB =
+  '- Reference file names are lowercase kebab-case: `references/design-tokens.md`.';
+
+const KNOWLEDGE_BASE_STEPS = `1. Match the information the task needs against the descriptions in References.
+2. If a description matches, read that reference before answering; do not guess what it contains.
+3. If no reference matches, say that this is not in the Knowledge Base. Then either answer from general knowledge and label it as such, or ask the user for the missing fact. Do not invent a project-specific fact, and do not fail the task just because a reference is missing.
+4. When durable new knowledge appears, store it as a new file under \`${KNOWLEDGE_BASE_REFERENCE_DIR}/\`. The file name must be lowercase kebab-case plus \`.md\` (e.g. \`design-tokens.md\`, not \`DesignTokens.md\` or \`design_tokens.md\`). Give it non-empty \`name\` and \`description\` frontmatter; the description answers “When should this knowledge be referenced?”
+`;
+
+const KNOWLEDGE_BASE_OUTPUT = `**Deliverable** — an answer grounded in the references that were actually read, or an answer that states no matching reference was found.
+**Done when** — no project-specific claim was guessed, and a missing reference was disclosed instead of invented.
+`;
+
+const KNOWLEDGE_BASE_SKILL_TEMPLATE = `---
+name: ${KNOWLEDGE_BASE_SKILL_NAME}
+description: Stores all knowledge this Persona has accumulated. Read the reference whose description matches the information the current task needs.
+---
+
+# Prerequisites
+- Every file under \`${KNOWLEDGE_BASE_REFERENCE_DIR}/\` is one knowledge document with its own name and description.
+- The References list below is generated from those files; do not hand-edit it.
+${KNOWLEDGE_BASE_PREREQUISITE_KEBAB}
+
+# Steps
+${KNOWLEDGE_BASE_STEPS}
+# Output
+${KNOWLEDGE_BASE_OUTPUT}`;
 
 /**
  * Default Agent root: user home on macOS / Linux / Windows.
@@ -163,13 +261,29 @@ export async function resolvePersonaRoot(input?: string): Promise<{
 /** Reject names that could escape `.transcodes/` or collide with dotfiles. */
 export function assertPersonaName(kind: PersonaKind, name: string): string {
   if (kind === 'agent') return RULESYNC_OVERVIEW_FILE_NAME;
-  const normalized = name.trim().replace(/\.md$/i, '');
+  const normalized = normalizeKebabName(name);
   if (!NAME_PATTERN.test(normalized)) {
-    throw new Error(
-      `Invalid ${kind} name "${name}". Use letters, numbers, dots, underscores, or hyphens.`,
-    );
+    throw new Error(`Invalid ${kind} name "${name}". Use ${NAME_RULE}.`);
   }
   return normalized;
+}
+
+/**
+ * File name for a knowledge document. Title is free text; the on-disk name
+ * is a slug so it stays a valid Skill path segment.
+ */
+export function knowledgeFileSlug(title: string): string {
+  const slug = title
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s.]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (!slug) {
+    throw new Error('Title must include at least one letter or number.');
+  }
+  return assertPersonaName('skill', slug);
 }
 
 /**
@@ -201,6 +315,67 @@ function assertSkillReferenceWritePath(file: string): void {
   ) {
     throw new Error(
       'Reference files must be Markdown (.md). Put PDFs and images in assets/ if the workflow needs the original file.',
+    );
+  }
+}
+
+function assertKnowledgeBaseReferencePath(file: string): void {
+  if (
+    !file.startsWith(`${KNOWLEDGE_BASE_REFERENCE_DIR}/`) ||
+    !file.toLowerCase().endsWith('.md')
+  ) {
+    throw new Error(
+      `The reserved "${KNOWLEDGE_BASE_SKILL_NAME}" Skill only allows Markdown files under ${KNOWLEDGE_BASE_REFERENCE_DIR}/. Its ${SKILL_FILE_NAME} is managed automatically.`,
+    );
+  }
+}
+
+function assertKnowledgeBaseReferenceWritePath(file: string): void {
+  assertKnowledgeBaseReferencePath(file);
+  const base = file.slice(`${KNOWLEDGE_BASE_REFERENCE_DIR}/`.length);
+  if (base.includes('/')) {
+    throw new Error(
+      `Knowledge files must sit directly under ${KNOWLEDGE_BASE_REFERENCE_DIR}/ as lowercase kebab-case.md.`,
+    );
+  }
+  const slug = base.replace(/\.md$/i, '');
+  if (slug !== knowledgeFileSlug(slug)) {
+    throw new Error(
+      `Knowledge file names must be lowercase kebab-case.md (e.g. ${KNOWLEDGE_BASE_REFERENCE_DIR}/billing-api.md). Got "${file}".`,
+    );
+  }
+}
+
+/** New companion writes use kebab-case stems; read/delete still accept older files. */
+function assertKebabCompanionPath(file: string): void {
+  if (!file || file === SKILL_FILE_NAME) return;
+  for (const segment of file.split('/')) {
+    if (segment === SKILL_FILE_NAME) continue;
+    const stem = segment.replace(/\.[a-z0-9]+$/i, '');
+    if (!stem || stem !== knowledgeFileSlug(stem)) {
+      throw new Error(
+        `Skill file names must be lowercase kebab-case (e.g. references/billing-api.md). Got "${file}".`,
+      );
+    }
+  }
+}
+
+function assertKnowledgeBaseReferenceContent(
+  file: string,
+  content: string,
+): void {
+  const parsed = parseFrontmatter(content, file);
+  const name =
+    typeof parsed.frontmatter.name === 'string'
+      ? parsed.frontmatter.name.trim()
+      : '';
+  const description =
+    typeof parsed.frontmatter.description === 'string'
+      ? parsed.frontmatter.description.trim()
+      : '';
+  if (!parsed.hasFrontmatter || !name || !description) {
+    throw new Error(
+      `Knowledge reference "${file}" requires non-empty name and description frontmatter.`,
     );
   }
 }
@@ -257,10 +432,15 @@ function alreadyMentionsCompanion(content: string, filePath: string): boolean {
  * List each companion under `# Available scripts` or `# References`.
  * Do not rewrite `# Steps` — the agent writes the run/read command into
  * the numbered step that uses the file.
+ *
+ * `knowledge` switches the References section to `name — description — path`
+ * bullets sourced from each reference's own frontmatter. Only the
+ * knowledge-base Skill uses that form; every other Skill keeps the hint form.
  */
 export function mentionSkillCompanions(
   skillMd: string,
   companionPaths: string[],
+  knowledge?: Map<string, PersonaKnowledgeReference>,
 ): string {
   const unique = [...new Set(companionPaths.filter(isMentionableCompanion))];
   let next = skillMd.replace(/\r\n/g, '\n');
@@ -272,15 +452,70 @@ export function mentionSkillCompanions(
     legacyHints: LEGACY_SCRIPT_HINTS,
     dirPrefix: 'scripts/',
   });
-  next = ensureCompanionSection({
-    content: next,
-    heading: REFERENCE_SECTION,
-    paths: unique.filter((file) => file.startsWith('references/')),
-    hintFor: referenceHint,
-    legacyHints: LEGACY_REFERENCE_HINTS,
-    dirPrefix: 'references/',
-  });
+  const references = unique.filter((file) => file.startsWith('references/'));
+  next = knowledge
+    ? ensureKnowledgeReferenceSection(next, references, knowledge)
+    : ensureCompanionSection({
+        content: next,
+        heading: REFERENCE_SECTION,
+        paths: references,
+        hintFor: referenceHint,
+        legacyHints: LEGACY_REFERENCE_HINTS,
+        dirPrefix: 'references/',
+      });
   return next;
+}
+
+/** Any generated knowledge bullet ends with the `— ./references/<file>` path. */
+const KNOWLEDGE_BULLET = /^- [^\n]*— \.\/references\/[^\n]*\n?/gm;
+/** Hint-form bullets written before the knowledge-base format existed. */
+const LEGACY_KNOWLEDGE_BULLET = /^- `references\/[^`\n]*`[^\n]*\n?/gm;
+
+export function knowledgeReferenceBullet(
+  reference: PersonaKnowledgeReference,
+): string {
+  const description =
+    reference.description ||
+    'no description yet — add one to this file’s frontmatter';
+  return `- ${reference.name} — ${description} — ./${reference.file}`;
+}
+
+/**
+ * Own the References section of the knowledge-base Skill: one bullet per
+ * reference file, rewritten from the current frontmatter so renames and
+ * description edits propagate, and dropped as soon as the file is gone.
+ * Prose written above or below the bullets is preserved.
+ */
+function ensureKnowledgeReferenceSection(
+  content: string,
+  files: string[],
+  knowledge: Map<string, PersonaKnowledgeReference>,
+): string {
+  const bullets = files.map((file) =>
+    knowledgeReferenceBullet(
+      knowledge.get(file) ?? fallbackKnowledgeReference(file),
+    ),
+  );
+  const section = findHeadingSection(content, REFERENCE_SECTION);
+  if (!section) {
+    if (bullets.length === 0) return content;
+    return insertSectionBeforeOutput(
+      content,
+      `${REFERENCE_SECTION}\n${bullets.join('\n')}\n`,
+    );
+  }
+
+  const kept = section.body
+    .replace(KNOWLEDGE_BULLET, '')
+    .replace(LEGACY_KNOWLEDGE_BULLET, '')
+    .replace(/\s+$/, '');
+  if (!kept && bullets.length === 0) {
+    const before = content.slice(0, section.headingStart).replace(/\n+$/, '');
+    const after = content.slice(section.end).replace(/^\n+/, '');
+    return [before, after].filter(Boolean).join('\n\n');
+  }
+  const joined = [kept, ...bullets].filter(Boolean).join('\n');
+  return `${content.slice(0, section.bodyStart)}${joined}\n\n${content.slice(section.end)}`;
 }
 
 const COMPANION_BULLET = /^- `([^`\n]+)` — ([^\n]*)\n?/gm;
@@ -368,6 +603,32 @@ function findHeadingSection(
   };
 }
 
+function replaceHeadingSection(
+  content: string,
+  heading: string,
+  body: string,
+): string {
+  const section = findHeadingSection(content, heading);
+  const block = body.endsWith('\n') ? body : `${body}\n`;
+  if (!section) {
+    return insertSectionBeforeOutput(content, `${heading}\n${block}`);
+  }
+  return `${content.slice(0, section.bodyStart)}${block}\n${content.slice(section.end)}`;
+}
+
+function applyKnowledgeBaseGuidance(content: string): string {
+  let next = replaceHeadingSection(content, '# Steps', KNOWLEDGE_BASE_STEPS);
+  next = replaceHeadingSection(next, '# Output', KNOWLEDGE_BASE_OUTPUT);
+  if (!next.includes('kebab-case')) {
+    const prerequisites = findHeadingSection(next, '# Prerequisites');
+    if (prerequisites) {
+      const body = prerequisites.body.replace(/\s+$/, '');
+      next = `${next.slice(0, prerequisites.bodyStart)}${body}\n${KNOWLEDGE_BASE_PREREQUISITE_KEBAB}\n\n${next.slice(prerequisites.end)}`;
+    }
+  }
+  return next;
+}
+
 function insertSectionBeforeOutput(content: string, block: string): string {
   const trimmed = content.replace(/\s+$/, '');
   const output = trimmed.search(/^# Output\s*$/m);
@@ -379,6 +640,91 @@ function insertSectionBeforeOutput(content: string, block: string): string {
     return `${trimmed.slice(0, comment)}${block}\n${trimmed.slice(comment)}`;
   }
   return `${trimmed}\n\n${block}`;
+}
+
+function fallbackKnowledgeReference(file: string): PersonaKnowledgeReference {
+  const base = file.split('/').pop() ?? file;
+  return { file, name: base.replace(/\.md$/i, ''), description: '' };
+}
+
+/** Single-line `name` / `description` from a reference file's frontmatter. */
+export function knowledgeReferenceIdentity(
+  file: string,
+  content: string,
+): PersonaKnowledgeReference {
+  const fallback = fallbackKnowledgeReference(file);
+  let frontmatter: Record<string, unknown>;
+  try {
+    frontmatter = parseFrontmatter(content).frontmatter;
+  } catch {
+    // Broken YAML must not block the index; the file name still identifies it.
+    return fallback;
+  }
+  const single = (value: unknown): string =>
+    typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
+  return {
+    file,
+    name: single(frontmatter.name) || fallback.name,
+    description: single(frontmatter.description),
+  };
+}
+
+/**
+ * Read `name` / `description` for every reference of the knowledge-base Skill.
+ * Returns undefined for any other Skill so the hint-form bullets stay intact.
+ */
+async function readKnowledgeReferences(
+  bundleRoot: string,
+  skillName: string,
+  files: string[],
+): Promise<Map<string, PersonaKnowledgeReference> | undefined> {
+  if (skillName !== KNOWLEDGE_BASE_SKILL_NAME) return undefined;
+  const references = new Map<string, PersonaKnowledgeReference>();
+  for (const file of files) {
+    if (!file.startsWith(`${KNOWLEDGE_BASE_REFERENCE_DIR}/`)) continue;
+    const absolute = path.join(bundleRoot, 'skills', skillName, file);
+    let content = '';
+    try {
+      content = await readFile(absolute, 'utf8');
+    } catch {
+      // A file listed but unreadable still belongs in the index.
+    }
+    references.set(file, knowledgeReferenceIdentity(file, content));
+  }
+  return references;
+}
+
+/**
+ * List the knowledge documents of a Persona in the order SKILL.md indexes them.
+ */
+export async function listKnowledgeReferences(
+  persona: string,
+  files: string[],
+): Promise<PersonaKnowledgeReference[]> {
+  const references = await readKnowledgeReferences(
+    personaDir(persona),
+    KNOWLEDGE_BASE_SKILL_NAME,
+    files,
+  );
+  return references ? [...references.values()] : [];
+}
+
+/**
+ * Create the knowledge-base Skill when it is missing. New Personas get it up
+ * front; Personas created before it existed (or pulled from another machine)
+ * get it the first time a knowledge document is added.
+ */
+export async function ensureKnowledgeBaseSkill(persona: string): Promise<void> {
+  const skillRoot = resolveInsidePersona(
+    persona,
+    path.posix.join('skills', KNOWLEDGE_BASE_SKILL_NAME),
+  );
+  const skillMdPath = path.join(skillRoot, SKILL_FILE_NAME);
+  await mkdir(path.join(skillRoot, KNOWLEDGE_BASE_REFERENCE_DIR), {
+    recursive: true,
+  });
+  if (await isFile(skillMdPath)) return;
+  await writeFile(skillMdPath, KNOWLEDGE_BASE_SKILL_TEMPLATE, 'utf-8');
 }
 
 async function syncSkillCompanionMentions(
@@ -394,7 +740,15 @@ async function syncSkillCompanionMentions(
   );
   const current = await readFile(skillMdPath, 'utf8');
   const tree = await listSkillTree(bundleRoot, skillName);
-  const next = mentionSkillCompanions(current, tree.files);
+  const guided =
+    skillName === KNOWLEDGE_BASE_SKILL_NAME
+      ? applyKnowledgeBaseGuidance(current)
+      : current;
+  const next = mentionSkillCompanions(
+    guided,
+    tree.files,
+    await readKnowledgeReferences(bundleRoot, skillName, tree.files),
+  );
   if (next === current) return;
   await writeFile(
     skillMdPath,
@@ -403,12 +757,33 @@ async function syncSkillCompanionMentions(
   );
 }
 
+/**
+ * Rebuild the generated `# References` bullets from `references/`, and keep
+ * the `# Steps` / `# Output` guidance current. Hand-written sections such as
+ * extra headings stay in place. Older Personas without a knowledge-base are
+ * left untouched until their first knowledge document is created.
+ */
+export async function reconcileKnowledgeBaseIndex(
+  personaInput: string,
+): Promise<void> {
+  const persona = assertPersonaId(personaInput);
+  const skillMdPath = resolveInsidePersona(
+    persona,
+    path.posix.join('skills', KNOWLEDGE_BASE_SKILL_NAME, SKILL_FILE_NAME),
+  );
+  if (!(await isFile(skillMdPath))) return;
+  await syncSkillCompanionMentions(persona, KNOWLEDGE_BASE_SKILL_NAME);
+}
+
 export function assertPersonaId(name: string): string {
-  const normalized = name.trim().toLowerCase().replace(/\s+/g, '-');
+  let normalized: string;
+  try {
+    normalized = normalizeKebabName(name);
+  } catch {
+    throw new Error(`Invalid Persona name "${name}". Use ${NAME_RULE}.`);
+  }
   if (!NAME_PATTERN.test(normalized)) {
-    throw new Error(
-      `Invalid Persona name "${name}". Use letters, numbers, dots, underscores, or hyphens.`,
-    );
+    throw new Error(`Invalid Persona name "${name}". Use ${NAME_RULE}.`);
   }
   return normalized;
 }
@@ -549,6 +924,14 @@ export async function createPersona(name: string): Promise<string> {
     const instruction = `${starterTemplate('agent', '').replace(/\s+$/, '')}\n`;
     await mkdir(path.dirname(instructionPath), { recursive: true });
     await writeFile(instructionPath, instruction, 'utf-8');
+    await ensureKnowledgeBaseSkill(persona);
+    await savePersonaFile({
+      persona,
+      kind: 'skill',
+      name: KNOWLEDGE_BASE_SKILL_NAME,
+      file: `${KNOWLEDGE_BASE_REFERENCE_DIR}/${KNOWLEDGE_BASE_STARTER_NAME}.md`,
+      content: KNOWLEDGE_BASE_STARTER_CONTENT,
+    });
   } catch (error) {
     await rm(bundleDir, { recursive: true, force: true });
     throw error;
@@ -591,6 +974,11 @@ export async function listPersona(
       agent: { exists: false, relativePath: '' },
       rules: [],
       skills: [],
+      knowledge: {
+        exists: false,
+        skill: KNOWLEDGE_BASE_SKILL_NAME,
+        references: [],
+      },
     };
   }
   const persona =
@@ -598,6 +986,9 @@ export async function listPersona(
       ? requestedPersona
       : personas[0]!;
   const bundleRoot = personaDir(persona);
+  // Opening a Persona also repairs the generated index after files were
+  // created, edited, or deleted directly in references/ outside the dashboard.
+  await reconcileKnowledgeBaseIndex(persona);
   const agentRelative = personaRelativePath(persona, 'agent', '');
   const [agentExists, rules, skills] = await Promise.all([
     isFile(
@@ -611,16 +1002,33 @@ export async function listPersona(
     listSkills(persona, bundleRoot),
   ]);
 
+  // The knowledge-base Skill ships with every Persona, so it must not make a
+  // Persona that has no authored content look ready to apply.
+  const knowledgeEntry = skills.find(
+    (entry) => entry.name === KNOWLEDGE_BASE_SKILL_NAME,
+  );
+  const authoredSkills = skills.filter(
+    (entry) => entry.name !== KNOWLEDGE_BASE_SKILL_NAME,
+  );
+
   return {
     root,
     sotDir,
     persona,
     personas,
     personaDir: bundleRoot,
-    initialized: agentExists || rules.length > 0 || skills.length > 0,
+    initialized: agentExists || rules.length > 0 || authoredSkills.length > 0,
     agent: { exists: agentExists, relativePath: agentRelative },
     rules,
     skills,
+    knowledge: {
+      exists: !!knowledgeEntry,
+      skill: KNOWLEDGE_BASE_SKILL_NAME,
+      references: await listKnowledgeReferences(
+        persona,
+        knowledgeEntry?.files ?? [],
+      ),
+    },
   };
 }
 
@@ -730,6 +1138,9 @@ export async function collectPersonaFiles(
   const persona = assertPersonaId(personaInput);
   const bundleRoot = personaDir(persona);
   if (!(await isDirectory(bundleRoot))) return [];
+  // Push/hash callers use this enumeration without going through listPersona.
+  // Reconcile first so the uploaded SKILL.md describes the actual references.
+  await reconcileKnowledgeBaseIndex(persona);
 
   const files: CollectedPersonaFile[] = [];
   const agentBundlePath = personaBundleRelativePath('agent', '');
@@ -1072,8 +1483,24 @@ export async function savePersonaFile(params: {
     params.kind === 'skill'
       ? assertSkillFilePath(params.file ?? '')
       : undefined;
-  if (skillFile) assertSkillReferenceWritePath(skillFile);
+  if (skillFile) {
+    assertSkillReferenceWritePath(skillFile);
+    if (name !== KNOWLEDGE_BASE_SKILL_NAME) {
+      assertKebabCompanionPath(skillFile);
+    }
+  }
   assertPersonaFileSize(Buffer.byteLength(params.content, 'utf-8'));
+  if (params.kind === 'skill' && name === KNOWLEDGE_BASE_SKILL_NAME) {
+    if (!skillFile || skillFile === SKILL_FILE_NAME) {
+      throw new Error(
+        `${KNOWLEDGE_BASE_SKILL_NAME}/${SKILL_FILE_NAME} is managed automatically and cannot be saved directly.`,
+      );
+    }
+    assertKnowledgeBaseReferenceWritePath(skillFile);
+    assertKnowledgeBaseReferenceContent(skillFile, params.content);
+    // Covers Personas created before knowledge-base became a default Skill.
+    await ensureKnowledgeBaseSkill(persona);
+  }
 
   // Companion Skill files are written verbatim: scripts and reference docs
   // must not get frontmatter name-sync or Markdown sanitizing. After the
@@ -1136,8 +1563,13 @@ export async function savePersonaFile(params: {
     params.kind === 'skill' ? synchronizeSkillName(sanitized, name) : sanitized;
   let content = `${synchronized.replace(/\s+$/, '')}\n`;
   if (params.kind === 'skill') {
-    const tree = await listSkillTree(personaDir(persona), name);
-    content = mentionSkillCompanions(content, tree.files);
+    const bundleRoot = personaDir(persona);
+    const tree = await listSkillTree(bundleRoot, name);
+    content = mentionSkillCompanions(
+      content,
+      tree.files,
+      await readKnowledgeReferences(bundleRoot, name, tree.files),
+    );
     if (!content.endsWith('\n')) content += '\n';
   }
   await mkdir(path.dirname(absolutePath), { recursive: true });
@@ -1173,6 +1605,11 @@ export async function createSkillFolder(params: {
     throw new Error(`Persona "${persona}" does not exist.`);
   }
   const name = assertPersonaName('skill', params.name ?? '');
+  if (name === KNOWLEDGE_BASE_SKILL_NAME) {
+    throw new Error(
+      `Folders in the reserved "${KNOWLEDGE_BASE_SKILL_NAME}" Skill are managed automatically.`,
+    );
+  }
   if (!params.dir.trim()) {
     throw new Error('Folder name is required.');
   }
@@ -1180,6 +1617,7 @@ export async function createSkillFolder(params: {
   // backslashes. assertSkillFilePath falls back to SKILL.md only for empty
   // input, which the guard above already rejects.
   const dir = assertSkillFilePath(params.dir);
+  assertKebabCompanionPath(dir);
   const absolutePath = resolveInsidePersona(
     persona,
     path.posix.join('skills', name, dir),
@@ -1211,6 +1649,9 @@ export async function deleteSkillPath(params: {
     throw new Error('File or folder path is required.');
   }
   const relative = assertSkillFilePath(params.path);
+  if (name === KNOWLEDGE_BASE_SKILL_NAME) {
+    assertKnowledgeBaseReferencePath(relative);
+  }
   if (relative === SKILL_FILE_NAME) {
     throw new Error('SKILL.md is required and cannot be deleted.');
   }
@@ -1235,11 +1676,16 @@ export async function deleteSkillPath(params: {
     throw new Error(`"${relative}" does not exist.`);
   }
   const currentSkill = await readFile(skillMdPath, 'utf8');
-  const tree = await listSkillTree(personaDir(persona), name);
+  const bundleRoot = personaDir(persona);
+  const tree = await listSkillTree(bundleRoot, name);
   const remainingFiles = tree.files.filter(
     (file) => file !== relative && !file.startsWith(`${relative}/`),
   );
-  const nextSkill = mentionSkillCompanions(currentSkill, remainingFiles);
+  const nextSkill = mentionSkillCompanions(
+    currentSkill,
+    remainingFiles,
+    await readKnowledgeReferences(bundleRoot, name, remainingFiles),
+  );
   if (nextSkill !== currentSkill) {
     await writeFile(
       skillMdPath,
@@ -1273,6 +1719,11 @@ export async function deletePersonaFile(params: {
   await ensurePersonaStorage();
   const persona = assertPersonaId(params.persona);
   const name = assertPersonaName(params.kind, params.name ?? '');
+  if (params.kind === 'skill' && name === KNOWLEDGE_BASE_SKILL_NAME) {
+    throw new Error(
+      `The reserved "${KNOWLEDGE_BASE_SKILL_NAME}" Skill cannot be deleted directly. Delete individual files under ${KNOWLEDGE_BASE_REFERENCE_DIR}/ instead.`,
+    );
+  }
   const relativePath = personaRelativePath(persona, params.kind, name);
   const absolutePath = resolveInsidePersona(
     persona,

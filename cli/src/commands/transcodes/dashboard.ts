@@ -51,6 +51,9 @@ import {
   deletePersonaFile,
   deleteSkillPath,
   deployPersona,
+  ensureKnowledgeBaseSkill,
+  KNOWLEDGE_BASE_SKILL_NAME,
+  knowledgeFileSlug,
   listPersona,
   listPersonaIds,
   MAX_PERSONA_FILE_BYTES,
@@ -95,7 +98,7 @@ const PORT_ATTEMPTS = DASHBOARD_PORT_ATTEMPTS;
 const DASHBOARD_HEALTH_MARKER = 'transcodes-dashboard';
 /** Mux playback id for the Guide onboarding video. */
 const GUIDELINE_MUX_PLAYBACK_ID =
-  'jjIn7CoaEiUXDkrOsewUBB6yd6LsEWQbSvPmvoon01CM';
+  'hr3Uc2DAAHJx8iIEAl024JFD01AVzcv8BfE8UOLIyZhbQ';
 /** PWA icon bytes (same 512×512 PNG as the header logo). */
 const PWA_ICON_PNG = Buffer.from(
   LOGO_DATA_URI.replace(/^data:image\/png;base64,/, ''),
@@ -391,7 +394,15 @@ function personaTemplateCardsHtml(): string {
   return personaTemplateSummaries()
     .map((template) => {
       const id = escapeHtml(template.id);
-      const contents = [...template.rules, ...template.skills];
+      const knowledgeDocs = (template.knowledge || []).filter(
+        (name) => name !== 'knowledge-base',
+      );
+      const contents = [
+        ...template.rules,
+        ...template.skills,
+        'knowledge-base',
+        ...knowledgeDocs,
+      ];
       const counts = [
         `${template.rules.length} ${
           template.rules.length === 1 ? 'Rule' : 'Rules'
@@ -399,6 +410,7 @@ function personaTemplateCardsHtml(): string {
         `${template.skills.length} ${
           template.skills.length === 1 ? 'Skill' : 'Skills'
         }`,
+        `${knowledgeDocs.length} Knowledge`,
       ];
       const contentsHtml = contents.length
         ? `<p class="persona-template-files">${contents
@@ -1045,6 +1057,17 @@ function dashboardHtml(): string {
       border-bottom: 1px solid var(--line);
     }
     .profile-field:last-child { border-bottom: none; }
+    .plan-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 6px;
+      font-size: var(--text-xs);
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      margin-left: 6px;
+    }
+    .plan-badge--free { background: var(--bg-subtle); color: var(--text-muted); }
+    .plan-badge--paid { background: var(--color-brand); color: #fff; }
     .profile-field .k {
       flex-shrink: 0;
       font-size: var(--text-xs);
@@ -2513,6 +2536,34 @@ function dashboardHtml(): string {
       min-width: 180px;
       font-size: var(--text-xs);
     }
+    .persona-knowledge-fields {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 16px;
+    }
+    .persona-knowledge-fields[hidden] { display: none !important; }
+    .persona-knowledge-field {
+      display: grid;
+      gap: 5px;
+    }
+    .persona-knowledge-field-label {
+      color: var(--muted);
+      font-size: var(--text-2xs);
+      font-weight: 650;
+    }
+    .persona-knowledge-field-hint {
+      font-weight: 500;
+    }
+    .persona-knowledge-fields .label-input {
+      margin: 0;
+      width: 100%;
+      font-size: var(--text-xs);
+    }
+    .persona-knowledge-fields.is-readonly .label-input {
+      cursor: default;
+      background: #f8f8fa;
+      color: var(--ink);
+    }
     .persona-agent-callout {
       display: flex;
       gap: 12px;
@@ -2852,8 +2903,11 @@ function dashboardHtml(): string {
     .persona-md-preview {
       display: none;
       flex: 1;
+      min-width: 0;
       min-height: 400px;
-      overflow: auto;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overflow-wrap: break-word;
       padding: 28px 32px 56px;
       color: var(--ink);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -2972,6 +3026,11 @@ function dashboardHtml(): string {
       border: none;
       border-radius: 0;
       background: transparent;
+    }
+    .persona-md-preview.is-code pre,
+    .persona-md-preview.is-code pre code {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
     .persona-md-preview.is-code pre code {
       font-size: inherit;
@@ -4400,10 +4459,12 @@ function dashboardHtml(): string {
         flex: 1;
         flex-direction: column;
         min-height: 0;
+        min-width: 0;
       }
       #panel-persona .persona-md-preview {
         flex: 1;
         min-height: 0;
+        min-width: 0;
       }
       #panel-persona .persona-code-editor-host {
         flex: 1;
@@ -4842,6 +4903,10 @@ function dashboardHtml(): string {
             <span class="k">Organization ID</span>
             <span class="v" id="profile-org-id"></span>
           </div>
+          <div class="profile-field" id="profile-row-plan" hidden>
+            <span class="k">Plan</span>
+            <span class="v" id="profile-plan"></span>
+          </div>
           <div class="profile-field" id="profile-row-project-name" hidden>
             <span class="k">Project</span>
             <span class="v" id="profile-project-name"></span>
@@ -4900,6 +4965,16 @@ function dashboardHtml(): string {
           <div class="persona-editor-panel">
             <div class="persona-picker" id="persona-picker" hidden>
               <input type="text" id="persona-new-name" class="label-input persona-new-name" placeholder="Please type a new rule title" spellcheck="false" autocapitalize="off" autocomplete="off" hidden />
+            </div>
+            <div class="persona-knowledge-fields" id="persona-knowledge-fields" hidden>
+              <label class="persona-knowledge-field">
+                <span class="persona-knowledge-field-label">Title <span aria-hidden="true">*</span></span>
+                <input type="text" id="persona-knowledge-title" class="label-input" placeholder="e.g. Design style" spellcheck="false" autocapitalize="off" autocomplete="off" required />
+              </label>
+              <label class="persona-knowledge-field">
+                <span class="persona-knowledge-field-label">Description <span aria-hidden="true">*</span> <span class="persona-knowledge-field-hint">— When should this knowledge be referenced?</span></span>
+                <input type="text" id="persona-knowledge-description" class="label-input" placeholder="When should the agent read this?" spellcheck="true" autocomplete="off" required />
+              </label>
             </div>
             <p class="persona-save-error" id="persona-save-error" hidden></p>
 
@@ -4975,9 +5050,9 @@ function dashboardHtml(): string {
                 <svg class="persona-agent-callout-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
               </summary>
               <div class="persona-agent-callout-body">
-                <p class="persona-agent-callout-copy"><strong>1. Create a Persona.</strong> Choose one of the six templates, click <strong>Create Persona</strong>, and enter a name. The template creates a complete starting structure with an Instruction, Rules, and Skills.</p>
-                <p class="persona-agent-callout-copy"><strong>2. Customize it for your project.</strong> Open the new Persona in <strong>My Personas</strong> and edit its role, project context, standards, policies, and workflows yourself.</p>
-                <p class="persona-agent-callout-copy"><strong>3. Or ask your AI agent to customize it.</strong> Tell your agent what the project does and what should change — for example, <code class="cli-cmd">/transcodes update this persona for my project</code>. Your agent can review and edit the Instruction, Rules, and Skills for you.</p>
+                <p class="persona-agent-callout-copy"><strong>1. Create a Persona.</strong> Choose one of the six templates, click <strong>Create Persona</strong>, and enter a name. The template creates a complete starting structure with an Instruction, Rules, Skills, and a Knowledge Base.</p>
+                <p class="persona-agent-callout-copy"><strong>2. Customize it for your project.</strong> Open the new Persona in <strong>My Personas</strong> and edit its role, project context, standards, policies, workflows, and Knowledge Base. Put durable facts there — names, tokens, approved claims — and write a description that says when the agent should read that entry.</p>
+                <p class="persona-agent-callout-copy"><strong>3. Or ask your AI agent to customize it.</strong> Tell your agent what the project does and what should change — for example, <code class="cli-cmd">/transcodes update this persona for my project</code>. Your agent can review and edit the Instruction, Rules, Skills, and Knowledge Base for you.</p>
               </div>
             </details>
           </div>
@@ -5554,6 +5629,13 @@ function dashboardHtml(): string {
       });
     }
 
+    function planBadgeHtml(plan) {
+      if (!plan) return "";
+      const label = String(plan).charAt(0).toUpperCase() + String(plan).slice(1);
+      const kind = plan === "free" ? "free" : "paid";
+      return '<span class="plan-badge plan-badge--' + kind + '">' + esc(label) + "</span>";
+    }
+
     function updateSessionHeader(s) {
       if (!sessionReady) {
         headerLoginActionsEl.hidden = true;
@@ -5576,6 +5658,7 @@ function dashboardHtml(): string {
         headerProfileMetaEl.innerHTML =
           '<div class="header-profile-meta-line">' +
           (organization ? esc(organization) : "Signed in on this computer") +
+          planBadgeHtml(am.plan) +
           "</div>";
       }
 
@@ -5966,6 +6049,15 @@ function dashboardHtml(): string {
     const personaBundleCreateBtn = document.getElementById("persona-bundle-create-btn");
     const personaPicker = document.getElementById("persona-picker");
     const personaNewName = document.getElementById("persona-new-name");
+    const personaKnowledgeFields = document.getElementById(
+      "persona-knowledge-fields"
+    );
+    const personaKnowledgeTitle = document.getElementById(
+      "persona-knowledge-title"
+    );
+    const personaKnowledgeDescription = document.getElementById(
+      "persona-knowledge-description"
+    );
     const personaSaveError = document.getElementById("persona-save-error");
     const personaRegistryBody = document.getElementById("persona-registry-body");
     const personaTemplateRow = document.getElementById("persona-template-row");
@@ -6074,9 +6166,10 @@ function dashboardHtml(): string {
 
     function isCreatingPersonaEntry() {
       return (
-        personaState.kind !== "agent" &&
-        personaNewName &&
-        !personaNewName.hidden
+        personaState.creatingKnowledge ||
+        (personaState.kind !== "agent" &&
+          personaNewName &&
+          !personaNewName.hidden)
       );
     }
 
@@ -6101,7 +6194,13 @@ function dashboardHtml(): string {
               (entry) => entry.name === personaState.name
             );
       const editing = isPersonaEditing();
-      personaDeleteBtn.hidden = !existing || isCreatingPersonaEntry() || editing;
+      // Knowledge is deleted one document at a time from the sidebar; this
+      // button would drop the whole knowledge-base Skill.
+      const knowledgeOpen =
+        personaState.kind === "skill" &&
+        personaState.name === KNOWLEDGE_BASE_SKILL;
+      personaDeleteBtn.hidden =
+        !existing || knowledgeOpen || isCreatingPersonaEntry() || editing;
       personaDeleteBtn.textContent = "Delete";
       if (personaCancelBtn) personaCancelBtn.hidden = !editing;
     }
@@ -6114,6 +6213,11 @@ function dashboardHtml(): string {
       // Skill-root-relative path of the file open in the editor. Only
       // meaningful while kind === "skill"; SKILL.md is the mandatory default.
       file: "SKILL.md",
+      // A new knowledge document is being named. Knowledge lives in the
+      // reserved knowledge-base Skill, so kind stays "skill" throughout.
+      creatingKnowledge: false,
+      savedKnowledgeTitle: "",
+      savedKnowledgeDescription: "",
       editorView: "preview",
       listing: null,
       loaded: false,
@@ -6898,6 +7002,39 @@ function dashboardHtml(): string {
       );
     }
 
+    const KNOWLEDGE_BASE_SKILL = "knowledge-base";
+
+    function personaKnowledgeItems() {
+      const listing = personaState.listing;
+      if (!listing || !listing.knowledge) return [];
+      return listing.knowledge.references || [];
+    }
+
+    function personaKnowledgeItemHtml(reference) {
+      const on =
+        personaState.kind === "skill" &&
+        personaState.name === KNOWLEDGE_BASE_SKILL &&
+        personaState.file === reference.file;
+      return (
+        '<li class="persona-item' + (on ? " active" : "") + '">' +
+        '<button type="button" class="persona-item-open" data-open-knowledge="' +
+        esc(reference.file) +
+        '" title="' +
+        esc(reference.description || reference.file) +
+        '">' +
+        esc(reference.name) +
+        "</button>" +
+        '<button type="button" class="persona-item-x" data-delete-knowledge="' +
+        esc(reference.file) +
+        '" aria-label="Delete ' +
+        esc(reference.name) +
+        '" title="Delete ' +
+        esc(reference.name) +
+        '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"></path></svg></button>' +
+        "</li>"
+      );
+    }
+
     function personaGroupHtml(label, items, kind) {
       const addButton =
         kind !== "agent" || items.length === 0
@@ -6959,8 +7096,14 @@ function dashboardHtml(): string {
         : [];
       const ruleItems = (listing.rules || []).map((e) =>
         personaItemHtml("rule", e.name));
-      const skillItems = (listing.skills || []).map((e) =>
-        personaItemHtml("skill", e.name));
+      // knowledge-base has its own group; its SKILL.md is generated, so it is
+      // not offered for hand-editing next to the authored Skills.
+      const skillItems = (listing.skills || [])
+        .filter((e) => e.name !== KNOWLEDGE_BASE_SKILL)
+        .map((e) => personaItemHtml("skill", e.name));
+      const knowledgeItems = personaKnowledgeItems().map(
+        personaKnowledgeItemHtml
+      );
 
       const bundleName = listing.persona || personaState.persona;
       const remoteVer = personaBundleVersionText();
@@ -6985,6 +7128,7 @@ function dashboardHtml(): string {
         personaGroupHtml("Instruction", agentItems, "agent") +
         personaGroupHtml("Rule", ruleItems, "rule") +
         personaGroupHtml("Skill", skillItems, "skill") +
+        personaGroupHtml("Knowledge Base", knowledgeItems, "knowledge") +
         "</div></div>";
       bindPersonaGroupHelp();
 
@@ -7009,6 +7153,323 @@ function dashboardHtml(): string {
           );
         });
       });
+      personaRegistryBody
+        .querySelectorAll("[data-open-knowledge]")
+        .forEach((btn) => {
+          btn.addEventListener("click", () =>
+            openKnowledgeEntry(btn.getAttribute("data-open-knowledge")));
+        });
+      personaRegistryBody
+        .querySelectorAll("[data-delete-knowledge]")
+        .forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteKnowledgeEntry(btn.getAttribute("data-delete-knowledge"));
+          });
+        });
+    }
+
+    function knowledgeReferenceName(file) {
+      const match = personaKnowledgeItems().find(
+        (reference) => reference.file === file
+      );
+      if (match) return match.name;
+      const base = String(file || "").split("/").pop() || file;
+      return String(base).replace(/\\.md$/i, "");
+    }
+
+    async function openKnowledgeEntry(file) {
+      if (!file) return;
+      if (!(await confirmDiscardPersonaChanges("the selected knowledge"))) return;
+      personaState.creatingKnowledge = false;
+      personaState.name = KNOWLEDGE_BASE_SKILL;
+      personaState.file = file;
+      selectPersonaKind("skill");
+      showPersonaNewName(false);
+      try {
+        await loadPersonaFile();
+        renderPersonaRegistry();
+      } catch (e) {
+        setPersonaHint(e.message || "Could not read that knowledge", true);
+      }
+    }
+
+    async function deleteKnowledgeEntry(file) {
+      if (!file) return;
+      const label = knowledgeReferenceName(file);
+      const deletingOpenEntry =
+        personaState.name === KNOWLEDGE_BASE_SKILL &&
+        personaState.file === file;
+      if (
+        !deletingOpenEntry &&
+        !(await confirmDiscardPersonaChanges("delete another file"))
+      ) {
+        return;
+      }
+      const ok = await confirmAction({
+        title: "Delete knowledge?",
+        description:
+          "“" + label + "” will be permanently deleted from Persona “" +
+          personaState.persona + "”",
+        warning: "This action cannot be undone",
+        confirmLabel: "Delete",
+        danger: true,
+      });
+      if (!ok) return;
+
+      personaBusy(true);
+      try {
+        await personaFetch("/api/persona/delete-skill-path", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            root: personaRootInput.value.trim() || personaState.root,
+            persona: personaState.persona,
+            name: KNOWLEDGE_BASE_SKILL,
+            path: file,
+          }),
+        });
+        showToast("Removed " + label, "success");
+        await loadPersonaListing(
+          personaRootInput.value.trim(),
+          personaState.persona
+        );
+        if (deletingOpenEntry) landAfterKnowledgeRemoval();
+        syncPersonaEntryForm();
+        renderPersonaRegistry();
+        try { await loadPersonaFile(); } catch (_) { /* ignore */ }
+        if (hasSavedTokens(lastStatus)) await loadRemotePersonas();
+      } catch (e) {
+        showToast(e.message || "Could not remove", "error");
+      } finally {
+        personaBusy(false);
+      }
+    }
+
+    function isKnowledgeSkillOpen() {
+      return (
+        personaState.kind === "skill" &&
+        personaState.name === KNOWLEDGE_BASE_SKILL
+      );
+    }
+
+    function isKnowledgeDocumentOpen() {
+      return (
+        isKnowledgeSkillOpen() &&
+        !!personaState.file &&
+        personaState.file !== "SKILL.md"
+      );
+    }
+
+    function isKnowledgeIndexOpen() {
+      return (
+        isKnowledgeSkillOpen() &&
+        !personaState.creatingKnowledge &&
+        (!personaState.file || personaState.file === "SKILL.md")
+      );
+    }
+
+    function landAfterKnowledgeRemoval(preferredFile) {
+      const remaining = personaKnowledgeItems();
+      const preferred = remaining.find(
+        (reference) => reference.file === preferredFile
+      );
+      if (preferred) {
+        personaState.kind = "skill";
+        personaState.name = KNOWLEDGE_BASE_SKILL;
+        personaState.file = preferred.file;
+        return;
+      }
+      if (remaining.length > 0) {
+        personaState.kind = "skill";
+        personaState.name = KNOWLEDGE_BASE_SKILL;
+        personaState.file = remaining[0].file;
+        return;
+      }
+      // The generated SKILL.md is not a document the user can edit. Leave
+      // the index alone and return to Instruction instead.
+      personaState.kind = "agent";
+      personaState.name = "";
+      personaState.file = "SKILL.md";
+    }
+
+    function knowledgeStarterBody() {
+      return [
+        "# Knowledge",
+        "- The fact, decision, or data the agent must not guess",
+        "",
+      ].join("\\n");
+    }
+
+    function yamlQuote(value) {
+      return JSON.stringify(String(value || "").replace(/\\s+/g, " ").trim());
+    }
+
+    function yamlUnquote(value) {
+      const text = String(value || "").trim();
+      if (
+        text.length >= 2 &&
+        text.charAt(0) === '"' &&
+        text.charAt(text.length - 1) === '"'
+      ) {
+        try {
+          return JSON.parse(text);
+        } catch (_) {
+          return text.slice(1, -1);
+        }
+      }
+      return text;
+    }
+
+    function parseKnowledgeDocument(content) {
+      const text = String(content || "").replace(/\\r\\n/g, "\\n");
+      if (!text.startsWith("---")) {
+        return { title: "", description: "", body: text };
+      }
+      const end = text.indexOf("\\n---", 3);
+      if (end === -1) return { title: "", description: "", body: text };
+      const frontmatter = text.slice(3, end).replace(/^\\n/, "");
+      const body = text.slice(end + 4).replace(/^\\n/, "");
+      const pick = (key) => {
+        const match = frontmatter.match(
+          new RegExp("^" + key + "\\\\s*:\\\\s*(.*)$", "m")
+        );
+        return match ? yamlUnquote(match[1]) : "";
+      };
+      return {
+        title: pick("name"),
+        description: pick("description"),
+        body: body,
+      };
+    }
+
+    function buildKnowledgeDocument(title, description, body) {
+      const trimmed = String(body || "").replace(/^\\s+/, "").replace(/\\s+$/, "");
+      return (
+        "---\\nname: " +
+        yamlQuote(title) +
+        "\\ndescription: " +
+        yamlQuote(description) +
+        "\\n---\\n\\n" +
+        trimmed +
+        "\\n"
+      );
+    }
+
+    function readKnowledgeFields() {
+      return {
+        title: personaKnowledgeTitle
+          ? personaKnowledgeTitle.value.trim()
+          : "",
+        description: personaKnowledgeDescription
+          ? personaKnowledgeDescription.value.trim()
+          : "",
+      };
+    }
+
+    function showKnowledgeFields(show, values) {
+      if (!personaKnowledgeFields) return;
+      personaKnowledgeFields.hidden = !show;
+      if (!show) {
+        if (personaKnowledgeTitle) personaKnowledgeTitle.value = "";
+        if (personaKnowledgeDescription) personaKnowledgeDescription.value = "";
+        personaState.savedKnowledgeTitle = "";
+        personaState.savedKnowledgeDescription = "";
+        return;
+      }
+      const next = values || { title: "", description: "" };
+      if (personaKnowledgeTitle) personaKnowledgeTitle.value = next.title || "";
+      if (personaKnowledgeDescription) {
+        personaKnowledgeDescription.value = next.description || "";
+      }
+    }
+
+    function applyKnowledgeDocument(content, saved) {
+      const parsed = parseKnowledgeDocument(content);
+      showKnowledgeFields(true, parsed);
+      setPersonaEditorContent(parsed.body, saved !== false);
+      if (saved !== false) {
+        personaState.savedKnowledgeTitle = parsed.title;
+        personaState.savedKnowledgeDescription = parsed.description;
+      }
+    }
+
+    function setOpenPersonaFileContent(content, saved) {
+      if (isKnowledgeDocumentOpen()) {
+        applyKnowledgeDocument(content, saved);
+      } else {
+        setPersonaEditorContent(content, saved);
+      }
+    }
+
+    function knowledgeFieldsDirty() {
+      if (!personaState.creatingKnowledge && !isKnowledgeDocumentOpen()) {
+        return false;
+      }
+      const fields = readKnowledgeFields();
+      return (
+        fields.title !== (personaState.savedKnowledgeTitle || "") ||
+        fields.description !== (personaState.savedKnowledgeDescription || "")
+      );
+    }
+
+    async function beginKnowledgeEntry() {
+      if (!(await confirmDiscardPersonaChanges("a new knowledge"))) return;
+      personaState.creatingKnowledge = true;
+      personaState.name = KNOWLEDGE_BASE_SKILL;
+      personaState.file = "";
+      selectPersonaKind("skill");
+      hidePersonaLog();
+      showPersonaNewName(false);
+      personaState.creatingKnowledge = true;
+      showKnowledgeFields(true, { title: "", description: "" });
+      personaState.savedKnowledgeTitle = "";
+      personaState.savedKnowledgeDescription = "";
+      setPersonaEditorContent(knowledgeStarterBody());
+      setPersonaEditorView("source");
+      renderPersonaFilePicker();
+      renderPersonaRegistry();
+      if (personaKnowledgeTitle) personaKnowledgeTitle.focus();
+    }
+
+    async function createKnowledgeEntry(title, description, body) {
+      const content = buildKnowledgeDocument(title, description, body);
+      personaBusy(true);
+      try {
+        const data = await personaFetch("/api/persona/create-reference", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            root: personaRootInput.value.trim() || personaState.root,
+            persona: personaState.persona,
+            name: title,
+            content: content,
+          }),
+        });
+        personaState.creatingKnowledge = false;
+        personaState.file =
+          data.saved && data.saved.file ? data.saved.file : "SKILL.md";
+        showToast("Created " + title + " successfully", "success");
+        await loadPersonaListing(
+          personaRootInput.value.trim(),
+          personaState.persona
+        );
+        syncPersonaEntryForm();
+        renderPersonaRegistry();
+        applyKnowledgeDocument(
+          data.saved && typeof data.saved.content === "string"
+            ? data.saved.content
+            : content
+        );
+        if (hasSavedTokens(lastStatus)) await loadRemotePersonas();
+      } catch (e) {
+        personaState.creatingKnowledge = true;
+        showKnowledgeFields(true, { title: title, description: description });
+        showPersonaSaveError(e.message || "Something went wrong");
+      } finally {
+        personaBusy(false);
+      }
     }
 
     async function deletePersonaEntry(kind, name) {
@@ -7071,6 +7532,7 @@ function dashboardHtml(): string {
 
     async function openPersonaEntry(kind, name) {
       if (!(await confirmDiscardPersonaChanges("the selected file"))) return;
+      personaState.creatingKnowledge = false;
       personaState.name = kind === "agent" ? "" : name;
       personaState.file = "SKILL.md";
       selectPersonaKind(kind);
@@ -7084,7 +7546,12 @@ function dashboardHtml(): string {
     }
 
     async function beginPersonaEntry(kind) {
+      if (kind === "knowledge") {
+        await beginKnowledgeEntry();
+        return;
+      }
       if (!(await confirmDiscardPersonaChanges("a new file"))) return;
+      personaState.creatingKnowledge = false;
       personaState.name = "";
       personaState.file = "SKILL.md";
       selectPersonaKind(kind);
@@ -7113,6 +7580,8 @@ function dashboardHtml(): string {
         "Rule is one focused policy file (Must / Never). Keep it at 100–500 tokens, split unrelated policies, and do not put workflows or step-by-step procedures here.",
       skill:
         "Skill is one focused workflow file. Use 500–2,000 tokens for prerequisites, steps, templates, and done criteria; split distinct workflows and keep standing policies in Rules.",
+      knowledge:
+        "Knowledge Base holds the facts and data this Persona must not guess. Each entry is a kebab-case Markdown file with a name and a description that says when to read it, stored under skills/knowledge-base/references/. If nothing matches, say so — do not invent the fact.",
     };
 
     const PERSONA_CONTENT_BUDGETS = {
@@ -7141,6 +7610,11 @@ function dashboardHtml(): string {
     }
 
     function currentPersonaFileLabel() {
+      if (personaState.creatingKnowledge) return "New knowledge";
+      if (isKnowledgeDocumentOpen()) {
+        const title = readKnowledgeFields().title;
+        return title || knowledgeReferenceName(personaState.file);
+      }
       if (personaState.kind === "agent") return "agents.md";
       if (personaState.kind === "rule") {
         return personaState.name ? personaState.name + ".md" : "New rule";
@@ -7311,6 +7785,7 @@ function dashboardHtml(): string {
       const visible =
         personaState.kind === "skill" &&
         !!personaState.name &&
+        personaState.name !== KNOWLEDGE_BASE_SKILL &&
         !isCreatingPersonaEntry();
       personaFilePicker.hidden = !visible;
       if (!visible) {
@@ -7513,8 +7988,10 @@ function dashboardHtml(): string {
           ? openFile === targetPath ||
             openFile.indexOf(targetPath + "/") === 0
           : openFile === targetPath;
-        if (lostOpen) {
-          personaState.file = "SKILL.md";
+        if (lostOpen) personaState.file = "SKILL.md";
+        // SKILL.md lists the companions, so removing one leaves an open
+        // SKILL.md showing an index that no longer exists on disk.
+        if (lostOpen || personaState.file === "SKILL.md") {
           await loadPersonaFile();
         }
         renderPersonaFilePicker();
@@ -7642,6 +8119,9 @@ function dashboardHtml(): string {
     }
 
     function isPersonaMarkdownFile() {
+      if (personaState.creatingKnowledge || isKnowledgeDocumentOpen()) {
+        return true;
+      }
       return /\\.md$/i.test(currentPersonaFileLabel());
     }
 
@@ -7786,6 +8266,20 @@ function dashboardHtml(): string {
       const previewable = canPersonaPreview();
       const next = previewable && view === "preview" ? "preview" : "source";
       personaState.editorView = next;
+      const knowledgeReadonly =
+        isKnowledgeDocumentOpen() && next === "preview";
+      if (personaKnowledgeFields) {
+        personaKnowledgeFields.classList.toggle(
+          "is-readonly",
+          knowledgeReadonly
+        );
+      }
+      if (personaKnowledgeTitle) {
+        personaKnowledgeTitle.readOnly = knowledgeReadonly;
+      }
+      if (personaKnowledgeDescription) {
+        personaKnowledgeDescription.readOnly = knowledgeReadonly;
+      }
       if (personaEditBtn) {
         personaEditBtn.hidden = !previewable || next === "source";
         personaEditBtn.disabled = personaState.busy;
@@ -7812,11 +8306,20 @@ function dashboardHtml(): string {
     }
 
     async function confirmDiscardPersonaChanges(destination) {
-      if (personaEditor.value === personaState.savedContent) return true;
-      const editedLabel =
-        personaState.kind === "skill" && personaState.file !== "SKILL.md"
-          ? personaState.name + "/" + personaState.file
-          : personaState.name || "agents.md";
+      if (
+        personaEditor.value === personaState.savedContent &&
+        !knowledgeFieldsDirty()
+      ) {
+        return true;
+      }
+      const editedLabel = personaState.creatingKnowledge
+        ? readKnowledgeFields().title || "New knowledge"
+        : isKnowledgeDocumentOpen()
+          ? readKnowledgeFields().title ||
+            knowledgeReferenceName(personaState.file)
+          : personaState.kind === "skill" && personaState.file !== "SKILL.md"
+            ? personaState.name + "/" + personaState.file
+            : personaState.name || "agents.md";
       return confirmAction({
         title: "Discard unsaved changes?",
         description:
@@ -7859,15 +8362,29 @@ function dashboardHtml(): string {
     }
 
     function showPersonaNewName(show) {
+      if (!show) personaState.creatingKnowledge = false;
+      if (!show) showKnowledgeFields(false);
       personaPicker.hidden = !show;
       personaNewName.hidden = !show;
-      personaTemplateRow.hidden = !show || personaState.kind === "agent";
+      personaTemplateRow.hidden =
+        !show ||
+        personaState.kind === "agent" ||
+        personaState.creatingKnowledge;
       if (!show) personaTemplateSelect.value = "";
       clearPersonaSaveError();
       if (show) {
         renderPersonaTemplateOptions();
-        const kindLabel = personaState.kind === "skill" ? "skill" : "rule";
-        personaNewName.placeholder = "Please type a new " + kindLabel + " title";
+        const kindLabel = personaState.creatingKnowledge
+          ? "knowledge"
+          : personaState.kind === "skill"
+            ? "skill"
+            : "rule";
+        personaNewName.placeholder =
+          kindLabel === "skill"
+            ? "prd-writing"
+            : kindLabel === "rule"
+              ? "security-privacy"
+              : "Please type a new " + kindLabel + " title";
         personaNewName.value = "";
         personaNewName.focus();
       }
@@ -7926,7 +8443,12 @@ function dashboardHtml(): string {
           ? "&file=" + encodeURIComponent(personaState.file || "SKILL.md")
           : "");
       const file = await personaFetch("/api/persona/file?" + params);
-      setPersonaEditorContent(file.content);
+      if (isKnowledgeDocumentOpen()) {
+        applyKnowledgeDocument(file.content);
+      } else {
+        showKnowledgeFields(false);
+        setPersonaEditorContent(file.content);
+      }
       scrollPersonaEditorToTop();
     }
 
@@ -8012,6 +8534,8 @@ function dashboardHtml(): string {
       personaState.persona = data.persona;
       personaState.name = "";
       personaState.file = "SKILL.md";
+      personaState.creatingKnowledge = false;
+      showKnowledgeFields(false);
       personaRootInput.value = data.root;
       personaState.listing = data;
       renderPersonaBundles();
@@ -8284,6 +8808,16 @@ function dashboardHtml(): string {
     personaNewName.addEventListener("input", () => {
       clearPersonaSaveError();
     });
+    if (personaKnowledgeTitle) {
+      personaKnowledgeTitle.addEventListener("input", () => {
+        clearPersonaSaveError();
+      });
+    }
+    if (personaKnowledgeDescription) {
+      personaKnowledgeDescription.addEventListener("input", () => {
+        clearPersonaSaveError();
+      });
+    }
     if (personaEditBtn) {
       personaEditBtn.addEventListener("click", () => {
         setPersonaEditorView("source");
@@ -8297,7 +8831,12 @@ function dashboardHtml(): string {
       if (isCreatingPersonaEntry()) clearPersonaSaveError();
     });
     window.addEventListener("beforeunload", (event) => {
-      if (personaEditor.value === personaState.savedContent) return;
+      if (
+        personaEditor.value === personaState.savedContent &&
+        !knowledgeFieldsDirty()
+      ) {
+        return;
+      }
       event.preventDefault();
       event.returnValue = "";
     });
@@ -8311,6 +8850,42 @@ function dashboardHtml(): string {
       const kindLabel = personaState.kind === "skill" ? "skill" : "rule";
       const content = personaEditor.value;
       let name = personaState.name;
+
+      if (personaState.creatingKnowledge || isKnowledgeDocumentOpen()) {
+        const fields = readKnowledgeFields();
+        if (!fields.title) {
+          showPersonaSaveError("Enter a title for this knowledge.");
+          if (personaKnowledgeTitle) personaKnowledgeTitle.focus();
+          return;
+        }
+        if (!fields.description) {
+          showPersonaSaveError("Enter a description for this knowledge.");
+          if (personaKnowledgeDescription) personaKnowledgeDescription.focus();
+          return;
+        }
+        if (!content.trim()) {
+          showPersonaSaveError("Enter content for this knowledge.");
+          focusPersonaEditor();
+          return;
+        }
+        if (personaState.creatingKnowledge) {
+          await createKnowledgeEntry(
+            fields.title,
+            fields.description,
+            content
+          );
+          return;
+        }
+        name = KNOWLEDGE_BASE_SKILL;
+      }
+
+      const saveContent = isKnowledgeDocumentOpen()
+        ? buildKnowledgeDocument(
+            readKnowledgeFields().title,
+            readKnowledgeFields().description,
+            content
+          )
+        : content;
 
       if (creating) {
         name = personaNewName.value.trim();
@@ -8348,12 +8923,13 @@ function dashboardHtml(): string {
               personaState.kind === "skill" && !creating
                 ? personaState.file
                 : undefined,
-            content,
+            content: saveContent,
           }),
         });
         if (creating) showPersonaNewName(false);
-        const savedLabel =
-          personaState.kind === "agent"
+        const savedLabel = isKnowledgeDocumentOpen()
+          ? readKnowledgeFields().title
+          : personaState.kind === "agent"
             ? "Instruction"
             : personaState.kind === "skill" &&
                 !creating &&
@@ -8370,11 +8946,15 @@ function dashboardHtml(): string {
         );
         syncPersonaEntryForm();
         renderPersonaRegistry();
-        setPersonaEditorContent(
+        const nextContent =
           data.saved && typeof data.saved.content === "string"
             ? data.saved.content
-            : content
-        );
+            : saveContent;
+        if (isKnowledgeDocumentOpen()) {
+          applyKnowledgeDocument(nextContent);
+        } else {
+          setPersonaEditorContent(nextContent);
+        }
         if (hasSavedTokens(lastStatus)) await loadRemotePersonas();
       } catch (e) {
         if (creating) {
@@ -8397,13 +8977,42 @@ function dashboardHtml(): string {
         return;
       }
       clearPersonaDeployError();
-      const content = personaEditor.value;
-      if (!content.trim()) {
+      // An unsaved knowledge draft has no file name yet, so applying it would
+      // land on the knowledge-base SKILL.md instead.
+      if (personaState.creatingKnowledge) {
+        showPersonaDeployError(
+          "Save the new knowledge before applying this Persona."
+        );
+        return;
+      }
+      if (isKnowledgeIndexOpen()) {
+        showPersonaDeployError(
+          "The knowledge-base index is managed automatically. Open a knowledge document or another file before applying."
+        );
+        return;
+      }
+      const content = isKnowledgeDocumentOpen()
+        ? buildKnowledgeDocument(
+            readKnowledgeFields().title,
+            readKnowledgeFields().description,
+            personaEditor.value
+          )
+        : personaEditor.value;
+      if (!personaEditor.value.trim()) {
         showPersonaDeployError(
           "Content cannot be empty. Save or select another file before applying."
         );
         focusPersonaEditor();
         return;
+      }
+      if (isKnowledgeDocumentOpen()) {
+        const fields = readKnowledgeFields();
+        if (!fields.title || !fields.description) {
+          showPersonaDeployError(
+            "Title and description are required before applying this knowledge."
+          );
+          return;
+        }
       }
 
       const confirm = await confirmPersonaDeploy(
@@ -8450,7 +9059,7 @@ function dashboardHtml(): string {
         await loadPersonaListing(root, personaState.persona);
         syncPersonaEntryForm();
         renderPersonaRegistry();
-        setPersonaEditorContent(
+        setOpenPersonaFileContent(
           data.file && typeof data.file.content === "string"
             ? data.file.content
             : content
@@ -8464,7 +9073,7 @@ function dashboardHtml(): string {
         );
       } catch (e) {
         if (e.saved) {
-          setPersonaEditorContent(
+          setOpenPersonaFileContent(
             e.file && typeof e.file.content === "string"
               ? e.file.content
               : content
@@ -8488,12 +9097,37 @@ function dashboardHtml(): string {
       // the Persona currently open in Personal, include its editor contents
       // even when Save was not clicked yet.
       const isOpen = persona === personaState.persona;
+      if (isOpen && personaState.creatingKnowledge) {
+        showToast("Save the new knowledge before publishing.", "error");
+        return;
+      }
+      if (isOpen && isKnowledgeDocumentOpen()) {
+        const fields = readKnowledgeFields();
+        if (!fields.title || !fields.description) {
+          showToast(
+            "Title and description are required before publishing this knowledge.",
+            "error"
+          );
+          return;
+        }
+      }
       const isFirstPublish =
         personaSyncStatus(persona).state === "local-only";
       const hasUnsavedChanges =
-        isOpen && personaEditor.value !== personaState.savedContent;
-      const content = isOpen ? personaEditor.value : "";
-      if (hasUnsavedChanges && !content.trim()) {
+        isOpen &&
+        (personaEditor.value !== personaState.savedContent ||
+          knowledgeFieldsDirty());
+      const content =
+        isOpen && isKnowledgeDocumentOpen()
+          ? buildKnowledgeDocument(
+              readKnowledgeFields().title,
+              readKnowledgeFields().description,
+              personaEditor.value
+            )
+          : isOpen && !isKnowledgeIndexOpen()
+            ? personaEditor.value
+            : "";
+      if (hasUnsavedChanges && !personaEditor.value.trim()) {
         showToast(
           "Unsaved content is empty. Save valid content before updating.",
           "error"
@@ -8545,7 +9179,7 @@ function dashboardHtml(): string {
         // The route skips the disk write when the editor is empty, so the
         // unsaved marker may only clear when it says the write happened.
         if (data.saved) {
-          setPersonaEditorContent(
+          setOpenPersonaFileContent(
             data.file && typeof data.file.content === "string"
               ? data.file.content
               : content
@@ -8570,7 +9204,7 @@ function dashboardHtml(): string {
         showToast(message, "success");
       } catch (e) {
         if (e.saved) {
-          setPersonaEditorContent(
+          setOpenPersonaFileContent(
             e.file && typeof e.file.content === "string"
               ? e.file.content
               : content
@@ -8627,7 +9261,15 @@ function dashboardHtml(): string {
       }
       const samePersona = persona === personaState.persona;
       const hasUnsavedChanges =
-        samePersona && personaEditor.value !== personaState.savedContent;
+        samePersona &&
+        (personaEditor.value !== personaState.savedContent ||
+          knowledgeFieldsDirty());
+      if (samePersona && personaState.creatingKnowledge) {
+        showPersonaSaveError(
+          "Save the new knowledge before getting the organization version."
+        );
+        return;
+      }
       const draftName =
         samePersona && personaState.kind !== "agent"
           ? personaState.name ||
@@ -8678,13 +9320,19 @@ function dashboardHtml(): string {
       // back to SKILL.md, so preserving an edited companion would overwrite
       // the Skill's own SKILL.md and lose both files at once.
       const preserve =
-        samePersona && personaEditor.value !== personaState.savedContent
+        hasUnsavedChanges
           ? {
               kind: personaState.kind,
               name: draftName,
               file:
                 personaState.kind === "skill" ? personaState.file : undefined,
-              content: personaEditor.value,
+              content: isKnowledgeDocumentOpen()
+                ? buildKnowledgeDocument(
+                    readKnowledgeFields().title,
+                    readKnowledgeFields().description,
+                    personaEditor.value
+                  )
+                : personaEditor.value,
             }
           : null;
       personaBusy(true);
@@ -8717,10 +9365,14 @@ function dashboardHtml(): string {
           // may have removed the file, in which case SKILL.md is the only
           // honest place to land.
           if (openKind === "skill" && personaState.name === openName) {
-            personaState.file =
-              currentSkillFiles().indexOf(openFile) !== -1
-                ? openFile
-                : "SKILL.md";
+            if (openName === KNOWLEDGE_BASE_SKILL) {
+              landAfterKnowledgeRemoval(openFile);
+            } else {
+              personaState.file =
+                currentSkillFiles().indexOf(openFile) !== -1
+                  ? openFile
+                  : "SKILL.md";
+            }
           }
           syncPersonaEntryForm();
           await loadPersonaFile();
@@ -8759,10 +9411,16 @@ function dashboardHtml(): string {
         showToast(message, "success");
       } catch (e) {
         if (e.saved && samePersona) {
-          setPersonaEditorContent(
+          setOpenPersonaFileContent(
             e.file && typeof e.file.content === "string"
               ? e.file.content
-              : personaEditor.value
+              : isKnowledgeDocumentOpen()
+                ? buildKnowledgeDocument(
+                    readKnowledgeFields().title,
+                    readKnowledgeFields().description,
+                    personaEditor.value
+                  )
+                : personaEditor.value
           );
         }
         showToast(e.message || "Get from remote failed", "error");
@@ -8780,6 +9438,12 @@ function dashboardHtml(): string {
       personaCancelBtn.addEventListener("click", async () => {
         if (personaCancelBtn.hidden) return;
         if (!(await confirmDiscardPersonaChanges("leave edit mode"))) return;
+        if (isKnowledgeDocumentOpen()) {
+          showKnowledgeFields(true, {
+            title: personaState.savedKnowledgeTitle,
+            description: personaState.savedKnowledgeDescription,
+          });
+        }
         setPersonaEditorContent(personaState.savedContent, true);
       });
     }
@@ -8834,11 +9498,25 @@ function dashboardHtml(): string {
 
         setProfileRow("org-name", am.organizationName);
         setProfileRow("org-id", am.organizationId || activeTok.organizationId);
+        setProfilePlanRow(am.plan);
         setProfileRow("project-name", am.projectName);
         setProfileRow("project-id", am.projectId || activeTok.projectId);
       }
 
       updateSessionHeader(s);
+    }
+
+    function setProfilePlanRow(plan) {
+      const row = document.getElementById("profile-row-plan");
+      const valueEl = document.getElementById("profile-plan");
+      if (!row || !valueEl) return;
+      if (plan) {
+        valueEl.innerHTML = planBadgeHtml(plan);
+        row.hidden = false;
+      } else {
+        valueEl.textContent = "";
+        row.hidden = true;
+      }
     }
 
     // Rows without a value are removed rather than rendered as a placeholder.
@@ -9221,6 +9899,16 @@ async function handlePersonaRoute(params: {
             content: entry.content,
           });
         }
+        for (const entry of template.knowledge) {
+          await savePersonaFile({
+            root,
+            persona,
+            kind: 'skill',
+            name: KNOWLEDGE_BASE_SKILL_NAME,
+            file: `references/${entry.name}.md`,
+            content: entry.content,
+          });
+        }
       } catch (error) {
         await deletePersona(persona).catch(() => {});
         throw error;
@@ -9399,12 +10087,22 @@ async function handlePersonaRoute(params: {
       if (kind !== 'agent' && !name.trim()) {
         throw new Error('Select a Rule or Skill before applying.');
       }
+      const skillFile = typeof body.file === 'string' ? body.file : undefined;
+      const writingKnowledgeIndex =
+        kind === 'skill' &&
+        name === KNOWLEDGE_BASE_SKILL_NAME &&
+        (!skillFile || skillFile === 'SKILL.md');
+      if (writingKnowledgeIndex) {
+        throw new Error(
+          `${KNOWLEDGE_BASE_SKILL_NAME}/SKILL.md is managed automatically and cannot be saved directly.`,
+        );
+      }
       const savedFile = await savePersonaFile({
         root,
         persona,
         kind,
         name,
-        file: typeof body.file === 'string' ? body.file : undefined,
+        file: skillFile,
         content,
       });
       const deployed = await deployPersona({
@@ -9470,8 +10168,15 @@ async function handlePersonaRoute(params: {
       // Stays a boolean: the error path below compares it with `=== true`, so
       // a truthy string would be dropped and a completed write reported as if
       // it never happened.
+      const skillFile = typeof body.file === 'string' ? body.file : undefined;
+      const writingKnowledgeIndex =
+        kind === 'skill' &&
+        name === KNOWLEDGE_BASE_SKILL_NAME &&
+        (!skillFile || skillFile === 'SKILL.md');
       const saved =
-        content.trim() !== '' && (kind === 'agent' || name.trim() !== '');
+        content.trim() !== '' &&
+        (kind === 'agent' || name.trim() !== '') &&
+        !writingKnowledgeIndex;
       let savedFile: Awaited<ReturnType<typeof savePersonaFile>> | undefined;
       if (saved) {
         savedFile = await savePersonaFile({
@@ -9482,7 +10187,7 @@ async function handlePersonaRoute(params: {
           persona,
           kind,
           name,
-          file: typeof body.file === 'string' ? body.file : undefined,
+          file: skillFile,
           content,
         });
       }
@@ -9606,6 +10311,50 @@ async function handlePersonaRoute(params: {
         ...(deployed.ok
           ? {}
           : { error: deployed.output || 'transcodes sync generate failed' }),
+      });
+      return;
+    }
+
+    if (method === 'POST' && url === '/api/persona/create-reference') {
+      const body = await readJsonBody(req);
+      if (typeof body.persona !== 'string' || !body.persona.trim()) {
+        throw new Error('Select a Persona first.');
+      }
+      if (typeof body.name !== 'string' || !body.name.trim()) {
+        throw new Error('Knowledge name is required.');
+      }
+      const persona = body.persona;
+      const root =
+        typeof body.root === 'string' && body.root.trim()
+          ? body.root
+          : undefined;
+      const content = typeof body.content === 'string' ? body.content : '';
+      if (Buffer.byteLength(content, 'utf8') > MAX_PERSONA_FILE_BYTES) {
+        throw new HttpError(413, 'Files larger than 5 MB cannot be added.');
+      }
+      const reference = `references/${knowledgeFileSlug(body.name)}.md`;
+      // Personas created before the knowledge base existed (or pulled from
+      // another machine) grow the Skill on their first knowledge document.
+      await ensureKnowledgeBaseSkill(persona);
+      const existing = await listPersona(root, persona);
+      const knowledgeSkill = existing.skills.find(
+        (entry) => entry.name === KNOWLEDGE_BASE_SKILL_NAME,
+      );
+      if (knowledgeSkill?.files?.includes(reference)) {
+        throw new Error(`"${reference}" already exists.`);
+      }
+      const saved = await savePersonaFile({
+        root,
+        persona,
+        kind: 'skill',
+        name: KNOWLEDGE_BASE_SKILL_NAME,
+        file: reference,
+        content,
+      });
+      sendJson(res, 200, {
+        ok: true,
+        saved,
+        ...(await listPersona(root, persona)),
       });
       return;
     }

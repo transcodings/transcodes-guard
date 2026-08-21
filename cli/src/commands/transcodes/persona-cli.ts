@@ -11,7 +11,9 @@ import {
   createPersona,
   deletePersona,
   deletePersonaFile,
+  deleteSkillPath,
   deployPersona,
+  KNOWLEDGE_BASE_SKILL_NAME,
   listPersona,
   type PersonaKind,
   readPersonaFile,
@@ -19,13 +21,18 @@ import {
   savePersonaFile,
 } from './persona.js';
 import {
+  fetchPersonaRevisions,
+  loadPersonaConfig,
+  updatePersonaTag,
+} from './persona-api.js';
+import {
   clearPersonaSyncRevision,
   pullPersonaSync,
   pushPersonaSync,
 } from './persona-sync.js';
 
 const PERSONA_USAGE =
-  'transcodes persona <list|create|read|save|delete|delete-file|deploy|push|pull>';
+  'transcodes persona <list|create|read|save|delete|delete-file|delete-reference|deploy|push|pull|log|tag>';
 
 const DEPLOY_TARGET_ALIASES = {
   claude: 'claudecode',
@@ -45,7 +52,13 @@ const ALL_DEPLOY_TARGETS = [
   'antigravity-ide',
 ] as const;
 
-const BOOLEAN_FLAGS = new Set(['global', 'installed', 'yes', 'dry-run']);
+const BOOLEAN_FLAGS = new Set([
+  'global',
+  'installed',
+  'yes',
+  'dry-run',
+  'delete',
+]);
 
 type ParsedArgs = {
   positionals: string[];
@@ -110,7 +123,7 @@ function skillFileFlag(
   const file = optionalFlag(parsed, 'file');
   if (file && kind !== 'skill') {
     throw new Error(
-      '--file applies to --kind skill only (skill-root-relative path such as scripts/extract.py or references/REFERENCE.md).',
+      '--file applies to --kind skill only (skill-root-relative path such as scripts/extract.py or references/billing-api.md).',
     );
   }
   return file;
@@ -269,14 +282,17 @@ export async function cmdPersona(args: string[]): Promise<void> {
   transcodes persona read --persona NAME --kind agent|rule|skill [--name NAME] [--file SKILL_FILE]
   transcodes persona save --persona NAME --kind agent|rule|skill [--name NAME] [--file SKILL_FILE] (--stdin | --content-file PATH)
       --file targets a companion file inside a skill folder (e.g. scripts/extract.py,
-      references/REFERENCE.md); omit it to read/save the skill's SKILL.md.
+      references/billing-api.md); omit it to read/save the skill's SKILL.md.
   transcodes persona delete NAME
   transcodes persona delete-file --persona NAME --kind agent|rule|skill [--name NAME]
+  transcodes persona delete-reference --persona NAME --file references/billing-api.md
   transcodes persona deploy --persona NAME --project FOLDER --targets claude,cursor,chatgpt,antigravity|all --yes
   transcodes persona deploy --persona NAME --global [--targets claude,chatgpt,antigravity] --yes
   transcodes persona deploy ... --dry-run   (list what would be written and deleted; writes nothing, no --yes needed)
-  transcodes persona push --persona NAME
-  transcodes persona pull --persona NAME
+  transcodes persona push --persona NAME [--tag TAG]
+  transcodes persona pull --persona NAME[@REF] [--revision N | --tag TAG]
+  transcodes persona log --persona NAME
+  transcodes persona tag --persona NAME --revision N [--tag TAG | --delete]
 `,
     );
     return;
@@ -352,6 +368,21 @@ export async function cmdPersona(args: string[]): Promise<void> {
       );
       return;
     }
+    case 'delete-reference': {
+      const root = optionalFlag(parsed, 'root');
+      const persona = requiredFlag(parsed, 'persona');
+      const file = requiredFlag(parsed, 'file');
+      await checkedPersonaListing(root, persona);
+      printJson(
+        await deleteSkillPath({
+          root,
+          persona,
+          name: KNOWLEDGE_BASE_SKILL_NAME,
+          path: file,
+        }),
+      );
+      return;
+    }
     case 'deploy': {
       const persona = requiredFlag(parsed, 'persona');
       const { root, targets, mode } = await resolveDeployDestination(parsed);
@@ -401,11 +432,44 @@ export async function cmdPersona(args: string[]): Promise<void> {
       return;
     }
     case 'push': {
-      printJson(await pushPersonaSync(requiredFlag(parsed, 'persona')));
+      const persona = requiredFlag(parsed, 'persona');
+      const tag = optionalFlag(parsed, 'tag');
+      printJson(await pushPersonaSync(persona, tag));
       return;
     }
     case 'pull': {
-      printJson(await pullPersonaSync(requiredFlag(parsed, 'persona')));
+      let persona = requiredFlag(parsed, 'persona');
+      let ref =
+        optionalFlag(parsed, 'ref') ??
+        optionalFlag(parsed, 'revision') ??
+        optionalFlag(parsed, 'tag');
+      if (persona.includes('@')) {
+        const [p, r] = persona.split('@', 2);
+        persona = p!;
+        ref = ref ?? r;
+      }
+      printJson(await pullPersonaSync(persona, ref));
+      return;
+    }
+    case 'log':
+    case 'history':
+    case 'revisions': {
+      const persona = parsed.positionals[0] ?? requiredFlag(parsed, 'persona');
+      const config = loadPersonaConfig();
+      printJson(await fetchPersonaRevisions(config, persona));
+      return;
+    }
+    case 'tag': {
+      const persona = requiredFlag(parsed, 'persona');
+      const revStr = requiredFlag(parsed, 'revision');
+      const revision = Number.parseInt(revStr, 10);
+      if (Number.isNaN(revision)) {
+        throw new Error('--revision must be an integer.');
+      }
+      const isDelete = parsed.flags.get('delete') === 'true';
+      const tag = isDelete ? null : requiredFlag(parsed, 'tag');
+      const config = loadPersonaConfig();
+      printJson(await updatePersonaTag(config, persona, revision, tag));
       return;
     }
     default:

@@ -69,7 +69,17 @@ export type PersonaErrorCode =
   | 'PERSONA_REVISION_MISMATCH'
   | 'PERSONA_COMMIT_TOKEN_INVALID'
   | 'PERSONA_MANIFEST_CONFLICT'
-  | 'PERSONA_BLOB_NOT_UPLOADED';
+  | 'PERSONA_BLOB_NOT_UPLOADED'
+  | 'PERSONA_TAG_ALREADY_EXISTS'
+  | 'PERSONA_REVISION_NOT_FOUND';
+
+export type PersonaRevisionItem = {
+  revision: number;
+  tag?: string | null;
+  created_at: string;
+  created_by_name?: string;
+  created_by_email?: string;
+};
 
 export class PersonaApiError extends Error {
   readonly status: number;
@@ -161,11 +171,62 @@ export async function commitPersona(
   config: StepupConfig,
   personaId: string,
   commitToken: string,
+  tag?: string,
 ): Promise<{ revision: number }> {
   const envelope = await request(config, {
     method: 'POST',
     path: `/persona/${encodeURIComponent(personaId)}/commit`,
-    body: { commit_token: commitToken },
+    body: { commit_token: commitToken, tag },
   });
   return payloadObject<{ revision: number }>(envelope);
+}
+
+export async function fetchPersonaRevisions(
+  config: StepupConfig,
+  personaId: string,
+): Promise<PersonaRevisionItem[]> {
+  const envelope = await request(config, {
+    method: 'GET',
+    path: `/persona/${encodeURIComponent(personaId)}/revisions`,
+  });
+  if (envelope.status === 404) {
+    throw new PersonaApiError(
+      `Persona "${personaId}" does not exist in your organization.`,
+      404,
+    );
+  }
+  assertOk(envelope);
+  return payloadArray<PersonaRevisionItem>(envelope);
+}
+
+export async function fetchPersonaRevisionDetail(
+  config: StepupConfig,
+  personaId: string,
+  ref: string,
+): Promise<PersonaDetail> {
+  const envelope = await request(config, {
+    method: 'GET',
+    path: `/persona/${encodeURIComponent(personaId)}/revisions/${encodeURIComponent(ref)}`,
+  });
+  if (envelope.status === 404) {
+    throw new PersonaApiError(
+      `Revision or tag "${ref}" not found for Persona "${personaId}".`,
+      404,
+    );
+  }
+  return payloadObject<PersonaDetail>(envelope);
+}
+
+export async function updatePersonaTag(
+  config: StepupConfig,
+  personaId: string,
+  revision: number,
+  tag: string | null,
+): Promise<{ revision: number; tag?: string | null }> {
+  const envelope = await request(config, {
+    method: 'PATCH',
+    path: `/persona/${encodeURIComponent(personaId)}/revisions/${revision}/tag`,
+    body: { tag },
+  });
+  return payloadObject<{ revision: number; tag?: string | null }>(envelope);
 }

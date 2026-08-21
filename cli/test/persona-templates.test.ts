@@ -54,6 +54,10 @@ test('Minimum ships the starter Rule and Skill structure', () => {
     minimum.skills.map((entry) => entry.name),
     ['example-skill'],
   );
+  assert.deepEqual(
+    minimum.knowledge.map((entry) => entry.name),
+    ['what-belongs-here', 'project-facts'],
+  );
   const starterRule = minimum.rules.find(
     (entry) => entry.name === 'example-rule',
   );
@@ -107,6 +111,11 @@ test('template instructions match the generated Instruction contract', () => {
     assert.ok(
       instruction.includes(APPLIED_RULES_SKILLS_OUTPUT_LINE),
       `${id} instruction is missing the attribution line`,
+    );
+    assert.match(
+      instruction,
+      /Read the Knowledge Base entry whose description matches/,
+      `${id} instruction does not tell the agent to read Knowledge Base`,
     );
   }
 });
@@ -185,6 +194,16 @@ test('summaries expose card metadata without the bundle bodies', () => {
     assert.deepEqual(
       summary.skills,
       template.skills.map((skill) => skill.name),
+    );
+    assert.deepEqual(summary.knowledge, [
+      'knowledge-base',
+      ...template.knowledge.map((entry) => entry.name),
+    ]);
+    assert.ok(template.knowledge.length >= 2);
+    assert.equal(template.knowledge[0]?.name, 'what-belongs-here');
+    assert.match(
+      template.knowledge[0]?.content ?? '',
+      /When should this knowledge be referenced/,
     );
     assert.ok(!('instruction' in summary));
   }
