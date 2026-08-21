@@ -32,8 +32,9 @@ import {
   RULESYNC_SKILLS_RELATIVE_DIR_PATH,
 } from '../sync/constants/rulesync-paths.js';
 import {
-  APPLIED_RULES_SKILLS_OUTPUT_LINE,
   createFeatureScaffold,
+  TRANSCODES_ATTRIBUTION_OUTPUT_MARKER,
+  transcodesAttributionOutputLine,
 } from '../sync/lib/feature-scaffold.js';
 import { parseFrontmatter } from '../sync/utils/frontmatter.js';
 
@@ -933,6 +934,7 @@ async function copyIfExists(source: string, target: string): Promise<void> {
 async function stagePersonaInstruction(
   source: string,
   target: string,
+  persona: string,
 ): Promise<void> {
   let content: string;
   try {
@@ -941,9 +943,21 @@ async function stagePersonaInstruction(
     return;
   }
 
-  const body = sanitizePersonaContent('agent', content).replace(/\s+$/, '');
+  const body = sanitizePersonaContent('agent', content, persona).replace(
+    /\s+$/,
+    '',
+  );
+
+  const frontmatter = `---
+description: Transcodes Persona "${persona}"
+cursor:
+  alwaysApply: true
+---
+
+`;
+
   await mkdir(path.dirname(target), { recursive: true });
-  await writeFile(target, `${body}\n`, 'utf-8');
+  await writeFile(target, `${frontmatter}${body}\n`, 'utf-8');
 }
 
 async function stagePersonaSkills(
@@ -988,7 +1002,10 @@ export async function createPersona(name: string): Promise<string> {
       PERSONA_INSTRUCTION_DIR_NAME,
       RULESYNC_OVERVIEW_FILE_NAME,
     );
-    const instruction = `${starterTemplate('agent', '').replace(/\s+$/, '')}\n`;
+    const instruction = `${starterTemplate('agent', '', persona).replace(
+      /\s+$/,
+      '',
+    )}\n`;
     await mkdir(path.dirname(instructionPath), { recursive: true });
     await writeFile(instructionPath, instruction, 'utf-8');
     await ensureKnowledgeBaseSkill(persona);
@@ -1542,7 +1559,7 @@ export async function readPersonaFile(params: {
       relativePath,
       absolutePath,
       exists: true,
-      content: sanitizePersonaContent(params.kind, content),
+      content: sanitizePersonaContent(params.kind, content, persona),
     };
   } catch {
     return {
@@ -1552,7 +1569,7 @@ export async function readPersonaFile(params: {
       relativePath,
       absolutePath,
       exists: false,
-      content: starterTemplate(params.kind, name),
+      content: starterTemplate(params.kind, name, persona),
     };
   }
 }
@@ -1609,7 +1626,11 @@ export async function readPersonaAsset(params: {
   }
 }
 
-const LEGACY_APPLIED_RULES_SKILLS_OUTPUT_LINES = new Set([
+const LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_MARKER =
+  'When completing a task, end the response with exactly one short Transcodes attribution line';
+
+const LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_LINES = new Set([
+  '- When any Rule or Skill is applied, you MUST end the response with exactly one attribution line in this format: `Applied: Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none>`. Use the exact Rule and Skill names, include every applied item, and never replace names with generic descriptions. Omit this line only when no Rule or Skill was applied.',
   '- If any Rules or Skills were applied, you MUST include a list of the names of the Rules and Skills in the response.',
   '- End each response with exactly one short line: `Applied: Rules <names> · Skills <names>`. Include names only, omit empty categories, and omit the entire line when no Rule or Skill was applied.',
   '- Start each response with exactly one short line: `Applied: Rules [<names>] · Skills [<names>]`. Include names only, omit empty categories, and omit the entire line when no Rule or Skill was applied.',
@@ -1617,40 +1638,57 @@ const LEGACY_APPLIED_RULES_SKILLS_OUTPUT_LINES = new Set([
   '- If any Rules or Skills were applied, you MUST briefly identify which ones in the response.',
 ]);
 
-/** Keep mandatory Rule/Skill attribution in every generated host Instruction. */
-export function ensurePersonaInstructionOutput(content: string): string {
+/** Keep mandatory Transcodes attribution in every generated host Instruction. */
+export function ensurePersonaInstructionOutput(
+  content: string,
+  persona?: string,
+): string {
   const lines = content.split(/\r?\n/);
+  const outputLine = transcodesAttributionOutputLine(persona);
   const isAttributionLine = (line: string): boolean => {
     const normalized = line.trim();
     return (
-      normalized === APPLIED_RULES_SKILLS_OUTPUT_LINE ||
-      LEGACY_APPLIED_RULES_SKILLS_OUTPUT_LINES.has(normalized)
+      normalized.includes(TRANSCODES_ATTRIBUTION_OUTPUT_MARKER) ||
+      normalized.includes(LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_MARKER) ||
+      LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_LINES.has(normalized)
     );
   };
-  const existingIndex = lines.findIndex(isAttributionLine);
 
-  if (existingIndex >= 0) {
-    lines[existingIndex] = APPLIED_RULES_SKILLS_OUTPUT_LINE;
-    return lines
-      .filter(
-        (line, index) => index === existingIndex || !isAttributionLine(line),
-      )
-      .join('\n');
-  }
+  const cleanLines = lines.filter((line) => !isAttributionLine(line));
 
-  const outputIndex = lines.findIndex((line) => line.trim() === '# Output');
+  const outputIndex = cleanLines.findIndex(
+    (line) => line.trim() === '# Output',
+  );
   if (outputIndex >= 0) {
-    lines.splice(outputIndex + 1, 0, APPLIED_RULES_SKILLS_OUTPUT_LINE);
-    return lines.join('\n');
+    let nextHeadingIndex = cleanLines.findIndex(
+      (line, idx) => idx > outputIndex && line.trim().startsWith('# '),
+    );
+    if (nextHeadingIndex === -1) {
+      nextHeadingIndex = cleanLines.length;
+    }
+
+    if (
+      nextHeadingIndex > 0 &&
+      cleanLines[nextHeadingIndex - 1].trim() !== ''
+    ) {
+      cleanLines.splice(nextHeadingIndex, 0, '', outputLine);
+    } else {
+      cleanLines.splice(nextHeadingIndex, 0, outputLine);
+    }
+    return cleanLines.join('\n');
   }
 
-  const body = content.replace(/\s+$/, '');
-  return `${body}${body ? '\n\n' : ''}# Output\n${APPLIED_RULES_SKILLS_OUTPUT_LINE}\n`;
+  const body = cleanLines.join('\n').replace(/\s+$/, '');
+  return `${body}${body ? '\n\n' : ''}# Output\n\n${outputLine}\n`;
 }
 
-function sanitizePersonaContent(kind: PersonaKind, content: string): string {
+function sanitizePersonaContent(
+  kind: PersonaKind,
+  content: string,
+  persona?: string,
+): string {
   return kind === 'agent'
-    ? ensurePersonaInstructionOutput(stripLeadingFrontmatter(content))
+    ? ensurePersonaInstructionOutput(stripLeadingFrontmatter(content), persona)
     : stripLegacyTargetsFrontmatter(content);
 }
 
@@ -1669,12 +1707,16 @@ function synchronizeSkillName(content: string, name: string): string {
   return synchronized + body;
 }
 
-function starterTemplate(kind: PersonaKind, name: string): string {
+function starterTemplate(
+  kind: PersonaKind,
+  name: string,
+  persona?: string,
+): string {
   const scaffold = createFeatureScaffold({
     feature: kind === 'skill' ? 'skill' : 'rule',
     name: kind === 'agent' ? 'agents' : name,
   });
-  return sanitizePersonaContent(kind, scaffold.content);
+  return sanitizePersonaContent(kind, scaffold.content, persona);
 }
 
 export async function savePersonaFile(params: {
@@ -1772,7 +1814,11 @@ export async function savePersonaFile(params: {
     personaBundleRelativePath(params.kind, name),
   );
 
-  const sanitized = sanitizePersonaContent(params.kind, params.content);
+  const sanitized = sanitizePersonaContent(
+    params.kind,
+    params.content,
+    persona,
+  );
   const synchronized =
     params.kind === 'skill' ? synchronizeSkillName(sanitized, name) : sanitized;
   let content = `${synchronized.replace(/\s+$/, '')}\n`;
@@ -2006,6 +2052,7 @@ export async function deployPersona(params?: {
         RULESYNC_AGENTS_RELATIVE_DIR_PATH,
         RULESYNC_OVERVIEW_FILE_NAME,
       ),
+      persona,
     ),
     copyIfExists(
       path.join(listing.personaDir, 'rules'),

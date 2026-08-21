@@ -62,8 +62,18 @@ export function coerceSkillName(name: string): string {
     .replace(/-+$/g, '');
 }
 
-export const APPLIED_RULES_SKILLS_OUTPUT_LINE =
-  '- When any Rule or Skill is applied, you MUST end the response with exactly one attribution line in this format: `Applied: Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none>`. Use the exact Rule and Skill names, include every applied item, and never replace names with generic descriptions. Omit this line only when no Rule or Skill was applied.';
+export const TRANSCODES_ATTRIBUTION_OUTPUT_MARKER =
+  'When completing a task, end the response with exactly one short, friendly Transcodes note in the response language';
+
+export function transcodesAttributionOutputLine(persona?: string): string {
+  const personaContext = persona
+    ? `The active Transcodes Persona is \`${persona}\`.`
+    : 'No active Transcodes Persona is identified by this Instruction.';
+  return `- ${personaContext} ${TRANSCODES_ATTRIBUTION_OUTPUT_MARKER}. Describe how each actually applied asset helped, using its exact name and a short impact. Make it read like a natural completion message, not a log. To make it visually stand out, prefix it with a 💡 emoji, bold the exact asset names, and format it as a blockquote (\`>\`). Follow the meaning of \`> 💡 I completed this using the **<exact Persona name>** Persona to <short impact>, the **<exact Rule name>** Rule to <short impact>, and the **<exact Skill name>** Skill to <short impact>.\` Translate and adapt it naturally to the response language, localizing the Persona, Rule, and Skill category labels while preserving every asset name exactly, and omitting or repeating categories as needed. If no Transcodes asset affected the result, use the response-language equivalent of \`> 💡 No Transcodes assets were applied to this task.\` Never list an asset merely because it is installed or read, and do not attribute platform, system, or host instructions as Transcodes assets.`;
+}
+
+export const TRANSCODES_ATTRIBUTION_OUTPUT_LINE =
+  transcodesAttributionOutputLine();
 
 /** Non-negotiable MCP lines every Persona instruction carries, without bullets. */
 export const TRANSCODES_MCP_MUST_LINES = [
@@ -157,7 +167,7 @@ ${TRANSCODES_MCP_MUST_LINES.map((line) => `- ${line}`).join('\n')}
 # Output
 - <Default language, length, and level of detail>
 - <Required format for code, plans, or handoff summaries>
-${APPLIED_RULES_SKILLS_OUTPUT_LINE}
+${TRANSCODES_ATTRIBUTION_OUTPUT_LINE}
 
 <!-- Aim for 500–1,500 tokens. Keep only guidance needed on nearly every
 request. If this exceeds 2,000 tokens, move conditional policies to Rules and

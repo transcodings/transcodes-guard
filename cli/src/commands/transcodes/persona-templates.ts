@@ -7,7 +7,7 @@
  * `description`/`globs`, and Skills whose frontmatter `name` matches the folder.
  */
 import {
-  APPLIED_RULES_SKILLS_OUTPUT_LINE,
+  TRANSCODES_ATTRIBUTION_OUTPUT_LINE,
   TRANSCODES_MCP_MUST_LINES,
 } from '../sync/lib/feature-scaffold.js';
 import {
@@ -75,7 +75,7 @@ ${bullets([...TRANSCODES_MCP_MUST_LINES])}
 
 # Output
 ${bullets(params.output)}
-${APPLIED_RULES_SKILLS_OUTPUT_LINE}
+${TRANSCODES_ATTRIBUTION_OUTPUT_LINE}
 `;
 }
 
