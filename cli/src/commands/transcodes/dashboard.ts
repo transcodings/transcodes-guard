@@ -2061,7 +2061,7 @@ function dashboardHtml(): string {
     .persona-sync-row,
     .persona-sync-head {
       display: grid;
-      grid-template-columns: minmax(140px, 1.1fr) 64px 64px minmax(100px, 0.55fr) minmax(150px, 1fr) minmax(92px, max-content);
+      grid-template-columns: minmax(140px, 1.1fr) 64px minmax(88px, 0.8fr) 64px minmax(100px, 0.55fr) minmax(150px, 1fr) minmax(92px, max-content);
       align-items: center;
       gap: 10px 16px;
       min-width: 0;
@@ -2074,6 +2074,7 @@ function dashboardHtml(): string {
     }
     .persona-sync-head .persona-sync-row-name,
     .persona-sync-head .persona-sync-row-ver,
+    .persona-sync-head .persona-sync-row-tag,
     .persona-sync-head .persona-sync-row-status,
     .persona-sync-head .persona-sync-row-updated {
       color: #8a8a94;
@@ -2100,6 +2101,22 @@ function dashboardHtml(): string {
       font-variant-numeric: tabular-nums;
       letter-spacing: 0.01em;
       text-align: center;
+    }
+    .persona-sync-row-tag {
+      margin: 0;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1.35;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .persona-sync-row-tag.is-empty {
+      color: var(--muted);
+      font-style: italic;
+      font-weight: 500;
     }
     .persona-sync-row-status {
       margin: 0;
@@ -3732,6 +3749,14 @@ function dashboardHtml(): string {
       line-height: 1.5;
       margin: 0;
     }
+    .guide-step-emphasis {
+      margin: 8px 0 0;
+      font-size: var(--text-sm);
+      font-weight: 800;
+      line-height: 1.45;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
     .guide-step-desc a,
     .guide-console-link {
       color: var(--highlight);
@@ -4309,6 +4334,8 @@ function dashboardHtml(): string {
       .card > #panel-persona {
         width: 100%;
         max-width: none;
+        height: 100%;
+        min-height: 0;
         margin: 0;
         padding: 0;
         overflow: hidden;
@@ -4331,7 +4358,7 @@ function dashboardHtml(): string {
 
       /* Persona adds a file/library column inside the main content column. */
       #panel-persona .persona-registry {
-        min-height: 100%;
+        min-height: 0;
         height: 100%;
         margin: 0;
         padding: 0;
@@ -4380,12 +4407,13 @@ function dashboardHtml(): string {
       }
       #panel-persona .persona-remote-view,
       #panel-persona .persona-templates-view {
-        flex: 1;
+        flex: 1 1 auto;
         width: 100%;
         max-width: none;
         min-height: 0;
         margin: 0;
-        padding: 30px 36px 40px;
+        padding: 30px 36px 72px;
+        overflow-x: hidden;
         overflow-y: auto;
       }
       #panel-persona .persona-remote-head,
@@ -4687,13 +4715,14 @@ function dashboardHtml(): string {
                 <summary class="guide-step-summary">
                   <span class="guide-step-num">1</span>
                   <span class="guide-step-heading">
-                    <span class="guide-step-title">Create a Persona</span>
-                    <button type="button" class="guide-step-time" data-seek="0" aria-label="Jump to video at 0:00">0:00</button>
+                    <span class="guide-step-title">Create Persona with AI Desktop App</span>
+                    <button type="button" class="guide-step-time" data-seek="0" aria-label="Watch video from 0:00">▶ Watch 0:00</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">Paste this into your AI and answer the questions. Your agent handles the rest.</p>
+                  <p class="guide-step-desc">Paste this into your AI and answer the questions.</p>
+                  <p class="guide-step-emphasis">Desktop app ONLY — the web app can't reach your local config</p>
                   <div class="guide-start-cmd">
                     <code class="cli-cmd">create a persona using transcodes skill</code>
                     <button type="button" class="guide-start-copy" data-copy-cmd="create a persona using transcodes skill">
@@ -4718,7 +4747,7 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">2</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Review and edit it</span>
-                    <button type="button" class="guide-step-time" data-seek="40" aria-label="Jump to video at 0:40">0:40</button>
+                    <button type="button" class="guide-step-time" data-seek="40" aria-label="Watch video from 0:40">▶ Watch 0:40</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -4733,7 +4762,7 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">3</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Apply it</span>
-                    <button type="button" class="guide-step-time" data-seek="60" aria-label="Jump to video at 1:00">1:00</button>
+                    <button type="button" class="guide-step-time" data-seek="60" aria-label="Watch video from 1:00">▶ Watch 1:00</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -4752,7 +4781,7 @@ function dashboardHtml(): string {
                   <span class="guide-step-num">4</span>
                   <span class="guide-step-heading">
                     <span class="guide-step-title">Back up and share</span>
-                    <button type="button" class="guide-step-time" data-seek="168" aria-label="Jump to video at 2:48">2:48</button>
+                    <button type="button" class="guide-step-time" data-seek="168" aria-label="Watch video from 2:48">▶ Watch 2:48</button>
                   </span>
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
@@ -6358,6 +6387,15 @@ function dashboardHtml(): string {
     }
 
     /**
+     * HEAD tag from GET /persona (revisions[current].tag). Empty when the
+     * revision is untagged or the document predates the revisions array.
+     */
+    function personaRemoteTag(remote) {
+      if (!remote || typeof remote.tag !== "string") return "";
+      return remote.tag.trim();
+    }
+
+    /**
      * Classify one Persona from three facts: the organization revision, the
      * revision this device last synced, and whether the local bundle changed
      * since that sync (current hash vs synced content_hash). Five states, one
@@ -6576,10 +6614,21 @@ function dashboardHtml(): string {
         '<div class="persona-sync-head" role="row">' +
         '<p class="persona-sync-row-name">Persona</p>' +
         '<p class="persona-sync-row-ver">Remote</p>' +
+        '<p class="persona-sync-row-tag">Tag</p>' +
         '<p class="persona-sync-row-ver">Local</p>' +
         '<p class="persona-sync-row-status">Status</p>' +
         '<p class="persona-sync-row-updated">Updated</p>' +
         '<div class="persona-sync-row-action"></div></div>'
+      );
+    }
+
+    function personaSyncTagHtml(remote) {
+      const tag = personaRemoteTag(remote);
+      if (!tag) {
+        return '<p class="persona-sync-row-tag is-empty">No tag</p>';
+      }
+      return (
+        '<p class="persona-sync-row-tag" title="' + esc(tag) + '">' + esc(tag) + "</p>"
       );
     }
 
@@ -6601,6 +6650,7 @@ function dashboardHtml(): string {
         '<p class="persona-sync-row-ver">' +
         esc(remote) +
         "</p>" +
+        personaSyncTagHtml(status.remote) +
         '<p class="persona-sync-row-ver">' +
         esc(local) +
         "</p>" +
@@ -6934,6 +6984,7 @@ function dashboardHtml(): string {
               '<p class="persona-sync-row-name">' +
               esc(personaId) +
               '</p><p class="persona-sync-row-ver">—</p>' +
+              '<p class="persona-sync-row-tag is-empty">No tag</p>' +
               '<p class="persona-sync-row-ver">—</p>' +
               '<p class="persona-sync-row-status">Unavailable</p>' +
               '<p class="persona-sync-row-updated">—</p>' +
@@ -9135,6 +9186,24 @@ function dashboardHtml(): string {
         focusPersonaEditor();
         return;
       }
+      const rawTag = window.prompt(
+        "Optional tag for this version of “" +
+          persona +
+          "”. Leave empty to upload without a tag.\\n\\nUse a name like version-10. Numbers only are not allowed."
+      );
+      if (rawTag === null) return;
+      const tag = rawTag.trim();
+      if (tag && /^\\d+$/.test(tag)) {
+        showToast(
+          "Tag cannot be numbers only. Use a name like version-10.",
+          "error"
+        );
+        return;
+      }
+      if (tag.length > 100) {
+        showToast("Tag must be 100 characters or fewer.", "error");
+        return;
+      }
       // The agent prompt requires a confirmation before either sync action;
       // the dashboard is a third entry point and needs the same gate.
       const ok = window.confirm(
@@ -9143,7 +9212,8 @@ function dashboardHtml(): string {
           (isFirstPublish
             ? "” to your organization?"
             : "” in your organization?") +
-          "\\n\\nThis device\\u2019s version will become the latest organization version." +
+          (tag ? "\\n\\nTag: " + tag : "\\n\\nNo tag") +
+          "\\nThis device\\u2019s version will become the latest organization version." +
           (hasUnsavedChanges
             ? "\\n\\nYour open editor changes will be saved and included."
             : "")
@@ -9172,6 +9242,7 @@ function dashboardHtml(): string {
                 ? personaState.file
                 : undefined,
             content,
+            tag,
           }),
         });
         const push = data.push;
@@ -9190,6 +9261,7 @@ function dashboardHtml(): string {
           persona +
           "” · version " +
           push.revision +
+          (tag ? " · " + tag : "") +
           " · " +
           push.uploaded +
           " uploaded, " +
@@ -10200,7 +10272,10 @@ async function handlePersonaRoute(params: {
           ok: true,
           saved,
           file: savedFile,
-          push: await pushPersonaSync(persona),
+          push: await pushPersonaSync(
+            persona,
+            typeof body.tag === 'string' ? body.tag : '',
+          ),
         });
       } catch (error) {
         if (error && typeof error === 'object') {

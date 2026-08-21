@@ -18,6 +18,8 @@ export type PersonaListItem = {
   persona_id: string;
   name?: string;
   revision: number;
+  /** HEAD revision tag from `revisions[]`. Absent or null when untagged. */
+  tag?: string | null;
   file_count: number;
   updated_at: string;
   updated_by_name?: string;
@@ -176,7 +178,9 @@ export async function commitPersona(
   const envelope = await request(config, {
     method: 'POST',
     path: `/persona/${encodeURIComponent(personaId)}/commit`,
-    body: { commit_token: commitToken, tag },
+    body: tag
+      ? { commit_token: commitToken, tag }
+      : { commit_token: commitToken },
   });
   return payloadObject<{ revision: number }>(envelope);
 }
