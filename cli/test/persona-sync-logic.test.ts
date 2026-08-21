@@ -84,11 +84,10 @@ test('personaSyncGuidance: both 409 conflicts steer to pull, token/blob codes st
   assert.equal(personaSyncGuidance('dev', undefined), undefined);
 });
 
-test('personaSyncGuidance: tag/revision codes steer to persona log', () => {
-  for (const code of [
-    'PERSONA_TAG_ALREADY_EXISTS',
-    'PERSONA_REVISION_NOT_FOUND',
-  ] as const) {
-    assert.match(personaSyncGuidance('dev', code) ?? '', /log --persona dev/);
-  }
+test('personaSyncGuidance: revision-not-found steers to persona log', () => {
+  assert.match(
+    personaSyncGuidance('dev', 'PERSONA_REVISION_NOT_FOUND') ?? '',
+    /log --persona dev/,
+  );
+  assert.equal(personaSyncGuidance('dev', 'PERSONA_TAG_ALREADY_EXISTS'), undefined);
 });

@@ -178,15 +178,10 @@ export function personaSyncGuidance(
         'Some files were never uploaded to storage. ' +
         `Run \`transcodes persona push --persona ${persona}\` again and let every upload finish.`
       );
-    case 'PERSONA_TAG_ALREADY_EXISTS':
-      return (
-        'That tag is already assigned to another revision of this Persona. ' +
-        `Run \`transcodes persona log --persona ${persona}\` to see existing tags, then pick a different tag or move it with \`transcodes persona tag --persona ${persona} --revision N --tag TAG\`.`
-      );
     case 'PERSONA_REVISION_NOT_FOUND':
       return (
-        'No revision matches that number or tag. ' +
-        `Run \`transcodes persona log --persona ${persona}\` to list available revisions and tags.`
+        'No revision matches that number. ' +
+        `Run \`transcodes persona log --persona ${persona}\` to list available revisions.`
       );
     default:
       return undefined;
@@ -348,11 +343,6 @@ export function normalizeOptionalPersonaTag(
 ): string | undefined {
   const tag = tagInput?.trim() ?? '';
   if (!tag) return undefined;
-  if (/^\d+$/.test(tag)) {
-    throw new Error(
-      `Tag "${tag}" is numeric-only, which is reserved for revision numbers. Use a name with at least one letter.`,
-    );
-  }
   if (tag.length > 100) {
     throw new Error('Tag must be 100 characters or fewer.');
   }

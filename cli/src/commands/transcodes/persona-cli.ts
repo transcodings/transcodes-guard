@@ -290,7 +290,7 @@ export async function cmdPersona(args: string[]): Promise<void> {
   transcodes persona deploy --persona NAME --global [--targets claude,chatgpt,antigravity] --yes
   transcodes persona deploy ... --dry-run   (list what would be written and deleted; writes nothing, no --yes needed)
   transcodes persona push --persona NAME [--tag TAG]
-  transcodes persona pull --persona NAME[@REF] [--revision N | --tag TAG]
+  transcodes persona pull --persona NAME[@REVISION] [--revision N]
   transcodes persona log --persona NAME
   transcodes persona tag --persona NAME --revision N [--tag TAG | --delete]
 `,
@@ -439,10 +439,7 @@ export async function cmdPersona(args: string[]): Promise<void> {
     }
     case 'pull': {
       let persona = requiredFlag(parsed, 'persona');
-      let ref =
-        optionalFlag(parsed, 'ref') ??
-        optionalFlag(parsed, 'revision') ??
-        optionalFlag(parsed, 'tag');
+      let ref = optionalFlag(parsed, 'ref') ?? optionalFlag(parsed, 'revision');
       if (persona.includes('@')) {
         const [p, r] = persona.split('@', 2);
         persona = p!;
