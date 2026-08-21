@@ -118,10 +118,16 @@ export function normalizeScaffoldName({
     return coerced;
   }
 
-  const normalized = name.trim().replace(/\.md$/i, '');
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(normalized)) {
+  const trimmed = name.trim().replace(/\.md$/i, '');
+  if (/[_]|[a-z][A-Z]|\./.test(trimmed)) {
     throw new Error(
-      `Invalid ${feature} name "${name}". Use letters, numbers, dots, underscores, or hyphens without path separators.`,
+      `Invalid ${feature} name "${name}". Use lowercase kebab-case (e.g. "security-privacy").`,
+    );
+  }
+  const normalized = trimmed.toLowerCase().replace(/\s+/g, '-');
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized)) {
+    throw new Error(
+      `Invalid ${feature} name "${name}". Use lowercase kebab-case (e.g. "security-privacy").`,
     );
   }
   return normalized;
@@ -241,7 +247,7 @@ concrete examples belong here. Move long reference docs to references/*.md
 "# Available scripts" and "# References" are only an index: every companion
 must also appear inside the Step that uses it, written as the literal command
 or read instruction (e.g. "Run \`node scripts/generate-dto.js <Feature>\`" or
-"Read \`references/REFERENCE.md\` before designing"), and close the shortcut
+"Read \`references/billing-api.md\` before designing"), and close the shortcut
 ("Do not hand-write it"). A companion mentioned only in the index gets read as
 optional background and skipped. If this exceeds 3,000 tokens or contains
 distinct workflows, split it into smaller Skills. -->
@@ -253,7 +259,7 @@ function skillReferenceTemplate(name: string): string {
 
 <!-- Detailed reference material for the ${name} Skill. This file is loaded
 on demand, not with SKILL.md — keep it focused, and put the read instruction
-inside the SKILL.md Step that needs it (e.g. "Read references/REFERENCE.md
+inside the SKILL.md Step that needs it (e.g. "Read references/billing-api.md
 before designing the contract"), not only under "# References". -->
 `;
 }
@@ -443,7 +449,7 @@ function skillExtraFiles(
     if (!include.includes(dir)) continue;
     if (dir === 'references') {
       files.push({
-        relativeFilePath: join(skillDir, 'references', 'REFERENCE.md'),
+        relativeFilePath: join(skillDir, 'references', 'reference.md'),
         content: skillReferenceTemplate(name),
       });
     } else if (dir === 'scripts' && script) {

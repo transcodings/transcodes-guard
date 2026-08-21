@@ -10,6 +10,12 @@ import {
   APPLIED_RULES_SKILLS_OUTPUT_LINE,
   TRANSCODES_MCP_MUST_LINES,
 } from '../sync/lib/feature-scaffold.js';
+import {
+  KNOWLEDGE_BASE_SKILL_NAME,
+  KNOWLEDGE_BASE_STARTER_CONTENT,
+  KNOWLEDGE_BASE_STARTER_NAME,
+  knowledgeReferenceDocument,
+} from './persona.js';
 
 export type PersonaTemplateEntry = {
   /** Rule file name without `.md`, or Skill folder name. */
@@ -27,6 +33,8 @@ export type PersonaTemplate = {
   instruction: string;
   rules: PersonaTemplateEntry[];
   skills: PersonaTemplateEntry[];
+  /** Knowledge documents written under skills/knowledge-base/references/. */
+  knowledge: PersonaTemplateEntry[];
 };
 
 /** Card metadata for the dashboard. Bundle bodies stay on the server. */
@@ -37,6 +45,7 @@ export type PersonaTemplateSummary = {
   suggestedName: string;
   rules: string[];
   skills: string[];
+  knowledge: string[];
 };
 
 function bullets(lines: string[]): string {
@@ -56,7 +65,10 @@ ${params.role}
 ${bullets(params.context)}
 
 # How we work
-${bullets(params.howWeWork)}
+${bullets([
+  ...params.howWeWork,
+  'Read the Knowledge Base entry whose description matches the fact you need. Do not guess product names, tokens, claims, or decisions stored there.',
+])}
 
 # MUST / IMPORTANT
 ${bullets([...TRANSCODES_MCP_MUST_LINES])}
@@ -116,6 +128,27 @@ ${bullets(params.gotchas)}
 `;
 }
 
+function knowledge(params: {
+  file: string;
+  title: string;
+  description: string;
+  facts: string[];
+}): PersonaTemplateEntry {
+  return {
+    name: params.file,
+    content: knowledgeReferenceDocument({
+      title: params.title,
+      description: params.description,
+      facts: params.facts,
+    }),
+  };
+}
+
+const DEFAULT_KNOWLEDGE: PersonaTemplateEntry = {
+  name: KNOWLEDGE_BASE_STARTER_NAME,
+  content: KNOWLEDGE_BASE_STARTER_CONTENT,
+};
+
 const MINIMUM: PersonaTemplate = {
   id: 'minimum',
   title: 'Minimum',
@@ -168,6 +201,21 @@ const MINIMUM: PersonaTemplate = {
         doneWhen: '<observable completion criteria>',
       }),
     },
+  ],
+  knowledge: [
+    DEFAULT_KNOWLEDGE,
+    knowledge({
+      file: 'project-facts',
+      title: 'Project facts',
+      description:
+        'Read this before answering with a product name, URL, token, owner, or a decision the agent must not invent.',
+      facts: [
+        '<Product or project name, and the one-line description the team uses>',
+        '<Canonical URL, repo, or environment the agent should treat as current>',
+        '<Token, color, or API name that must be spelled exactly this way>',
+        '<A decision already made — write the answer, not “check with someone”>',
+      ],
+    }),
   ],
 };
 
@@ -269,6 +317,21 @@ const LANDING_PAGE_PUBLISHER: PersonaTemplate = {
       }),
     },
   ],
+  knowledge: [
+    DEFAULT_KNOWLEDGE,
+    knowledge({
+      file: 'brand-and-page-facts',
+      title: 'Brand and page facts',
+      description:
+        'Read this before writing landing copy, metadata, or a claim about the product, audience, or proof.',
+      facts: [
+        '<Approved product name, one-line offer, and the primary call to action>',
+        '<Audience and the job this page must do>',
+        '<Metrics, customer names, or awards that are approved to publish — omit anything unverified>',
+        '<Canonical route, title pattern, and where copy actually lives>',
+      ],
+    }),
+  ],
 };
 
 const FULLSTACK_DEVELOPER: PersonaTemplate = {
@@ -369,6 +432,21 @@ const FULLSTACK_DEVELOPER: PersonaTemplate = {
           'The type checker passes, the affected tests pass, and both the happy path and the error path have been exercised.',
       }),
     },
+  ],
+  knowledge: [
+    DEFAULT_KNOWLEDGE,
+    knowledge({
+      file: 'stack-and-contracts',
+      title: 'Stack and contracts',
+      description:
+        'Read this before naming a framework, folder, command, or API contract the agent must not guess.',
+      facts: [
+        '<Backend and frontend stacks, database, and how migrations run>',
+        '<Folder layout and the public entry point each feature must use>',
+        '<Exact commands for type-check, test, and local run>',
+        '<A contract that callers depend on — route, DTO, or error shape — written as the current truth>',
+      ],
+    }),
   ],
 };
 
@@ -473,6 +551,21 @@ const UI_UX_DESIGNER: PersonaTemplate = {
       }),
     },
   ],
+  knowledge: [
+    DEFAULT_KNOWLEDGE,
+    knowledge({
+      file: 'design-tokens-and-patterns',
+      title: 'Design tokens and patterns',
+      description:
+        'Read this before choosing a color, spacing, type size, component, or breakpoint the agent must not invent.',
+      facts: [
+        '<Where tokens live, and the names to use for color, spacing, radius, and type>',
+        '<Component library to compose from, and when a new variant is allowed>',
+        '<Breakpoints and whether dark mode ships>',
+        '<Accessibility target, e.g. WCAG 2.2 AA>',
+      ],
+    }),
+  ],
 };
 
 const MARKETER: PersonaTemplate = {
@@ -574,6 +667,21 @@ const MARKETER: PersonaTemplate = {
       }),
     },
   ],
+  knowledge: [
+    DEFAULT_KNOWLEDGE,
+    knowledge({
+      file: 'voice-and-approved-claims',
+      title: 'Voice and approved claims',
+      description:
+        'Read this before writing customer-facing copy, naming the product, or stating a metric or comparison.',
+      facts: [
+        '<Approved product and feature names, spelled exactly this way>',
+        '<Brand voice in one sentence, plus words that are banned>',
+        '<Claims, metrics, or customer names that are approved to publish>',
+        '<Channels in use and who must approve copy before it goes out>',
+      ],
+    }),
+  ],
 };
 
 const RESEARCHER: PersonaTemplate = {
@@ -656,6 +764,21 @@ const RESEARCHER: PersonaTemplate = {
       }),
     },
   ],
+  knowledge: [
+    DEFAULT_KNOWLEDGE,
+    knowledge({
+      file: 'sources-and-scope',
+      title: 'Sources and scope',
+      description:
+        'Read this before starting research, citing a source, or deciding what is in or out of scope.',
+      facts: [
+        '<Domain you research, and the kinds of questions that come in most often>',
+        '<Sources that are allowed, and any that are off limits>',
+        '<Where findings are stored and who reads them>',
+        '<A standing definition, dataset, or prior conclusion the agent must not reinvent>',
+      ],
+    }),
+  ],
 };
 
 export const PERSONA_TEMPLATES: PersonaTemplate[] = [
@@ -681,5 +804,9 @@ export function personaTemplateSummaries(): PersonaTemplateSummary[] {
     suggestedName: template.suggestedName,
     rules: template.rules.map((entry) => entry.name),
     skills: template.skills.map((entry) => entry.name),
+    knowledge: [
+      KNOWLEDGE_BASE_SKILL_NAME,
+      ...template.knowledge.map((entry) => entry.name),
+    ],
   }));
 }

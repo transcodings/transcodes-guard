@@ -42,7 +42,7 @@ test('adds a scripts section with the real file name', () => {
 test('does not rewrite Steps when listing a companion', () => {
   const next = mentionSkillCompanions(BASE, [
     'scripts/extract.py',
-    'references/REFERENCE.md',
+    'references/billing-api.md',
   ]);
   const start = next.search(/^# Steps\s*$/m);
   const rest = next.slice(start + '# Steps'.length);
@@ -51,7 +51,7 @@ test('does not rewrite Steps when listing a companion', () => {
   assert.match(steps, /1\. Inspect the file/);
   assert.match(steps, /2\. Extract the text/);
   assert.doesNotMatch(steps, /scripts\/extract\.py/);
-  assert.doesNotMatch(steps, /references\/REFERENCE\.md/);
+  assert.doesNotMatch(steps, /references\/billing-api\.md/);
 });
 
 test('names the interpreter that matches the script extension', () => {
@@ -64,11 +64,11 @@ test('names the interpreter that matches the script extension', () => {
 });
 
 test('adds a references section with the real file name', () => {
-  const next = mentionSkillCompanions(BASE, ['references/REFERENCE.md']);
+  const next = mentionSkillCompanions(BASE, ['references/billing-api.md']);
   assert.match(next, /^# References$/m);
   assert.match(
     next,
-    /`references\/REFERENCE\.md` — read this from the Step that needs it; do not guess what it contains/,
+    /`references\/billing-api\.md` — read this from the Step that needs it; do not guess what it contains/,
   );
 });
 
@@ -90,12 +90,12 @@ test('drops a legacy bullet whose companion is gone', () => {
   const legacy = BASE.replace(
     '# Output',
     `# References
-- \`references/REFERENCE.md\` — read this when you need the detailed reference
+- \`references/billing-api.md\` — read this when you need the detailed reference
 
 # Output`,
   );
   const next = mentionSkillCompanions(legacy, []);
-  assert.doesNotMatch(next, /references\/REFERENCE\.md/);
+  assert.doesNotMatch(next, /references\/billing-api\.md/);
   assert.doesNotMatch(next, /^# References$/m);
 });
 
@@ -150,13 +150,13 @@ test('keeps an existing custom bullet when adding another script', () => {
 
 test('does not treat an HTML-comment example path as a real mention', () => {
   const withComment = `${BASE}
-<!-- e.g. "Read references/REFERENCE.md when ..." -->
+<!-- e.g. "Read references/billing-api.md when ..." -->
 `;
   const next = mentionSkillCompanions(withComment, [
-    'references/REFERENCE.md',
+    'references/billing-api.md',
   ]);
   assert.match(next, /^# References$/m);
-  assert.match(next, /`references\/REFERENCE\.md`/);
+  assert.match(next, /`references\/billing-api\.md`/);
 });
 
 test('matches exact paths rather than filename prefixes', () => {

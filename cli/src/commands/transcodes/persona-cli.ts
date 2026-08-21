@@ -11,7 +11,9 @@ import {
   createPersona,
   deletePersona,
   deletePersonaFile,
+  deleteSkillPath,
   deployPersona,
+  KNOWLEDGE_BASE_SKILL_NAME,
   listPersona,
   type PersonaKind,
   readPersonaFile,
@@ -30,7 +32,7 @@ import {
 } from './persona-sync.js';
 
 const PERSONA_USAGE =
-  'transcodes persona <list|create|read|save|delete|delete-file|deploy|push|pull|log|tag>';
+  'transcodes persona <list|create|read|save|delete|delete-file|delete-reference|deploy|push|pull|log|tag>';
 
 const DEPLOY_TARGET_ALIASES = {
   claude: 'claudecode',
@@ -121,7 +123,7 @@ function skillFileFlag(
   const file = optionalFlag(parsed, 'file');
   if (file && kind !== 'skill') {
     throw new Error(
-      '--file applies to --kind skill only (skill-root-relative path such as scripts/extract.py or references/REFERENCE.md).',
+      '--file applies to --kind skill only (skill-root-relative path such as scripts/extract.py or references/billing-api.md).',
     );
   }
   return file;
@@ -280,9 +282,10 @@ export async function cmdPersona(args: string[]): Promise<void> {
   transcodes persona read --persona NAME --kind agent|rule|skill [--name NAME] [--file SKILL_FILE]
   transcodes persona save --persona NAME --kind agent|rule|skill [--name NAME] [--file SKILL_FILE] (--stdin | --content-file PATH)
       --file targets a companion file inside a skill folder (e.g. scripts/extract.py,
-      references/REFERENCE.md); omit it to read/save the skill's SKILL.md.
+      references/billing-api.md); omit it to read/save the skill's SKILL.md.
   transcodes persona delete NAME
   transcodes persona delete-file --persona NAME --kind agent|rule|skill [--name NAME]
+  transcodes persona delete-reference --persona NAME --file references/billing-api.md
   transcodes persona deploy --persona NAME --project FOLDER --targets claude,cursor,chatgpt,antigravity|all --yes
   transcodes persona deploy --persona NAME --global [--targets claude,chatgpt,antigravity] --yes
   transcodes persona deploy ... --dry-run   (list what would be written and deleted; writes nothing, no --yes needed)
@@ -361,6 +364,21 @@ export async function cmdPersona(args: string[]): Promise<void> {
           persona,
           kind: personaKind(parsed),
           name: optionalFlag(parsed, 'name'),
+        }),
+      );
+      return;
+    }
+    case 'delete-reference': {
+      const root = optionalFlag(parsed, 'root');
+      const persona = requiredFlag(parsed, 'persona');
+      const file = requiredFlag(parsed, 'file');
+      await checkedPersonaListing(root, persona);
+      printJson(
+        await deleteSkillPath({
+          root,
+          persona,
+          name: KNOWLEDGE_BASE_SKILL_NAME,
+          path: file,
         }),
       );
       return;

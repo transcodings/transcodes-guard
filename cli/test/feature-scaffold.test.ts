@@ -75,7 +75,7 @@ test('skill scaffold adds optional directories on request', () => {
     true,
   );
   assert.equal(
-    extraPaths.some((p) => p.endsWith('references/REFERENCE.md')),
+    extraPaths.some((p) => p.endsWith('references/reference.md')),
     true,
   );
   assert.equal(
@@ -83,7 +83,7 @@ test('skill scaffold adds optional directories on request', () => {
     true,
   );
   const reference = skill.extraFiles.find((file) =>
-    file.relativeFilePath.endsWith('REFERENCE.md'),
+    file.relativeFilePath.endsWith('reference.md'),
   );
   assert.match(reference!.content, /loaded\non demand/);
 });
@@ -219,7 +219,7 @@ test('--full plus a language keeps the other directories intact', () => {
     true,
   );
   assert.equal(
-    extraPaths.some((p) => p.endsWith('references/REFERENCE.md')),
+    extraPaths.some((p) => p.endsWith('references/reference.md')),
     true,
   );
   assert.equal(
@@ -245,6 +245,18 @@ test('rules never accept optional skill directories', () => {
       name: 'quality',
       include: ['scripts'],
     }),
+  );
+});
+
+test('rule names must already be lowercase kebab-case', () => {
+  assert.match(
+    createFeatureScaffold({ feature: 'rule', name: 'Quality Check' })
+      .relativeFilePath,
+    /rules\/quality-check\.md$/,
+  );
+  assert.throws(
+    () => createFeatureScaffold({ feature: 'rule', name: 'design_tokens' }),
+    /kebab-case/,
   );
 });
 
@@ -281,8 +293,8 @@ test('skill file paths stay inside the skill folder', () => {
   assert.throws(() => assertSkillFilePath('.hidden'));
   assert.throws(() => assertSkillFilePath('/etc/passwd'));
   assert.equal(
-    assertSkillFilePath('references/REFERENCE.md'),
-    'references/REFERENCE.md',
+    assertSkillFilePath('references/billing-api.md'),
+    'references/billing-api.md',
   );
   assert.equal(
     assertSkillFilePath('references/guide.pdf'),
