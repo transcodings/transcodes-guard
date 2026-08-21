@@ -9189,17 +9189,10 @@ function dashboardHtml(): string {
       const rawTag = window.prompt(
         "Optional tag for this version of “" +
           persona +
-          "”. Leave empty to upload without a tag.\\n\\nUse a name like version-10. Numbers only are not allowed."
+          "”. Leave empty to upload without a tag."
       );
       if (rawTag === null) return;
       const tag = rawTag.trim();
-      if (tag && /^\\d+$/.test(tag)) {
-        showToast(
-          "Tag cannot be numbers only. Use a name like version-10.",
-          "error"
-        );
-        return;
-      }
       if (tag.length > 100) {
         showToast("Tag must be 100 characters or fewer.", "error");
         return;

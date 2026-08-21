@@ -214,7 +214,7 @@ export async function fetchPersonaRevisionDetail(
   });
   if (envelope.status === 404) {
     throw new PersonaApiError(
-      `Revision or tag "${ref}" not found for Persona "${personaId}".`,
+      `Revision "${ref}" not found for Persona "${personaId}".`,
       404,
     );
   }
