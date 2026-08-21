@@ -343,11 +343,28 @@ async function backupPersonaBundle(persona: string): Promise<string | null> {
  * machine synced (default 0) — asking the server for its current revision
  * instead would defeat the lost-update check.
  */
+export function normalizeOptionalPersonaTag(
+  tagInput: string | undefined,
+): string | undefined {
+  const tag = tagInput?.trim() ?? '';
+  if (!tag) return undefined;
+  if (/^\d+$/.test(tag)) {
+    throw new Error(
+      `Tag "${tag}" is numeric-only, which is reserved for revision numbers. Use a name with at least one letter.`,
+    );
+  }
+  if (tag.length > 100) {
+    throw new Error('Tag must be 100 characters or fewer.');
+  }
+  return tag;
+}
+
 export async function pushPersonaSync(
   personaInput: string,
-  tag?: string,
+  tagInput?: string,
 ): Promise<PushSyncResult> {
   const persona = assertPersonaId(personaInput);
+  const tag = normalizeOptionalPersonaTag(tagInput);
   const config = loadPersonaConfig();
 
   const collected = await collectPersonaFiles(persona);
