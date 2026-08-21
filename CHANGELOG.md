@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.81.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.80.0...transcodes-guard-v0.81.0) (2026-08-21)
+
+
+### Features
+
+* **cli:** show remote Persona tags and keep push --tag optional ([8195e9b](https://github.com/transcodings/transcodes-guard/commit/8195e9be7ffdc45fce1177e09eea9f3ed5f664b1))
+
 ## [0.80.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.79.0...transcodes-guard-v0.80.0) (2026-08-21)
 
 
