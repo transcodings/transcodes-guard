@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.80.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.79.0...transcodes-guard-v0.80.0) (2026-08-21)
+
+
+### Features
+
+* **cli:** require kebab-case names and tighten knowledge-base rules ([8e406e9](https://github.com/transcodings/transcodes-guard/commit/8e406e948f64bfda3e0bf9cb163c048c3d680dc4))
+
 ## [0.79.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.78.0...transcodes-guard-v0.79.0) (2026-08-20)
 
 
