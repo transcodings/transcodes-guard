@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.81.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.81.0...transcodes-guard-v0.81.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* **cli:** stop treating Persona tags as pull lookup keys ([e36cf53](https://github.com/transcodings/transcodes-guard/commit/e36cf532c208bdcc3538a97f3f4eb7f90f5b100b))
+
 ## [0.81.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.80.0...transcodes-guard-v0.81.0) (2026-08-21)
 
 
