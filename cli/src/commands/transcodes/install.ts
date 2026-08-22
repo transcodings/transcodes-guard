@@ -23,11 +23,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createInterface, moveCursor } from 'node:readline';
 import { ensureDashboard } from './dashboard-lifecycle.js';
-import {
-  commandExistsSync,
-  isHostAppInstalled,
-  refreshPathHints,
-} from './host-apps.js';
+import { commandExistsSync, refreshPathHints } from './host-apps.js';
 import { readSavedLocale, setLocale, t } from './i18n.js';
 import { CLI_PACKAGE_NAME, CLI_VERSION } from './version.js';
 
@@ -851,44 +847,19 @@ type MenuChoice =
   | { kind: 'skip' }
   | { kind: 'cancel' };
 
-/** Short names for the "currently installed" summary line. */
-function platformShortName(id: PlatformId): string {
-  switch (id) {
-    case 'claude':
-      return 'Claude';
-    case 'codex':
-      return 'ChatGPT';
-    case 'cursor':
-      return 'Cursor';
-    case 'antigravity':
-      return 'Antigravity (Google)';
-  }
-}
-
-function installedAppsHint(): string {
-  const names = PLATFORMS.filter((p) => isHostAppInstalled(p.id)).map((p) =>
-    platformShortName(p.id),
-  );
-  if (names.length === 0) return t('platformInstalledNone');
-  return t('platformInstalledApps', { list: names.join(', ') });
-}
-
-/** Numbered menu — host apps already on the device get [Detected]. */
+/** Numbered fallback when the terminal has no raw-mode arrow keys. */
 function renderMenu(): void {
   log('');
   log(t('platformTitle'));
   log(t('platformHint1'));
   log(t('platformHint2'));
   log('');
-  log(installedAppsHint());
+  log(t('platformSelectHint'));
   log('');
   PLATFORMS.forEach((p, i) => {
-    const onDevice = isHostAppInstalled(p.id);
-    const dot = onDevice ? '●' : '○';
-    const mark = onDevice ? `   ${t('installed')}` : '';
-    log(`  ${i + 1}. ${dot} ${p.label}${mark}`);
+    log(`  ${i + 1}. ○ ${p.label}`);
   });
-  log(`  ${PLATFORMS.length + 1}. ${t('skipThisStep')}`);
+  log(`  ${PLATFORMS.length + 1}. ${t('skipThisProcess')}`);
   log('');
   log(t('platformNumberedHint'));
   log(t('platformNumberedNext', { n: String(PLATFORMS.length + 1) }));
@@ -918,7 +889,7 @@ async function promptMenu(): Promise<MenuChoice> {
       const num = Number(token);
       if (!Number.isInteger(num) || num < 1 || num > PLATFORMS.length) {
         log(
-          `  Invalid choice "${token}". Use 1–${PLATFORMS.length}, ${nextNum} (Skip This Step), all, or exit.`,
+          `  Invalid choice "${token}". Use 1–${PLATFORMS.length}, ${nextNum} (Skip This Process), all, or exit.`,
         );
         invalid = true;
         break;
@@ -938,8 +909,7 @@ function supportsArrowSelect(): boolean {
 /**
  * Arrow-key checkbox selector. ↑/↓ move, space toggles, s skips the
  * platform step, q / Ctrl-C quits. Enter with 0 selected skips; Enter
- * with hosts selected installs them. The final action row reflects the same
- * result: install selected packages, or skip when none are selected.
+ * with hosts selected installs them. The final action row is always skip.
  * Redraws in place via readline cursor control.
  */
 function arrowSelect(checked: Set<PlatformId>): Promise<MenuChoice> {
@@ -955,20 +925,15 @@ function arrowSelect(checked: Set<PlatformId>): Promise<MenuChoice> {
       lines.push(t('platformHint1'));
       lines.push(t('platformHint2'));
       lines.push('');
-      lines.push(installedAppsHint());
+      lines.push(t('platformSelectHint'));
       lines.push('');
       const labelWidth = Math.max(...PLATFORMS.map((p) => p.label.length));
-      const detectedMark = t('installed');
       PLATFORMS.forEach((p, i) => {
         const pointer = cursor === i ? '❯' : ' ';
-        const onDevice = isHostAppInstalled(p.id);
         const selected = checked.has(p.id);
         const box = selected ? '◉' : '◯';
-        const mark = onDevice ? detectedMark : ' '.repeat(detectedMark.length);
-        const action = selected ? t('selectedInstall') : t('selectedSkip');
-        lines.push(
-          `${pointer} ${box} ${p.label.padEnd(labelWidth)}  ${mark}  → ${action}`,
-        );
+        const suffix = selected ? `  → ${t('selectedInstall')}` : '';
+        lines.push(`${pointer} ${box} ${p.label.padEnd(labelWidth)}${suffix}`);
       });
       const selectedCount = PLATFORMS.filter((p) => checked.has(p.id)).length;
       lines.push('');
@@ -979,11 +944,7 @@ function arrowSelect(checked: Set<PlatformId>): Promise<MenuChoice> {
       );
       const nextPointer = cursor === PLATFORMS.length ? '❯' : ' ';
       lines.push('');
-      lines.push(
-        `${nextPointer}   ${
-          selectedCount === 0 ? t('skipThisStep') : t('installSelected')
-        }`,
-      );
+      lines.push(`${nextPointer}   ${t('skipThisProcess')}`);
       lines.push('');
       lines.push(t('platformKeys'));
       rendered = redrawBlock(stdout, lines, rendered);
@@ -1349,10 +1310,7 @@ export async function cmdInstall(args: string[]): Promise<void> {
     // Arrow-key checkbox when the terminal supports raw mode, else numbered
     // fallback.
     const useArrows = supportsArrowSelect();
-    // Pre-select host apps already on this machine (CLI and/or desktop app).
-    const checked = new Set<PlatformId>(
-      PLATFORMS.filter((p) => isHostAppInstalled(p.id)).map((p) => p.id),
-    );
+    const checked = new Set<PlatformId>();
     for (;;) {
       // Always clear — CJK wrap + prior language screen leave garbage otherwise.
       clearScreen();

@@ -132,17 +132,17 @@ export type PersonaDeployResult = {
   output: string;
 };
 
-/** Persona, Rule, Skill, and knowledge file stems: lowercase kebab-case. */
-const NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** Same fence as the backend persona/skill name: no traversal, no spaces. */
+const NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 const NAME_RULE =
-  'lowercase kebab-case (letters, numbers, and single hyphens), e.g. billing-api';
+  'letters, numbers, dots, underscores, or hyphens, e.g. billing-api or voice_01';
 
-function normalizeKebabName(name: string): string {
-  const trimmed = name.trim().replace(/\.md$/i, '');
-  if (/[_]|[a-z][A-Z]|\./.test(trimmed)) {
+function normalizePersonaName(name: string): string {
+  const trimmed = name.trim().replace(/\.md$/i, '').replace(/\s+/g, '-');
+  if (!NAME_PATTERN.test(trimmed)) {
     throw new Error(`Invalid name "${name}". Use ${NAME_RULE}.`);
   }
-  return trimmed.toLowerCase().replace(/\s+/g, '-');
+  return trimmed;
 }
 const LAST_ROOT_FILE = 'dashboard-persona.json';
 const PERSONAS_DIR_NAME = 'personas';
@@ -263,11 +263,11 @@ export async function resolvePersonaRoot(input?: string): Promise<{
 /** Reject names that could escape `.transcodes/` or collide with dotfiles. */
 export function assertPersonaName(kind: PersonaKind, name: string): string {
   if (kind === 'agent') return RULESYNC_OVERVIEW_FILE_NAME;
-  const normalized = normalizeKebabName(name);
-  if (!NAME_PATTERN.test(normalized)) {
+  try {
+    return normalizePersonaName(name);
+  } catch {
     throw new Error(`Invalid ${kind} name "${name}". Use ${NAME_RULE}.`);
   }
-  return normalized;
 }
 
 /**
@@ -345,20 +345,6 @@ function assertKnowledgeBaseReferenceWritePath(file: string): void {
     throw new Error(
       `Knowledge file names must be lowercase kebab-case.md (e.g. ${KNOWLEDGE_BASE_REFERENCE_DIR}/billing-api.md). Got "${file}".`,
     );
-  }
-}
-
-/** New companion writes use kebab-case stems; read/delete still accept older files. */
-function assertKebabCompanionPath(file: string): void {
-  if (!file || file === SKILL_FILE_NAME) return;
-  for (const segment of file.split('/')) {
-    if (segment === SKILL_FILE_NAME) continue;
-    const stem = segment.replace(/\.[a-z0-9]+$/i, '');
-    if (!stem || stem !== knowledgeFileSlug(stem)) {
-      throw new Error(
-        `Skill file names must be lowercase kebab-case (e.g. references/billing-api.md). Got "${file}".`,
-      );
-    }
   }
 }
 
@@ -778,16 +764,11 @@ export async function reconcileKnowledgeBaseIndex(
 }
 
 export function assertPersonaId(name: string): string {
-  let normalized: string;
   try {
-    normalized = normalizeKebabName(name);
+    return normalizePersonaName(name);
   } catch {
     throw new Error(`Invalid Persona name "${name}". Use ${NAME_RULE}.`);
   }
-  if (!NAME_PATTERN.test(normalized)) {
-    throw new Error(`Invalid Persona name "${name}". Use ${NAME_RULE}.`);
-  }
-  return normalized;
 }
 
 function personasRoot(): string {
@@ -1741,9 +1722,6 @@ export async function savePersonaFile(params: {
       : undefined;
   if (skillFile) {
     assertSkillReferenceWritePath(skillFile);
-    if (name !== KNOWLEDGE_BASE_SKILL_NAME) {
-      assertKebabCompanionPath(skillFile);
-    }
   }
   assertPersonaFileSize(Buffer.byteLength(params.content, 'utf-8'));
   if (params.kind === 'skill' && name === KNOWLEDGE_BASE_SKILL_NAME) {
@@ -1877,7 +1855,6 @@ export async function createSkillFolder(params: {
   // backslashes. assertSkillFilePath falls back to SKILL.md only for empty
   // input, which the guard above already rejects.
   const dir = assertSkillFilePath(params.dir);
-  assertKebabCompanionPath(dir);
   const absolutePath = resolveInsidePersona(
     persona,
     path.posix.join('skills', name, dir),
