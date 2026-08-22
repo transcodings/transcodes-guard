@@ -4558,8 +4558,9 @@ function dashboardHtml(): string {
 
   </style>
   <script type="module">
-    import { basicSetup, EditorView } from "https://esm.sh/codemirror@6";
-    import { markdown } from "https://esm.sh/@codemirror/lang-markdown@6";
+    // Pin 6.0.2 — esm.sh/codemirror@6 resolves to 6.65.7, which has no EditorView.
+    import { basicSetup, EditorView } from "https://esm.sh/codemirror@6.0.2";
+    import { markdown } from "https://esm.sh/@codemirror/lang-markdown@6.3.2";
 
     window.addEventListener("DOMContentLoaded", () => {
       const shell = document.getElementById("persona-code-editor");

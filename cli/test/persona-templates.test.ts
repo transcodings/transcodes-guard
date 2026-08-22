@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  APPLIED_RULES_SKILLS_OUTPUT_LINE,
   coerceSkillName,
+  TRANSCODES_ATTRIBUTION_OUTPUT_LINE,
   TRANSCODES_MCP_MUST_LINES,
 } from '../src/commands/sync/lib/feature-scaffold.js';
 import {
@@ -109,7 +109,7 @@ test('template instructions match the generated Instruction contract', () => {
       );
     }
     assert.ok(
-      instruction.includes(APPLIED_RULES_SKILLS_OUTPUT_LINE),
+      instruction.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE),
       `${id} instruction is missing the attribution line`,
     );
     assert.match(
@@ -133,7 +133,7 @@ test('template Rules carry a description, globs, and Must/Never sections', () =>
       assert.match(rule.content, /^# Must$/m);
       assert.match(rule.content, /^# Never$/m);
       // Attribution belongs to the Instruction only.
-      assert.ok(!rule.content.includes(APPLIED_RULES_SKILLS_OUTPUT_LINE));
+      assert.ok(!rule.content.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE));
     }
   }
 });

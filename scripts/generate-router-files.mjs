@@ -20,7 +20,7 @@
  * Usage: node --import tsx scripts/generate-router-files.mjs [--check]
  * (tsx is required: the metadata module imports the TS definition sources.)
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -122,7 +122,9 @@ if (check) {
   console.error('router codegen: up to date');
 } else {
   for (const [rel, content] of targets) {
-    writeFileSync(path.join(root, rel), content, 'utf8');
+    const target = path.join(root, rel);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, content, 'utf8');
   }
   console.error(`generated router files: ${targets.length}`);
 }

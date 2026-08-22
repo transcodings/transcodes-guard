@@ -2,19 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  APPLIED_RULES_SKILLS_OUTPUT_LINE,
   coerceSkillName,
   createFeatureScaffold,
   parseSkillOptionalDirs,
   parseSkillScriptLanguage,
   SKILL_OPTIONAL_DIRS,
+  TRANSCODES_ATTRIBUTION_OUTPUT_LINE,
 } from '../src/commands/sync/lib/feature-scaffold.js';
 import {
   assertSkillFilePath,
   ensurePersonaInstructionOutput,
 } from '../src/commands/transcodes/persona.js';
 
-test('every generated Instruction reports applied Rules and Skills', () => {
+test('every generated Instruction explains applied Transcodes assets naturally', () => {
   const instruction = createFeatureScaffold({
     feature: 'rule',
     name: 'agents',
@@ -23,18 +23,27 @@ test('every generated Instruction reports applied Rules and Skills', () => {
   assert.match(instruction.content, /^# Output$/m);
   assert.match(
     instruction.content,
-    /you MUST end the response with exactly one attribution line/,
+    /short, friendly Transcodes note in the response language/,
   );
   assert.match(
     instruction.content,
-    /Applied: Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none>/,
+    /I completed this using the \*\*<exact Persona name>\*\* Persona to <short impact>, the \*\*<exact Rule name>\*\* Rule to <short impact>, and the \*\*<exact Skill name>\*\* Skill to <short impact>/,
   );
-  assert.match(instruction.content, /Use the exact Rule and Skill names/);
-  assert.match(instruction.content, /include every applied item/);
-  assert.ok(instruction.content.includes(APPLIED_RULES_SKILLS_OUTPUT_LINE));
+  assert.match(
+    instruction.content,
+    /No Transcodes assets were applied to this task/,
+  );
+  assert.match(instruction.content, /Translate and adapt it naturally/);
+  assert.match(instruction.content, /localizing the Persona, Rule, and Skill/);
+  assert.match(instruction.content, /preserving every asset name exactly/);
+  assert.match(instruction.content, /each actually applied asset helped/);
+  assert.match(instruction.content, /natural completion message, not a log/);
+  assert.match(instruction.content, /installed or read/);
+  assert.match(instruction.content, /platform, system, or host instructions/);
+  assert.ok(instruction.content.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE));
 });
 
-test('generated Rule and Skill files never contain Instruction output attribution', () => {
+test('generated Rule and Skill files never contain Transcodes attribution', () => {
   const rule = createFeatureScaffold({
     feature: 'rule',
     name: 'quality-verification',
@@ -44,15 +53,26 @@ test('generated Rule and Skill files never contain Instruction output attributio
     name: 'code-review',
   });
 
-  assert.ok(!rule.content.includes(APPLIED_RULES_SKILLS_OUTPUT_LINE));
-  assert.ok(!skill.content.includes(APPLIED_RULES_SKILLS_OUTPUT_LINE));
+  assert.ok(!rule.content.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE));
+  assert.ok(!skill.content.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE));
 });
 
-test('Instruction output attribution is restored when missing', () => {
-  const content = ensurePersonaInstructionOutput('# Role\nDeveloper\n');
+test('Persona Instruction attribution is restored with its exact name', () => {
+  const content = ensurePersonaInstructionOutput(
+    '# Role\nDeveloper\n',
+    'product-manager',
+  );
 
   assert.match(content, /^# Output$/m);
-  assert.ok(content.includes(APPLIED_RULES_SKILLS_OUTPUT_LINE));
+  assert.match(
+    content,
+    /The active Transcodes Persona is `product-manager`\./,
+  );
+  assert.match(content, /I completed this using the \*\*<exact Persona name>\*\*/);
+  assert.match(
+    content,
+    /No Transcodes assets were applied to this task/,
+  );
 });
 
 test('skill scaffold defaults to SKILL.md only', () => {
@@ -305,13 +325,18 @@ test('skill file paths stay inside the skill folder', () => {
 test('legacy Instruction attribution is replaced without duplication', () => {
   const legacy =
     '- If any Rules or Skills were applied, you MUST include a list of the names of the Rules and Skills in the response.';
+  const technical =
+    '- The active Transcodes Persona is `developer`. When completing a task, end the response with exactly one short Transcodes attribution line: old technical format.';
   const content = ensurePersonaInstructionOutput(
-    `# Output\n${legacy}\n${APPLIED_RULES_SKILLS_OUTPUT_LINE}\n`,
+    `# Output\n${legacy}\n${technical}\n`,
+    'developer',
   );
 
   assert.equal(
-    content.split(APPLIED_RULES_SKILLS_OUTPUT_LINE).length - 1,
+    content.match(/short, friendly Transcodes note/g)?.length,
     1,
   );
   assert.ok(!content.includes(legacy));
+  assert.ok(!content.includes(technical));
+  assert.match(content, /The active Transcodes Persona is `developer`\./);
 });

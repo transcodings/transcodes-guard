@@ -9,6 +9,7 @@
 import { execFile, spawn } from 'node:child_process';
 import {
   cp,
+  lstat,
   mkdir,
   mkdtemp,
   readdir,
@@ -31,8 +32,9 @@ import {
   RULESYNC_SKILLS_RELATIVE_DIR_PATH,
 } from '../sync/constants/rulesync-paths.js';
 import {
-  APPLIED_RULES_SKILLS_OUTPUT_LINE,
   createFeatureScaffold,
+  TRANSCODES_ATTRIBUTION_OUTPUT_MARKER,
+  transcodesAttributionOutputLine,
 } from '../sync/lib/feature-scaffold.js';
 import { parseFrontmatter } from '../sync/utils/frontmatter.js';
 
@@ -130,17 +132,17 @@ export type PersonaDeployResult = {
   output: string;
 };
 
-/** Persona, Rule, Skill, and knowledge file stems: lowercase kebab-case. */
-const NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** Same fence as the backend persona/skill name: no traversal, no spaces. */
+const NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 const NAME_RULE =
-  'lowercase kebab-case (letters, numbers, and single hyphens), e.g. billing-api';
+  'letters, numbers, dots, underscores, or hyphens, e.g. billing-api or voice_01';
 
-function normalizeKebabName(name: string): string {
-  const trimmed = name.trim().replace(/\.md$/i, '');
-  if (/[_]|[a-z][A-Z]|\./.test(trimmed)) {
+function normalizePersonaName(name: string): string {
+  const trimmed = name.trim().replace(/\.md$/i, '').replace(/\s+/g, '-');
+  if (!NAME_PATTERN.test(trimmed)) {
     throw new Error(`Invalid name "${name}". Use ${NAME_RULE}.`);
   }
-  return trimmed.toLowerCase().replace(/\s+/g, '-');
+  return trimmed;
 }
 const LAST_ROOT_FILE = 'dashboard-persona.json';
 const PERSONAS_DIR_NAME = 'personas';
@@ -261,11 +263,11 @@ export async function resolvePersonaRoot(input?: string): Promise<{
 /** Reject names that could escape `.transcodes/` or collide with dotfiles. */
 export function assertPersonaName(kind: PersonaKind, name: string): string {
   if (kind === 'agent') return RULESYNC_OVERVIEW_FILE_NAME;
-  const normalized = normalizeKebabName(name);
-  if (!NAME_PATTERN.test(normalized)) {
+  try {
+    return normalizePersonaName(name);
+  } catch {
     throw new Error(`Invalid ${kind} name "${name}". Use ${NAME_RULE}.`);
   }
-  return normalized;
 }
 
 /**
@@ -343,20 +345,6 @@ function assertKnowledgeBaseReferenceWritePath(file: string): void {
     throw new Error(
       `Knowledge file names must be lowercase kebab-case.md (e.g. ${KNOWLEDGE_BASE_REFERENCE_DIR}/billing-api.md). Got "${file}".`,
     );
-  }
-}
-
-/** New companion writes use kebab-case stems; read/delete still accept older files. */
-function assertKebabCompanionPath(file: string): void {
-  if (!file || file === SKILL_FILE_NAME) return;
-  for (const segment of file.split('/')) {
-    if (segment === SKILL_FILE_NAME) continue;
-    const stem = segment.replace(/\.[a-z0-9]+$/i, '');
-    if (!stem || stem !== knowledgeFileSlug(stem)) {
-      throw new Error(
-        `Skill file names must be lowercase kebab-case (e.g. references/billing-api.md). Got "${file}".`,
-      );
-    }
   }
 }
 
@@ -776,16 +764,11 @@ export async function reconcileKnowledgeBaseIndex(
 }
 
 export function assertPersonaId(name: string): string {
-  let normalized: string;
   try {
-    normalized = normalizeKebabName(name);
+    return normalizePersonaName(name);
   } catch {
     throw new Error(`Invalid Persona name "${name}". Use ${NAME_RULE}.`);
   }
-  if (!NAME_PATTERN.test(normalized)) {
-    throw new Error(`Invalid Persona name "${name}". Use ${NAME_RULE}.`);
-  }
-  return normalized;
 }
 
 function personasRoot(): string {
@@ -834,6 +817,72 @@ function resolveInsidePersona(persona: string, relativePath: string): string {
   return target;
 }
 
+async function assertNoSymlinkSegments(
+  root: string,
+  relativePath: string,
+): Promise<void> {
+  let current = root;
+  for (const segment of ['', ...relativePath.split('/')]) {
+    if (segment) current = path.join(current, segment);
+    try {
+      if ((await lstat(current)).isSymbolicLink()) {
+        throw new Error(`Refusing to follow symbolic link: ${current}`);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+      throw error;
+    }
+  }
+}
+
+function assertPersonaBundlePath(
+  bundlePath: string,
+  deleting: boolean,
+): string {
+  if (!bundlePath || bundlePath.includes('\\')) {
+    throw new Error(`Invalid Persona bundle path "${bundlePath}".`);
+  }
+  const parts = bundlePath.split('/');
+  // An empty segment means a leading, doubled, or trailing slash. Without this
+  // a trailing slash would reach assertSkillFilePath as '', take its SKILL.md
+  // fallback, and return the raw path -- which resolves to the Skill directory.
+  if (parts.some((part) => !part)) {
+    throw new Error(`Invalid Persona bundle path "${bundlePath}".`);
+  }
+  if (
+    parts.length === 2 &&
+    parts[0] === PERSONA_INSTRUCTION_DIR_NAME &&
+    parts[1]?.toLowerCase() === RULESYNC_OVERVIEW_FILE_NAME.toLowerCase()
+  ) {
+    return `${PERSONA_INSTRUCTION_DIR_NAME}/${RULESYNC_OVERVIEW_FILE_NAME}`;
+  }
+  if (parts.length === 2 && parts[0] === 'rules' && parts[1]?.endsWith('.md')) {
+    const ruleName = assertPersonaName('rule', parts[1]);
+    return `rules/${ruleName}.md`;
+  }
+  if (parts[0] === 'skills' && parts.length >= 2) {
+    const skill = parts[1] ?? '';
+    // A Skill directory is named for the Skill itself, and assertPersonaName
+    // strips a `.md` suffix. Approving the raw segment would create a
+    // `pdf.md` directory that every other command resolves to `pdf`.
+    if (assertPersonaName('skill', skill) !== skill) {
+      throw new Error(
+        `Invalid Persona bundle path "${bundlePath}". Use "skills/${assertPersonaName('skill', skill)}/" for this Skill.`,
+      );
+    }
+    if (parts.length === 2 && deleting) return bundlePath;
+    if (parts.length >= 3) {
+      const skillFile = assertSkillFilePath(parts.slice(2).join('/'));
+      if (deleting && skillFile === SKILL_FILE_NAME) {
+        throw new Error('SKILL.md is required and cannot be deleted.');
+      }
+      if (!deleting) assertSkillReferenceWritePath(skillFile);
+      return `skills/${parts[1]}/${skillFile}`;
+    }
+  }
+  throw new Error(`Invalid Persona bundle path "${bundlePath}".`);
+}
+
 export async function listPersonaIds(): Promise<string[]> {
   const names = await readdirSafe(personasRoot());
   const personas: string[] = [];
@@ -866,6 +915,7 @@ async function copyIfExists(source: string, target: string): Promise<void> {
 async function stagePersonaInstruction(
   source: string,
   target: string,
+  persona: string,
 ): Promise<void> {
   let content: string;
   try {
@@ -874,9 +924,21 @@ async function stagePersonaInstruction(
     return;
   }
 
-  const body = sanitizePersonaContent('agent', content).replace(/\s+$/, '');
+  const body = sanitizePersonaContent('agent', content, persona).replace(
+    /\s+$/,
+    '',
+  );
+
+  const frontmatter = `---
+description: Transcodes Persona "${persona}"
+cursor:
+  alwaysApply: true
+---
+
+`;
+
   await mkdir(path.dirname(target), { recursive: true });
-  await writeFile(target, `${body}\n`, 'utf-8');
+  await writeFile(target, `${frontmatter}${body}\n`, 'utf-8');
 }
 
 async function stagePersonaSkills(
@@ -921,7 +983,10 @@ export async function createPersona(name: string): Promise<string> {
       PERSONA_INSTRUCTION_DIR_NAME,
       RULESYNC_OVERVIEW_FILE_NAME,
     );
-    const instruction = `${starterTemplate('agent', '').replace(/\s+$/, '')}\n`;
+    const instruction = `${starterTemplate('agent', '', persona).replace(
+      /\s+$/,
+      '',
+    )}\n`;
     await mkdir(path.dirname(instructionPath), { recursive: true });
     await writeFile(instructionPath, instruction, 'utf-8');
     await ensureKnowledgeBaseSkill(persona);
@@ -1207,16 +1272,18 @@ export async function writePersonaBundleFile(
 export async function replacePersonaBundleFiles(
   personaInput: string,
   files: Array<{ bundlePath: string; bytes: Buffer }>,
+  deletePaths: string[] = [],
 ): Promise<void> {
   await ensurePersonaStorage();
   const persona = assertPersonaId(personaInput);
   const bundleRoot = personaDir(persona);
   const transactionRoot = await mkdtemp(
-    path.join(personasRoot(), '.persona-pull-'),
+    path.join(personasRoot(), '.persona-transaction-'),
   );
   const stagedRoot = path.join(transactionRoot, 'next');
   const previousRoot = path.join(transactionRoot, 'previous');
   let movedPrevious = false;
+  let preserveTransaction = false;
 
   try {
     if (await isDirectory(bundleRoot)) {
@@ -1229,6 +1296,7 @@ export async function replacePersonaBundleFiles(
       // Validate against the real Persona root, then independently re-anchor
       // the same relative path inside staging.
       resolveInsidePersona(persona, file.bundlePath);
+      await assertNoSymlinkSegments(bundleRoot, file.bundlePath);
       const stagedPath = path.resolve(stagedRoot, file.bundlePath);
       const rel = path.relative(stagedRoot, stagedPath);
       if (rel.startsWith('..') || path.isAbsolute(rel)) {
@@ -1236,8 +1304,27 @@ export async function replacePersonaBundleFiles(
           `Refusing to stage a path outside Persona "${persona}": ${file.bundlePath}`,
         );
       }
+      await assertNoSymlinkSegments(stagedRoot, file.bundlePath);
       await mkdir(path.dirname(stagedPath), { recursive: true });
       await writeFile(stagedPath, file.bytes);
+    }
+
+    for (const bundlePath of deletePaths) {
+      const absolutePath = resolveInsidePersona(persona, bundlePath);
+      await assertNoSymlinkSegments(bundleRoot, bundlePath);
+      try {
+        await lstat(absolutePath);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          throw new Error(`"${bundlePath}" does not exist.`);
+        }
+        throw error;
+      }
+      await assertNoSymlinkSegments(stagedRoot, bundlePath);
+      await rm(path.resolve(stagedRoot, bundlePath), {
+        recursive: true,
+        force: false,
+      });
     }
 
     if (await isDirectory(bundleRoot)) {
@@ -1249,14 +1336,139 @@ export async function replacePersonaBundleFiles(
       await rename(stagedRoot, bundleRoot);
     } catch (error) {
       if (movedPrevious) {
-        await rename(previousRoot, bundleRoot);
-        movedPrevious = false;
+        try {
+          await rename(previousRoot, bundleRoot);
+          movedPrevious = false;
+        } catch (rollbackError) {
+          preserveTransaction = true;
+          throw new AggregateError(
+            [error, rollbackError],
+            `Persona swap and rollback failed; backup preserved at ${previousRoot}.`,
+          );
+        }
       }
       throw error;
     }
   } finally {
-    await rm(transactionRoot, { recursive: true, force: true }).catch(() => {});
+    if (!preserveTransaction) {
+      await rm(transactionRoot, { recursive: true, force: true }).catch(
+        () => {},
+      );
+    }
   }
+}
+
+export async function savePersonaBatch(params: {
+  root?: string;
+  persona: string;
+  changes: Array<
+    | { bundlePath: string; bytes: Buffer; delete?: false }
+    | { bundlePath: string; delete: true }
+  >;
+}): Promise<{ persona: string; saved: string[]; deleted: string[] }> {
+  const { root } = await resolvePersonaRoot(params.root);
+  const persona = assertPersonaId(params.persona);
+  if (!(await isDirectory(personaDir(persona)))) {
+    throw new Error(`Persona "${persona}" does not exist.`);
+  }
+  if (params.changes.length === 0) {
+    throw new Error('Batch must contain at least one change.');
+  }
+
+  const seen = new Set<string>();
+  const files: Array<{ bundlePath: string; bytes: Buffer }> = [];
+  const deletePaths: string[] = [];
+  for (const change of params.changes) {
+    const bundlePath = assertPersonaBundlePath(
+      change.bundlePath,
+      change.delete === true,
+    );
+    const conflict = [...seen].find(
+      (other) =>
+        other === bundlePath ||
+        other.startsWith(`${bundlePath}/`) ||
+        bundlePath.startsWith(`${other}/`),
+    );
+    if (conflict) {
+      throw new Error(
+        `Conflicting Persona bundle paths "${conflict}" and "${bundlePath}".`,
+      );
+    }
+    seen.add(bundlePath);
+    if (change.delete === true) {
+      deletePaths.push(bundlePath);
+    } else {
+      let bytes = change.bytes;
+      const parts = bundlePath.split('/');
+      const isCompanion =
+        parts[0] === 'skills' &&
+        parts.length >= 3 &&
+        parts.slice(2).join('/') !== SKILL_FILE_NAME;
+      if (!isCompanion) {
+        if (bytes.includes(0)) {
+          throw new Error('Non-companion files must be plain text.');
+        }
+        const kind =
+          parts[0] === PERSONA_INSTRUCTION_DIR_NAME
+            ? 'agent'
+            : parts[0] === 'rules'
+              ? 'rule'
+              : 'skill';
+        let name = parts[1] ?? '';
+        if (kind === 'rule') name = name.replace(/\.md$/i, '');
+        let sanitized = sanitizePersonaContent(kind, bytes.toString('utf-8'));
+        if (kind === 'skill') sanitized = synchronizeSkillName(sanitized, name);
+        const text = `${sanitized.replace(/\s+$/, '')}\n`;
+        bytes = Buffer.from(text, 'utf-8');
+      }
+      files.push({ bundlePath, bytes });
+    }
+  }
+
+  const written = new Set(files.map((file) => file.bundlePath));
+  for (const bundlePath of seen) {
+    const parts = bundlePath.split('/');
+    if (parts[0] !== 'skills' || parts.length < 3) continue;
+    const skillFile = parts.slice(2).join('/');
+    if (skillFile === SKILL_FILE_NAME) continue;
+    const skillMdBundlePath = path.posix.join(
+      'skills',
+      parts[1] ?? '',
+      SKILL_FILE_NAME,
+    );
+    await assertNoSymlinkSegments(personaDir(persona), skillMdBundlePath);
+    if (
+      !(await isFile(resolveInsidePersona(persona, skillMdBundlePath))) &&
+      !written.has(skillMdBundlePath)
+    ) {
+      throw new Error(
+        `Skill "${parts[1]}" has no ${SKILL_FILE_NAME}. Include it in the batch before changing companions.`,
+      );
+    }
+    const indexedCompanion =
+      skillFile === 'scripts' ||
+      skillFile.startsWith('scripts/') ||
+      skillFile === 'references' ||
+      skillFile.startsWith('references/');
+    const addedOrDeleted =
+      deletePaths.includes(bundlePath) ||
+      !(await isFile(resolveInsidePersona(persona, bundlePath)));
+    // ponytail: the approved parent file owns semantic indexing; the CLI only
+    // enforces that index-changing batches include it atomically.
+    if (indexedCompanion && addedOrDeleted && !written.has(skillMdBundlePath)) {
+      throw new Error(
+        `Include the updated ${skillMdBundlePath} when adding or deleting indexed companions.`,
+      );
+    }
+  }
+
+  await replacePersonaBundleFiles(persona, files, deletePaths);
+  await writeLastRoot(root);
+  return {
+    persona,
+    saved: files.map((file) => file.bundlePath),
+    deleted: deletePaths,
+  };
 }
 
 export async function readPersonaFile(params: {
@@ -1328,7 +1540,7 @@ export async function readPersonaFile(params: {
       relativePath,
       absolutePath,
       exists: true,
-      content: sanitizePersonaContent(params.kind, content),
+      content: sanitizePersonaContent(params.kind, content, persona),
     };
   } catch {
     return {
@@ -1338,7 +1550,7 @@ export async function readPersonaFile(params: {
       relativePath,
       absolutePath,
       exists: false,
-      content: starterTemplate(params.kind, name),
+      content: starterTemplate(params.kind, name, persona),
     };
   }
 }
@@ -1395,7 +1607,11 @@ export async function readPersonaAsset(params: {
   }
 }
 
-const LEGACY_APPLIED_RULES_SKILLS_OUTPUT_LINES = new Set([
+const LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_MARKER =
+  'When completing a task, end the response with exactly one short Transcodes attribution line';
+
+const LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_LINES = new Set([
+  '- When any Rule or Skill is applied, you MUST end the response with exactly one attribution line in this format: `Applied: Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none>`. Use the exact Rule and Skill names, include every applied item, and never replace names with generic descriptions. Omit this line only when no Rule or Skill was applied.',
   '- If any Rules or Skills were applied, you MUST include a list of the names of the Rules and Skills in the response.',
   '- End each response with exactly one short line: `Applied: Rules <names> · Skills <names>`. Include names only, omit empty categories, and omit the entire line when no Rule or Skill was applied.',
   '- Start each response with exactly one short line: `Applied: Rules [<names>] · Skills [<names>]`. Include names only, omit empty categories, and omit the entire line when no Rule or Skill was applied.',
@@ -1403,40 +1619,57 @@ const LEGACY_APPLIED_RULES_SKILLS_OUTPUT_LINES = new Set([
   '- If any Rules or Skills were applied, you MUST briefly identify which ones in the response.',
 ]);
 
-/** Keep mandatory Rule/Skill attribution in every generated host Instruction. */
-export function ensurePersonaInstructionOutput(content: string): string {
+/** Keep mandatory Transcodes attribution in every generated host Instruction. */
+export function ensurePersonaInstructionOutput(
+  content: string,
+  persona?: string,
+): string {
   const lines = content.split(/\r?\n/);
+  const outputLine = transcodesAttributionOutputLine(persona);
   const isAttributionLine = (line: string): boolean => {
     const normalized = line.trim();
     return (
-      normalized === APPLIED_RULES_SKILLS_OUTPUT_LINE ||
-      LEGACY_APPLIED_RULES_SKILLS_OUTPUT_LINES.has(normalized)
+      normalized.includes(TRANSCODES_ATTRIBUTION_OUTPUT_MARKER) ||
+      normalized.includes(LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_MARKER) ||
+      LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_LINES.has(normalized)
     );
   };
-  const existingIndex = lines.findIndex(isAttributionLine);
 
-  if (existingIndex >= 0) {
-    lines[existingIndex] = APPLIED_RULES_SKILLS_OUTPUT_LINE;
-    return lines
-      .filter(
-        (line, index) => index === existingIndex || !isAttributionLine(line),
-      )
-      .join('\n');
-  }
+  const cleanLines = lines.filter((line) => !isAttributionLine(line));
 
-  const outputIndex = lines.findIndex((line) => line.trim() === '# Output');
+  const outputIndex = cleanLines.findIndex(
+    (line) => line.trim() === '# Output',
+  );
   if (outputIndex >= 0) {
-    lines.splice(outputIndex + 1, 0, APPLIED_RULES_SKILLS_OUTPUT_LINE);
-    return lines.join('\n');
+    let nextHeadingIndex = cleanLines.findIndex(
+      (line, idx) => idx > outputIndex && line.trim().startsWith('# '),
+    );
+    if (nextHeadingIndex === -1) {
+      nextHeadingIndex = cleanLines.length;
+    }
+
+    if (
+      nextHeadingIndex > 0 &&
+      cleanLines[nextHeadingIndex - 1].trim() !== ''
+    ) {
+      cleanLines.splice(nextHeadingIndex, 0, '', outputLine);
+    } else {
+      cleanLines.splice(nextHeadingIndex, 0, outputLine);
+    }
+    return cleanLines.join('\n');
   }
 
-  const body = content.replace(/\s+$/, '');
-  return `${body}${body ? '\n\n' : ''}# Output\n${APPLIED_RULES_SKILLS_OUTPUT_LINE}\n`;
+  const body = cleanLines.join('\n').replace(/\s+$/, '');
+  return `${body}${body ? '\n\n' : ''}# Output\n\n${outputLine}\n`;
 }
 
-function sanitizePersonaContent(kind: PersonaKind, content: string): string {
+function sanitizePersonaContent(
+  kind: PersonaKind,
+  content: string,
+  persona?: string,
+): string {
   return kind === 'agent'
-    ? ensurePersonaInstructionOutput(stripLeadingFrontmatter(content))
+    ? ensurePersonaInstructionOutput(stripLeadingFrontmatter(content), persona)
     : stripLegacyTargetsFrontmatter(content);
 }
 
@@ -1455,12 +1688,16 @@ function synchronizeSkillName(content: string, name: string): string {
   return synchronized + body;
 }
 
-function starterTemplate(kind: PersonaKind, name: string): string {
+function starterTemplate(
+  kind: PersonaKind,
+  name: string,
+  persona?: string,
+): string {
   const scaffold = createFeatureScaffold({
     feature: kind === 'skill' ? 'skill' : 'rule',
     name: kind === 'agent' ? 'agents' : name,
   });
-  return sanitizePersonaContent(kind, scaffold.content);
+  return sanitizePersonaContent(kind, scaffold.content, persona);
 }
 
 export async function savePersonaFile(params: {
@@ -1485,9 +1722,6 @@ export async function savePersonaFile(params: {
       : undefined;
   if (skillFile) {
     assertSkillReferenceWritePath(skillFile);
-    if (name !== KNOWLEDGE_BASE_SKILL_NAME) {
-      assertKebabCompanionPath(skillFile);
-    }
   }
   assertPersonaFileSize(Buffer.byteLength(params.content, 'utf-8'));
   if (params.kind === 'skill' && name === KNOWLEDGE_BASE_SKILL_NAME) {
@@ -1558,7 +1792,11 @@ export async function savePersonaFile(params: {
     personaBundleRelativePath(params.kind, name),
   );
 
-  const sanitized = sanitizePersonaContent(params.kind, params.content);
+  const sanitized = sanitizePersonaContent(
+    params.kind,
+    params.content,
+    persona,
+  );
   const synchronized =
     params.kind === 'skill' ? synchronizeSkillName(sanitized, name) : sanitized;
   let content = `${synchronized.replace(/\s+$/, '')}\n`;
@@ -1617,7 +1855,6 @@ export async function createSkillFolder(params: {
   // backslashes. assertSkillFilePath falls back to SKILL.md only for empty
   // input, which the guard above already rejects.
   const dir = assertSkillFilePath(params.dir);
-  assertKebabCompanionPath(dir);
   const absolutePath = resolveInsidePersona(
     persona,
     path.posix.join('skills', name, dir),
@@ -1792,6 +2029,7 @@ export async function deployPersona(params?: {
         RULESYNC_AGENTS_RELATIVE_DIR_PATH,
         RULESYNC_OVERVIEW_FILE_NAME,
       ),
+      persona,
     ),
     copyIfExists(
       path.join(listing.personaDir, 'rules'),

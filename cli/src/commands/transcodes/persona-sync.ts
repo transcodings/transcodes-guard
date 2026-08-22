@@ -332,12 +332,25 @@ async function backupPersonaBundle(persona: string): Promise<string | null> {
   return backupDir;
 }
 
+/** S3/WAF bodies are XML or HTML — surface Code/Message when present. */
+function formatHttpErrorBody(body: string): string {
+  const text = body.replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  const code = text.match(/<Code>([^<]+)<\/Code>/i)?.[1];
+  const message = text.match(/<Message>([^<]+)<\/Message>/i)?.[1];
+  if (code || message) {
+    return ` ${[code, message].filter(Boolean).join(' — ')}`;
+  }
+  return ` ${text.slice(0, 180)}`;
+}
+
 /**
  * Push the whole bundle: declare digests, upload only what the server does
  * not already have, then commit. The revision sent is the last one this
  * machine synced (default 0) — asking the server for its current revision
  * instead would defeat the lost-update check.
  */
+
 export function normalizeOptionalPersonaTag(
   tagInput: string | undefined,
 ): string | undefined {
@@ -421,8 +434,9 @@ export async function pushPersonaSync(
       continue;
     }
     if (!response.ok) {
+      const body = await response.text().catch(() => '');
       throw new Error(
-        `Upload failed (HTTP ${response.status}) for digest ${upload.sha256}; nothing was committed.`,
+        `Upload failed (HTTP ${response.status}) for digest ${upload.sha256}; nothing was committed.${formatHttpErrorBody(body)}`,
       );
     }
     uploaded += 1;
@@ -492,8 +506,9 @@ export async function pullPersonaSync(
     if (!download.has(file.path)) continue;
     const response = await fetch(file.url);
     if (!response.ok) {
+      const body = await response.text().catch(() => '');
       throw new Error(
-        `Download failed (HTTP ${response.status}) for ${file.path}. No local files were changed.`,
+        `Download failed (HTTP ${response.status}) for ${file.path}. No local files were changed.${formatHttpErrorBody(body)}`,
       );
     }
     const bytes = Buffer.from(await response.arrayBuffer());

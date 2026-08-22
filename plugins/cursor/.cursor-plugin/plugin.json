@@ -19,6 +19,5 @@
     "cursor"
   ],
   "hooks": "./.cursor/hooks.json",
-  "mcpServers": "./mcp.json",
-  "commands": "./.cursor/commands/"
+  "mcpServers": "./mcp.json"
 }

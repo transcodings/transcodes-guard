@@ -14,7 +14,7 @@
  */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -119,5 +119,37 @@ test('--dry-run writes nothing and needs no --yes', async (t) => {
   await assert.rejects(
     () => import('node:fs/promises').then((fs) => fs.stat(path.join(home, '.claude', 'CLAUDE.md'))),
     'dry-run must not create any output file',
+  );
+});
+
+test('deploy injects the exact Persona name into completion attribution', async (t) => {
+  const home = await makeSandbox();
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const project = path.join(home, 'proj');
+  await mkdir(project, { recursive: true });
+
+  await deploy(home, [
+    '--project',
+    project,
+    '--targets',
+    'chatgpt',
+    '--yes',
+  ]);
+
+  const instruction = await readFile(path.join(project, 'AGENTS.md'), 'utf8');
+  assert.match(instruction, /active Transcodes Persona is `testp`/);
+  assert.match(instruction, /^## Transcodes Rule: `tone`$/m);
+  assert.match(instruction, /short, friendly Transcodes note/);
+  assert.match(
+    instruction,
+    /I completed this using the \*\*<exact Persona name>\*\*/,
+  );
+  assert.match(
+    instruction,
+    /No Transcodes assets were applied to this task/,
+  );
+  assert.equal(
+    instruction.match(/short, friendly Transcodes note/g)?.length,
+    1,
   );
 });

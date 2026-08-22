@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-
 import {
   createPersona,
   deleteSkillPath,
   mentionSkillCompanions,
+  savePersonaBatch,
   savePersonaFile,
 } from '../src/commands/transcodes/persona.js';
+import { cmdPersona } from '../src/commands/transcodes/persona-cli.js';
 
 const BASE = `---
 name: pdf
@@ -299,4 +300,196 @@ test('save and delete keep the on-disk SKILL.md companion list synchronized', as
     path: 'references/guide.pdf',
   });
   await assert.rejects(readFile(strayPdf));
+});
+
+test('batch saves atomically and preserves Skill invariants', async (t) => {
+  const originalHome = process.env.HOME;
+  const home = await mkdtemp(path.join(os.tmpdir(), 'persona-batch-'));
+  process.env.HOME = home;
+  t.after(async () => {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
+    await rm(home, { recursive: true, force: true });
+  });
+
+  await createPersona('batch-test');
+  await savePersonaFile({
+    persona: 'batch-test',
+    kind: 'rule',
+    name: 'keep',
+    content: 'old\n',
+  });
+  await savePersonaFile({
+    persona: 'batch-test',
+    kind: 'rule',
+    name: 'remove',
+    content: 'remove\n',
+  });
+  const rules = path.join(
+    home,
+    '.transcodes/personas/batch-test/rules',
+  );
+
+  const contentFile = path.join(home, 'keep.md');
+  const manifestFile = path.join(home, 'batch.json');
+  await writeFile(contentFile, 'new\n');
+  await writeFile(
+    manifestFile,
+    JSON.stringify({
+      changes: [
+        { path: 'rules/keep.md', contentFile },
+        { path: 'rules/remove.md', delete: true },
+      ],
+    }),
+  );
+  await cmdPersona([
+    'save',
+    '--persona',
+    'batch-test',
+    '--batch-file',
+    manifestFile,
+  ]);
+  assert.equal(await readFile(path.join(rules, 'keep.md'), 'utf8'), 'new\n');
+  await assert.rejects(readFile(path.join(rules, 'remove.md')));
+
+  await assert.rejects(
+    savePersonaBatch({
+      persona: 'batch-test',
+      changes: [
+        { bundlePath: 'rules/keep.md', bytes: Buffer.from('partial\n') },
+        { bundlePath: 'rules/missing.md', delete: true },
+      ],
+    }),
+    /does not exist/,
+  );
+  assert.equal(await readFile(path.join(rules, 'keep.md'), 'utf8'), 'new\n');
+
+  await savePersonaFile({
+    persona: 'batch-test',
+    kind: 'skill',
+    name: 'pdf',
+    content: BASE,
+  });
+
+  const skillRoot = path.join(
+    home,
+    '.transcodes/personas/batch-test/skills/pdf',
+  );
+  const skillMd = path.join(skillRoot, 'SKILL.md');
+  const script = path.join(skillRoot, 'scripts/extract.js');
+  await savePersonaFile({
+    persona: 'batch-test',
+    kind: 'skill',
+    name: 'pdf',
+    file: 'scripts/extract.js',
+    content: 'console.log("extract")\n',
+  });
+  await assert.rejects(
+    savePersonaBatch({
+      persona: 'batch-test',
+      changes: [
+        { bundlePath: 'skills/pdf/scripts/extract.js', delete: true },
+      ],
+    }),
+    /updated skills\/pdf\/SKILL\.md/,
+  );
+  assert.equal(await readFile(script, 'utf8'), 'console.log("extract")\n');
+  await assert.rejects(
+    cmdPersona([
+      'delete-file',
+      '--persona',
+      'batch-test',
+      '--kind',
+      'skill',
+      '--name',
+      'pdf',
+      '--file',
+      'scripts/extract.js',
+    ]),
+    /batch-file/,
+  );
+  assert.match(await readFile(skillMd, 'utf8'), /^name: pdf$/m);
+});
+
+test('batch rejects bundle paths that resolve somewhere else', async (t) => {
+  const originalHome = process.env.HOME;
+  const home = await mkdtemp(path.join(os.tmpdir(), 'persona-batch-path-'));
+  process.env.HOME = home;
+  t.after(async () => {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
+    await rm(home, { recursive: true, force: true });
+  });
+
+  await createPersona('path-test');
+  await savePersonaFile({
+    persona: 'path-test',
+    kind: 'skill',
+    name: 'pdf',
+    content: BASE,
+  });
+  const skillRoot = path.join(home, '.transcodes/personas/path-test/skills/pdf');
+
+  // A trailing slash used to reach assertSkillFilePath as '', take its SKILL.md
+  // fallback, and return the raw path -- which resolves to the Skill directory
+  // itself: EISDIR when the Skill exists, a plain file named `pdf` when it does
+  // not. Either way the approved batch never matches what lands on disk.
+  await assert.rejects(
+    savePersonaBatch({
+      persona: 'path-test',
+      changes: [{ bundlePath: 'skills/pdf/', bytes: Buffer.from('x\n') }],
+    }),
+    /Invalid Persona bundle path/,
+  );
+  assert.ok((await stat(skillRoot)).isDirectory());
+
+  await assert.rejects(
+    savePersonaBatch({
+      persona: 'path-test',
+      changes: [{ bundlePath: 'skills/nope/', bytes: Buffer.from('x\n') }],
+    }),
+    /Invalid Persona bundle path/,
+  );
+  await assert.rejects(
+    stat(path.join(home, '.transcodes/personas/path-test/skills/nope')),
+  );
+
+  // assertPersonaName strips a `.md` suffix, so 'skills/pdf.md/SKILL.md' used to
+  // validate as the skill `pdf` yet write to a `pdf.md` directory no other
+  // command can address -- deployed but unreadable and undeletable.
+  await assert.rejects(
+    savePersonaBatch({
+      persona: 'path-test',
+      changes: [{ bundlePath: 'skills/pdf.md/SKILL.md', bytes: Buffer.from(BASE) }],
+    }),
+    /Use "skills\/pdf\/" for this Skill/,
+  );
+  await assert.rejects(
+    stat(path.join(home, '.transcodes/personas/path-test/skills/pdf.md')),
+  );
+
+  // Rule names are strict kebab-case, so an extra Markdown suffix is invalid.
+  await assert.rejects(
+    savePersonaBatch({
+      persona: 'path-test',
+      changes: [{ bundlePath: 'rules/foo.md.md', bytes: Buffer.from('x\n') }],
+    }),
+    /Invalid name "foo\.md\.md"/,
+  );
+  await assert.rejects(
+    stat(path.join(home, '.transcodes/personas/path-test/rules/foo.md.md')),
+  );
+
+  // The spellings the manifest is meant to use still work.
+  await savePersonaBatch({
+    persona: 'path-test',
+    changes: [{ bundlePath: 'rules/foo.md', bytes: Buffer.from('ok\n') }],
+  });
+  assert.equal(
+    await readFile(
+      path.join(home, '.transcodes/personas/path-test/rules/foo.md'),
+      'utf8',
+    ),
+    'ok\n',
+  );
 });

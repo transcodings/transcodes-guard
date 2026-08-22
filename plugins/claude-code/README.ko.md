@@ -48,6 +48,17 @@ curl -fsSL https://raw.githubusercontent.com/transcodings/transcodes-guard/prod/
 | `UserPromptSubmit` hook | 현재 프롬프트를 로컬에 캐시하여 다음 게이트 대상 tool 호출이 현재 턴의 짧은 `tasks` 요약을 보낼 수 있게 합니다. 출력 없이 fail-open으로 동작합니다. |
 | `Stop` hook | no-op — stdin만 비우고 조용히 종료합니다. 스텝업 상태는 백엔드 SSOT라 회수하거나 상기시킬 로컬 상태가 없으며, 에이전트는 PreToolUse deny + `tc_poll_stepup_session_wait`로 복구합니다. |
 
+## 스킬: `/transcodes-guard:transcodes`
+
+Persona, 게이트, Admin API, SDK 워크플로의 단일 진입점입니다. 위의 정식 플러그인 스킬 이름을 사용하세요. 다른 스킬과 충돌하지 않으면 `/transcodes` 별칭도 사용할 수 있습니다.
+
+```
+/transcodes-guard:transcodes support Persona를 최적화해줘
+/transcodes-guard:transcodes google calendar delete 도구에 step-up을 걸어줘
+```
+
+Claude Code는 `skills/transcodes/SKILL.md`에서 스킬을 발견하며, 설명과 일치하는 자연어 요청에도 자동으로 활성화할 수 있습니다. MCP 프롬프트 `/mcp__transcodes-guard__transcodes`도 계속 사용할 수 있습니다.
+
 ## 트랜스포트
 
 Claude Code는 **두 가지** 트랜스포트를 모두 제공하는 유일한 호스트입니다:

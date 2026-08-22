@@ -55,14 +55,16 @@ test('knowledge file names are slugs of the title', () => {
   assert.throws(() => knowledgeFileSlug('---'), /letter or number/);
 });
 
-test('Persona, Rule, and Skill names are lowercase kebab-case', () => {
-  assert.equal(assertPersonaId('Foo Bar'), 'foo-bar');
-  assert.equal(assertPersonaName('rule', 'Quality Verification'), 'quality-verification');
+test('Persona, Rule, and Skill names accept letters, numbers, dots, underscores, and hyphens', () => {
+  assert.equal(assertPersonaId('Foo Bar'), 'Foo-Bar');
+  assert.equal(assertPersonaName('rule', 'Quality Verification'), 'Quality-Verification');
   assert.equal(assertPersonaName('skill', 'prd-writing'), 'prd-writing');
-  assert.throws(() => assertPersonaId('foo_bar'), /kebab-case/);
-  assert.throws(() => assertPersonaId('billing.api'), /kebab-case/);
-  assert.throws(() => assertPersonaName('rule', 'design_tokens'), /kebab-case/);
-  assert.throws(() => assertPersonaName('skill', 'DesignTokens'), /kebab-case/);
+  assert.equal(assertPersonaId('foo_bar'), 'foo_bar');
+  assert.equal(assertPersonaId('billing.api'), 'billing.api');
+  assert.equal(assertPersonaName('rule', 'design_tokens'), 'design_tokens');
+  assert.equal(assertPersonaName('skill', 'DesignTokens'), 'DesignTokens');
+  assert.throws(() => assertPersonaId('../escape'), /letters, numbers/);
+  assert.throws(() => assertPersonaName('rule', 'bad name!'), /letters, numbers/);
 });
 
 test('frontmatter identifies a reference, and the file name is the fallback', () => {
@@ -444,16 +446,13 @@ test('other Skills keep the hint-form reference bullets', async (t) => {
     content:
       '---\nname: research\ndescription: Research a topic\n---\n\n# Steps\n1. Read\n\n# Output\n**Deliverable** — a report\n',
   });
-  await assert.rejects(
-    savePersonaFile({
-      persona: 'kb-scope',
-      kind: 'skill',
-      name: 'research',
-      file: 'references/Sources.md',
-      content: reference('Sources', 'Where to look', '# Knowledge'),
-    }),
-    /kebab-case/,
-  );
+  await savePersonaFile({
+    persona: 'kb-scope',
+    kind: 'skill',
+    name: 'research',
+    file: 'references/Sources.md',
+    content: reference('Sources', 'Where to look', '# Knowledge'),
+  });
   await savePersonaFile({
     persona: 'kb-scope',
     kind: 'skill',
@@ -474,6 +473,6 @@ test('other Skills keep the hint-form reference bullets', async (t) => {
     ),
     'utf8',
   );
-  assert.match(skill, /`references\/sources\.md` — read this from the Step/);
+  assert.match(skill, /`references\/Sources\.md` — read this from the Step/);
   assert.doesNotMatch(skill, /— \.\/references/);
 });

@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import {
   CODEXCLI_DIR,
@@ -94,12 +94,18 @@ export class CodexcliRule extends ToolRule {
   }: ToolRuleFromRulesyncRuleParams): CodexcliRule {
     const { root } = CodexcliRule.getSettablePaths({ global });
     const isRoot = rulesyncRule.getFrontmatter().root ?? false;
+    const body = rulesyncRule.getBody();
 
     return new CodexcliRule({
       outputRoot,
       relativeDirPath: root.relativeDirPath,
       relativeFilePath: root.relativeFilePath,
-      fileContent: rulesyncRule.getBody(),
+      fileContent: isRoot
+        ? body
+        : `## Transcodes Rule: \`${basename(
+            rulesyncRule.getRelativeFilePath(),
+            '.md',
+          )}\`\n${body}`,
       validate,
       root: isRoot,
     });
