@@ -1,6 +1,25 @@
 # Changelog
 
 
+## [0.82.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.81.1...transcodes-guard-v0.82.0) (2026-08-22)
+
+
+### Features
+
+* **agent:** 적용된 Persona Rule Skill 표시 ([14d9b47](https://github.com/transcodings/transcodes-guard/commit/14d9b477498a32619af4a507999a9c7fe9f96785))
+* **cli:** add atomic Persona batch saves ([8438500](https://github.com/transcodings/transcodes-guard/commit/8438500896813d7de5aa8e3aa79d55ad21ce598f))
+* **plugins:** add Persona Diet skill workflow ([1fe7063](https://github.com/transcodings/transcodes-guard/commit/1fe7063299209e01ce80b6fcb5c94cd20490a411))
+
+
+### Bug Fixes
+
+* address PR review feedback on batch save and test flags ([f541349](https://github.com/transcodings/transcodes-guard/commit/f541349e690c78bdedf5b6eba568e755776a8a33))
+* **cli:** install picker, CodeMirror pin, and persona upload names ([235a3c2](https://github.com/transcodings/transcodes-guard/commit/235a3c215bb44010abab3bec700a697b0d0c267c))
+* **cli:** reject batch bundle paths that resolve elsewhere ([2d1ab2d](https://github.com/transcodings/transcodes-guard/commit/2d1ab2db95ac4a5ae269bf21fe03c1b52b6a65ad))
+* normalize instruction path and block null bytes in batch save ([42d279e](https://github.com/transcodings/transcodes-guard/commit/42d279e94b77fd264781ffd41f2d889c75da093a))
+* normalize rules path in batch save ([539894f](https://github.com/transcodings/transcodes-guard/commit/539894f6294324e48282726c26a0f0bf4b9e42a4))
+* normalize skill path in batch save ([9f333e0](https://github.com/transcodings/transcodes-guard/commit/9f333e09df1e91f54f9d3132da9628b6ea9de65e))
+
 ## [0.81.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.81.0...transcodes-guard-v0.81.1) (2026-08-21)
 
 

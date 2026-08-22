@@ -7,7 +7,7 @@ import {
 } from "../chunk-5S7UDJJG.js";
 
 // src/version.ts
-var PLUGIN_VERSION = "0.81.1";
+var PLUGIN_VERSION = "0.82.0";
 
 // hooks/session-start.ts
 var PROTOCOL_PRIMER = formatStepupProtocolPrimer();
