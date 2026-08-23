@@ -36,6 +36,13 @@ export type PersonaDetailFile = {
   url: string;
 };
 
+export type PersonaSkillsArchive = {
+  sha256: string;
+  size: number;
+  /** Presigned GET of org/{oid}/skills/{persona}/{revision}/bundle.tar.gz */
+  url?: string;
+};
+
 export type PersonaDetail = {
   persona_id: string;
   name?: string;
@@ -44,6 +51,8 @@ export type PersonaDetail = {
   updated_by_name?: string;
   updated_by_email?: string;
   files: PersonaDetailFile[];
+  /** Present when this revision stored skills as one archive instead of blobs. */
+  skills_archive?: PersonaSkillsArchive;
 };
 
 export type PersonaPushFile = {
@@ -159,7 +168,11 @@ export async function fetchPersonaDetail(
 export async function pushPersona(
   config: StepupConfig,
   personaId: string,
-  body: { revision: number; files: PersonaPushFile[] },
+  body: {
+    revision: number;
+    files: PersonaPushFile[];
+    skills_archive?: { sha256: string; size: number };
+  },
 ): Promise<PushPersonaResponse> {
   const envelope = await request(config, {
     method: 'POST',

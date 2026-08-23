@@ -1075,6 +1075,14 @@ test("Apply rejects empty content before the server can truncate a file", () => 
   assert.match(source, /saved: true,\s*file: savedFile,\s*deploy: deployed/);
 });
 
+test("skills publish as one bundle.tar.gz and pull unpacks it", () => {
+  assert.match(syncSource, /packSkillsBundle\(skillEntries\)/);
+  assert.match(syncSource, /skills_archive: skillsArchive/);
+  assert.match(syncSource, /assertSkillsBundleSize\(/);
+  assert.match(syncSource, /unpackSkillsBundle\(bytes\)/);
+  assert.match(syncSource, /skills\/bundle\.tar\.gz/);
+});
+
 test("pull downloads and verifies everything before an atomic bundle swap", () => {
   const downloadIndex = syncSource.indexOf("const replacements:");
   const replaceIndex = syncSource.indexOf("await replacePersonaBundleFiles");
@@ -1103,21 +1111,14 @@ test("sync state writes are locked, atomic, and cleared with Persona deletion", 
   );
 });
 
-test("signed-in Profile and header show the organization plan badge", () => {
-  assert.match(
+test("signed-in Profile has no plan row or membership plan fetch", () => {
+  assert.doesNotMatch(source, /profile-row-plan/);
+  assert.doesNotMatch(source, /function planBadgeHtml/);
+  assert.doesNotMatch(source, /fetchOrganizationPlan/);
+  assert.doesNotMatch(
     source,
     /path: '\/membership\/customer\/status\/organization'/,
   );
-  assert.match(source, /query: \{ organization_id: config\.organizationId \}/);
-  assert.match(source, /function normalizePlanName\(name: string\): PlanName/);
-  assert.match(source, /plan\?: PlanName;/);
-  assert.match(source, /id="profile-row-plan"/);
-  assert.match(source, /function planBadgeHtml\(plan\)/);
-  assert.match(source, /class="plan-badge plan-badge--'/);
-  assert.match(source, /\.plan-badge--free \{/);
-  assert.match(source, /\.plan-badge--paid \{/);
-  assert.match(source, /planBadgeHtml\(am\.plan\)/);
-  assert.match(source, /setProfilePlanRow\(am\.plan\)/);
   assert.match(
     source,
     /headerProfileNameEl\.textContent = am\.email \|\| "Signed in"/,

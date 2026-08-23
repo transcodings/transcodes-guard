@@ -129,9 +129,6 @@ type TokenEntry = {
   active: boolean;
 };
 
-const PLAN_NAMES = ['free', 'standard', 'enterprise'] as const;
-type PlanName = (typeof PLAN_NAMES)[number];
-
 type ActiveMemberInfo = {
   memberId?: string;
   projectId?: string;
@@ -142,8 +139,6 @@ type ActiveMemberInfo = {
   role?: string;
   organizationName?: string;
   projectName?: string;
-  /** Organization billing plan from membership status. */
-  plan?: PlanName;
 };
 
 function payloadRecord(data: unknown): Record<string, unknown> | null {
@@ -186,41 +181,6 @@ async function fetchWorkspaceNames(
     ...(organizationName ? { organizationName } : {}),
     ...(projectName ? { projectName } : {}),
   };
-}
-
-function normalizePlanName(name: string): PlanName {
-  const lower = name.toLowerCase().trim();
-  if (lower === 'free' || lower === 'standard' || lower === 'enterprise') {
-    return lower;
-  }
-  if (lower === 'pro' || lower === 'business') return 'enterprise';
-  return 'free';
-}
-
-async function fetchOrganizationPlan(
-  config: StepupConfig,
-): Promise<PlanName | undefined> {
-  const env = await request(config, {
-    method: 'GET',
-    path: '/membership/customer/status/organization',
-    query: { organization_id: config.organizationId },
-  });
-  if (!env.ok) return undefined;
-  const rec = payloadRecord(env.data);
-  if (!rec) return undefined;
-  const meta = rec.metadata;
-  const metaName =
-    meta && typeof meta === 'object' && !Array.isArray(meta)
-      ? (meta as Record<string, unknown>).name
-      : undefined;
-  const raw =
-    typeof metaName === 'string' && metaName.trim()
-      ? metaName
-      : typeof rec.name === 'string'
-        ? rec.name
-        : '';
-  if (!raw.trim()) return undefined;
-  return normalizePlanName(raw);
 }
 
 type StatusPayload = {
@@ -281,16 +241,14 @@ async function buildActiveMemberInfo(): Promise<ActiveMemberInfo | null> {
 
   try {
     const config = loadStepupConfig();
-    const [profile, workspace, plan] = await Promise.all([
+    const [profile, workspace] = await Promise.all([
       fetchMemberProfile(config),
       fetchWorkspaceNames(config),
-      fetchOrganizationPlan(config),
     ]);
     return {
       ...base,
       ...(profile ?? {}),
       ...workspace,
-      ...(plan ? { plan } : {}),
     };
   } catch {
     // Profile fetch is best-effort — JWT claims still populate the header.
@@ -1057,17 +1015,6 @@ function dashboardHtml(): string {
       border-bottom: 1px solid var(--line);
     }
     .profile-field:last-child { border-bottom: none; }
-    .plan-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 1px 6px;
-      font-size: var(--text-xs);
-      border-radius: var(--radius-sm);
-      font-weight: 500;
-      margin-left: 6px;
-    }
-    .plan-badge--free { background: var(--bg-subtle); color: var(--text-muted); }
-    .plan-badge--paid { background: var(--color-brand); color: #fff; }
     .profile-field .k {
       flex-shrink: 0;
       font-size: var(--text-xs);
@@ -2087,7 +2034,7 @@ function dashboardHtml(): string {
       margin: 0;
       overflow: hidden;
       color: var(--ink);
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 720;
       line-height: 1.35;
       text-overflow: ellipsis;
@@ -2096,7 +2043,7 @@ function dashboardHtml(): string {
     .persona-sync-row-ver {
       margin: 0;
       color: var(--ink);
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 720;
       font-variant-numeric: tabular-nums;
       letter-spacing: 0.01em;
@@ -2107,7 +2054,7 @@ function dashboardHtml(): string {
       overflow: hidden;
       color: var(--ink);
       font-size: 12px;
-      font-weight: 650;
+      font-weight: 720;
       line-height: 1.35;
       text-align: center;
       text-overflow: ellipsis;
@@ -2122,16 +2069,16 @@ function dashboardHtml(): string {
       margin: 0;
       color: var(--ink);
       font-size: 12px;
-      font-weight: 650;
+      font-weight: 720;
       line-height: 1.35;
       text-align: center;
     }
     .persona-sync-row-updated {
       margin: 0;
       overflow: hidden;
-      color: var(--muted);
+      color: var(--ink);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 720;
       line-height: 1.35;
       text-align: center;
       text-overflow: ellipsis;
@@ -4933,10 +4880,6 @@ function dashboardHtml(): string {
             <span class="k">Organization ID</span>
             <span class="v" id="profile-org-id"></span>
           </div>
-          <div class="profile-field" id="profile-row-plan" hidden>
-            <span class="k">Plan</span>
-            <span class="v" id="profile-plan"></span>
-          </div>
           <div class="profile-field" id="profile-row-project-name" hidden>
             <span class="k">Project</span>
             <span class="v" id="profile-project-name"></span>
@@ -5659,13 +5602,6 @@ function dashboardHtml(): string {
       });
     }
 
-    function planBadgeHtml(plan) {
-      if (!plan) return "";
-      const label = String(plan).charAt(0).toUpperCase() + String(plan).slice(1);
-      const kind = plan === "free" ? "free" : "paid";
-      return '<span class="plan-badge plan-badge--' + kind + '">' + esc(label) + "</span>";
-    }
-
     function updateSessionHeader(s) {
       if (!sessionReady) {
         headerLoginActionsEl.hidden = true;
@@ -5688,7 +5624,6 @@ function dashboardHtml(): string {
         headerProfileMetaEl.innerHTML =
           '<div class="header-profile-meta-line">' +
           (organization ? esc(organization) : "Signed in on this computer") +
-          planBadgeHtml(am.plan) +
           "</div>";
       }
 
@@ -6528,8 +6463,8 @@ function dashboardHtml(): string {
     function personaBundleVersionText() {
       if (!hasSavedTokens(lastStatus) || !personaState.persona) return "";
       const status = personaSyncStatus(personaState.persona);
-      const current = status.local === null ? "—" : "v" + status.local;
-      const remote = status.org === null ? "—" : "v" + status.org;
+      const current = status.local === null ? "None" : "v" + status.local;
+      const remote = status.org === null ? "None" : "v" + status.org;
       return "Current " + current + " · Remote " + remote;
     }
 
@@ -6635,8 +6570,8 @@ function dashboardHtml(): string {
 
     function personaSyncRowHtml(personaId, withActions) {
       const status = personaSyncStatus(personaId);
-      const local = status.local === null ? "—" : String(status.local);
-      const remote = status.org === null ? "—" : String(status.org);
+      const local = status.local === null ? "None" : String(status.local);
+      const remote = status.org === null ? "None" : String(status.org);
       const action = withActions ? personaSyncActionHtml(personaId, status) : "";
       const updated = status.remote
         ? describeRemotePersona(status.remote)
@@ -7113,7 +7048,7 @@ function dashboardHtml(): string {
         "</p>" +
         (items.length > 0
           ? '<ul class="persona-list">' + items.join("") + "</ul>"
-          : '<p class="persona-empty">None yet</p>') +
+          : '<p class="persona-empty">None</p>') +
         "</div>"
       );
     }
@@ -9564,25 +9499,11 @@ function dashboardHtml(): string {
 
         setProfileRow("org-name", am.organizationName);
         setProfileRow("org-id", am.organizationId || activeTok.organizationId);
-        setProfilePlanRow(am.plan);
         setProfileRow("project-name", am.projectName);
         setProfileRow("project-id", am.projectId || activeTok.projectId);
       }
 
       updateSessionHeader(s);
-    }
-
-    function setProfilePlanRow(plan) {
-      const row = document.getElementById("profile-row-plan");
-      const valueEl = document.getElementById("profile-plan");
-      if (!row || !valueEl) return;
-      if (plan) {
-        valueEl.innerHTML = planBadgeHtml(plan);
-        row.hidden = false;
-      } else {
-        valueEl.textContent = "";
-        row.hidden = true;
-      }
     }
 
     // Rows without a value are removed rather than rendered as a placeholder.
