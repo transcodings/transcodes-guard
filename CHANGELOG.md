@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.83.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.82.0...transcodes-guard-v0.83.0) (2026-08-23)
+
+
+### Features
+
+* **cli:** pack skills as bundle.tar.gz and write Claude Instruction into CLAUDE.md ([03d9c5c](https://github.com/transcodings/transcodes-guard/commit/03d9c5c77332f339c749833dbf8b9bdfe06aa654))
+
 ## [0.82.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.81.1...transcodes-guard-v0.82.0) (2026-08-22)
 
 
