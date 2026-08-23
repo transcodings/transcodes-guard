@@ -2,7 +2,7 @@
 import {
   JSONRPCMessageSchema,
   createServer
-} from "../chunk-CKQ2R6EP.js";
+} from "../chunk-UJUU7KX7.js";
 import "../chunk-5S7UDJJG.js";
 
 // ../../node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
