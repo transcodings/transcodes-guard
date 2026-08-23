@@ -313,6 +313,10 @@ test('skill file paths stay inside the skill folder', () => {
   assert.throws(() => assertSkillFilePath('.hidden'));
   assert.throws(() => assertSkillFilePath('/etc/passwd'));
   assert.equal(
+    assertSkillFilePath('modes/cinematic/_archive/champion/spec.md'),
+    'modes/cinematic/_archive/champion/spec.md',
+  );
+  assert.equal(
     assertSkillFilePath('references/billing-api.md'),
     'references/billing-api.md',
   );

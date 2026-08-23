@@ -289,9 +289,10 @@ export function knowledgeFileSlug(title: string): string {
 }
 
 /**
- * Validate a Skill-root-relative file path from the dashboard. Every segment
- * must start with an alphanumeric character, which also rules out `..` and
- * dotfiles. Empty input means the mandatory SKILL.md.
+ * Validate a Skill-root-relative file path. Skills ship as one archive, so
+ * segments may use `_archive`, unicode, or spaces. Empty / `.` / `..` /
+ * leading-dot / control / slash / backslash stay rejected. Empty input
+ * means the mandatory SKILL.md.
  */
 export function assertSkillFilePath(file: string): string {
   const normalized = file.trim();
@@ -300,7 +301,21 @@ export function assertSkillFilePath(file: string): string {
     throw new Error(`Invalid Skill file path "${file}".`);
   }
   for (const segment of normalized.split('/')) {
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9._ -]*$/.test(segment) || /\s$/.test(segment)) {
+    let hasControl = false;
+    for (let i = 0; i < segment.length; i += 1) {
+      if (segment.charCodeAt(i) < 32) {
+        hasControl = true;
+        break;
+      }
+    }
+    if (
+      !segment ||
+      segment === '.' ||
+      segment === '..' ||
+      segment.startsWith('.') ||
+      hasControl ||
+      /\s$/.test(segment)
+    ) {
       throw new Error(`Invalid Skill file path "${file}".`);
     }
   }
