@@ -20,6 +20,7 @@ import {
 import path from 'node:path';
 import { dataDir } from '@transcodes-guard/core/paths';
 import {
+  assertKnowledgeBaseBundleFiles,
   assertPersonaId,
   collectPersonaFiles,
   replacePersonaBundleFiles,
@@ -37,6 +38,11 @@ import {
   pushPersona,
   updatePersonaTag,
 } from './persona-api.js';
+import {
+  assertSkillsBundleSize,
+  packSkillsBundle,
+  unpackSkillsBundle,
+} from './persona-skill-bundle.js';
 
 /**
  * Last-synced revision per Persona. Lives under dataDir() next to
@@ -380,10 +386,15 @@ export async function pushPersonaSync(
 
   const files: PersonaPushFile[] = [];
   const bytesByDigest = new Map<string, Buffer>();
+  const skillEntries: Array<{ bundlePath: string; bytes: Buffer }> = [];
   for (const file of collected) {
     const bytes = await readFile(file.absolutePath);
     const sha256 = sha256Hex(bytes);
-    bytesByDigest.set(sha256, bytes);
+    if (file.kind !== 'skill') {
+      bytesByDigest.set(sha256, bytes);
+    } else {
+      skillEntries.push({ bundlePath: file.bundlePath, bytes });
+    }
     files.push({
       kind: file.kind,
       name: file.name,
@@ -393,12 +404,31 @@ export async function pushPersonaSync(
     });
   }
 
+  assertKnowledgeBaseBundleFiles(files);
+  assertSkillsBundleSize(
+    files
+      .filter((file) => file.kind === 'skill')
+      .map((file) => ({ path: file.path, size: file.size })),
+  );
+
+  let skillsArchive: { sha256: string; size: number } | undefined;
+  if (skillEntries.length > 0) {
+    const archive = packSkillsBundle(skillEntries);
+    const sha256 = sha256Hex(archive);
+    bytesByDigest.set(sha256, archive);
+    skillsArchive = { sha256, size: archive.byteLength };
+  }
+
   const state = await readSyncState();
   const revision = state.personas[persona]?.revision ?? 0;
 
   let approved: PushPersonaResponse;
   try {
-    approved = await pushPersona(config, persona, { revision, files });
+    approved = await pushPersona(config, persona, {
+      revision,
+      files,
+      ...(skillsArchive ? { skills_archive: skillsArchive } : {}),
+    });
   } catch (error) {
     throw withGuidance(persona, error);
   }
@@ -502,8 +532,63 @@ export async function pullPersonaSync(
   const plan = planPull(detail.files, local);
   const download = new Set(plan.download);
   const replacements: Array<{ bundlePath: string; bytes: Buffer }> = [];
+  const archive = detail.skills_archive;
+  const skillPaths = new Set(
+    detail.files
+      .filter(
+        (file) => file.kind === 'skill' || file.path.startsWith('skills/'),
+      )
+      .map((file) => file.path),
+  );
+  const needSkillsArchive =
+    !!archive?.url && [...download].some((path) => skillPaths.has(path));
+
+  if (needSkillsArchive && archive?.url) {
+    const response = await fetch(archive.url);
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(
+        `Download failed (HTTP ${response.status}) for skills/bundle.tar.gz. No local files were changed.${formatHttpErrorBody(body)}`,
+      );
+    }
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const digest = sha256Hex(bytes);
+    if (digest !== archive.sha256) {
+      throw new Error(
+        `Digest mismatch for skills/bundle.tar.gz: expected ${archive.sha256}, got ${digest}. No local files were changed.`,
+      );
+    }
+    const extracted = unpackSkillsBundle(bytes);
+    const expected = new Map(
+      detail.files
+        .filter((file) => skillPaths.has(file.path))
+        .map((file) => [file.path, file.sha256]),
+    );
+    for (const file of extracted) {
+      const want = expected.get(file.bundlePath);
+      if (!want) {
+        throw new Error(
+          `Unexpected file ${file.bundlePath} inside skills/bundle.tar.gz. No local files were changed.`,
+        );
+      }
+      if (sha256Hex(file.bytes) !== want) {
+        throw new Error(
+          `Digest mismatch for ${file.bundlePath} inside skills/bundle.tar.gz. No local files were changed.`,
+        );
+      }
+      expected.delete(file.bundlePath);
+      replacements.push(file);
+    }
+    if (expected.size > 0) {
+      throw new Error(
+        `Missing file ${expected.keys().next().value} inside skills/bundle.tar.gz. No local files were changed.`,
+      );
+    }
+  }
+
   for (const file of detail.files) {
     if (!download.has(file.path)) continue;
+    if (needSkillsArchive && skillPaths.has(file.path)) continue;
     const response = await fetch(file.url);
     if (!response.ok) {
       const body = await response.text().catch(() => '');

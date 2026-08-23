@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 import {
+  assertKnowledgeBaseBundleFiles,
   assertPersonaId,
   assertPersonaName,
+  collectPersonaFiles,
   createPersona,
   createSkillFolder,
   deletePersonaFile,
@@ -16,6 +18,7 @@ import {
   knowledgeFileSlug,
   knowledgeReferenceIdentity,
   listPersona,
+  savePersonaBatch,
   savePersonaFile,
 } from '../src/commands/transcodes/persona.js';
 
@@ -327,6 +330,57 @@ test('the reserved knowledge-base Skill only accepts reference Markdown files', 
       content: 'console.log("no")\n',
     }),
     /only allows Markdown files under references\//,
+  );
+  await assert.rejects(
+    savePersonaBatch({
+      persona: 'kb-guard',
+      changes: [
+        {
+          bundlePath: `skills/${KNOWLEDGE_BASE_SKILL_NAME}/scripts/extract.py`,
+          bytes: Buffer.from('print("no")\n'),
+        },
+      ],
+    }),
+    /Markdown files under references\//,
+  );
+  assert.throws(
+    () =>
+      assertKnowledgeBaseBundleFiles([
+        {
+          name: KNOWLEDGE_BASE_SKILL_NAME,
+          path: `skills/${KNOWLEDGE_BASE_SKILL_NAME}/SKILL.md`,
+        },
+        {
+          name: KNOWLEDGE_BASE_SKILL_NAME,
+          path: `skills/${KNOWLEDGE_BASE_SKILL_NAME}/references/notes.pdf`,
+        },
+        {
+          name: KNOWLEDGE_BASE_SKILL_NAME,
+          path: `skills/${KNOWLEDGE_BASE_SKILL_NAME}/scripts/extract.py`,
+        },
+      ]),
+    /must be Markdown \(\.md\)[\s\S]*notes\.pdf[\s\S]*extract\.py/,
+  );
+  assert.doesNotThrow(() =>
+    assertKnowledgeBaseBundleFiles([
+      {
+        name: KNOWLEDGE_BASE_SKILL_NAME,
+        path: `skills/${KNOWLEDGE_BASE_SKILL_NAME}/SKILL.md`,
+      },
+      {
+        name: KNOWLEDGE_BASE_SKILL_NAME,
+        path: `skills/${KNOWLEDGE_BASE_SKILL_NAME}/references/billing-api.md`,
+      },
+      { name: 'pdf', path: 'skills/pdf/scripts/extract.py' },
+    ]),
+  );
+
+  await mkdir(path.join(skillRoot, 'scripts'), { recursive: true });
+  await writeFile(path.join(skillRoot, 'scripts', 'extract.py'), 'print("no")\n');
+  const collected = await collectPersonaFiles('kb-guard');
+  await assert.rejects(
+    async () => assertKnowledgeBaseBundleFiles(collected),
+    /must be Markdown \(\.md\)[\s\S]*extract\.py/,
   );
   await assert.rejects(
     savePersonaFile({

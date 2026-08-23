@@ -16,7 +16,6 @@ import {
   parseFrontmatter,
   stringifyFrontmatter,
 } from '../../utils/frontmatter.js';
-import { AgentsMdRule } from './agentsmd-rule.js';
 import { RulesyncRule, type RulesyncRuleFrontmatter } from './rulesync-rule.js';
 import {
   buildToolPath,
@@ -29,8 +28,8 @@ import {
   type ToolRuleSettablePathsGlobal,
 } from './tool-rule.js';
 
-/** Claude Code import directive — keep AGENTS.md as the shared instruction body. */
-const CLAUDECODE_AGENTS_IMPORT = `@${AGENTSMD_RULE_FILE_NAME}\n`;
+/** Legacy Claude import. Old deploys wrote this in CLAUDE.md instead of the body. */
+const CLAUDECODE_AGENTS_IMPORT = `@${AGENTSMD_RULE_FILE_NAME}`;
 
 /**
  * Frontmatter schema for Claude Code modular rules
@@ -47,7 +46,7 @@ export type ClaudecodeRuleFrontmatter = z.infer<
 export type ClaudecodeRuleParams = Omit<ToolRuleParams, 'fileContent'> & {
   frontmatter: ClaudecodeRuleFrontmatter;
   body: string;
-  /** Full Instruction body written to AGENTS.md when root CLAUDE.md only imports it. */
+  /** Full Instruction body. Used when reading a leftover `@AGENTS.md` CLAUDE.md. */
   agentsBody?: string;
 };
 
@@ -77,8 +76,7 @@ export type ClaudecodeRuleSettablePathsGlobal = ToolRuleSettablePathsGlobal;
  * Supports the Claude Code modular rules system.
  *
  * Modular rules format:
- * - {project}/AGENTS.md (shared Instruction body)
- * - {project}/CLAUDE.md → `@AGENTS.md` import (root: true)
+ * - {project}/CLAUDE.md — copy of the Instruction body (root: true)
  * - {project}/.claude/rules/*.md (root: false; no path/glob applicability)
  *
  * @see https://code.claude.com/docs/en/memory#modular-rules-with-clauderules
@@ -168,60 +166,6 @@ export class ClaudecodeRule extends ToolRule {
     return this.agentsBody;
   }
 
-  /**
-   * Write the shared Instruction to AGENTS.md next to CLAUDE.md.
-   * CLAUDE.md itself only contains `@AGENTS.md`.
-   */
-  static getRootMirror() {
-    return {
-      getMirrorFiles({
-        outputRoot,
-        rootRule,
-      }: {
-        outputRoot: string;
-        rootRule: ToolRule;
-        content: string;
-      }): ToolRule[] {
-        const agentsBody =
-          rootRule instanceof ClaudecodeRule
-            ? rootRule.getAgentsBody()
-            : rootRule.getFileContent();
-        const normalized = agentsBody.replace(/\s+$/, '');
-        return [
-          new AgentsMdRule({
-            outputRoot,
-            relativeDirPath: rootRule.getRelativeDirPath(),
-            relativeFilePath: AGENTSMD_RULE_FILE_NAME,
-            fileContent: normalized ? `${normalized}\n` : '\n',
-            validate: false,
-            root: rootRule.getRelativeDirPath() === '.',
-          }),
-        ];
-      },
-      getMirrorDeletionGlobs({
-        outputRoot,
-        global = false,
-      }: {
-        outputRoot: string;
-        global?: boolean;
-      }) {
-        const paths = ClaudecodeRule.getSettablePaths({ global });
-        return {
-          primaryGlob: join(
-            outputRoot,
-            paths.root.relativeDirPath,
-            paths.root.relativeFilePath,
-          ),
-          mirrorGlob: join(
-            outputRoot,
-            paths.root.relativeDirPath,
-            AGENTSMD_RULE_FILE_NAME,
-          ),
-        };
-      },
-    };
-  }
-
   private static generateFileContent(
     body: string,
     frontmatter: ClaudecodeRuleFrontmatter,
@@ -249,13 +193,11 @@ export class ClaudecodeRule extends ToolRule {
         join(outputRoot, rootDirPath, paths.root.relativeFilePath),
       );
       const raw = fileContent.trim();
-      const isAgentsImport =
-        raw === `@${AGENTSMD_RULE_FILE_NAME}` ||
-        raw === CLAUDECODE_AGENTS_IMPORT.trim();
-      let agentsBody = raw;
+      const isAgentsImport = raw === CLAUDECODE_AGENTS_IMPORT;
+      let body = raw;
       if (isAgentsImport) {
         try {
-          agentsBody = (
+          body = (
             await readFileContent(
               join(outputRoot, rootDirPath, AGENTSMD_RULE_FILE_NAME),
             )
@@ -270,8 +212,8 @@ export class ClaudecodeRule extends ToolRule {
         relativeDirPath: rootDirPath,
         relativeFilePath: paths.root.relativeFilePath,
         frontmatter: {},
-        body: isAgentsImport ? CLAUDECODE_AGENTS_IMPORT : raw,
-        agentsBody,
+        body,
+        agentsBody: body,
         validate,
         root: true,
       });
@@ -348,7 +290,7 @@ export class ClaudecodeRule extends ToolRule {
       return new ClaudecodeRule({
         outputRoot,
         frontmatter: claudecodeFrontmatter,
-        body: CLAUDECODE_AGENTS_IMPORT,
+        body: agentsBody,
         agentsBody,
         relativeDirPath: paths.root.relativeDirPath,
         relativeFilePath: paths.root.relativeFilePath,

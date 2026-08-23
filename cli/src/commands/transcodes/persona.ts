@@ -332,6 +332,42 @@ function assertKnowledgeBaseReferencePath(file: string): void {
   }
 }
 
+const KNOWLEDGE_BASE_BUNDLE_PREFIX = `skills/${KNOWLEDGE_BASE_SKILL_NAME}/`;
+
+function isKnowledgeBaseMarkdownPath(bundlePath: string): boolean {
+  return bundlePath.toLowerCase().endsWith('.md');
+}
+
+/**
+ * Knowledge Base is Markdown-only. Call this on the collected bundle before
+ * any S3 upload so a copied `.py` / `.pdf` cannot leave the machine.
+ */
+export function assertKnowledgeBaseBundleFiles(
+  files: ReadonlyArray<{
+    name?: string;
+    path?: string;
+    bundlePath?: string;
+  }>,
+): void {
+  const rejected: string[] = [];
+  for (const file of files) {
+    const bundlePath = file.path ?? file.bundlePath ?? '';
+    const isKnowledgeBase =
+      file.name === KNOWLEDGE_BASE_SKILL_NAME ||
+      bundlePath.startsWith(KNOWLEDGE_BASE_BUNDLE_PREFIX);
+    if (!isKnowledgeBase) continue;
+    if (!bundlePath || !isKnowledgeBaseMarkdownPath(bundlePath)) {
+      rejected.push(bundlePath || file.name || KNOWLEDGE_BASE_SKILL_NAME);
+    }
+  }
+  if (rejected.length === 0) return;
+  throw new Error(
+    `Knowledge Base files must be Markdown (.md). Remove or convert these files before saving:\n${rejected
+      .map((entry) => `  - ${entry}`)
+      .join('\n')}`,
+  );
+}
+
 function assertKnowledgeBaseReferenceWritePath(file: string): void {
   assertKnowledgeBaseReferencePath(file);
   const base = file.slice(`${KNOWLEDGE_BASE_REFERENCE_DIR}/`.length);
@@ -876,7 +912,15 @@ function assertPersonaBundlePath(
       if (deleting && skillFile === SKILL_FILE_NAME) {
         throw new Error('SKILL.md is required and cannot be deleted.');
       }
-      if (!deleting) assertSkillReferenceWritePath(skillFile);
+      if (!deleting) {
+        assertSkillReferenceWritePath(skillFile);
+        if (
+          skill === KNOWLEDGE_BASE_SKILL_NAME &&
+          skillFile !== SKILL_FILE_NAME
+        ) {
+          assertKnowledgeBaseReferenceWritePath(skillFile);
+        }
+      }
       return `skills/${parts[1]}/${skillFile}`;
     }
   }
@@ -1461,6 +1505,8 @@ export async function savePersonaBatch(params: {
       );
     }
   }
+
+  assertKnowledgeBaseBundleFiles(files);
 
   await replacePersonaBundleFiles(persona, files, deletePaths);
   await writeLastRoot(root);
