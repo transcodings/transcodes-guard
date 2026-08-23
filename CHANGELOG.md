@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.83.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.83.0...transcodes-guard-v0.83.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **cli:** allow underscore skill folders like _archive ([4f39c34](https://github.com/transcodings/transcodes-guard/commit/4f39c34d362876252befe53fe7da70c8f7b73576))
+
 ## [0.83.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.82.0...transcodes-guard-v0.83.0) (2026-08-23)
 
 
