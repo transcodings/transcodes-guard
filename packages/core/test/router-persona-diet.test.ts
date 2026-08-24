@@ -67,9 +67,12 @@ test('generated host Skills expose broad Persona and Diet triggers', () => {
     '../../../plugins/antigravity/skills/transcodes/SKILL.md',
   ]) {
     const skill = readFileSync(new URL(file, import.meta.url), 'utf8');
-    assert.match(skill, /^description: \|$/m);
-    assert.match(skill, /agent config, AI setup, team rules, instructions, agent profile/);
-    assert.match(skill, /apply team standards to a project or folder/);
-    assert.match(skill, /optimize, simplify, trim, or Diet a Persona/);
+    const frontmatter = skill.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
+    assert.match(frontmatter, /^description: \|$/m);
+    assert.match(frontmatter, /agent config, AI setup, team rules, instructions, agent profile/);
+    assert.match(frontmatter, /review a Persona, Rule, or Skill/);
+    assert.match(frontmatter, /Persona, Rule, Skill을 리뷰/);
+    assert.match(frontmatter, /apply team standards to a project or folder/);
+    assert.match(frontmatter, /Persona Diet/);
   }
 });
