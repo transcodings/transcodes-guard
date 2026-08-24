@@ -4715,10 +4715,11 @@ function dashboardHtml(): string {
                   <svg class="guide-step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="guide-step-body">
-                  <p class="guide-step-desc">When you want it in your AI apps, ask <code class="cli-cmd">/transcodes apply a persona</code>.</p>
+                  <p class="guide-step-desc">After you create or edit a Persona, you will be asked whether to apply it now. You can also ask <code class="cli-cmd">/transcodes apply a persona</code>.</p>
                   <ul class="guide-fork">
-                    <li>If you pick a project folder → that project only</li>
-                    <li>If you don't → this whole computer</li>
+                    <li>Project — the folder this Persona is currently applied to</li>
+                    <li>Global — this entire device, every project and session</li>
+                    <li>Later — skip apply for now</li>
                   </ul>
                 </div>
               </details>
@@ -4776,7 +4777,7 @@ function dashboardHtml(): string {
               )}
               <div>
                 <p class="persona-agent-callout-title">Create/Update Personas with AI</p>
-                <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. If you pick a project folder it applies there; if you don't, it applies to this whole computer.</p>
+                <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. After create or edit, you will be asked: Project (currently applied folder), Global (this entire device), or Later.</p>
               </div>
             </div>
             <div class="guide-topic-actions">
@@ -4979,7 +4980,7 @@ function dashboardHtml(): string {
                   <svg class="persona-agent-callout-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <div class="persona-agent-callout-body">
-                  <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. If you pick a project folder it applies there; if you don't, it applies to this whole computer.</p>
+                  <p class="persona-agent-callout-copy">Your AI can handle every Persona action in this panel. Use <code class="cli-cmd">/transcodes</code> in Claude, Cursor, or Antigravity — or <code class="cli-cmd">$transcodes</code> in ChatGPT (Codex) — and ask it to create, edit, update, apply, sync, upload, or download Personas. Just describe what you want, such as <code class="cli-cmd">/transcodes create a persona</code>, <code class="cli-cmd">/transcodes apply this persona</code>, or <code class="cli-cmd">/transcodes upload this persona to my organization</code>. After create or edit, you will be asked: Project (currently applied folder), Global (this entire device), or Later.</p>
                 </div>
               </details>
               </div>
@@ -6958,6 +6959,7 @@ function dashboardHtml(): string {
       });
       if (next === "templates") resetPersonaTemplateForms();
       if (next === "remote") void loadRemotePersonas();
+      if (next === "local") void ensureMyPersonasSelection();
       if (!options.skipUrl) {
         syncRouteUrl("persona", personaState.view, !!options.replaceUrl);
       }
@@ -7053,20 +7055,59 @@ function dashboardHtml(): string {
       );
     }
 
+    function listedPersonas() {
+      return personaState.listing && personaState.listing.personas
+        ? personaState.listing.personas
+        : [];
+    }
+
+    async function ensureMyPersonasSelection() {
+      let personas = listedPersonas();
+      if (!personas.length && !personaState.listing) {
+        try {
+          await loadPersonaListing(personaRootInput.value.trim());
+          personas = listedPersonas();
+        } catch (_) {
+          return;
+        }
+      }
+      if (!personas.length) {
+        renderPersonaBundles();
+        return;
+      }
+      const valid =
+        !!personaState.persona && personas.includes(personaState.persona);
+      if (!valid) personaState.persona = personas[0];
+      const emptyDraft =
+        (personaState.kind !== "agent" && !personaState.name) ||
+        !(personaEditor && personaEditor.value.trim());
+      if (!valid || emptyDraft) {
+        personaState.name = "";
+        selectPersonaKind("agent");
+        showPersonaNewName(false);
+        try {
+          await loadPersonaFile();
+        } catch (_) {
+          setPersonaEditorContent("");
+        }
+      }
+      renderPersonaBundles();
+      renderPersonaRegistry();
+    }
+
     function renderPersonaBundles() {
-      const personas =
-        personaState.listing && personaState.listing.personas
-          ? personaState.listing.personas
-          : [];
+      const personas = listedPersonas();
       personaBundleSelect.innerHTML = personas
         .map(
           (name) =>
             '<option value="' + esc(name) + '">' + esc(name) + "</option>"
         )
         .join("");
-      if (personaState.persona) {
-        personaBundleSelect.value = personaState.persona;
-      }
+      const selected =
+        personaState.persona && personas.includes(personaState.persona)
+          ? personaState.persona
+          : personas[0] || "";
+      if (selected) personaBundleSelect.value = selected;
     }
 
     function renderPersonaRegistry() {
@@ -8484,9 +8525,8 @@ function dashboardHtml(): string {
       personaBusy(true);
       try {
         await loadPersonaListing(root);
+        await ensureMyPersonasSelection();
         syncPersonaEntryForm();
-        await loadPersonaFile();
-        renderPersonaRegistry();
         return true;
       } catch (e) {
         setPersonaHint(e.message || "Could not read that folder", true);
@@ -8648,6 +8688,7 @@ function dashboardHtml(): string {
       }
       if (!(await confirmDiscardPersonaChanges("the new Persona"))) return;
       personaBusy(true);
+      let created = false;
       try {
         const data = await personaFetch("/api/persona/create-persona", {
           method: "POST",
@@ -8663,11 +8704,13 @@ function dashboardHtml(): string {
         renderPersonaRegistry();
         await loadPersonaFile();
         await renderPersonaSyncState();
+        created = true;
       } catch (e) {
         showToast(e.message || "Could not create Persona", "error");
       } finally {
         personaBusy(false);
       }
+      if (created) await offerPersonaApplyAfterChange();
     }
 
     // Queried on demand so setPersonaView can call this during boot routing,
@@ -8710,6 +8753,7 @@ function dashboardHtml(): string {
       if (!(await confirmDiscardPersonaChanges("the new Persona"))) return;
       personaTemplatesBusy(true);
       personaBusy(true);
+      let created = false;
       try {
         const data = await personaFetch("/api/persona/create-from-template", {
           method: "POST",
@@ -8727,12 +8771,14 @@ function dashboardHtml(): string {
         await renderPersonaSyncState();
         // Land in the editor so the new bundle can be reviewed right away.
         setPersonaView("local");
+        created = true;
       } catch (e) {
         showToast(e.message || "Could not create Persona", "error");
       } finally {
         personaBusy(false);
         personaTemplatesBusy(false);
       }
+      if (created) await offerPersonaApplyAfterChange();
     }
 
     personaTemplateCards().forEach((card) => {
@@ -8897,6 +8943,9 @@ function dashboardHtml(): string {
       }
 
       personaBusy(true);
+      let saved = false;
+      const offerApply =
+        !isKnowledgeDocumentOpen() && !personaState.creatingKnowledge;
       try {
         const data = await personaFetch("/api/persona/save", {
           method: "POST",
@@ -8943,6 +8992,7 @@ function dashboardHtml(): string {
           setPersonaEditorContent(nextContent);
         }
         if (hasSavedTokens(lastStatus)) await loadRemotePersonas();
+        saved = true;
       } catch (e) {
         if (creating) {
           personaNewName.hidden = false;
@@ -8952,9 +9002,18 @@ function dashboardHtml(): string {
       } finally {
         personaBusy(false);
       }
+      if (saved && offerApply) await offerPersonaApplyAfterChange();
+    }
+
+    async function offerPersonaApplyAfterChange() {
+      if (!personaState.persona || !personaDeployReady(personaState.listing)) {
+        return;
+      }
+      await deployAllPersona();
     }
 
     async function deployAllPersona() {
+      await ensureMyPersonasSelection();
       const root = personaRootInput.value.trim() || personaState.root;
       const listing = personaState.listing;
       if (!personaDeployReady(listing)) {

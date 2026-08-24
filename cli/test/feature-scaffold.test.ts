@@ -8,6 +8,7 @@ import {
   parseSkillScriptLanguage,
   SKILL_OPTIONAL_DIRS,
   TRANSCODES_ATTRIBUTION_OUTPUT_LINE,
+  TRANSCODES_MCP_MUST_LINES,
 } from '../src/commands/sync/lib/feature-scaffold.js';
 import {
   assertSkillFilePath,
@@ -41,6 +42,10 @@ test('every generated Instruction explains applied Transcodes assets naturally',
   assert.match(instruction.content, /installed or read/);
   assert.match(instruction.content, /platform, system, or host instructions/);
   assert.ok(instruction.content.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE));
+  assert.doesNotMatch(instruction.content, /# MUST \/ IMPORTANT/);
+  for (const line of TRANSCODES_MCP_MUST_LINES) {
+    assert.ok(!instruction.content.includes(line));
+  }
 });
 
 test('generated Rule and Skill files never contain Transcodes attribution', () => {
