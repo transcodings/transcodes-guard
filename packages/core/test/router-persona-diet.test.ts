@@ -11,7 +11,8 @@ test('Persona Diet keeps its safety contract', () => {
     'Inventory every companion path',
     'Check the current official documentation',
     'the whole approved bundle succeeds or leaves the Persona unchanged',
-    'Deploy only if the user separately asks',
+    'Always ask these three choices in order',
+    'Remove Transcodes MCP / do-not-bypass-via-Bash-or-shell Instruction lines',
   ]) {
     assert.ok(TRANSCODES_ROUTER_BODY.includes(clause), clause);
   }
@@ -23,16 +24,52 @@ test('Persona Diet keeps its safety contract', () => {
   );
 });
 
-test('generated host Skills expose the Diet trigger', () => {
+test('Persona create/edit omits MCP instruction lines and always asks where to apply', () => {
+  for (const clause of [
+    'Do not add Transcodes MCP / do-not-bypass-via-Bash-or-shell lines',
+    'If those lines are already in the Instruction, remove them on create, edit, or Diet',
+    'ALWAYS ask whether to apply it now',
+    'Never default to This device (Global)',
+    'Offer exactly these three choices, in this order',
+    'If no project folder is currently applied and no workspace path is known',
+    'Do not treat "I don\'t know" as Global',
+    'Never treat a missing project path as a Global apply',
+  ]) {
+    assert.ok(TRANSCODES_ROUTER_BODY.includes(clause), clause);
+  }
+  assert.ok(!TRANSCODES_ROUTER_BODY.includes('Deploy only if the user separately asks'));
+  assert.ok(
+    !TRANSCODES_ROUTER_BODY.includes(
+      'If no project path was supplied, default to This device (Global)',
+    ),
+  );
+});
+
+test('Persona routing recognizes customer language without requiring the Persona term', () => {
+  for (const clause of [
+    'Trigger even when the user does not say "Persona"',
+    'agent config, AI setup, AI settings, team rules, instructions, agent profile',
+    '"set up my AI"',
+    '"add our project rules"',
+    '"apply our team conventions here"',
+    '`AGENTS.md`, `CLAUDE.md`, Rules, or Skills as one AI configuration',
+    'AI work settings (Persona), command/tool protection (Guard), or member permissions (RBAC)',
+  ]) {
+    assert.ok(TRANSCODES_ROUTER_BODY.includes(clause), clause);
+  }
+});
+
+test('generated host Skills expose broad Persona and Diet triggers', () => {
   for (const file of [
     '../../../plugins/claude-code/skills/transcodes/SKILL.md',
     '../../../plugins/cursor/skills/transcodes/SKILL.md',
     '../../../plugins/codex/skills/transcodes/SKILL.md',
     '../../../plugins/antigravity/skills/transcodes/SKILL.md',
   ]) {
-    assert.match(
-      readFileSync(new URL(file, import.meta.url), 'utf8'),
-      /^description:.*optimize, simplify, or Diet a Persona/m,
-    );
+    const skill = readFileSync(new URL(file, import.meta.url), 'utf8');
+    assert.match(skill, /^description: \|$/m);
+    assert.match(skill, /agent config, AI setup, team rules, instructions, agent profile/);
+    assert.match(skill, /apply team standards to a project or folder/);
+    assert.match(skill, /optimize, simplify, trim, or Diet a Persona/);
   }
 });

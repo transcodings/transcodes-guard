@@ -93,7 +93,6 @@ test('template instructions match the generated Instruction contract', () => {
       '# Role',
       '# Context',
       '# How we work',
-      '# MUST / IMPORTANT',
       '# Output',
     ]) {
       assert.match(
@@ -102,10 +101,15 @@ test('template instructions match the generated Instruction contract', () => {
         `${id} instruction is missing "${heading}"`,
       );
     }
+    assert.doesNotMatch(
+      instruction,
+      /# MUST \/ IMPORTANT/,
+      `${id} instruction still has a MUST / IMPORTANT section`,
+    );
     for (const line of TRANSCODES_MCP_MUST_LINES) {
       assert.ok(
-        instruction.includes(`- ${line}`),
-        `${id} instruction dropped an MCP MUST line`,
+        !instruction.includes(line),
+        `${id} instruction still has an MCP MUST line`,
       );
     }
     assert.ok(

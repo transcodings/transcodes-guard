@@ -98,19 +98,19 @@ test("Guide has a Mux player and step timestamp seek buttons", () => {
   assert.match(source, /function seekGuideVideo\(seconds\)/);
   assert.match(
     source,
-    /Create a Persona[\s\S]*?data-seek="0"[\s\S]*?Jump to video at 0:00/,
+    /Create Persona with AI Desktop App[\s\S]*?data-seek="0"[\s\S]*?Watch video from 0:00/,
   );
   assert.match(
     source,
-    /Review and edit it[\s\S]*?data-seek="40"[\s\S]*?Jump to video at 0:40/,
+    /Review and edit it[\s\S]*?data-seek="40"[\s\S]*?Watch video from 0:40/,
   );
   assert.match(
     source,
-    /Apply it[\s\S]*?data-seek="60"[\s\S]*?Jump to video at 1:00/,
+    /Apply it[\s\S]*?data-seek="60"[\s\S]*?Watch video from 1:00/,
   );
   assert.match(
     source,
-    /Back up and share[\s\S]*?data-seek="168"[\s\S]*?Jump to video at 2:48/,
+    /Back up and share[\s\S]*?data-seek="168"[\s\S]*?Watch video from 2:48/,
   );
   assert.match(
     source,
@@ -134,7 +134,7 @@ test("Getting Started leads with the four numbered Persona steps", () => {
   assert.doesNotMatch(source, /If you get stuck/);
   assert.match(
     source,
-    /guide-step-num">1[\s\S]*?Create a Persona[\s\S]*?guide-step-num">2[\s\S]*?Review and edit it[\s\S]*?guide-step-num">3[\s\S]*?Apply it[\s\S]*?guide-step-num">4[\s\S]*?Back up and share/,
+    /guide-step-num">1[\s\S]*?Create Persona with AI Desktop App[\s\S]*?guide-step-num">2[\s\S]*?Review and edit it[\s\S]*?guide-step-num">3[\s\S]*?Apply it[\s\S]*?guide-step-num">4[\s\S]*?Back up and share/,
   );
   // Step 1 stays expanded on load; the rest are collapsed.
   assert.equal(
@@ -152,7 +152,7 @@ test("Getting Started leads with the four numbered Persona steps", () => {
   );
   assert.match(
     source,
-    /If you pick a project folder → that project only[\s\S]*?If you don't → this whole computer/,
+    /Project — the folder this Persona is currently applied to[\s\S]*?Global — this entire device, every project and session[\s\S]*?Later — skip apply for now/,
   );
   assert.match(
     source,
@@ -231,8 +231,29 @@ test("Persona AI agent callout is a collapsible accordion", () => {
   assert.match(source, /upload this persona to my organization/);
   assert.match(
     source,
-    /If you pick a project folder it applies there; if you don't, it applies to this whole computer/,
+    /After create or edit, you will be asked: Project \(currently applied folder\), Global \(this entire device\), or Later/,
   );
+});
+
+test("My Personas opens the first Persona Instruction when none is selected", () => {
+  assert.match(source, /async function ensureMyPersonasSelection\(\)/);
+  assert.match(source, /if \(next === "local"\) void ensureMyPersonasSelection\(\)/);
+  assert.match(source, /await ensureMyPersonasSelection\(\);/);
+  assert.match(source, /personaState\.persona = personas\[0\]/);
+  assert.match(source, /selectPersonaKind\("agent"\)/);
+});
+
+test("create and save always offer apply, project first then this device", () => {
+  assert.match(source, /async function offerPersonaApplyAfterChange\(\)/);
+  assert.match(
+    source,
+    /if \(created\) await offerPersonaApplyAfterChange\(\);/,
+  );
+  assert.match(
+    source,
+    /if \(saved && offerApply\) await offerPersonaApplyAfterChange\(\);/,
+  );
+  assert.match(source, /deployConfirmGlobal\.checked = false/);
 });
 
 test("mandatory Rule and Skill attribution has no dashboard toggle", () => {

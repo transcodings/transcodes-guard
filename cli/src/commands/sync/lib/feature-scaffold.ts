@@ -75,7 +75,7 @@ export function transcodesAttributionOutputLine(persona?: string): string {
 export const TRANSCODES_ATTRIBUTION_OUTPUT_LINE =
   transcodesAttributionOutputLine();
 
-/** Non-negotiable MCP lines every Persona instruction carries, without bullets. */
+/** Legacy Instruction lines that must not be added, and should be removed if present. */
 export const TRANSCODES_MCP_MUST_LINES = [
   'When Transcodes MCP is installed, use Transcodes MCP tools for every operation they support.',
   'Never bypass an available Transcodes MCP tool or its permission and step-up flow by using Bash, shell, raw HTTP, or another indirect execution path. If authorization is required, complete that flow instead of rerouting the action.',
@@ -160,9 +160,6 @@ description: <One-line summary of this agent's overall role>
 - <Core convention someone would otherwise get wrong>
 - <How to verify work and communicate decisions>
 - <Team tone or collaboration rule>
-
-# MUST / IMPORTANT
-${TRANSCODES_MCP_MUST_LINES.map((line) => `- ${line}`).join('\n')}
 
 # Output
 - <Default language, length, and level of detail>

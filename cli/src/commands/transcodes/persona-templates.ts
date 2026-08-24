@@ -6,10 +6,7 @@
  * `transcodes sync scaffold` — instruction without frontmatter, Rules with
  * `description`/`globs`, and Skills whose frontmatter `name` matches the folder.
  */
-import {
-  TRANSCODES_ATTRIBUTION_OUTPUT_LINE,
-  TRANSCODES_MCP_MUST_LINES,
-} from '../sync/lib/feature-scaffold.js';
+import { TRANSCODES_ATTRIBUTION_OUTPUT_LINE } from '../sync/lib/feature-scaffold.js';
 import {
   KNOWLEDGE_BASE_SKILL_NAME,
   KNOWLEDGE_BASE_STARTER_CONTENT,
@@ -69,9 +66,6 @@ ${bullets([
   ...params.howWeWork,
   'Read the Knowledge Base entry whose description matches the fact you need. Do not guess product names, tokens, claims, or decisions stored there.',
 ])}
-
-# MUST / IMPORTANT
-${bullets([...TRANSCODES_MCP_MUST_LINES])}
 
 # Output
 ${bullets(params.output)}
