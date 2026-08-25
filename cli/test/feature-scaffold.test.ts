@@ -24,12 +24,12 @@ test('every generated Instruction requires a compact Persona attribution line', 
   assert.match(instruction.content, /^# Output$/m);
   assert.match(
     instruction.content,
-    /Persona <name or none> · Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none> · Knowledge <comma-separated Knowledge Base names or none>/,
+    /Persona <name or none> · Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none> · Knowledge <comma-separated Knowledge Base document names or none>/,
   );
-  assert.match(instruction.content, /write `none` after Persona/);
-  assert.match(instruction.content, /Keep all four categories/);
-  assert.match(instruction.content, /installed or read/);
-  assert.match(instruction.content, /platform, system, or host instructions/);
+  assert.match(instruction.content, /final line with nothing after it/);
+  assert.match(instruction.content, /Use `none` for every empty category/);
+  assert.match(instruction.content, /installed-but-unused assets/);
+  assert.match(instruction.content, /Never put `AGENTS\.md`, `CLAUDE\.md`/);
   assert.ok(instruction.content.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE));
   assert.doesNotMatch(instruction.content, /# MUST \/ IMPORTANT/);
   for (const line of TRANSCODES_MCP_MUST_LINES) {
@@ -60,13 +60,16 @@ test('Persona Instruction attribution is restored with its exact name', () => {
   assert.match(content, /^# Output$/m);
   assert.match(
     content,
-    /The active Transcodes Persona is `product-manager`; use that exact name after Persona\./,
+    /Persona product-manager · Rules <comma-separated Rule names or none>/,
   );
   assert.match(
     content,
-    /Persona <name or none> · Rules <comma-separated Rule names or none>/,
+    /Persona is always `product-manager` for this Instruction/,
   );
-  assert.match(content, /Knowledge <comma-separated Knowledge Base names or none>/);
+  assert.match(
+    content,
+    /Knowledge <comma-separated Knowledge Base document names or none>/,
+  );
 });
 
 test('skill scaffold defaults to SKILL.md only', () => {
@@ -320,24 +323,16 @@ test('skill file paths stay inside the skill folder', () => {
   );
 });
 
-test('legacy Instruction attribution is replaced without duplication', () => {
-  const legacy =
-    '- If any Rules or Skills were applied, you MUST include a list of the names of the Rules and Skills in the response.';
-  const technical =
-    '- The active Transcodes Persona is `developer`. When completing a task, end the response with exactly one short Transcodes attribution line: old technical format.';
-  const content = ensurePersonaInstructionOutput(
-    `# Output\n${legacy}\n${technical}\n`,
-    'developer',
-  );
+test('current Instruction attribution is replaced without duplication', () => {
+  const initial = ensurePersonaInstructionOutput('# Output\n', 'developer');
+  const content = ensurePersonaInstructionOutput(initial, 'developer');
 
   assert.equal(
     content.match(/exactly one Transcodes attribution line/g)?.length,
     1,
   );
-  assert.ok(!content.includes(legacy));
-  assert.ok(!content.includes(technical));
   assert.match(
     content,
-    /The active Transcodes Persona is `developer`; use that exact name after Persona\./,
+    /Persona developer · Rules <comma-separated Rule names or none>/,
   );
 });

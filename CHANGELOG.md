@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [0.84.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.83.1...transcodes-guard-v0.84.0) (2026-08-25)
+
+
+### Features
+
+* **cli:** ask where to apply Personas and stop requiring the Persona term ([c8ea097](https://github.com/transcodings/transcodes-guard/commit/c8ea097ebd9186aab456b6ae183e4cfffc67e964))
+* **cli:** show compact Persona Rules Skills Knowledge attribution ([7470d51](https://github.com/transcodings/transcodes-guard/commit/7470d51065672ce340c3e5599ae0da69f72d7117))
+
 ## [0.83.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.83.0...transcodes-guard-v0.83.1) (2026-08-23)
 
 
