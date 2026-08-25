@@ -1,6 +1,6 @@
 {
   "name": "@bigstrider/transcodes-cli",
-  "version": "0.19.7",
+  "version": "0.19.8",
   "description": "Transcodes CLI — manage transcodes-guard member tokens and the step-up gate (set/reset/status/tokens, enable/disable, dashboard).",
   "type": "module",
   "bin": {
