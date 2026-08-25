@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [0.87.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.86.0...transcodes-guard-v0.87.0) (2026-08-25)
+
+
+### Features
+
+* **persona:** 최적화 제안과 Diet 연결 ([56149f9](https://github.com/transcodings/transcodes-guard/commit/56149f96ce6d020ccb09cc4ba2a134b4cddfdd23))
+
+
+### Bug Fixes
+
+* **persona:** harden optimization review flow ([bed2db9](https://github.com/transcodings/transcodes-guard/commit/bed2db9b6e478c1c360db3480b3e0817e2ad1e83))
+
 ## [0.86.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.85.0...transcodes-guard-v0.86.0) (2026-08-25)
 
 
