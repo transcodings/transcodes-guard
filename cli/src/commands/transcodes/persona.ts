@@ -1668,20 +1668,6 @@ export async function readPersonaAsset(params: {
   }
 }
 
-const LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_MARKERS = [
-  'When completing a task, end the response with exactly one short Transcodes attribution line',
-  'When completing a task, end the response with exactly one short, friendly Transcodes note in the response language',
-] as const;
-
-const LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_LINES = new Set([
-  '- When any Rule or Skill is applied, you MUST end the response with exactly one attribution line in this format: `Applied: Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none>`. Use the exact Rule and Skill names, include every applied item, and never replace names with generic descriptions. Omit this line only when no Rule or Skill was applied.',
-  '- If any Rules or Skills were applied, you MUST include a list of the names of the Rules and Skills in the response.',
-  '- End each response with exactly one short line: `Applied: Rules <names> · Skills <names>`. Include names only, omit empty categories, and omit the entire line when no Rule or Skill was applied.',
-  '- Start each response with exactly one short line: `Applied: Rules [<names>] · Skills [<names>]`. Include names only, omit empty categories, and omit the entire line when no Rule or Skill was applied.',
-  '- Tell the user which Rules and Skills were applied in the response.',
-  '- If any Rules or Skills were applied, you MUST briefly identify which ones in the response.',
-]);
-
 /** Keep mandatory Transcodes attribution in every generated host Instruction. */
 export function ensurePersonaInstructionOutput(
   content: string,
@@ -1689,18 +1675,9 @@ export function ensurePersonaInstructionOutput(
 ): string {
   const lines = content.split(/\r?\n/);
   const outputLine = transcodesAttributionOutputLine(persona);
-  const isAttributionLine = (line: string): boolean => {
-    const normalized = line.trim();
-    return (
-      normalized.includes(TRANSCODES_ATTRIBUTION_OUTPUT_MARKER) ||
-      LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_MARKERS.some((marker) =>
-        normalized.includes(marker),
-      ) ||
-      LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_LINES.has(normalized)
-    );
-  };
-
-  const cleanLines = lines.filter((line) => !isAttributionLine(line));
+  const cleanLines = lines.filter(
+    (line) => !line.includes(TRANSCODES_ATTRIBUTION_OUTPUT_MARKER),
+  );
 
   const outputIndex = cleanLines.findIndex(
     (line) => line.trim() === '# Output',

@@ -66,10 +66,8 @@ export const TRANSCODES_ATTRIBUTION_OUTPUT_MARKER =
   'end the response with exactly one Transcodes attribution line';
 
 export function transcodesAttributionOutputLine(persona?: string): string {
-  const personaClause = persona
-    ? `The active Transcodes Persona is \`${persona}\`; use that exact name after Persona.`
-    : 'If no Transcodes Persona governed this task, write `none` after Persona.';
-  return `- When completing a task, ${TRANSCODES_ATTRIBUTION_OUTPUT_MARKER} in this exact format: \`Persona <name or none> · Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none> · Knowledge <comma-separated Knowledge Base names or none>\`. ${personaClause} List only assets that actually affected this response, using exact names. Use \`none\` for any empty category. Keep all four categories, in that order, on one line. Do not add impact prose, and do not wrap the line in a blockquote or emoji. Never list an asset merely because it is installed or read, and do not attribute platform, system, or host instructions as Transcodes assets.`;
+  const personaName = persona ?? '<name or none>';
+  return `- When completing a task, ${TRANSCODES_ATTRIBUTION_OUTPUT_MARKER}, as the final line with nothing after it: \`Persona ${personaName} · Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none> · Knowledge <comma-separated Knowledge Base document names or none>\`. Keep this exact four-part order and punctuation. Use \`none\` for every empty category. Persona is always \`${personaName}\` for this Instruction. Rules contains only exact Transcodes Rule names that actually affected the response. Skills contains only exact Transcodes Persona Skill names actually invoked. Knowledge contains only exact Knowledge Base document names actually consulted. Never put \`AGENTS.md\`, \`CLAUDE.md\`, platform instructions, system instructions, host instructions, or installed-but-unused assets in any list. Do not write another applied-assets sentence, impact prose, blockquote, emoji, heading, or label before or after this line.`;
 }
 
 export const TRANSCODES_ATTRIBUTION_OUTPUT_LINE =
