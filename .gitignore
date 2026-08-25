@@ -253,6 +253,15 @@ tags
 # so keep it OUT of git — re-ignore after the broad packages/* un-ignore.
 cli/dist/
 
+# Persona Apply writes host copies into the chosen project folder. If that
+# folder is this CLI package, do not treat the unpacked HyperFrames
+# Instruction / Rules / Skills as repo source.
+cli/AGENTS.md
+cli/CLAUDE.md
+cli/.agents/
+cli/.claude/
+cli/.cursor/
+
 # The standalone MCP server is published to npm independently (bundled via
 # tsup at publish time), same as the CLI. Its dist is not consumed by the
 # marketplace tree, so keep it OUT of git.

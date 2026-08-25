@@ -63,13 +63,13 @@ export function coerceSkillName(name: string): string {
 }
 
 export const TRANSCODES_ATTRIBUTION_OUTPUT_MARKER =
-  'When completing a task, end the response with exactly one short, friendly Transcodes note in the response language';
+  'end the response with exactly one Transcodes attribution line';
 
 export function transcodesAttributionOutputLine(persona?: string): string {
-  const personaContext = persona
-    ? `The active Transcodes Persona is \`${persona}\`.`
-    : 'No active Transcodes Persona is identified by this Instruction.';
-  return `- ${personaContext} ${TRANSCODES_ATTRIBUTION_OUTPUT_MARKER}. Describe how each actually applied asset helped, using its exact name and a short impact. Make it read like a natural completion message, not a log. To make it visually stand out, prefix it with a 💡 emoji, bold the exact asset names, and format it as a blockquote (\`>\`). Follow the meaning of \`> 💡 I completed this using the **<exact Persona name>** Persona to <short impact>, the **<exact Rule name>** Rule to <short impact>, and the **<exact Skill name>** Skill to <short impact>.\` Translate and adapt it naturally to the response language, localizing the Persona, Rule, and Skill category labels while preserving every asset name exactly, and omitting or repeating categories as needed. If no Transcodes asset affected the result, use the response-language equivalent of \`> 💡 No Transcodes assets were applied to this task.\` Never list an asset merely because it is installed or read, and do not attribute platform, system, or host instructions as Transcodes assets.`;
+  const personaClause = persona
+    ? `The active Transcodes Persona is \`${persona}\`; use that exact name after Persona.`
+    : 'If no Transcodes Persona governed this task, write `none` after Persona.';
+  return `- When completing a task, ${TRANSCODES_ATTRIBUTION_OUTPUT_MARKER} in this exact format: \`Persona <name or none> · Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none> · Knowledge <comma-separated Knowledge Base names or none>\`. ${personaClause} List only assets that actually affected this response, using exact names. Use \`none\` for any empty category. Keep all four categories, in that order, on one line. Do not add impact prose, and do not wrap the line in a blockquote or emoji. Never list an asset merely because it is installed or read, and do not attribute platform, system, or host instructions as Transcodes assets.`;
 }
 
 export const TRANSCODES_ATTRIBUTION_OUTPUT_LINE =

@@ -1668,8 +1668,10 @@ export async function readPersonaAsset(params: {
   }
 }
 
-const LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_MARKER =
-  'When completing a task, end the response with exactly one short Transcodes attribution line';
+const LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_MARKERS = [
+  'When completing a task, end the response with exactly one short Transcodes attribution line',
+  'When completing a task, end the response with exactly one short, friendly Transcodes note in the response language',
+] as const;
 
 const LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_LINES = new Set([
   '- When any Rule or Skill is applied, you MUST end the response with exactly one attribution line in this format: `Applied: Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none>`. Use the exact Rule and Skill names, include every applied item, and never replace names with generic descriptions. Omit this line only when no Rule or Skill was applied.',
@@ -1691,7 +1693,9 @@ export function ensurePersonaInstructionOutput(
     const normalized = line.trim();
     return (
       normalized.includes(TRANSCODES_ATTRIBUTION_OUTPUT_MARKER) ||
-      normalized.includes(LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_MARKER) ||
+      LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_MARKERS.some((marker) =>
+        normalized.includes(marker),
+      ) ||
       LEGACY_TRANSCODES_ATTRIBUTION_OUTPUT_LINES.has(normalized)
     );
   };
