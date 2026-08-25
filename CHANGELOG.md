@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.85.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.84.0...transcodes-guard-v0.85.0) (2026-08-25)
+
+
+### Features
+
+* **cli:** bake Persona name into a single attribution line ([d5081ac](https://github.com/transcodings/transcodes-guard/commit/d5081ac1033e9a632aa900c6823188e16edbcf54))
+
 ## [0.84.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.83.1...transcodes-guard-v0.84.0) (2026-08-25)
 
 
