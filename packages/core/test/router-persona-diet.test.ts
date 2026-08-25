@@ -59,6 +59,48 @@ test('Persona routing recognizes customer language without requiring the Persona
   }
 });
 
+test('Persona Extract maps representative four-host fixtures', () => {
+  const fixtures = [
+    ['Codex', '`AGENTS.md`', 'Instruction'],
+    ['Claude Code', '`.claude/rules/**/*.md`', 'Rules'],
+    ['Cursor', '`.cursor/skills/**/SKILL.md`', 'Skills'],
+    ['Antigravity', '`.agents/rules/**/*.md`', 'Rules'],
+  ];
+  for (const [host, source, target] of fixtures) {
+    const line = TRANSCODES_ROUTER_BODY.split('\n').find(
+      (candidate) => candidate.includes(`${host} —`),
+    );
+    assert.ok(line?.includes(source), `${host}: ${source}`);
+    assert.ok(line?.includes(target), `${host}: ${target}`);
+  }
+});
+
+test('Persona Extract keeps discovery and creation fail-safe', () => {
+  for (const clause of [
+    'extract, migrate, or import an existing project',
+    'exists, is a readable directory, and can be listed',
+    'Never modify source files',
+    'Never execute scripts',
+    'Exclude `.env` files, credentials, private keys, tokens, build output, binaries, irrelevant source',
+    'If no extractable Instruction, Rule, or Skill remains',
+    'refuse any name that already exists',
+    'require the user to confirm every rename or conflict resolution',
+    'require explicit approval of that exact preview',
+    'If create or any save fails, stop immediately',
+    'do not report success or continue to deploy',
+    '`transcodes persona list --persona <name>`',
+    '`transcodes persona read` for every saved Instruction, Rule, Skill, and companion',
+    'Do not deploy automatically',
+  ]) {
+    assert.ok(TRANSCODES_ROUTER_BODY.includes(clause), clause);
+  }
+  assert.ok(
+    TRANSCODES_ROUTER_BODY.includes(
+      'must never invent or add a `transcodes persona extract` CLI command',
+    ),
+  );
+});
+
 test('generated host Skills expose broad Persona and Diet triggers', () => {
   for (const file of [
     '../../../plugins/claude-code/skills/transcodes/SKILL.md',
@@ -72,7 +114,10 @@ test('generated host Skills expose broad Persona and Diet triggers', () => {
     assert.match(frontmatter, /agent config, AI setup, team rules, instructions, agent profile/);
     assert.match(frontmatter, /review a Persona, Rule, or Skill/);
     assert.match(frontmatter, /Persona, Rule, Skill을 리뷰/);
+    assert.match(frontmatter, /extract or migrate an existing project's agent settings/);
     assert.match(frontmatter, /apply team standards to a project or folder/);
     assert.match(frontmatter, /Persona Diet/);
+    assert.match(skill, /If create or any save fails, stop immediately/);
+    assert.match(skill, /Never execute scripts/);
   }
 });
