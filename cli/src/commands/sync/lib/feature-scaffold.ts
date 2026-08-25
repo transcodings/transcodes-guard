@@ -63,7 +63,7 @@ export function coerceSkillName(name: string): string {
 }
 
 export const TRANSCODES_ATTRIBUTION_OUTPUT_MARKER =
-  'end the response with exactly one Transcodes attribution line';
+  'you MUST end the response with exactly one Transcodes attribution line, You must not change the format of the attribution line';
 
 export function transcodesAttributionOutputLine(persona?: string): string {
   const personaName = persona ?? '<name or none>';
