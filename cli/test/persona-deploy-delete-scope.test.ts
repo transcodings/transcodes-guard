@@ -139,17 +139,13 @@ test('deploy injects the exact Persona name into completion attribution', async 
   const instruction = await readFile(path.join(project, 'AGENTS.md'), 'utf8');
   assert.match(instruction, /active Transcodes Persona is `testp`/);
   assert.match(instruction, /^## Transcodes Rule: `tone`$/m);
-  assert.match(instruction, /short, friendly Transcodes note/);
   assert.match(
     instruction,
-    /I completed this using the \*\*<exact Persona name>\*\*/,
+    /Persona <name or none> · Rules <comma-separated Rule names or none>/,
   );
-  assert.match(
-    instruction,
-    /No Transcodes assets were applied to this task/,
-  );
+  assert.match(instruction, /Knowledge <comma-separated Knowledge Base names or none>/);
   assert.equal(
-    instruction.match(/short, friendly Transcodes note/g)?.length,
+    instruction.match(/exactly one Transcodes attribution line/g)?.length,
     1,
   );
 });

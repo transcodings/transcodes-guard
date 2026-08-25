@@ -1029,25 +1029,6 @@ function dashboardHtml(): string {
       text-align: right;
       word-break: break-all;
     }
-    .profile-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      padding: 16px 20px;
-      border-top: 1px solid var(--line);
-      background: #fbfbfc;
-    }
-    .profile-console-note {
-      margin: 0;
-      font-size: var(--text-xs);
-      color: var(--muted);
-      line-height: 1.5;
-    }
-    .profile-actions-hint {
-      margin: 0;
-      font-size: var(--text-2xs);
-      color: var(--muted);
-    }
     .profile-actions-buttons {
       flex-shrink: 0;
       display: flex;
@@ -4889,10 +4870,6 @@ function dashboardHtml(): string {
             <span class="k">Project ID</span>
             <span class="v" id="profile-project-id"></span>
           </div>
-        </div>
-        <div class="profile-actions">
-          <p class="profile-console-note">Register a passkey, hardware security key, or OTP in <strong>Console</strong> so you can confirm risky actions when Transcodes asks for an extra security check. Read the <strong>Guide</strong> tab first if you're new.</p>
-          <p class="profile-actions-hint"><code>transcodes console</code> · <code>transcodes logout</code> · <code>transcodes stop</code></p>
         </div>
       </div>
     </div>

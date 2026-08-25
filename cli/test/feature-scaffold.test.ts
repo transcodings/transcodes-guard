@@ -15,7 +15,7 @@ import {
   ensurePersonaInstructionOutput,
 } from '../src/commands/transcodes/persona.js';
 
-test('every generated Instruction explains applied Transcodes assets naturally', () => {
+test('every generated Instruction requires a compact Persona attribution line', () => {
   const instruction = createFeatureScaffold({
     feature: 'rule',
     name: 'agents',
@@ -24,21 +24,10 @@ test('every generated Instruction explains applied Transcodes assets naturally',
   assert.match(instruction.content, /^# Output$/m);
   assert.match(
     instruction.content,
-    /short, friendly Transcodes note in the response language/,
+    /Persona <name or none> · Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none> · Knowledge <comma-separated Knowledge Base names or none>/,
   );
-  assert.match(
-    instruction.content,
-    /I completed this using the \*\*<exact Persona name>\*\* Persona to <short impact>, the \*\*<exact Rule name>\*\* Rule to <short impact>, and the \*\*<exact Skill name>\*\* Skill to <short impact>/,
-  );
-  assert.match(
-    instruction.content,
-    /No Transcodes assets were applied to this task/,
-  );
-  assert.match(instruction.content, /Translate and adapt it naturally/);
-  assert.match(instruction.content, /localizing the Persona, Rule, and Skill/);
-  assert.match(instruction.content, /preserving every asset name exactly/);
-  assert.match(instruction.content, /each actually applied asset helped/);
-  assert.match(instruction.content, /natural completion message, not a log/);
+  assert.match(instruction.content, /write `none` after Persona/);
+  assert.match(instruction.content, /Keep all four categories/);
   assert.match(instruction.content, /installed or read/);
   assert.match(instruction.content, /platform, system, or host instructions/);
   assert.ok(instruction.content.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE));
@@ -71,13 +60,13 @@ test('Persona Instruction attribution is restored with its exact name', () => {
   assert.match(content, /^# Output$/m);
   assert.match(
     content,
-    /The active Transcodes Persona is `product-manager`\./,
+    /The active Transcodes Persona is `product-manager`; use that exact name after Persona\./,
   );
-  assert.match(content, /I completed this using the \*\*<exact Persona name>\*\*/);
   assert.match(
     content,
-    /No Transcodes assets were applied to this task/,
+    /Persona <name or none> · Rules <comma-separated Rule names or none>/,
   );
+  assert.match(content, /Knowledge <comma-separated Knowledge Base names or none>/);
 });
 
 test('skill scaffold defaults to SKILL.md only', () => {
@@ -342,10 +331,13 @@ test('legacy Instruction attribution is replaced without duplication', () => {
   );
 
   assert.equal(
-    content.match(/short, friendly Transcodes note/g)?.length,
+    content.match(/exactly one Transcodes attribution line/g)?.length,
     1,
   );
   assert.ok(!content.includes(legacy));
   assert.ok(!content.includes(technical));
-  assert.match(content, /The active Transcodes Persona is `developer`\./);
+  assert.match(
+    content,
+    /The active Transcodes Persona is `developer`; use that exact name after Persona\./,
+  );
 });
