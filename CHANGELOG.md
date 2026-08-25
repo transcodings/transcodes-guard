@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.86.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.85.0...transcodes-guard-v0.86.0) (2026-08-25)
+
+
+### Features
+
+* **cli:** require an unchanged Transcodes attribution line ([faeb2b7](https://github.com/transcodings/transcodes-guard/commit/faeb2b7397fb605de64af25734e50235fb8a1f5e))
+
 ## [0.85.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.84.0...transcodes-guard-v0.85.0) (2026-08-25)
 
 
