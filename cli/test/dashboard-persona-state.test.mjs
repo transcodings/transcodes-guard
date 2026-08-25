@@ -797,7 +797,7 @@ test("Organization view renders one unified Persona list", () => {
   // every Persona meet on one card.
   assert.match(
     source,
-    /#panel-persona \.persona-remote-view,[\s\S]{0,80}?\{[\s\S]{0,220}?width: 100%;[\s\S]{0,180}?padding: 30px 36px 40px;/,
+    /#panel-persona \.persona-remote-view,[\s\S]{0,80}?\{[\s\S]{0,220}?width: 100%;[\s\S]{0,180}?padding: 30px 36px 72px;/,
   );
   assert.match(
     source,
@@ -885,9 +885,9 @@ test("Organization list groups by what needs attention", () => {
   assert.doesNotMatch(source, /This device → Remote/);
   assert.match(
     source,
-    /status\.local === null \? "—" : String\(status\.local\)/,
+    /status\.local === null \? "None" : String\(status\.local\)/,
   );
-  assert.match(source, /status\.org === null \? "—" : String\(status\.org\)/);
+  assert.match(source, /status\.org === null \? "None" : String\(status\.org\)/);
   assert.doesNotMatch(source, /class="persona-update-chip"/);
   assert.doesNotMatch(source, /function personaCardHtml/);
   assert.doesNotMatch(source, /class="persona-version-row"/);
