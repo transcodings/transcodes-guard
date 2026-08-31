@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
   createPersona,
   deleteSkillPath,
+  MAX_PERSONA_FILE_BYTES,
   mentionSkillCompanions,
   savePersonaBatch,
   savePersonaFile,
@@ -492,5 +493,80 @@ test('batch rejects bundle paths that resolve somewhere else', async (t) => {
       'utf8',
     ),
     'ok\n',
+  );
+});
+
+test('batch saves an Extract-shaped bundle with the exact Persona attribution', async (t) => {
+  const originalHome = process.env.HOME;
+  const home = await mkdtemp(path.join(os.tmpdir(), 'persona-extract-batch-'));
+  process.env.HOME = home;
+  t.after(async () => {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
+    await rm(home, { recursive: true, force: true });
+  });
+
+  await createPersona('extract-batch');
+  const bundle = path.join(
+    home,
+    '.transcodes',
+    'personas',
+    'extract-batch',
+  );
+  const instructionPath = path.join(bundle, 'instruction/agents.md');
+  const defaultInstruction = await readFile(instructionPath, 'utf8');
+  await assert.rejects(
+    savePersonaBatch({
+      persona: 'extract-batch',
+      changes: [
+        {
+          bundlePath: 'instruction/agents.md',
+          bytes: Buffer.from('# Partial extract\n'),
+        },
+        {
+          bundlePath: 'rules/too-large.md',
+          bytes: Buffer.alloc(MAX_PERSONA_FILE_BYTES + 1),
+        },
+      ],
+    }),
+    /5 MB/,
+  );
+  assert.equal(await readFile(instructionPath, 'utf8'), defaultInstruction);
+
+  const skill = mentionSkillCompanions(BASE, ['references/guide.md']);
+  await savePersonaBatch({
+    persona: 'extract-batch',
+    changes: [
+      {
+        bundlePath: 'instruction/agents.md',
+        bytes: Buffer.from('# Extracted agent\n'),
+      },
+      { bundlePath: 'rules/tone.md', bytes: Buffer.from('# Must\n- Be direct\n') },
+      { bundlePath: 'skills/pdf/SKILL.md', bytes: Buffer.from(skill) },
+      {
+        bundlePath: 'skills/pdf/references/guide.md',
+        bytes: Buffer.from('# Guide\n'),
+      },
+    ],
+  });
+
+  assert.match(
+    await readFile(instructionPath, 'utf8'),
+    /Persona extract-batch · Rules/,
+  );
+  assert.equal(
+    await readFile(path.join(bundle, 'rules/tone.md'), 'utf8'),
+    '# Must\n- Be direct\n',
+  );
+  assert.match(
+    await readFile(path.join(bundle, 'skills/pdf/SKILL.md'), 'utf8'),
+    /`references\/guide\.md`/,
+  );
+  assert.equal(
+    await readFile(
+      path.join(bundle, 'skills/pdf/references/guide.md'),
+      'utf8',
+    ),
+    '# Guide\n',
   );
 });

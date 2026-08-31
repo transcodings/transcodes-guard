@@ -1645,6 +1645,7 @@ export async function savePersonaBatch(params: {
     if (change.delete === true) {
       deletePaths.push(bundlePath);
     } else {
+      assertPersonaFileSize(change.bytes.byteLength);
       let bytes = change.bytes;
       const parts = bundlePath.split('/');
       const isCompanion =
@@ -1663,7 +1664,11 @@ export async function savePersonaBatch(params: {
               : 'skill';
         let name = parts[1] ?? '';
         if (kind === 'rule') name = name.replace(/\.md$/i, '');
-        let sanitized = sanitizePersonaContent(kind, bytes.toString('utf-8'));
+        let sanitized = sanitizePersonaContent(
+          kind,
+          bytes.toString('utf-8'),
+          persona,
+        );
         if (kind === 'skill') sanitized = synchronizeSkillName(sanitized, name);
         const text = `${sanitized.replace(/\s+$/, '')}\n`;
         bytes = Buffer.from(text, 'utf-8');
