@@ -285,3 +285,6 @@ _docs/
 
 
 outsource/
+
+# Local QA reports, renders, and evidence.
+docs/qa/
