@@ -55,7 +55,6 @@ import {
   KNOWLEDGE_BASE_SKILL_NAME,
   knowledgeFileSlug,
   listPersona,
-  listPersonaIds,
   MAX_PERSONA_FILE_BYTES,
   type PersonaKind,
   pickProjectFolder,
@@ -66,17 +65,12 @@ import {
   revealPersonaFolder,
   savePersonaFile,
 } from './persona.js';
-import {
-  fetchPersonaList,
-  loadPersonaConfig,
-  PersonaApiError,
-} from './persona-api.js';
+import { PersonaApiError } from './persona-api.js';
 import {
   clearPersonaSyncRevision,
-  computePersonaContentHash,
+  listPersonaRemoteStatus,
   pullPersonaSync,
   pushPersonaSync,
-  readPersonaSyncRevisions,
 } from './persona-sync.js';
 import {
   findPersonaTemplate,
@@ -10149,28 +10143,7 @@ async function handlePersonaRoute(params: {
     if (method === 'GET' && url === '/api/persona/remote') {
       // Metadata only — no manifest fetch, so opening the tab never spends a
       // presigned-URL round trip. Differences surface in the push/pull result.
-      // `synced` is what this machine last pushed or pulled; `local_hashes`
-      // is the bundle hash right now. Together they classify each Persona
-      // (behind / edited here / conflict / current) without a network call.
-      const localHashes: Record<string, string> = {};
-      const localHashErrors: Record<string, string> = {};
-      await Promise.all(
-        (await listPersonaIds()).map(async (persona) => {
-          try {
-            const hash = await computePersonaContentHash(persona);
-            if (hash) localHashes[persona] = hash;
-          } catch (error) {
-            localHashErrors[persona] =
-              error instanceof Error ? error.message : String(error);
-          }
-        }),
-      );
-      sendJson(res, 200, {
-        personas: await fetchPersonaList(loadPersonaConfig()),
-        synced: await readPersonaSyncRevisions(),
-        local_hashes: localHashes,
-        local_hash_errors: localHashErrors,
-      });
+      sendJson(res, 200, await listPersonaRemoteStatus());
       return;
     }
 

@@ -113,8 +113,13 @@ test('template instructions match the generated Instruction contract', () => {
       );
     }
     assert.ok(
-      instruction.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE),
-      `${id} instruction is missing the attribution line`,
+      !instruction.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE),
+      `${id} instruction must not include deploy-only attribution`,
+    );
+    assert.doesNotMatch(
+      instruction,
+      /I completed this using/,
+      `${id} instruction still has the legacy 💡 attribution sentence`,
     );
     assert.match(
       instruction,

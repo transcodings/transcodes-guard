@@ -15,11 +15,14 @@ import {
   deleteSkillPath,
   KNOWLEDGE_BASE_SKILL_NAME,
   KNOWLEDGE_BASE_STARTER_NAME,
+  knowledgeDeployDirectory,
   knowledgeFileSlug,
   knowledgeReferenceIdentity,
+  knowledgeReferenceIndexSection,
   listPersona,
   savePersonaBatch,
   savePersonaFile,
+  withKnowledgeReferenceIndex,
 } from '../src/commands/transcodes/persona.js';
 
 async function isolatedHome(t: { after: (fn: () => unknown) => void }) {
@@ -68,6 +71,65 @@ test('Persona, Rule, and Skill names accept letters, numbers, dots, underscores,
   assert.equal(assertPersonaName('skill', 'DesignTokens'), 'DesignTokens');
   assert.throws(() => assertPersonaId('../escape'), /letters, numbers/);
   assert.throws(() => assertPersonaName('rule', 'bad name!'), /letters, numbers/);
+});
+
+test('deployed knowledge lives in references/, not skills/knowledge-base', () => {
+  assert.equal(knowledgeDeployDirectory('claude', false), '.agents/references');
+  assert.equal(knowledgeDeployDirectory('cursor', false), '.agents/references');
+  assert.equal(knowledgeDeployDirectory('agents', false), '.agents/references');
+  assert.equal(knowledgeDeployDirectory('claude', true), '~/.agents/references');
+  assert.equal(knowledgeDeployDirectory('agents', true), '~/.agents/references');
+  assert.equal(knowledgeDeployDirectory('gemini', true), '~/.agents/references');
+});
+
+test('instruction index lists name, condition, and the deployed path', () => {
+  const section = knowledgeReferenceIndexSection(
+    [
+      {
+        file: 'references/design-tokens.md',
+        name: 'Design tokens',
+        description: 'When choosing brand colors, type, or spacing',
+      },
+    ],
+    '.agents/references',
+  );
+  assert.match(
+    section,
+    /# References\nYou MUST consult this knowledge base list before answering\./,
+  );
+  assert.match(
+    section,
+    /- Design tokens — When choosing brand colors, type, or spacing — \.agents\/references\/design-tokens\.md/,
+  );
+
+  const next = withKnowledgeReferenceIndex(
+    '# Role\nYou help with design.\n',
+    [
+      {
+        file: 'references/design-tokens.md',
+        name: 'Design tokens',
+        description: 'When choosing brand colors, type, or spacing',
+      },
+    ],
+    '.agents/references',
+  );
+  assert.match(next, /# Role/);
+  assert.match(next, /# References/);
+  assert.match(next, /\.agents\/references\/design-tokens\.md/);
+
+  const replaced = withKnowledgeReferenceIndex(
+    '# Role\nTest\n\n# References\n- old\n\n# Output\nKeep this section\n',
+    [
+      {
+        file: 'references/design-tokens.md',
+        name: 'Design tokens',
+        description: 'When choosing brand colors, type, or spacing',
+      },
+    ],
+    '.agents/references',
+  );
+  assert.doesNotMatch(replaced, /- old/);
+  assert.match(replaced, /# Output\nKeep this section/);
 });
 
 test('frontmatter identifies a reference, and the file name is the fallback', () => {

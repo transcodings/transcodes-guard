@@ -946,9 +946,10 @@ test("the status classifier maps every state to exactly one safe action", () => 
 test("sync state pairs the revision with a content hash", () => {
   // The revision alone cannot tell "behind" apart from "edited here"; the
   // route ships the synced hash and the current local hash side by side.
-  assert.match(source, /synced: await readPersonaSyncRevisions\(\)/);
-  assert.match(source, /local_hashes: localHashes/);
-  assert.match(source, /computePersonaContentHash\(persona\)/);
+  assert.match(source, /listPersonaRemoteStatus\(\)/);
+  assert.match(syncSource, /synced: await readPersonaSyncRevisions\(\)/);
+  assert.match(syncSource, /local_hashes: localHashes/);
+  assert.match(syncSource, /computePersonaContentHash\(persona\)/);
   assert.match(
     source,
     /personaState\.syncedRevisions =\s*data\.synced && typeof data\.synced === "object" \? data\.synced : \{\}/,
@@ -1158,6 +1159,6 @@ test("remote refresh ignores stale responses and reports local hash failures", (
     source,
     /if \(requestId !== personaState\.remoteLoadSequence\) return;/,
   );
-  assert.match(source, /local_hash_errors: localHashErrors/);
+  assert.match(syncSource, /local_hash_errors: localHashErrors/);
   assert.match(source, /state: "unknown",\s*label: "UNAVAILABLE"/);
 });

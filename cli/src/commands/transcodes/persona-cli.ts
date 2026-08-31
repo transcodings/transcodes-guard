@@ -28,12 +28,13 @@ import {
 } from './persona-api.js';
 import {
   clearPersonaSyncRevision,
+  listPersonaRemoteStatus,
   pullPersonaSync,
   pushPersonaSync,
 } from './persona-sync.js';
 
 const PERSONA_USAGE =
-  'transcodes persona <list|create|read|save|delete|delete-file|delete-reference|deploy|push|pull|log|tag>';
+  'transcodes persona <list|create|read|save|delete|delete-file|delete-reference|deploy|push|pull|remotes|log|tag>';
 
 const DEPLOY_TARGET_ALIASES = {
   claude: 'claudecode',
@@ -332,6 +333,7 @@ export async function cmdPersona(args: string[]): Promise<void> {
   transcodes persona deploy ... --dry-run   (list what would be written and deleted; writes nothing, no --yes needed)
   transcodes persona push --persona NAME [--tag TAG]
   transcodes persona pull --persona NAME[@REVISION] [--revision N]
+  transcodes persona remotes
   transcodes persona log --persona NAME
   transcodes persona tag --persona NAME --revision N [--tag TAG | --delete]
 `,
@@ -519,6 +521,11 @@ export async function cmdPersona(args: string[]): Promise<void> {
         ref = ref ?? r;
       }
       printJson(await pullPersonaSync(persona, ref));
+      return;
+    }
+    case 'remotes':
+    case 'remote': {
+      printJson(await listPersonaRemoteStatus());
       return;
     }
     case 'log':
