@@ -6,7 +6,6 @@
  * `transcodes sync scaffold` — instruction without frontmatter, Rules with
  * `description`/`globs`, and Skills whose frontmatter `name` matches the folder.
  */
-import { TRANSCODES_ATTRIBUTION_OUTPUT_LINE } from '../sync/lib/feature-scaffold.js';
 import {
   KNOWLEDGE_BASE_SKILL_NAME,
   KNOWLEDGE_BASE_STARTER_CONTENT,
@@ -69,7 +68,6 @@ ${bullets([
 
 # Output
 ${bullets(params.output)}
-${TRANSCODES_ATTRIBUTION_OUTPUT_LINE}
 `;
 }
 

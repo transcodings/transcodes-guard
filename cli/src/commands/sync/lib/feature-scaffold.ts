@@ -63,11 +63,11 @@ export function coerceSkillName(name: string): string {
 }
 
 export const TRANSCODES_ATTRIBUTION_OUTPUT_MARKER =
-  'you MUST end the response with exactly one Transcodes attribution line, You must not change the format of the attribution line';
+  'Transcodes attribution line';
 
 export function transcodesAttributionOutputLine(persona?: string): string {
   const personaName = persona ?? '<name or none>';
-  return `- When completing a task, ${TRANSCODES_ATTRIBUTION_OUTPUT_MARKER}, as the final line with nothing after it: \`Persona ${personaName} · Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none> · Knowledge <comma-separated Knowledge Base document names or none>\`. Keep this exact four-part order and punctuation. Use \`none\` for every empty category. Persona is always \`${personaName}\` for this Instruction. Rules contains only exact Transcodes Rule names that actually affected the response. Skills contains only exact Transcodes Persona Skill names actually invoked. Knowledge contains only exact Knowledge Base document names actually consulted. Never put \`AGENTS.md\`, \`CLAUDE.md\`, platform instructions, system instructions, host instructions, or installed-but-unused assets in any list. Do not write another applied-assets sentence, impact prose, blockquote, emoji, heading, or label before or after this line.`;
+  return `- When a task or request is complete, if any Rule, Skill, or Knowledge was applied, you MUST end with exactly one ${TRANSCODES_ATTRIBUTION_OUTPUT_MARKER}: \`Persona ${personaName} · Rules <names or none> · Skills <names or none> · Knowledge <names or none>\`.`;
 }
 
 export const TRANSCODES_ATTRIBUTION_OUTPUT_LINE =
@@ -78,6 +78,27 @@ export const TRANSCODES_MCP_MUST_LINES = [
   'When Transcodes MCP is installed, use Transcodes MCP tools for every operation they support.',
   'Never bypass an available Transcodes MCP tool or its permission and step-up flow by using Bash, shell, raw HTTP, or another indirect execution path. If authorization is required, complete that flow instead of rerouting the action.',
 ] as const;
+
+const MCP_MUST_HEADING = /^# MUST \/ IMPORTANT\s*$/m;
+
+export function stripTranscodesMcpMust(content: string): string {
+  let next = content.replace(/\r\n/g, '\n');
+  const match = next.match(MCP_MUST_HEADING);
+  if (match && match.index !== undefined) {
+    const after = next.slice(match.index + match[0].length).replace(/^\n/, '');
+    const afterStart = next.length - after.length;
+    const nextHeading = after.search(/^# /m);
+    const end = nextHeading === -1 ? next.length : afterStart + nextHeading;
+    const before = next.slice(0, match.index).replace(/\s+$/, '');
+    const rest = next.slice(end).replace(/^\s+/, '');
+    next = [before, rest].filter(Boolean).join('\n\n');
+  }
+  for (const line of TRANSCODES_MCP_MUST_LINES) {
+    const escaped = line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    next = next.replace(new RegExp(`^-\\s*${escaped}\\s*\\n?`, 'gm'), '');
+  }
+  return next.replace(/\n{3,}/g, '\n\n');
+}
 
 const FEATURE_KEYWORDS = new Map<string, ScaffoldFeature>([
   ['rule', 'rule'],
@@ -162,7 +183,6 @@ description: <One-line summary of this agent's overall role>
 # Output
 - <Default language, length, and level of detail>
 - <Required format for code, plans, or handoff summaries>
-${TRANSCODES_ATTRIBUTION_OUTPUT_LINE}
 
 <!-- Aim for 500–1,500 tokens. Keep only guidance needed on nearly every
 request. If this exceeds 2,000 tokens, move conditional policies to Rules and

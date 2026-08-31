@@ -23,16 +23,19 @@ import {
   assertKnowledgeBaseBundleFiles,
   assertPersonaId,
   collectPersonaFiles,
+  listPersonaIds,
   replacePersonaBundleFiles,
 } from './persona.js';
 import {
   commitPersona,
   fetchPersonaDetail,
+  fetchPersonaList,
   fetchPersonaRevisionDetail,
   fetchPersonaRevisions,
   loadPersonaConfig,
   PersonaApiError,
   type PersonaErrorCode,
+  type PersonaListItem,
   type PersonaPushFile,
   type PushPersonaResponse,
   pushPersona,
@@ -133,6 +136,40 @@ export async function computePersonaContentHash(
   const local = await collectLocalDigests(persona);
   if (local.length === 0) return null;
   return bundleContentHash(local);
+}
+
+export type PersonaRemoteStatus = {
+  personas: PersonaListItem[];
+  synced: Record<string, PersonaSyncEntry>;
+  local_hashes: Record<string, string>;
+  local_hash_errors: Record<string, string>;
+};
+
+/**
+ * Organization list + this device's sync baseline and current hashes.
+ * Same payload the dashboard Organization tab uses to classify each Persona
+ * without a second network round trip.
+ */
+export async function listPersonaRemoteStatus(): Promise<PersonaRemoteStatus> {
+  const localHashes: Record<string, string> = {};
+  const localHashErrors: Record<string, string> = {};
+  await Promise.all(
+    (await listPersonaIds()).map(async (persona) => {
+      try {
+        const hash = await computePersonaContentHash(persona);
+        if (hash) localHashes[persona] = hash;
+      } catch (error) {
+        localHashErrors[persona] =
+          error instanceof Error ? error.message : String(error);
+      }
+    }),
+  );
+  return {
+    personas: await fetchPersonaList(loadPersonaConfig()),
+    synced: await readPersonaSyncRevisions(),
+    local_hashes: localHashes,
+    local_hash_errors: localHashErrors,
+  };
 }
 
 /**

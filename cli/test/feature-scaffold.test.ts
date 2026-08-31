@@ -7,6 +7,7 @@ import {
   parseSkillOptionalDirs,
   parseSkillScriptLanguage,
   SKILL_OPTIONAL_DIRS,
+  stripTranscodesMcpMust,
   TRANSCODES_ATTRIBUTION_OUTPUT_LINE,
   TRANSCODES_MCP_MUST_LINES,
 } from '../src/commands/sync/lib/feature-scaffold.js';
@@ -15,22 +16,15 @@ import {
   ensurePersonaInstructionOutput,
 } from '../src/commands/transcodes/persona.js';
 
-test('every generated Instruction requires a compact Persona attribution line', () => {
+test('Instruction scaffold does not embed deploy-only attribution', () => {
   const instruction = createFeatureScaffold({
     feature: 'rule',
     name: 'agents',
   });
 
   assert.match(instruction.content, /^# Output$/m);
-  assert.match(
-    instruction.content,
-    /Persona <name or none> · Rules <comma-separated Rule names or none> · Skills <comma-separated Skill names or none> · Knowledge <comma-separated Knowledge Base document names or none>/,
-  );
-  assert.match(instruction.content, /final line with nothing after it/);
-  assert.match(instruction.content, /Use `none` for every empty category/);
-  assert.match(instruction.content, /installed-but-unused assets/);
-  assert.match(instruction.content, /Never put `AGENTS\.md`, `CLAUDE\.md`/);
-  assert.ok(instruction.content.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE));
+  assert.ok(!instruction.content.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE));
+  assert.doesNotMatch(instruction.content, /I completed this using/);
   assert.doesNotMatch(instruction.content, /# MUST \/ IMPORTANT/);
   for (const line of TRANSCODES_MCP_MUST_LINES) {
     assert.ok(!instruction.content.includes(line));
@@ -51,6 +45,32 @@ test('generated Rule and Skill files never contain Transcodes attribution', () =
   assert.ok(!skill.content.includes(TRANSCODES_ATTRIBUTION_OUTPUT_LINE));
 });
 
+test('legacy MCP MUST / IMPORTANT is stripped from Instruction output', () => {
+  const next = stripTranscodesMcpMust(`# Role
+Help.
+
+# MUST / IMPORTANT
+- ${TRANSCODES_MCP_MUST_LINES[0]}
+- ${TRANSCODES_MCP_MUST_LINES[1]}
+
+# Output
+Keep this section
+`);
+  assert.doesNotMatch(next, /# MUST \/ IMPORTANT/);
+  for (const line of TRANSCODES_MCP_MUST_LINES) {
+    assert.ok(!next.includes(line));
+  }
+  assert.match(next, /# Role/);
+  assert.match(next, /# Output\nKeep this section/);
+
+  const restored = ensurePersonaInstructionOutput(
+    `# Role\nHelp.\n\n# MUST / IMPORTANT\n- ${TRANSCODES_MCP_MUST_LINES[0]}\n`,
+    'kb-test',
+  );
+  assert.doesNotMatch(restored, /# MUST \/ IMPORTANT/);
+  assert.ok(!restored.includes(TRANSCODES_MCP_MUST_LINES[0]));
+});
+
 test('Persona Instruction attribution is restored with its exact name', () => {
   const content = ensurePersonaInstructionOutput(
     '# Role\nDeveloper\n',
@@ -60,16 +80,9 @@ test('Persona Instruction attribution is restored with its exact name', () => {
   assert.match(content, /^# Output$/m);
   assert.match(
     content,
-    /Persona product-manager · Rules <comma-separated Rule names or none>/,
+    /Persona product-manager · Rules <names or none>/,
   );
-  assert.match(
-    content,
-    /Persona is always `product-manager` for this Instruction/,
-  );
-  assert.match(
-    content,
-    /Knowledge <comma-separated Knowledge Base document names or none>/,
-  );
+  assert.match(content, /Knowledge <names or none>/);
 });
 
 test('skill scaffold defaults to SKILL.md only', () => {
@@ -333,6 +346,6 @@ test('current Instruction attribution is replaced without duplication', () => {
   );
   assert.match(
     content,
-    /Persona developer · Rules <comma-separated Rule names or none>/,
+    /Persona developer · Rules <names or none>/,
   );
 });

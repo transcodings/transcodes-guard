@@ -468,16 +468,17 @@ test('batch rejects bundle paths that resolve somewhere else', async (t) => {
     stat(path.join(home, '.transcodes/personas/path-test/skills/pdf.md')),
   );
 
-  // Rule names are strict kebab-case, so an extra Markdown suffix is invalid.
-  await assert.rejects(
-    savePersonaBatch({
-      persona: 'path-test',
-      changes: [{ bundlePath: 'rules/foo.md.md', bytes: Buffer.from('x\n') }],
-    }),
-    /Invalid name "foo\.md\.md"/,
-  );
-  await assert.rejects(
-    stat(path.join(home, '.transcodes/personas/path-test/rules/foo.md.md')),
+  // Dots are valid in Rule names, so foo.md.md is the file for Rule foo.md.
+  await savePersonaBatch({
+    persona: 'path-test',
+    changes: [{ bundlePath: 'rules/foo.md.md', bytes: Buffer.from('x\n') }],
+  });
+  assert.equal(
+    await readFile(
+      path.join(home, '.transcodes/personas/path-test/rules/foo.md.md'),
+      'utf8',
+    ),
+    'x\n',
   );
 
   // The spellings the manifest is meant to use still work.
