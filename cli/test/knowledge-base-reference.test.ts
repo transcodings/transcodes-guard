@@ -20,6 +20,7 @@ import {
   knowledgeReferenceIdentity,
   knowledgeReferenceIndexSection,
   listPersona,
+  personaDeployTargets,
   savePersonaBatch,
   savePersonaFile,
   withKnowledgeReferenceIndex,
@@ -74,12 +75,41 @@ test('Persona, Rule, and Skill names accept letters, numbers, dots, underscores,
 });
 
 test('deployed knowledge lives in references/, not skills/knowledge-base', () => {
-  assert.equal(knowledgeDeployDirectory('claude', false), '.agents/references');
-  assert.equal(knowledgeDeployDirectory('cursor', false), '.agents/references');
-  assert.equal(knowledgeDeployDirectory('agents', false), '.agents/references');
-  assert.equal(knowledgeDeployDirectory('claude', true), '~/.agents/references');
-  assert.equal(knowledgeDeployDirectory('agents', true), '~/.agents/references');
-  assert.equal(knowledgeDeployDirectory('gemini', true), '~/.agents/references');
+  assert.equal(
+    knowledgeDeployDirectory('claude', false),
+    '.agents/references/claude',
+  );
+  assert.equal(
+    knowledgeDeployDirectory('cursor', false),
+    '.agents/references/cursor',
+  );
+  assert.equal(
+    knowledgeDeployDirectory('agents', false),
+    '.agents/references/agents',
+  );
+  assert.equal(
+    knowledgeDeployDirectory('claude', true),
+    '~/.agents/references/claude',
+  );
+  assert.equal(
+    knowledgeDeployDirectory('agents', true),
+    '~/.agents/references/agents',
+  );
+  assert.equal(
+    knowledgeDeployDirectory('gemini', true),
+    '~/.agents/references/gemini',
+  );
+});
+
+test('deploy uses one detected target list for generation and follow-up writes', () => {
+  assert.deepEqual(
+    personaDeployTargets(undefined, ['codexcli', 'agentsmd']),
+    ['codexcli', 'agentsmd'],
+  );
+  assert.deepEqual(
+    personaDeployTargets(['cursor'], ['codexcli', 'agentsmd']),
+    ['cursor'],
+  );
 });
 
 test('instruction index lists name, condition, and the deployed path', () => {

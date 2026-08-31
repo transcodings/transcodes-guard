@@ -14,7 +14,7 @@
  */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -90,10 +90,14 @@ async function seedHandWritten(root: string): Promise<void> {
   );
 }
 
-async function deploy(home: string, args: string[]): Promise<string> {
+async function deploy(
+  home: string,
+  args: string[],
+  persona = 'testp',
+): Promise<string> {
   const { stdout } = await execFileAsync(
     process.execPath,
-    [CLI, 'persona', 'deploy', '--persona', 'testp', ...args],
+    [CLI, 'persona', 'deploy', '--persona', persona, ...args],
     { cwd: home, env: { ...process.env, HOME: home } },
   );
   return JSON.parse(stdout).output as string;
@@ -120,7 +124,20 @@ test('project deploy reconciles Knowledge Base files and reading guidance', asyn
   t.after(() => rm(home, { recursive: true, force: true }));
   const sourceReference = await seedKnowledgeBase(home);
   const project = path.join(home, 'proj');
-  await mkdir(project, { recursive: true });
+  const userReference = path.join(project, 'references', 'architecture.md');
+  const userSkill = path.join(
+    project,
+    '.claude',
+    'skills',
+    'custom',
+    'SKILL.md',
+  );
+  const claudeInstruction = path.join(project, 'CLAUDE.md');
+  await mkdir(path.dirname(userReference), { recursive: true });
+  await mkdir(path.dirname(userSkill), { recursive: true });
+  await writeFile(userReference, 'Keep this user reference.\n');
+  await writeFile(userSkill, 'Keep this user Skill.\n');
+  await writeFile(claudeInstruction, 'Keep this Claude instruction.\n');
 
   await deploy(home, [
     '--project',
@@ -133,6 +150,7 @@ test('project deploy reconciles Knowledge Base files and reading guidance', asyn
     project,
     '.agents',
     'references',
+    'agents',
     'current.md',
   );
   assert.match(await readFile(deployedReference, 'utf8'), /current/);
@@ -146,7 +164,20 @@ test('project deploy reconciles Knowledge Base files and reading guidance', asyn
   assert.match(instruction, /use the narrower product, campaign, or task scope/);
   assert.match(instruction, /If no file matches/);
   assert.match(instruction, /Knowledge lists the exact names of every file used/);
-  assert.match(instruction, /\.agents\/references\/current\.md/);
+  assert.match(instruction, /\.agents\/references\/agents\/current\.md/);
+  assert.match(
+    await readFile(
+      path.join(project, '.agents', 'skills', 'research', 'SKILL.md'),
+      'utf8',
+    ),
+    /research skill/,
+  );
+  assert.equal(await readFile(userReference, 'utf8'), 'Keep this user reference.\n');
+  assert.equal(await readFile(userSkill, 'utf8'), 'Keep this user Skill.\n');
+  assert.equal(
+    await readFile(claudeInstruction, 'utf8'),
+    'Keep this Claude instruction.\n',
+  );
 
   await writeFile(
     sourceReference,
@@ -172,7 +203,180 @@ test('project deploy reconciles Knowledge Base files and reading guidance', asyn
   await assert.rejects(readFile(deployedReference));
   assert.doesNotMatch(
     await readFile(path.join(project, 'AGENTS.md'), 'utf8'),
-    /\.agents\/references\/current\.md/,
+    /\.agents\/references\/agents\/current\.md/,
+  );
+});
+
+test('global Antigravity deploy includes Knowledge Base reading guidance', async (t) => {
+  const home = await makeSandbox();
+  t.after(() => rm(home, { recursive: true, force: true }));
+  await seedKnowledgeBase(home);
+
+  await deploy(home, [
+    '--global',
+    '--targets',
+    'antigravity',
+    '--yes',
+  ]);
+
+  const instruction = await readFile(
+    path.join(home, '.gemini', 'GEMINI.md'),
+    'utf8',
+  );
+  assert.match(instruction, /Read every file whose description matches/);
+  assert.match(instruction, /~\/\.agents\/references\/gemini\/current\.md/);
+  assert.match(
+    await readFile(
+      path.join(
+        home,
+        '.gemini',
+        'config',
+        'skills',
+        'research',
+        'SKILL.md',
+      ),
+      'utf8',
+    ),
+    /research skill/,
+  );
+  await assert.rejects(
+    readFile(path.join(home, '.agents', 'skills', 'research', 'SKILL.md')),
+  );
+  await assert.rejects(readFile(path.join(home, '.codex', 'AGENTS.md')));
+  await assert.rejects(readFile(path.join(home, '.claude', 'CLAUDE.md')));
+});
+
+test('project Cursor deploy keeps its generated frontmatter and adds Knowledge Base guidance', async (t) => {
+  const home = await makeSandbox();
+  t.after(() => rm(home, { recursive: true, force: true }));
+  await seedKnowledgeBase(home);
+  const project = path.join(home, 'proj');
+  await mkdir(project, { recursive: true });
+
+  await deploy(home, [
+    '--project',
+    project,
+    '--targets',
+    'cursor',
+    '--yes',
+  ]);
+
+  const instruction = await readFile(
+    path.join(project, '.cursor', 'rules', 'agents.mdc'),
+    'utf8',
+  );
+  assert.match(instruction, /^---\n/);
+  assert.match(instruction, /alwaysApply: true/);
+  assert.match(instruction, /Read every file whose description matches/);
+  assert.match(instruction, /\.agents\/references\/cursor\/current\.md/);
+  assert.match(
+    await readFile(
+      path.join(project, '.cursor', 'skills', 'research', 'SKILL.md'),
+      'utf8',
+    ),
+    /research skill/,
+  );
+  await assert.rejects(readFile(path.join(project, 'CLAUDE.md')));
+  await assert.rejects(readFile(path.join(project, 'AGENTS.md')));
+});
+
+test('project Claude deploy leaves an existing AGENTS.md unchanged', async (t) => {
+  const home = await makeSandbox();
+  t.after(() => rm(home, { recursive: true, force: true }));
+  await seedKnowledgeBase(home);
+  const project = path.join(home, 'proj');
+  await mkdir(project, { recursive: true });
+  await writeFile(path.join(project, 'AGENTS.md'), 'Keep this instruction.\n');
+  const unselectedSkill = path.join(
+    project,
+    '.agents',
+    'skills',
+    'research',
+    'SKILL.md',
+  );
+  await mkdir(path.dirname(unselectedSkill), { recursive: true });
+  await writeFile(unselectedSkill, 'Keep this shared Skill.\n');
+
+  await deploy(home, [
+    '--project',
+    project,
+    '--targets',
+    'claude',
+    '--yes',
+  ]);
+
+  assert.equal(
+    await readFile(path.join(project, 'AGENTS.md'), 'utf8'),
+    'Keep this instruction.\n',
+  );
+  const instruction = await readFile(path.join(project, 'CLAUDE.md'), 'utf8');
+  assert.match(instruction, /Read every file whose description matches/);
+  assert.match(instruction, /\.agents\/references\/claude\/current\.md/);
+  assert.equal(
+    await readFile(unselectedSkill, 'utf8'),
+    'Keep this shared Skill.\n',
+  );
+  assert.match(
+    await readFile(
+      path.join(project, '.claude', 'skills', 'research', 'SKILL.md'),
+      'utf8',
+    ),
+    /research skill/,
+  );
+});
+
+test('app-specific reference folders preserve another applied Persona', async (t) => {
+  const home = await makeSandbox();
+  t.after(() => rm(home, { recursive: true, force: true }));
+  await seedKnowledgeBase(home);
+  const project = path.join(home, 'proj');
+  await mkdir(project, { recursive: true });
+
+  await deploy(home, [
+    '--project',
+    project,
+    '--targets',
+    'chatgpt',
+    '--yes',
+  ]);
+  const agentsBefore = await readFile(path.join(project, 'AGENTS.md'), 'utf8');
+
+  const personas = path.join(home, '.transcodes', 'personas');
+  const secondPersona = path.join(personas, 'testq');
+  await cp(path.join(personas, 'testp'), secondPersona, { recursive: true });
+  await writeFile(
+    path.join(secondPersona, 'instruction', 'agents.md'),
+    '---\nname: testq\n---\n\nYou are the second persona.\n',
+  );
+  const secondReferences = path.join(
+    secondPersona,
+    'skills',
+    'knowledge-base',
+    'references',
+  );
+  await rm(path.join(secondReferences, 'current.md'));
+  await writeFile(
+    path.join(secondReferences, 'second.md'),
+    '---\nname: Second\ndescription: Read for the second Persona\n---\n\n# Knowledge\n- second\n',
+  );
+
+  await deploy(
+    home,
+    ['--project', project, '--targets', 'claude', '--yes'],
+    'testq',
+  );
+
+  assert.equal(await readFile(path.join(project, 'AGENTS.md'), 'utf8'), agentsBefore);
+  assert.match(
+    await readFile(
+      path.join(project, '.agents', 'references', 'agents', 'current.md'),
+      'utf8',
+    ),
+    /current/,
+  );
+  assert.match(
+    await readFile(path.join(project, 'CLAUDE.md'), 'utf8'),
+    /\.agents\/references\/claude\/second\.md/,
   );
 });
 

@@ -29,6 +29,7 @@ import {
   RULESYNC_OVERVIEW_FILE_NAME,
   RULESYNC_RELATIVE_DIR_PATH,
   RULESYNC_RULES_RELATIVE_DIR_PATH,
+  RULESYNC_SKILLS_RELATIVE_DIR_PATH,
 } from '../sync/constants/rulesync-paths.js';
 import {
   createFeatureScaffold,
@@ -37,10 +38,18 @@ import {
   transcodesAttributionOutputLine,
 } from '../sync/lib/feature-scaffold.js';
 import { parseFrontmatter } from '../sync/utils/frontmatter.js';
+import { detectSyncTargets } from './host-apps.js';
 
 const execFileAsync = promisify(execFile);
 
 export type PersonaKind = 'agent' | 'rule' | 'skill';
+
+export function personaDeployTargets(
+  requested?: string[],
+  detected: readonly string[] = detectSyncTargets(),
+): string[] {
+  return requested && requested.length > 0 ? [...requested] : [...detected];
+}
 
 export type PersonaEntry = {
   name: string;
@@ -559,10 +568,11 @@ export function withKnowledgeReferenceIndex(
 type KnowledgeHost = 'claude' | 'cursor' | 'agents' | 'gemini';
 
 export function knowledgeDeployDirectory(
-  _kind: KnowledgeHost,
+  kind: KnowledgeHost,
   global: boolean,
 ): string {
-  return global ? '~/.agents/references' : '.agents/references';
+  const root = global ? '~/.agents/references' : '.agents/references';
+  return `${root}/${kind}`;
 }
 
 function knowledgeDeployFsPath(
@@ -579,35 +589,57 @@ function knowledgeDeployFsPath(
 function deployedInstructionFiles(
   root: string,
   global: boolean,
+  targets: ReadonlySet<string>,
 ): Array<{ path: string; kind: KnowledgeHost }> {
-  return global
-    ? [
-        { path: path.join(root, '.claude', 'CLAUDE.md'), kind: 'claude' },
-        { path: path.join(root, '.codex', 'AGENTS.md'), kind: 'agents' },
-      ]
-    : [
-        { path: path.join(root, 'CLAUDE.md'), kind: 'claude' },
-        { path: path.join(root, 'AGENTS.md'), kind: 'agents' },
-      ];
+  const selected = (target: string): boolean => targets.has(target);
+  const files: Array<{ path: string; kind: KnowledgeHost }> = [];
+  if (selected('claudecode')) {
+    files.push({
+      path: global
+        ? path.join(root, '.claude', 'CLAUDE.md')
+        : path.join(root, 'CLAUDE.md'),
+      kind: 'claude',
+    });
+  }
+  if (global && selected('codexcli')) {
+    files.push({
+      path: path.join(root, '.codex', 'AGENTS.md'),
+      kind: 'agents',
+    });
+  }
+  if (global && selected('antigravity-ide')) {
+    files.push({
+      path: path.join(root, '.gemini', 'GEMINI.md'),
+      kind: 'gemini',
+    });
+  }
+  if (!global && selected('cursor')) {
+    files.push({
+      path: path.join(root, '.cursor', 'rules', 'agents.mdc'),
+      kind: 'cursor',
+    });
+  }
+  if (
+    !global &&
+    (selected('agentsmd') ||
+      selected('codexcli') ||
+      selected('antigravity-ide'))
+  ) {
+    files.push({ path: path.join(root, 'AGENTS.md'), kind: 'agents' });
+  }
+  return files;
 }
 
 async function readSanitizedInstruction(
   personaDir: string,
   persona: string,
 ): Promise<string> {
-  let content = '';
-  try {
-    content = await readFile(
-      path.join(
-        personaDir,
-        PERSONA_INSTRUCTION_DIR_NAME,
-        RULESYNC_OVERVIEW_FILE_NAME,
-      ),
-      'utf-8',
-    );
-  } catch {
-    // Empty Instruction still gets # Output on deploy.
-  }
+  const source = path.join(
+    personaDir,
+    PERSONA_INSTRUCTION_DIR_NAME,
+    RULESYNC_OVERVIEW_FILE_NAME,
+  );
+  const content = await readFile(source, 'utf-8').catch(() => '');
   return sanitizePersonaContent('agent', content, persona).replace(/\s+$/, '');
 }
 
@@ -616,63 +648,79 @@ async function applyDeployedKnowledge(params: {
   persona: string;
   root: string;
   global: boolean;
+  targets: string[];
   references: PersonaKnowledgeReference[];
 }): Promise<void> {
   const instruction = await readSanitizedInstruction(
     params.personaDir,
     params.persona,
   );
-  const leftover = params.global
-    ? [
-        path.join(params.root, '.claude', 'skills', KNOWLEDGE_BASE_SKILL_NAME),
-        path.join(params.root, '.agents', 'skills', KNOWLEDGE_BASE_SKILL_NAME),
-        path.join(
-          params.root,
-          '.gemini',
-          'config',
-          'skills',
-          KNOWLEDGE_BASE_SKILL_NAME,
-        ),
-        path.join(params.root, '.claude', 'references'),
-        path.join(params.root, '.gemini', 'config', 'references'),
-      ]
-    : [
-        path.join(params.root, '.claude', 'skills'),
-        path.join(params.root, '.cursor', 'skills'),
-        path.join(params.root, '.agents', 'skills', KNOWLEDGE_BASE_SKILL_NAME),
-        path.join(params.root, 'references'),
-        path.join(params.root, '.claude', 'references'),
-        path.join(params.root, '.cursor', 'references'),
-      ];
+  const targets = new Set(params.targets);
+  const selected = (target: string): boolean => targets.has(target);
+  const leftover: string[] = [];
+  if (
+    selected('agentsmd') ||
+    selected('codexcli') ||
+    (!params.global && selected('antigravity-ide'))
+  ) {
+    leftover.push(
+      path.join(params.root, '.agents', 'skills', KNOWLEDGE_BASE_SKILL_NAME),
+    );
+  }
+  if (selected('claudecode')) {
+    leftover.push(
+      path.join(params.root, '.claude', 'skills', KNOWLEDGE_BASE_SKILL_NAME),
+    );
+  }
+  if (!params.global && selected('cursor')) {
+    leftover.push(
+      path.join(params.root, '.cursor', 'skills', KNOWLEDGE_BASE_SKILL_NAME),
+    );
+  }
+  if (params.global && selected('antigravity-ide')) {
+    leftover.push(
+      path.join(
+        params.root,
+        '.gemini',
+        'config',
+        'skills',
+        KNOWLEDGE_BASE_SKILL_NAME,
+      ),
+    );
+  }
   await Promise.all(
     leftover.map((dir) => rm(dir, { recursive: true, force: true })),
   );
 
-  const dest = knowledgeDeployFsPath(params.root, 'agents', params.global);
-  await rm(dest, { recursive: true, force: true });
-  if (params.references.length > 0) {
-    await mkdir(dest, { recursive: true });
-    for (const reference of params.references) {
-      const name = reference.file.replace(/^references\//, '');
-      await cp(
-        path.join(
-          params.personaDir,
-          'skills',
-          KNOWLEDGE_BASE_SKILL_NAME,
-          KNOWLEDGE_BASE_REFERENCE_DIR,
-          name,
-        ),
-        path.join(dest, name),
-        { force: true },
-      );
+  const files = deployedInstructionFiles(params.root, params.global, targets);
+  for (const file of files) {
+    const dest = knowledgeDeployFsPath(params.root, file.kind, params.global);
+    await rm(dest, { recursive: true, force: true });
+    if (params.references.length > 0) {
+      await mkdir(dest, { recursive: true });
+      for (const reference of params.references) {
+        const name = reference.file.replace(/^references\//, '');
+        await cp(
+          path.join(
+            params.personaDir,
+            'skills',
+            KNOWLEDGE_BASE_SKILL_NAME,
+            KNOWLEDGE_BASE_REFERENCE_DIR,
+            name,
+          ),
+          path.join(dest, name),
+          { force: true },
+        );
+      }
     }
-  }
-
-  for (const file of deployedInstructionFiles(params.root, params.global)) {
-    if (params.global && !(await isFile(file.path))) continue;
     if (!instruction && params.references.length === 0) continue;
+    const generated = await readFile(file.path, 'utf-8').catch(() => '');
+    const frontmatter =
+      file.kind === 'cursor'
+        ? (generated.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/)?.[0] ?? '')
+        : '';
     const next = withKnowledgeReferenceIndex(
-      instruction,
+      `${frontmatter}${instruction}`,
       params.references,
       knowledgeDeployDirectory(file.kind, params.global),
     );
@@ -682,16 +730,6 @@ async function applyDeployedKnowledge(params: {
       next.endsWith('\n') ? next : `${next}\n`,
       'utf-8',
     );
-  }
-  if (params.global) {
-    const gemini = path.join(params.root, '.gemini', 'GEMINI.md');
-    if (instruction && (await isFile(gemini))) {
-      await writeFile(
-        gemini,
-        instruction.endsWith('\n') ? instruction : `${instruction}\n`,
-        'utf-8',
-      );
-    }
   }
 }
 
@@ -1257,22 +1295,17 @@ cursor:
   await writeFile(target, `${frontmatter}${body}\n`, 'utf-8');
 }
 
-async function writeDeployedAuthoredSkills(params: {
-  personaDir: string;
-  root: string;
-}): Promise<void> {
-  const source = path.join(params.personaDir, 'skills');
-  const dest = path.join(params.root, '.agents', 'skills');
-  const names = (await readdirSafe(source)).filter(
-    (name) => name !== KNOWLEDGE_BASE_SKILL_NAME && !name.startsWith('.'),
-  );
-  for (const name of names) {
-    const from = path.join(source, name);
-    const to = path.join(dest, name);
-    await rm(to, { recursive: true, force: true });
-    await mkdir(path.dirname(to), { recursive: true });
-    await cp(from, to, { recursive: true, force: true });
-    const skillPath = path.join(to, SKILL_FILE_NAME);
+async function stagePersonaSkills(
+  source: string,
+  target: string,
+): Promise<void> {
+  await copyIfExists(source, target);
+  await rm(path.join(target, KNOWLEDGE_BASE_SKILL_NAME), {
+    recursive: true,
+    force: true,
+  });
+  for (const name of await readdirSafe(target)) {
+    const skillPath = path.join(target, name, SKILL_FILE_NAME);
     if (!(await isFile(skillPath))) continue;
     const content = await readFile(skillPath, 'utf-8');
     const sanitized = sanitizePersonaContent('skill', content);
@@ -1283,10 +1316,6 @@ async function writeDeployedAuthoredSkills(params: {
       'utf-8',
     );
   }
-  await rm(path.join(dest, KNOWLEDGE_BASE_SKILL_NAME), {
-    recursive: true,
-    force: true,
-  });
 }
 
 async function ensurePersonaStorage(): Promise<void> {
@@ -2323,6 +2352,7 @@ export async function deployPersona(params?: {
   const { root } = await resolvePersonaRoot(params?.root);
   const listing = await listPersona(root, params?.persona);
   const persona = listing.persona;
+  const targets = personaDeployTargets(params?.targets);
   if (!listing.initialized) {
     return {
       ok: false,
@@ -2353,6 +2383,10 @@ export async function deployPersona(params?: {
       path.join(listing.personaDir, 'rules'),
       path.join(stagingRoot, RULESYNC_RULES_RELATIVE_DIR_PATH),
     ),
+    stagePersonaSkills(
+      path.join(listing.personaDir, 'skills'),
+      path.join(stagingRoot, RULESYNC_SKILLS_RELATIVE_DIR_PATH),
+    ),
   ]);
   const args = [
     'sync',
@@ -2373,9 +2407,7 @@ export async function deployPersona(params?: {
   } else {
     args.push('--delete');
   }
-  if (params?.targets && params.targets.length > 0) {
-    args.push('-t', params.targets.join(','));
-  }
+  args.push('-t', targets.join(','));
 
   const runGenerate = (runArgs: string[]): Promise<PersonaDeployResult> =>
     new Promise((resolve) => {
@@ -2409,15 +2441,12 @@ export async function deployPersona(params?: {
     const generated = await runGenerate(args);
     if (generated.ok) {
       const destRoot = params?.global === true ? os.homedir() : root;
-      await writeDeployedAuthoredSkills({
-        personaDir: listing.personaDir,
-        root: destRoot,
-      });
       await applyDeployedKnowledge({
         personaDir: listing.personaDir,
-        persona: persona,
+        persona,
         root: destRoot,
         global: params?.global === true,
+        targets,
         references: listing.knowledge.references,
       });
     }
