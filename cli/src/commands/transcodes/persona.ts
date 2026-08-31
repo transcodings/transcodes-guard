@@ -191,13 +191,14 @@ const KNOWLEDGE_BASE_PREREQUISITE_KEBAB =
   '- Reference file names are lowercase kebab-case: `references/design-tokens.md`.';
 
 const KNOWLEDGE_BASE_STEPS = `1. Match the information the task needs against the descriptions in References.
-2. If a description matches, read that reference before answering; do not guess what it contains.
-3. If no reference matches, say that this is not in the Knowledge Base. Then either answer from general knowledge and label it as such, or ask the user for the missing fact. Do not invent a project-specific fact, and do not fail the task just because a reference is missing.
-4. When durable new knowledge appears, store it as a new file under \`${KNOWLEDGE_BASE_REFERENCE_DIR}/\`. The file name must be lowercase kebab-case plus \`.md\` (e.g. \`design-tokens.md\`, not \`DesignTokens.md\` or \`design_tokens.md\`). Give it non-empty \`name\` and \`description\` frontmatter; the description answers “When should this knowledge be referenced?”
+2. If one or more descriptions match, read every matching reference before answering; do not guess what any of them contains.
+3. When matching references overlap, let the narrower product, campaign, or task scope override the broader scope, and merge facts that do not conflict.
+4. If no reference matches, say that this is not in the Knowledge Base. Then either answer from general knowledge and label it as such, or ask the user for the missing fact. Do not invent a project-specific fact, and do not fail the task just because a reference is missing.
+5. When durable new knowledge appears, store it as a new file under \`${KNOWLEDGE_BASE_REFERENCE_DIR}/\`. The file name must be lowercase kebab-case plus \`.md\` (e.g. \`design-tokens.md\`, not \`DesignTokens.md\` or \`design_tokens.md\`). Give it non-empty \`name\` and \`description\` frontmatter; the description answers “When should this knowledge be referenced?”
 `;
 
-const KNOWLEDGE_BASE_OUTPUT = `**Deliverable** — an answer grounded in the references that were actually read, or an answer that states no matching reference was found.
-**Done when** — no project-specific claim was guessed, and a missing reference was disclosed instead of invented.
+const KNOWLEDGE_BASE_OUTPUT = `**Deliverable** — an answer grounded in the references that were actually read, naming each used reference and which facts came from it; or an answer that states no matching reference was found.
+**Done when** — Knowledge Base facts are distinct from model knowledge, search, and general suggestions; no project-specific claim was guessed; and the final Transcodes Knowledge field lists the exact names of every reference used.
 `;
 
 const KNOWLEDGE_BASE_SKILL_TEMPLATE = `---
@@ -520,7 +521,7 @@ export function knowledgeReferenceBullet(
 }
 
 const REFERENCE_INDEX_INTRO =
-  'You MUST consult this knowledge base list before answering. If a description matches the request, you MUST read that file. Do not guess its contents.';
+  'You MUST consult this Knowledge Base list before answering. Read every file whose description matches information the request needs; do not guess its contents. When matching files overlap, use the narrower product, campaign, or task scope for conflicting facts and merge facts that do not conflict. If no file matches, say the information is not in the Knowledge Base, then label any general knowledge or ask for the missing fact. Keep Knowledge Base facts distinct from search and general suggestions. In the final Transcodes attribution line, Knowledge lists the exact names of every file used, or none when no file matched.';
 
 export function knowledgeReferenceIndexSection(
   references: PersonaKnowledgeReference[],
@@ -830,8 +831,87 @@ function replaceHeadingSection(
   return `${content.slice(0, section.bodyStart)}${block}\n${content.slice(section.end)}`;
 }
 
+type LegacyKnowledgeSectionKind = 'steps' | 'references' | 'output';
+
+function generatedLegacyKnowledgeSectionKind(
+  body: string,
+): LegacyKnowledgeSectionKind | undefined {
+  const lines = body
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const steps =
+    lines.length >= 4 &&
+    lines.every((line, index) => line.startsWith(`${index + 1}.`)) &&
+    body.includes('references/') &&
+    body.includes('.md') &&
+    body.includes('description');
+  const references =
+    lines.length > 0 &&
+    lines.every((line) => /^- .+ — \.\/references\/.+\.md$/.test(line));
+  const output =
+    lines.length === 2 &&
+    lines.every((line) => /^\*\*.+\*\*\s+—\s+/.test(line));
+  if (steps) return 'steps';
+  if (references) return 'references';
+  if (output) return 'output';
+  return undefined;
+}
+
+function archiveGeneratedLegacyKnowledgeSections(content: string): string {
+  const canonical = new Set([
+    '# Prerequisites',
+    '# Steps',
+    '# References',
+    '# Output',
+  ]);
+  const headings = [...content.matchAll(/^# [^\n]+$/gm)];
+  const candidates = headings
+    .map((heading, index) => {
+      if (heading.index === undefined || canonical.has(heading[0])) return null;
+      const bodyStart = heading.index + heading[0].length + 1;
+      const end = headings[index + 1]?.index ?? content.length;
+      const kind = generatedLegacyKnowledgeSectionKind(
+        content.slice(bodyStart, end),
+      );
+      return kind ? { heading, bodyStart, end, kind } : null;
+    })
+    .filter((candidate) => candidate !== null);
+  const legacy = candidates.findIndex(
+    (candidate, index) =>
+      candidate.kind === 'steps' &&
+      candidates[index + 1]?.kind === 'references' &&
+      candidates[index + 2]?.kind === 'output',
+  );
+  if (legacy === -1) return content;
+  const managed = new Set(
+    candidates.slice(legacy, legacy + 3).map((candidate) => candidate.heading),
+  );
+  let next = content;
+  for (let index = headings.length - 1; index >= 0; index--) {
+    const heading = headings[index];
+    if (heading.index === undefined || !managed.has(heading)) continue;
+    const bodyStart = heading.index + heading[0].length + 1;
+    const end = headings[index + 1]?.index ?? content.length;
+    const title = heading[0].slice(2);
+    const body = content.slice(bodyStart, end).trim();
+    const archived = `# Legacy Knowledge Base guidance — ${title}
+
+Preserved pre-migration content (inactive):
+
+~~~~text
+${body}
+~~~~
+
+`;
+    next = `${next.slice(0, heading.index)}${archived}${next.slice(end)}`;
+  }
+  return `${next.replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '')}\n`;
+}
+
 function applyKnowledgeBaseGuidance(content: string): string {
-  let next = replaceHeadingSection(content, '# Steps', KNOWLEDGE_BASE_STEPS);
+  let next = archiveGeneratedLegacyKnowledgeSections(content);
+  next = replaceHeadingSection(next, '# Steps', KNOWLEDGE_BASE_STEPS);
   next = replaceHeadingSection(next, '# Output', KNOWLEDGE_BASE_OUTPUT);
   if (!next.includes('kebab-case')) {
     const prerequisites = findHeadingSection(next, '# Prerequisites');
@@ -958,17 +1038,19 @@ async function syncSkillCompanionMentions(
     skillName === KNOWLEDGE_BASE_SKILL_NAME
       ? applyKnowledgeBaseGuidance(current)
       : current;
-  const next = mentionSkillCompanions(
+  const mentioned = mentionSkillCompanions(
     guided,
     tree.files,
     await readKnowledgeReferences(bundleRoot, skillName, tree.files),
   );
+  const next =
+    skillName === KNOWLEDGE_BASE_SKILL_NAME
+      ? `${mentioned.replace(/\s+$/, '')}\n`
+      : mentioned.endsWith('\n')
+        ? mentioned
+        : `${mentioned}\n`;
   if (next === current) return;
-  await writeFile(
-    skillMdPath,
-    next.endsWith('\n') ? next : `${next}\n`,
-    'utf8',
-  );
+  await writeFile(skillMdPath, next, 'utf8');
 }
 
 /**

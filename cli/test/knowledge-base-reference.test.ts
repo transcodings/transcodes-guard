@@ -95,8 +95,13 @@ test('instruction index lists name, condition, and the deployed path', () => {
   );
   assert.match(
     section,
-    /# References\nYou MUST consult this knowledge base list before answering\./,
+    /# References\nYou MUST consult this Knowledge Base list before answering\./,
   );
+  assert.match(section, /Read every file whose description matches/);
+  assert.match(section, /use the narrower product, campaign, or task scope/);
+  assert.match(section, /If no file matches/);
+  assert.match(section, /Keep Knowledge Base facts distinct/);
+  assert.match(section, /Knowledge lists the exact names of every file used/);
   assert.match(
     section,
     /- Design tokens — When choosing brand colors, type, or spacing — \.agents\/references\/design-tokens\.md/,
@@ -216,9 +221,115 @@ test('listing upgrades knowledge-base Steps and Output to the current guidance',
   await listPersona(undefined, 'kb-upgrade');
   const skill = await readFile(skillPath, 'utf8');
   assert.match(skill, /If no reference matches, say that this is not in the Knowledge Base/);
+  assert.match(skill, /read every matching reference before answering/);
+  assert.match(skill, /narrower product, campaign, or task scope override/);
+  assert.match(skill, /naming each used reference and which facts came from it/);
+  assert.match(skill, /model knowledge, search, and general suggestions/);
+  assert.match(skill, /final Transcodes Knowledge field lists the exact names/);
   assert.match(skill, /lowercase kebab-case plus `\.md`/);
   assert.match(skill, /no project-specific claim was guessed/);
   assert.doesNotMatch(skill, /Old step only/);
+});
+
+test('listing removes localized legacy managed sections without touching custom notes', async (t) => {
+  const home = await isolatedHome(t);
+  await createPersona('kb-localized');
+  const skillPath = knowledgeSkillPath(home, 'kb-localized');
+  const previous = await readFile(skillPath, 'utf8');
+  const localized = previous
+    .replace('# Steps', '# Team notes\nKeep this section.\n\n# 단계')
+    .replace('# References', '# 참조 문서')
+    .replace('# Output', '# 출력');
+  await writeFile(skillPath, localized);
+
+  await listPersona(undefined, 'kb-localized');
+  const skill = await readFile(skillPath, 'utf8');
+  assert.match(skill, /# Team notes\nKeep this section\./);
+  assert.doesNotMatch(skill, /^# (단계|참조 문서|출력)$/m);
+  assert.equal(skill.match(/^# Steps$/gm)?.length, 1);
+  assert.equal(skill.match(/^# References$/gm)?.length, 1);
+  assert.equal(skill.match(/^# Output$/gm)?.length, 1);
+  assert.match(skill, /\.\/references\/what-belongs-here\.md/);
+});
+
+test('listing preserves custom content under a localized heading', async (t) => {
+  const home = await isolatedHome(t);
+  await createPersona('kb-custom-output');
+  const skillPath = knowledgeSkillPath(home, 'kb-custom-output');
+  const previous = await readFile(skillPath, 'utf8');
+  await writeFile(
+    skillPath,
+    `${previous.replace('# Output', '# 출력').replace(/\s+$/, '')}\nKeep this custom output note.\n`,
+  );
+
+  await listPersona(undefined, 'kb-custom-output');
+  const skill = await readFile(skillPath, 'utf8');
+  assert.match(skill, /^# 출력$/m);
+  assert.match(skill, /Keep this custom output note\./);
+  assert.equal(skill.match(/^# Output$/gm)?.length, 1);
+});
+
+test('listing migrates generated legacy sections independent of heading language', async (t) => {
+  const home = await isolatedHome(t);
+  await createPersona('kb-japanese-headings');
+  const skillPath = knowledgeSkillPath(home, 'kb-japanese-headings');
+  const previous = await readFile(skillPath, 'utf8');
+  await writeFile(
+    skillPath,
+    previous
+      .replace('# Steps', '# 手順')
+      .replace('# References', '# 参考資料')
+      .replace('# Output', '# 出力'),
+  );
+
+  await listPersona(undefined, 'kb-japanese-headings');
+  const skill = await readFile(skillPath, 'utf8');
+  assert.doesNotMatch(skill, /^# (手順|参考資料|出力)$/m);
+  assert.equal(skill.match(/^# Steps$/gm)?.length, 1);
+  assert.equal(skill.match(/^# References$/gm)?.length, 1);
+  assert.equal(skill.match(/^# Output$/gm)?.length, 1);
+});
+
+test('listing leaves an ambiguous legacy-shaped custom section active', async (t) => {
+  const home = await isolatedHome(t);
+  await createPersona('kb-ambiguous-notes');
+  const skillPath = knowledgeSkillPath(home, 'kb-ambiguous-notes');
+  const previous = await readFile(skillPath, 'utf8');
+  await writeFile(
+    skillPath,
+    previous.replace(
+      '# Steps',
+      '# Team migration notes\n1. Inspect references/one.md\n2. Review its description\n3. Keep the .md file\n4. Preserve this custom note\n\n# Steps',
+    ),
+  );
+
+  await listPersona(undefined, 'kb-ambiguous-notes');
+  const skill = await readFile(skillPath, 'utf8');
+  assert.match(skill, /^# Team migration notes$/m);
+  assert.doesNotMatch(skill, /Legacy Knowledge Base guidance — Team migration notes/);
+  assert.match(skill, /Preserve this custom note/);
+});
+
+test('listing migrates a generated Portuguese output without language keywords', async (t) => {
+  const home = await isolatedHome(t);
+  await createPersona('kb-portuguese-output');
+  const skillPath = knowledgeSkillPath(home, 'kb-portuguese-output');
+  const previous = await readFile(skillPath, 'utf8');
+  await writeFile(
+    skillPath,
+    previous
+      .replace('# Steps', '# Etapas')
+      .replace('# References', '# Referências')
+      .replace('# Output', '# Saída'),
+  );
+
+  await listPersona(undefined, 'kb-portuguese-output');
+  const skill = await readFile(skillPath, 'utf8');
+  assert.doesNotMatch(skill, /^# (Etapas|Referências|Saída)$/m);
+  assert.match(skill, /^# Legacy Knowledge Base guidance — Saída$/m);
+  assert.equal(skill.match(/^# Output$/gm)?.length, 1);
+  await listPersona(undefined, 'kb-portuguese-output');
+  assert.equal(await readFile(skillPath, 'utf8'), skill);
 });
 
 test('knowledge references are indexed as name — description — path', async (t) => {

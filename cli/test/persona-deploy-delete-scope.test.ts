@@ -51,6 +51,32 @@ async function makeSandbox(): Promise<string> {
   return home;
 }
 
+async function seedKnowledgeBase(home: string): Promise<string> {
+  const skillRoot = path.join(
+    home,
+    '.transcodes',
+    'personas',
+    'testp',
+    'skills',
+    'knowledge-base',
+  );
+  await mkdir(path.join(skillRoot, 'references'), { recursive: true });
+  await writeFile(
+    path.join(skillRoot, 'SKILL.md'),
+    '---\nname: knowledge-base\ndescription: Read matching knowledge\n---\n\n# Steps\n1. Read.\n',
+  );
+  const reference = path.join(
+    skillRoot,
+    'references',
+    'current.md',
+  );
+  await writeFile(
+    reference,
+    '---\nname: Current\ndescription: Read for current QA\n---\n\n# Knowledge\n- current\n',
+  );
+  return reference;
+}
+
 /** Hand-written files a user could have created, in both delete units. */
 async function seedHandWritten(root: string): Promise<void> {
   await mkdir(path.join(root, '.claude', 'rules'), { recursive: true });
@@ -87,6 +113,67 @@ test('global deploy never deletes: hand-written home files are out of scope', as
   );
   // The Persona still deploys — this is scoped deletion, not a disabled deploy.
   assert.match(output, /Would write/);
+});
+
+test('project deploy reconciles Knowledge Base files and reading guidance', async (t) => {
+  const home = await makeSandbox();
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const sourceReference = await seedKnowledgeBase(home);
+  const project = path.join(home, 'proj');
+  await mkdir(project, { recursive: true });
+
+  await deploy(home, [
+    '--project',
+    project,
+    '--targets',
+    'chatgpt',
+    '--yes',
+  ]);
+  const deployedReference = path.join(
+    project,
+    '.agents',
+    'references',
+    'current.md',
+  );
+  assert.match(await readFile(deployedReference, 'utf8'), /current/);
+  await assert.rejects(
+    readFile(
+      path.join(project, '.agents', 'skills', 'knowledge-base', 'SKILL.md'),
+    ),
+  );
+  const instruction = await readFile(path.join(project, 'AGENTS.md'), 'utf8');
+  assert.match(instruction, /Read every file whose description matches/);
+  assert.match(instruction, /use the narrower product, campaign, or task scope/);
+  assert.match(instruction, /If no file matches/);
+  assert.match(instruction, /Knowledge lists the exact names of every file used/);
+  assert.match(instruction, /\.agents\/references\/current\.md/);
+
+  await writeFile(
+    sourceReference,
+    '---\nname: Current\ndescription: Read for current QA\n---\n\n# Knowledge\n- updated\n',
+  );
+  await deploy(home, [
+    '--project',
+    project,
+    '--targets',
+    'chatgpt',
+    '--yes',
+  ]);
+  assert.match(await readFile(deployedReference, 'utf8'), /updated/);
+
+  await rm(sourceReference);
+  await deploy(home, [
+    '--project',
+    project,
+    '--targets',
+    'chatgpt',
+    '--yes',
+  ]);
+  await assert.rejects(readFile(deployedReference));
+  assert.doesNotMatch(
+    await readFile(path.join(project, 'AGENTS.md'), 'utf8'),
+    /\.agents\/references\/current\.md/,
+  );
 });
 
 test('project deploy still deletes orphans, by file and by directory', async (t) => {
