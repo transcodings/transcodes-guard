@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.87.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.87.0...transcodes-guard-v0.87.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* **cli:** deploy knowledge and attribution only on apply ([379bcc6](https://github.com/transcodings/transcodes-guard/commit/379bcc65d1cfe044318cdca30da73a6eb7211dff))
+
 ## [0.87.0](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.86.0...transcodes-guard-v0.87.0) (2026-08-25)
 
 
