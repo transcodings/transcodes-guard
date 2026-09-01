@@ -146,6 +146,17 @@ export async function fetchPersonaList(
   return payloadArray<PersonaListItem>(envelope);
 }
 
+export async function deleteOrganizationPersona(
+  config: StepupConfig,
+  personaId: string,
+): Promise<void> {
+  const envelope = await request(config, {
+    method: 'DELETE',
+    path: `/organization/${encodeURIComponent(config.organizationId)}/personas/${encodeURIComponent(personaId)}`,
+  });
+  assertOk(envelope);
+}
+
 export async function fetchPersonaDetail(
   config: StepupConfig,
   personaId: string,

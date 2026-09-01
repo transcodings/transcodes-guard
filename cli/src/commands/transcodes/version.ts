@@ -1,11 +1,26 @@
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const require = createRequire(import.meta.url);
+function moduleHref(): string | undefined {
+  const metaUrl = import.meta.url;
+  if (typeof metaUrl === 'string' && metaUrl.length > 0) return metaUrl;
+  const entry = process.argv[1];
+  if (entry) return pathToFileURL(entry).href;
+  return undefined;
+}
 
 function loadCliPackage(): { name: string; version: string } {
-  const here = dirname(fileURLToPath(import.meta.url));
+  const embeddedName = process.env.TRANSCODES_CLI_NAME;
+  const embeddedVersion = process.env.TRANSCODES_CLI_VERSION;
+  if (embeddedName && embeddedVersion) {
+    return { name: embeddedName, version: embeddedVersion };
+  }
+
+  const href = moduleHref();
+  if (!href) throw new Error('cli package.json not found');
+  const require = createRequire(href);
+  const here = dirname(fileURLToPath(href));
   // Bundled `dist/index.js` sits next to `../package.json`. Source lives three
   // levels deeper (`src/commands/transcodes/`).
   const candidates = [

@@ -55,6 +55,21 @@ export const CLI_COMMAND_SPECS: readonly CliCommandSpec[] = [
       'Create, inspect, edit, and apply Persona Instruction, Rule, and Skill files (push / pull to share them with your organization)',
   },
   {
+    usage: 'transcodes ask [--prompt TEXT] [--cwd FOLDER]',
+    description:
+      'Open Transcodes Desktop Ask AI with a prompt in that folder (default prompt verifies a Persona deploy)',
+  },
+  {
+    usage: 'transcodes agent chat "<message>"',
+    description:
+      'Run a Persona interview or action from one message and print JSON events (--locale ko|en)',
+  },
+  {
+    usage: 'transcodes rpc --stdio',
+    description:
+      'JSON-RPC over stdin/stdout for the Desktop app and host plugins',
+  },
+  {
     usage: 'transcodes version',
     description:
       'Show the installed Transcodes CLI version (also: --version, -V)',

@@ -28,6 +28,7 @@ import {
 } from './persona.js';
 import {
   commitPersona,
+  deleteOrganizationPersona,
   fetchPersonaDetail,
   fetchPersonaList,
   fetchPersonaRevisionDetail,
@@ -337,6 +338,12 @@ async function writeSyncRevision(
       await rm(temporary, { force: true }).catch(() => {});
     }
   });
+}
+
+export async function deletePersonaRemote(personaInput: string): Promise<void> {
+  const persona = assertPersonaId(personaInput);
+  await deleteOrganizationPersona(loadPersonaConfig(), persona);
+  await clearPersonaSyncRevision(persona);
 }
 
 export async function clearPersonaSyncRevision(

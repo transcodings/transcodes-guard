@@ -1,4 +1,12 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'tsup';
+
+const pkg = JSON.parse(
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+) as {
+  name: string;
+  version: string;
+};
 
 // The CLI ships to npm independently of the marketplace plugins, so it must
 // be self-contained for internal workspace packages: bundle every
@@ -25,6 +33,10 @@ export default defineConfig({
     'es-toolkit/promise',
     '@toon-format/toon',
   ],
+  define: {
+    'process.env.TRANSCODES_CLI_NAME': JSON.stringify(pkg.name),
+    'process.env.TRANSCODES_CLI_VERSION': JSON.stringify(pkg.version),
+  },
   banner: { js: '#!/usr/bin/env node' },
   clean: true,
   sourcemap: false,

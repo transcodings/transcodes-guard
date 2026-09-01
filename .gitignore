@@ -252,6 +252,7 @@ tags
 # time). Its dist is a build artifact not consumed by the marketplace tree,
 # so keep it OUT of git — re-ignore after the broad packages/* un-ignore.
 cli/dist/
+cli/dist-desktop/
 
 # Persona Apply writes host copies into the chosen project folder. If that
 # folder is this CLI package, do not treat the unpacked HyperFrames

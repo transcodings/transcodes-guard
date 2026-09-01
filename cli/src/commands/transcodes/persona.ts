@@ -989,6 +989,11 @@ export async function reconcileKnowledgeBaseIndex(
   await syncSkillCompanionMentions(persona, KNOWLEDGE_BASE_SKILL_NAME);
 }
 
+export function isPersonaName(name: string): boolean {
+  const trimmed = name.trim().replace(/\.md$/i, '');
+  return NAME_PATTERN.test(trimmed);
+}
+
 export function assertPersonaId(name: string): string {
   try {
     return normalizePersonaName(name);
@@ -1261,6 +1266,72 @@ export async function deletePersona(name: string): Promise<string> {
   }
   await rm(personaDir(persona), { recursive: true, force: false });
   return persona;
+}
+
+export async function renamePersona(
+  currentName: string,
+  nextName: string,
+): Promise<string> {
+  await ensurePersonaStorage();
+  const current = assertPersonaId(currentName);
+  const next = assertPersonaId(nextName);
+  if (current === next) return next;
+  const personas = await listPersonaIds();
+  if (!personas.includes(current)) {
+    throw new Error(`Persona "${current}" does not exist.`);
+  }
+  if (personas.includes(next)) {
+    throw new Error(`Persona "${next}" already exists.`);
+  }
+  await rename(personaDir(current), personaDir(next));
+  return next;
+}
+
+export async function renamePersonaEntry(params: {
+  persona: string;
+  kind: 'rule' | 'skill' | 'knowledge';
+  current: string;
+  next: string;
+}): Promise<{ kind: string; current: string; next: string }> {
+  const persona = assertPersonaId(params.persona);
+  if (!(await isDirectory(personaDir(persona)))) {
+    throw new Error(`Persona "${persona}" does not exist.`);
+  }
+  const current =
+    params.kind === 'skill'
+      ? assertPersonaName('skill', params.current)
+      : assertPersonaName('rule', params.current);
+  const next =
+    params.kind === 'skill'
+      ? assertPersonaName('skill', params.next)
+      : assertPersonaName('rule', params.next);
+  const relative = (name: string): string => {
+    if (params.kind === 'rule') return path.posix.join('rules', `${name}.md`);
+    if (params.kind === 'skill') return path.posix.join('skills', name);
+    return path.posix.join(
+      'skills',
+      KNOWLEDGE_BASE_SKILL_NAME,
+      KNOWLEDGE_BASE_REFERENCE_DIR,
+      `${name}.md`,
+    );
+  };
+  const source = resolveInsidePersona(persona, relative(current));
+  const destination = resolveInsidePersona(persona, relative(next));
+  if (!(await isFile(source)) && !(await isDirectory(source))) {
+    throw new Error(`${params.kind} "${current}" does not exist.`);
+  }
+  if ((await isFile(destination)) || (await isDirectory(destination))) {
+    throw new Error(`${params.kind} "${next}" already exists.`);
+  }
+  await rename(source, destination);
+  if (params.kind === 'skill') {
+    const skillFile = path.join(destination, SKILL_FILE_NAME);
+    const content = await readFile(skillFile, 'utf8');
+    await writeFile(skillFile, synchronizeSkillName(content, next), 'utf8');
+  } else if (params.kind === 'knowledge') {
+    await reconcileKnowledgeBaseIndex(persona);
+  }
+  return { kind: params.kind, current, next };
 }
 
 export async function listPersona(

@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-
+import { DEPLOY_VERIFY_PROMPT, openDesktopAsk } from './ask-desktop.js';
 import {
   detectInstalledHostConfigTargets,
   getGlobalPersonaSyncTargets,
@@ -60,6 +60,7 @@ const BOOLEAN_FLAGS = new Set([
   'yes',
   'dry-run',
   'delete',
+  'json',
 ]);
 
 type ParsedArgs = {
@@ -318,6 +319,7 @@ export async function cmdPersona(args: string[]): Promise<void> {
     process.stdout.write(
       `${PERSONA_USAGE}
 
+  transcodes persona … --json
   transcodes persona list [--persona NAME] [--root PATH]
   transcodes persona create NAME
   transcodes persona read --persona NAME --kind agent|rule|skill [--name NAME] [--file SKILL_FILE]
@@ -328,7 +330,7 @@ export async function cmdPersona(args: string[]): Promise<void> {
   transcodes persona delete NAME
   transcodes persona delete-file --persona NAME --kind agent|rule|skill [--name NAME]
   transcodes persona delete-reference --persona NAME --file references/billing-api.md
-  transcodes persona deploy --persona NAME --project FOLDER --targets claude,cursor,chatgpt,antigravity|all --yes
+  transcodes persona deploy --persona NAME --project FOLDER --targets claude,cursor,chatgpt,antigravity|all --yes [--verify]
   transcodes persona deploy --persona NAME --global [--targets claude,chatgpt,antigravity] --yes
   transcodes persona deploy ... --dry-run   (list what would be written and deleted; writes nothing, no --yes needed)
   transcodes persona push --persona NAME [--tag TAG]
@@ -504,6 +506,13 @@ export async function cmdPersona(args: string[]): Promise<void> {
             : undefined,
         ...result,
       });
+      if (!dryRun && parsed.flags.get('verify') === 'true') {
+        openDesktopAsk({
+          prompt: DEPLOY_VERIFY_PROMPT,
+          cwd: root,
+          submit: true,
+        });
+      }
       return;
     }
     case 'push': {

@@ -15,6 +15,9 @@
  *   transcodes update          Update installed plugins and this CLI.
  *   transcodes uninstall       Remove plugins and local settings.
  *   transcodes persona …       Create, edit, and deploy local Personas.
+ *   transcodes ask             Open Desktop Ask AI with a prompt and cwd.
+ *   transcodes agent chat …    Natural-language Persona actions (JSON).
+ *   transcodes rpc --stdio     JSON-RPC for Desktop and host plugins.
  *   transcodes sync …          Sync .transcodes rules/skills to AI tool configs.
  *   transcodes version         Print the installed CLI npm package version.
  *   transcodes help            Usage.
@@ -31,6 +34,8 @@ import {
   transcodesConfigFile,
 } from '@transcodes-guard/core/stepup';
 import { formatCliUsage } from './commands/index.js';
+import { cmdAgent } from './commands/transcodes/agent-cli.js';
+import { cmdAsk } from './commands/transcodes/ask-cli.js';
 import {
   ensureDashboard,
   serveDashboard,
@@ -40,6 +45,7 @@ import { cmdInstall, cmdUpdate } from './commands/transcodes/install.js';
 import { writeLauncher } from './commands/transcodes/launcher.js';
 import { cmdLogin } from './commands/transcodes/login.js';
 import { cmdPersona } from './commands/transcodes/persona-cli.js';
+import { cmdRpc } from './commands/transcodes/rpc.js';
 import { cmdSync } from './commands/transcodes/sync.js';
 import { cmdUninstall } from './commands/transcodes/uninstall.js';
 import {
@@ -234,6 +240,21 @@ function main(): void {
       break;
     case 'persona':
       void cmdPersona(rest).catch((error: unknown) => {
+        fail(error instanceof Error ? error.message : String(error));
+      });
+      break;
+    case 'ask':
+      void cmdAsk(rest).catch((error: unknown) => {
+        fail(error instanceof Error ? error.message : String(error));
+      });
+      break;
+    case 'agent':
+      void cmdAgent(rest).catch((error: unknown) => {
+        fail(error instanceof Error ? error.message : String(error));
+      });
+      break;
+    case 'rpc':
+      void cmdRpc(rest).catch((error: unknown) => {
         fail(error instanceof Error ? error.message : String(error));
       });
       break;
