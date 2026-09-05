@@ -4,7 +4,7 @@
  * Every template is written through the same builders the scaffold uses, so a
  * generated bundle is indistinguishable from one created by
  * `transcodes sync scaffold` — instruction without frontmatter, Rules with
- * `description`/`globs`, and Skills whose frontmatter `name` matches the folder.
+ * `description`, and Skills whose frontmatter `name` matches the folder.
  */
 import {
   KNOWLEDGE_BASE_SKILL_NAME,
@@ -73,14 +73,11 @@ ${bullets(params.output)}
 
 function rule(params: {
   description: string;
-  globs: string[];
   must: string[];
   never: string[];
 }): string {
   return `---
 description: ${params.description}
-globs:
-${params.globs.map((glob) => `  - "${glob}"`).join('\n')}
 ---
 
 # Must
@@ -158,7 +155,6 @@ const MINIMUM: PersonaTemplate = {
       name: 'example-rule',
       content: rule({
         description: 'Load when working on <when this rule should apply>',
-        globs: ['<path/or/glob/**>'],
         must: [
           '<One precise architecture, security, or development requirement>',
           '<How compliance is verified, when useful>',
@@ -243,7 +239,6 @@ const LANDING_PAGE_PUBLISHER: PersonaTemplate = {
       content: rule({
         description:
           'Load when writing, editing, or reviewing landing page copy and page metadata',
-        globs: ['app/**', 'src/app/**', 'content/**'],
         must: [
           'Give every page a unique `title` and `description`, plus Open Graph and Twitter metadata with an image.',
           'Keep exactly one `h1` per page and one primary call to action above the fold.',
@@ -262,7 +257,6 @@ const LANDING_PAGE_PUBLISHER: PersonaTemplate = {
       content: rule({
         description:
           'Load when adding assets, scripts, fonts, or third-party embeds to a public page',
-        globs: ['app/**', 'src/app/**', 'public/**'],
         must: [
           'Serve images through the framework image component with explicit dimensions, and prefer AVIF or WebP.',
           'Keep Largest Contentful Paint under 2.5s and Cumulative Layout Shift under 0.1 on a throttled mobile profile.',
@@ -359,7 +353,6 @@ const FULLSTACK_DEVELOPER: PersonaTemplate = {
       content: rule({
         description:
           'Load when adding or moving modules, services, controllers, or data access code',
-        globs: ['src/**', 'app/**', 'lib/**'],
         must: [
           'Keep each feature owning its own routes, services, and data access; share only through an explicit public entry point.',
           'Validate and narrow every external input — request bodies, query params, webhook payloads — at the boundary before it reaches business logic.',
@@ -378,7 +371,6 @@ const FULLSTACK_DEVELOPER: PersonaTemplate = {
       content: rule({
         description:
           'Load when writing tests or verifying a change before handing it off',
-        globs: ['**/*.test.*', '**/*.spec.*', 'test/**', 'tests/**'],
         must: [
           'Cover the behaviour a caller depends on, plus the failure path — not just the happy path.',
           'Name each test after the guarantee it protects, so a failure reads as a broken promise.',
@@ -475,7 +467,6 @@ const UI_UX_DESIGNER: PersonaTemplate = {
       content: rule({
         description:
           'Load when styling components or adjusting spacing, colour, or typography',
-        globs: ['src/**/*.tsx', 'src/**/*.css', 'app/**/*.tsx', 'styles/**'],
         must: [
           'Use design tokens for colour, spacing, radius, and typography so themes and density changes propagate.',
           'Compose from the shared component library, and extend a component in one place when it falls short.',
@@ -494,7 +485,6 @@ const UI_UX_DESIGNER: PersonaTemplate = {
       content: rule({
         description:
           'Load when building or reviewing interactive UI, forms, dialogs, and menus',
-        globs: ['src/**/*.tsx', 'app/**/*.tsx', 'components/**'],
         must: [
           'Use the native element for the job — `button`, `a`, `label`, `dialog` — before reaching for ARIA.',
           'Keep every interaction reachable by keyboard, with a visible focus style and a logical tab order.',
@@ -593,7 +583,6 @@ const MARKETER: PersonaTemplate = {
       content: rule({
         description:
           'Load when writing or editing any customer-facing marketing copy',
-        globs: ['content/**', 'docs/**', 'marketing/**'],
         must: [
           'Write in plain, direct language: short sentences, active voice, second person.',
           'Open with the outcome for the reader, then the capability that delivers it.',
@@ -612,7 +601,6 @@ const MARKETER: PersonaTemplate = {
       content: rule({
         description:
           'Load when copy states a metric, comparison, guarantee, or competitor claim',
-        globs: ['content/**', 'marketing/**'],
         must: [
           'Attach a source to every quantitative claim, including how and when it was measured.',
           'Describe only capabilities that are shipped and generally available; label anything else as upcoming.',
@@ -709,7 +697,6 @@ const RESEARCHER: PersonaTemplate = {
       content: rule({
         description:
           'Load when producing research findings, summaries, or comparisons',
-        globs: ['research/**', 'docs/**', 'notes/**'],
         must: [
           'Cite a locatable source for every factual claim: link, document plus section, or query plus date.',
           'Label each statement as evidence, inference, or assumption.',

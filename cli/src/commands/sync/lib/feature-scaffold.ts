@@ -197,8 +197,6 @@ function ruleTemplate(name: string): string {
 
   return `---
 description: Load when working on <when this rule should apply>
-globs:
-  - "<path/or/glob/**>"
 ---
 
 # Must
@@ -210,8 +208,8 @@ globs:
 - <Required safe alternative, if one exists>
 
 <!-- Keep one policy per Rule and aim for 100–500 tokens. If it needs multiple
-unrelated Must/Never groups, split it into conditionally loaded Rules with
-focused descriptions and globs. -->
+unrelated Must/Never groups, split it into focused Rules with precise
+descriptions. -->
 `;
 }
 

@@ -129,7 +129,7 @@ test('template instructions match the generated Instruction contract', () => {
   }
 });
 
-test('template Rules carry a description, globs, and Must/Never sections', () => {
+test('template Rules carry only a description and Must/Never sections', () => {
   for (const template of PERSONA_TEMPLATES) {
     for (const rule of template.rules) {
       assert.equal(assertPersonaName('rule', rule.name), rule.name);
@@ -137,8 +137,7 @@ test('template Rules carry a description, globs, and Must/Never sections', () =>
         rule.content.startsWith('---\ndescription: Load when '),
         `${template.id}/${rule.name} has no loading condition`,
       );
-      assert.match(rule.content, /^globs:$/m);
-      assert.match(rule.content, /^ {2}- "[^"]+"$/m);
+      assert.doesNotMatch(rule.content, /^globs:/m);
       assert.match(rule.content, /^# Must$/m);
       assert.match(rule.content, /^# Never$/m);
       // Attribution belongs to the Instruction only.
