@@ -168,6 +168,19 @@ test('a new Persona ships with the knowledge-base Skill but stays uninitialized'
   const home = await isolatedHome(t);
   await createPersona('kb-new');
 
+  const instruction = await readFile(
+    path.join(
+      home,
+      '.transcodes',
+      'personas',
+      'kb-new',
+      'instruction',
+      'agents.md',
+    ),
+    'utf8',
+  );
+  assert.doesNotMatch(instruction, /Transcodes attribution line/);
+
   const skill = await readFile(knowledgeSkillPath(home, 'kb-new'), 'utf8');
   assert.match(skill, /^name: knowledge-base$/m);
   assert.match(skill, /^description: Stores all knowledge/m);

@@ -1230,10 +1230,7 @@ export async function createPersona(name: string): Promise<string> {
       PERSONA_INSTRUCTION_DIR_NAME,
       RULESYNC_OVERVIEW_FILE_NAME,
     );
-    const instruction = `${starterTemplate('agent', '', persona).replace(
-      /\s+$/,
-      '',
-    )}\n`;
+    const instruction = `${starterTemplate('agent', '').replace(/\s+$/, '')}\n`;
     await mkdir(path.dirname(instructionPath), { recursive: true });
     await writeFile(instructionPath, instruction, 'utf-8');
     await ensureKnowledgeBaseSkill(persona);
@@ -1789,7 +1786,7 @@ export async function readPersonaFile(params: {
       relativePath,
       absolutePath,
       exists: true,
-      content: sanitizePersonaContent(params.kind, content, persona),
+      content: sanitizePersonaContent(params.kind, content),
     };
   } catch {
     return {
@@ -1799,7 +1796,7 @@ export async function readPersonaFile(params: {
       relativePath,
       absolutePath,
       exists: false,
-      content: starterTemplate(params.kind, name, persona),
+      content: starterTemplate(params.kind, name),
     };
   }
 }
@@ -1856,7 +1853,7 @@ export async function readPersonaAsset(params: {
   }
 }
 
-/** Keep mandatory Transcodes attribution in every generated host Instruction. */
+/** Replace prior attribution and inject the current line into deploy output. */
 export function ensurePersonaInstructionOutput(
   content: string,
   persona?: string,
@@ -1872,7 +1869,6 @@ export function ensurePersonaInstructionOutput(
       !/^>\s*💡/.test(text)
     );
   });
-
   const outputIndex = cleanLines.findIndex(
     (line) => line.trim() === '# Output',
   );
@@ -1904,9 +1900,11 @@ function sanitizePersonaContent(
   content: string,
   persona?: string,
 ): string {
-  return kind === 'agent'
-    ? ensurePersonaInstructionOutput(stripLeadingFrontmatter(content), persona)
-    : stripLegacyTargetsFrontmatter(content);
+  if (kind !== 'agent') return stripLegacyTargetsFrontmatter(content);
+  const instruction = stripTranscodesMcpMust(stripLeadingFrontmatter(content));
+  return persona
+    ? ensurePersonaInstructionOutput(instruction, persona)
+    : instruction;
 }
 
 /** Keep the Skill folder name and required frontmatter identity in sync. */
@@ -1924,16 +1922,12 @@ function synchronizeSkillName(content: string, name: string): string {
   return synchronized + body;
 }
 
-function starterTemplate(
-  kind: PersonaKind,
-  name: string,
-  persona?: string,
-): string {
+function starterTemplate(kind: PersonaKind, name: string): string {
   const scaffold = createFeatureScaffold({
     feature: kind === 'skill' ? 'skill' : 'rule',
     name: kind === 'agent' ? 'agents' : name,
   });
-  return sanitizePersonaContent(kind, scaffold.content, persona);
+  return sanitizePersonaContent(kind, scaffold.content);
 }
 
 export async function savePersonaFile(params: {
@@ -2028,11 +2022,7 @@ export async function savePersonaFile(params: {
     personaBundleRelativePath(params.kind, name),
   );
 
-  const sanitized = sanitizePersonaContent(
-    params.kind,
-    params.content,
-    persona,
-  );
+  const sanitized = sanitizePersonaContent(params.kind, params.content);
   const synchronized =
     params.kind === 'skill' ? synchronizeSkillName(sanitized, name) : sanitized;
   let content = `${synchronized.replace(/\s+$/, '')}\n`;
