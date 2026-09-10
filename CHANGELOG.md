@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.87.2](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.87.1...transcodes-guard-v0.87.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **cli:** keep attribution out of Persona create and save ([60d3d9c](https://github.com/transcodings/transcodes-guard/commit/60d3d9c1a54a5be081cabcceb93c18acc8155e0c))
+
 ## [0.87.1](https://github.com/transcodings/transcodes-guard/compare/transcodes-guard-v0.87.0...transcodes-guard-v0.87.1) (2026-08-31)
 
 
